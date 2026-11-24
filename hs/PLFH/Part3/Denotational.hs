@@ -7,6 +7,9 @@
 {-# LINE 16 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
+  , ValW (..)
+  , unJoinW
+  , unArrW
   , Sub (..)
   , subRefl
   , joinSubJoin
@@ -36,6 +39,7 @@ module PLFH.Part3.Denotational
   , EnvSub
   , envSubRefl
   , envSubCons
+  , envSubConsRefl
   , Denotes (..)
   , denotId
   , denotIdTwo
@@ -60,7 +64,7 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 94 "content/part3/Denotational.md" #-}
+{-# LINE 98 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values).
 -- Note: declared with H98 syntax rather than GADT syntax so ordinary `dom`
 -- and `cod` get R13 checked source equations (see WIP notice below).
@@ -70,7 +74,33 @@ data Value
   | Join Value Value
   deriving (Show)
 
-{-# LINE 110 "content/part3/Denotational.md" #-}
+-- | Retained runtime witness for a promoted `Value`, using a single `foreach`
+-- field (not a singleton!). Carrying `ValW` in `DElim`, `DJoin`, and `DSub`
+-- retains intermediate `Value`s just as Agda's `∀ {v}` retains them at runtime,
+-- while letting proofs match GADT equalities before unpacking `foreach`
+-- (avoiding the `R03_ForEachGadtEqTypeFamily.hs` type-family rewriting bug).
+data ValW (v :: Value) where
+  MkValW :: foreach (v :: Value) -> ValW v
+
+-- | Split a retained witness of a join into witnesses of its two components.
+unJoinW :: ValW ('Join a b) -> (ValW a, ValW b)
+unJoinW (MkValW v) = go v Refl
+  where
+    go :: foreach (x :: Value) -> x :~: 'Join a b -> (ValW a, ValW b)
+    go Bot        eq = case eq of {}
+    go (Arr _ _)  eq = case eq of {}
+    go (Join x y) eq = case eq of Refl -> (MkValW x, MkValW y)
+
+-- | Split a retained witness of an arrow into witnesses of its domain and codomain.
+unArrW :: ValW ('Arr a b) -> (ValW a, ValW b)
+unArrW (MkValW v) = go v Refl
+  where
+    go :: foreach (x :: Value) -> x :~: 'Arr a b -> (ValW a, ValW b)
+    go Bot        eq = case eq of {}
+    go (Join _ _) eq = case eq of {}
+    go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
+
+{-# LINE 140 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
   SubBot    :: Sub 'Bot v
@@ -117,7 +147,7 @@ joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 165 "content/part3/Denotational.md" #-}
+{-# LINE 195 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
   MemBot   :: ValMem 'Bot 'Bot
@@ -191,7 +221,7 @@ subArrToCodSub (Arr a b)  s x            = case s @('Arr a b) MemArr of { MemArr
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 259 "content/part3/Denotational.md" #-}
+{-# LINE 289 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -340,7 +370,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub ('Arr v w) ('Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 428 "content/part3/Denotational.md" #-}
+{-# LINE 458 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv 'Zero
@@ -354,85 +384,103 @@ data ValLookup e x v where
 
 -- | Witness that variable `x` in `e2` has a value at least `v1`.
 data LookupSub (e2 :: ValEnv n) (x :: Fin n) (v1 :: Value) where
-  MkLookupSub :: ValLookup e2 x v2 -> Sub v1 v2 -> LookupSub e2 x v1
+  LSRefl :: ValLookup e2 x v1 -> LookupSub e2 x v1
+  LSSub  :: ValW v2 -> ValLookup e2 x v2 -> Sub v1 v2 -> LookupSub e2 x v1
 
 -- | Pointwise environment approximation (`e1 ⊑ e2`).
 type EnvSub (e1 :: ValEnv n) (e2 :: ValEnv n) =
   forall (x :: Fin n) (v1 :: Value). ValLookup e1 x v1 -> LookupSub e2 x v1
 
 envSubRefl :: EnvSub e e
-envSubRefl lk = MkLookupSub lk SubRefl
+envSubRefl lk = LSRefl lk
 
-envSubCons :: EnvSub e1 e2 -> Sub v1 v2 -> EnvSub ('VCons e1 v1) ('VCons e2 v2)
-envSubCons _  lt VLZ      = MkLookupSub VLZ lt
-envSubCons es _  (VLS lk) = case es lk of
-  MkLookupSub lk2 lt -> MkLookupSub (VLS lk2) lt
+envSubCons :: ValW v2 -> EnvSub e1 e2 -> Sub v1 v2 -> EnvSub ('VCons e1 v1) ('VCons e2 v2)
+envSubCons wv2 _  lt VLZ      = LSSub wv2 VLZ lt
+envSubCons _   es _  (VLS lk) = case es lk of
+  LSRefl lk2       -> LSRefl (VLS lk2)
+  LSSub wv2 lk2 lt -> LSSub wv2 (VLS lk2) lt
+
+envSubConsRefl :: EnvSub e1 e2 -> EnvSub ('VCons e1 v) ('VCons e2 v)
+envSubConsRefl _  VLZ      = LSRefl VLZ
+envSubConsRefl es (VLS lk) = case es lk of
+  LSRefl lk2       -> LSRefl (VLS lk2)
+  LSSub wv2 lk2 lt -> LSSub wv2 (VLS lk2) lt
 
 -- | Denotational semantics judgment: `e ⊢ m ↓ v`.
+-- `DElim`, `DJoin`, and `DSub` carry `ValW` witnesses for their intermediate
+-- `Value`s, matching Agda's retained `∀ {v}` arguments and enabling both
+-- application inversion (`Compositional`) and the Fundamental Lemma (`Adequacy`).
 type Denotes :: forall (n :: Nat). ValEnv n -> UTerm n -> Value -> Type
 data Denotes e m v where
   DVar   :: ValLookup e x v -> Denotes e ('UVar x) v
-  DElim  :: Denotes e l ('Arr v w) -> Denotes e m v -> Denotes e ('UApp l m) w
+  DElim  :: ValW v -> Denotes e l ('Arr v w) -> Denotes e m v -> Denotes e ('UApp l m) w
   DIntro :: Denotes ('VCons e v) b w -> Denotes e ('ULam b) ('Arr v w)
   DBot   :: Denotes e m 'Bot
-  DJoin  :: Denotes e m v -> Denotes e m w -> Denotes e m ('Join v w)
-  DSub   :: Denotes e m v -> Sub w v -> Denotes e m w
+  DJoin  :: ValW v -> ValW w -> Denotes e m v -> Denotes e m w -> Denotes e m ('Join v w)
+  DSub   :: ValW v -> Denotes e m v -> Sub w v -> Denotes e m w
 
 -- | Identity function: `e ⊢ λx. x ↓ v ↦ v`.
 denotId :: Denotes e ('ULam ('UVar 'FZ)) ('Arr v v)
 denotId = DIntro (DVar VLZ)
 
 -- | Two-row table for identity: `e ⊢ λx. x ↓ (v ↦ v) ⊔ (w ↦ w)`.
-denotIdTwo :: Denotes e ('ULam ('UVar 'FZ)) ('Join ('Arr v v) ('Arr w w))
-denotIdTwo = DJoin denotId denotId
+denotIdTwo :: ValW v -> ValW w -> Denotes e ('ULam ('UVar 'FZ)) ('Join ('Arr v v) ('Arr w w))
+denotIdTwo (MkValW v) (MkValW w) =
+  DJoin (MkValW (Arr v v)) (MkValW (Arr w w)) denotId denotId
 
 -- | Self-application of identity: `[] ⊢ id · id ↓ u ↦ u`.
-denotIdAppId :: Denotes 'VNil ('UApp ('ULam ('UVar 'FZ)) ('ULam ('UVar 'FZ))) ('Arr u u)
-denotIdAppId = DElim denotId denotId
+denotIdAppId :: ValW u -> Denotes 'VNil ('UApp ('ULam ('UVar 'FZ)) ('ULam ('UVar 'FZ))) ('Arr u u)
+denotIdAppId (MkValW u) = DElim (MkValW (Arr u u)) denotId denotId
 
 -- | Self-application combinator Δ = λx. x x: `[] ⊢ Δ ↓ ((v ↦ w) ⊔ v) ↦ w`.
-denotDelta :: Denotes 'VNil ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ))) ('Arr ('Join ('Arr v w) v) w)
-denotDelta =
-  DIntro (DElim (DSub (DVar VLZ) (SubJoinR1 SubRefl))
-                (DSub (DVar VLZ) (SubJoinR2 SubRefl)))
+denotDelta :: ValW v -> ValW w
+           -> Denotes 'VNil ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ))) ('Arr ('Join ('Arr v w) v) w)
+denotDelta wv@(MkValW v) (MkValW w) =
+  let wTable = MkValW (Join (Arr v w) v)
+  in DIntro (DElim wv (DSub wTable (DVar VLZ) (SubJoinR1 SubRefl))
+                      (DSub wTable (DVar VLZ) (SubJoinR2 SubRefl)))
 
 -- | Diverging term Ω = Δ · Δ derives ⊥ (both via `DElim` and trivially via `DBot`).
 denotOmega :: Denotes 'VNil
                 ('UApp ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))
                        ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ))))
                 'Bot
-denotOmega = DElim denotDelta (DJoin (DIntro DBot) DBot)
+denotOmega =
+  DElim (MkValW (Join (Arr Bot Bot) Bot))
+        (denotDelta (MkValW Bot) (MkValW Bot))
+        (DJoin (MkValW (Arr Bot Bot)) (MkValW Bot) (DIntro DBot) DBot)
 
 -- | Environment monotonicity (`⊑-env`): enlarging an environment preserves denotations!
 envSubMono :: EnvSub e1 e2 -> Denotes e1 m v -> Denotes e2 m v
-envSubMono es (DVar lk)     = case es lk of
-  MkLookupSub lk2 lt -> DSub (DVar lk2) lt
-envSubMono es (DElim d1 d2) = DElim (envSubMono es d1) (envSubMono es d2)
-envSubMono es (DIntro d)    = DIntro (envSubMono (envSubCons es SubRefl) d)
-envSubMono _  DBot          = DBot
-envSubMono es (DJoin d1 d2) = DJoin (envSubMono es d1) (envSubMono es d2)
-envSubMono es (DSub d lt)   = DSub (envSubMono es d) lt
+envSubMono es (DVar lk)         = case es lk of
+  LSRefl lk2       -> DVar lk2
+  LSSub wv2 lk2 lt -> DSub wv2 (DVar lk2) lt
+envSubMono es (DElim wv d1 d2)  = DElim wv (envSubMono es d1) (envSubMono es d2)
+envSubMono es (DIntro d)        = DIntro (envSubMono (envSubConsRefl es) d)
+envSubMono _  DBot              = DBot
+envSubMono es (DJoin w1 w2 d1 d2) = DJoin w1 w2 (envSubMono es d1) (envSubMono es d2)
+envSubMono es (DSub wv d lt)    = DSub wv (envSubMono es d) lt
 
 -- | Enlarging the most recently bound variable (`up-env`).
-upEnv :: Denotes ('VCons e u1) m v -> Sub u1 u2 -> Denotes ('VCons e u2) m v
-upEnv d lt = envSubMono (envSubCons envSubRefl lt) d
+upEnv :: ValW u2 -> Denotes ('VCons e u1) m v -> Sub u1 u2 -> Denotes ('VCons e u2) m v
+upEnv wu2 d lt = envSubMono (envSubCons wu2 envSubRefl lt) d
 
 -- | A denotation in scope depth `n` relates environments to values (matchable arrows `%M`).
 type Denotation (n :: Nat) = ValEnv n %M -> Value %M -> Type
 
--- | Denotational equivalence (`D1 ≃ D2`).
+-- | Denotational equivalence (`D1 ≃ D2`), parameterized by retained value witness `ValW v`.
 type DenEq (d1 :: Denotation n) (d2 :: Denotation n) =
-  forall (e :: ValEnv n) (v :: Value). (d1 e v -> d2 e v, d2 e v -> d1 e v)
+  forall (e :: ValEnv n) (v :: Value). ValW v -> (d1 e v -> d2 e v, d2 e v -> d1 e v)
 
 denEqRefl :: DenEq d d
-denEqRefl = (\x -> x, \x -> x)
+denEqRefl _ = (\x -> x, \x -> x)
 
 denEqSym :: DenEq d1 d2 -> DenEq d2 d1
-denEqSym eq = case eq of { (f, g) -> (g, f) }
+denEqSym eq wv = case eq wv of { (f, g) -> (g, f) }
 
 denEqTrans :: DenEq d1 d2 -> DenEq d2 d3 -> DenEq d1 d3
-denEqTrans eq1 eq2 =
-  case (eq1, eq2) of
+denEqTrans eq1 eq2 wv =
+  case (eq1 wv, eq2 wv) of
     ((f1, g1), (f2, g2)) -> (\x -> f2 (f1 x), \y -> g1 (g2 y))
 
 -- | `Den m` is the denotation `ℰ m` of term `m`, wrapping `Denotes e m v`.

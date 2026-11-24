@@ -16,28 +16,39 @@ module PLFH.Part3.Soundness
   ( BetaPres
   , denotPreserve
   , denotPreserveMulti
+  , BetaReflect
+  , denotReflect
+  , denotReflectMulti
+  , denotEquivSteps
   ) where
 
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
 import PLFH.Part3.Compositional (lamInversion)
-import PLFH.Part3.Denotational (Denotes (..), ValEnv (..), Value (..))
+import PLFH.Part3.Denotational
+  ( Den (..)
+  , DenEq
+  , Denotes (..)
+  , ValEnv (..)
+  , ValW (..)
+  , Value (..)
+  , unArrW
+  )
 ```
 
-In PLFA's **Soundness** chapter, we prove that full β-reduction preserves
-(and reflects) denotations: if `M —↠ N`, then `ℰ M ≃ ℰ N`.
+In PLFA's **Soundness** chapter, we prove that full β-reduction both
+**preserves** (`denotPreserve`, `denotPreserveMulti`) and **reflects**
+(`denotReflect`, `denotReflectMulti`) denotations: if `M —↠ N`, then
+`ℰ M ≃ ℰ N` (`denotEquivSteps`)!
 
-## Forward preservation of denotations under β-reduction
+## Forward preservation and backward subject expansion (`preserve`, `reflect`, `soundness`)
 
-The core structural induction `preserve` (forward soundness of single-step
-and multi-step β-reduction) ports directly over promoted `UTerm n`, using our
-checked **`lamInversion`** theorem from [Compositional](/Compositional/) in the
-`Beta` case! Because proving the single-substitution lemma `substSinglePres`
-directly over `substSingleU` currently waits on R13 open equations for
-GADT-indexed `substU`, we parameterize `denotPreserve` explicitly by
-`BetaPres` (the β-redex substitution case) so every single structural case
-(`XiApp1`, `XiApp2`, `XiLam`, `Beta`, `DBot`, `DJoin`, `DSub`, and impossible
-`DVar`) is verified by GHC right now:
+Every structural case of **both** forward preservation (`XiApp1`, `XiApp2`,
+`XiLam`, `Beta` via our checked `lamInversion`, `DBot`, `DJoin`, `DSub`, and
+impossible `DVar`) **and** backward subject expansion (`denotReflect` /
+`denotReflectMulti`) ports directly over our sound relational `BetaStep`,
+parameterized cleanly by the β-redex substitution lemmas `BetaPres` and
+`BetaReflect`:
 
 ```haskell
 -- | Hypothesis: contracting a β-redex preserves denotations when its body and
@@ -52,42 +63,86 @@ type BetaPres =
 
 -- | Forward preservation under a single β-step (given `BetaPres`).
 denotPreserve :: BetaPres
+              -> ValW v
               -> Denotes e m v
               -> BetaStep m m'
               -> Denotes e m' v
-denotPreserve _  (DVar _)      step = case step of {}
-denotPreserve bp (DElim d1 d2) step = case step of
-  XiApp1 r -> DElim (denotPreserve bp d1 r) d2
-  XiApp2 r -> DElim d1 (denotPreserve bp d2 r)
-  Beta sub -> bp (Beta sub) (lamInversion d1) d2
-denotPreserve bp (DIntro d)    step = case step of
-  XiLam r -> DIntro (denotPreserve bp d r)
-denotPreserve _  DBot          _    = DBot
-denotPreserve bp (DJoin d1 d2) r    = DJoin (denotPreserve bp d1 r) (denotPreserve bp d2 r)
-denotPreserve bp (DSub d lt)   r    = DSub (denotPreserve bp d r) lt
+denotPreserve _  _ (DVar _)      step = case step of {}
+denotPreserve bp wv@(MkValW v) (DElim wArg@(MkValW vArg) d1 d2) step = case step of
+  XiApp1 r -> DElim wArg (denotPreserve bp (MkValW (Arr vArg v)) d1 r) d2
+  XiApp2 r -> DElim wArg d1 (denotPreserve bp wArg d2 r)
+  Beta sub -> bp (Beta sub) (lamInversion (MkValW (Arr vArg v)) d1) d2
+denotPreserve bp wv (DIntro d) step = case step of
+  XiLam r -> case unArrW wv of
+    (_, wv2) -> DIntro (denotPreserve bp wv2 d r)
+denotPreserve _  _ DBot          _    = DBot
+denotPreserve bp _ (DJoin w1 w2 d1 d2) r =
+  DJoin w1 w2 (denotPreserve bp w1 d1 r) (denotPreserve bp w2 d2 r)
+denotPreserve bp _ (DSub wSuper d lt) r =
+  DSub wSuper (denotPreserve bp wSuper d r) lt
 
 -- | Multi-step β-reduction preserves denotations (given `BetaPres`).
 denotPreserveMulti :: BetaPres
+                   -> ValW v
                    -> Denotes e m v
                    -> BetaSteps m m'
                    -> Denotes e m' v
-denotPreserveMulti _  d BRefl       = d
-denotPreserveMulti bp d (BCons s r) = denotPreserveMulti bp (denotPreserve bp d s) r
+denotPreserveMulti _  _  d BRefl       = d
+denotPreserveMulti bp wv d (BCons s r) = denotPreserveMulti bp wv (denotPreserve bp wv d s) r
+
+-- | Hypothesis: expanding a β-redex reflects denotations (single-substitution expansion).
+type BetaReflect =
+  forall (n :: Nat) (e :: ValEnv n) (b :: UTerm ('Succ n)) (w :: UTerm n)
+         (m' :: UTerm n) (v :: Value).
+    BetaStep ('UApp ('ULam b) w) m'
+  -> Denotes e m' v
+  -> Denotes e ('UApp ('ULam b) w) v
+
+-- | Backward subject expansion under a single β-step (given `BetaReflect`)!
+denotReflect :: BetaReflect -> BetaStep m m' -> Denotes e m' v -> Denotes e m v
+denotReflect br (Beta sub)   d                   = br (Beta sub) d
+denotReflect _  (XiApp1 _)   DBot                = DBot
+denotReflect br (XiApp1 r)   (DElim wArg d1 d2)  = DElim wArg (denotReflect br r d1) d2
+denotReflect br s@(XiApp1 _) (DJoin w1 w2 d1 d2) =
+  DJoin w1 w2 (denotReflect br s d1) (denotReflect br s d2)
+denotReflect br s@(XiApp1 _) (DSub wSuper d lt)  = DSub wSuper (denotReflect br s d) lt
+denotReflect _  (XiApp2 _)   DBot                = DBot
+denotReflect br (XiApp2 r)   (DElim wArg d1 d2)  = DElim wArg d1 (denotReflect br r d2)
+denotReflect br s@(XiApp2 _) (DJoin w1 w2 d1 d2) =
+  DJoin w1 w2 (denotReflect br s d1) (denotReflect br s d2)
+denotReflect br s@(XiApp2 _) (DSub wSuper d lt)  = DSub wSuper (denotReflect br s d) lt
+denotReflect _  (XiLam _)    DBot                = DBot
+denotReflect br (XiLam r)    (DIntro d)          = DIntro (denotReflect br r d)
+denotReflect br s@(XiLam _)  (DJoin w1 w2 d1 d2) =
+  DJoin w1 w2 (denotReflect br s d1) (denotReflect br s d2)
+denotReflect br s@(XiLam _)  (DSub wSuper d lt)  = DSub wSuper (denotReflect br s d) lt
+
+-- | Multi-step β-reduction reflects denotations (given `BetaReflect`).
+denotReflectMulti :: BetaReflect -> BetaSteps m m' -> Denotes e m' v -> Denotes e m v
+denotReflectMulti _  BRefl       d = d
+denotReflectMulti br (BCons s r) d = denotReflect br s (denotReflectMulti br r d)
+
+-- | Full Soundness corollary: multi-step β-reduction induces `ℰ m ≃ ℰ m'`!
+denotEquivSteps :: BetaPres -> BetaReflect -> BetaSteps m m' -> DenEq (Den m) (Den m')
+denotEquivSteps bp br steps wv =
+  ( \(MkDen d) -> MkDen (denotPreserveMulti bp wv d steps)
+  , \(MkDen d) -> MkDen (denotReflectMulti br steps d)
+  )
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Substitution preservation &amp; Subject expansion (R03/R13)]</strong>
+<strong>[WIP NOTICE — Discharging <code>BetaPres</code> &amp; <code>BetaReflect</code> (R03/R13)]</strong>
 Discharging <code>BetaPres</code> (via <code>substPres</code>) and
-proving the reverse direction (subject expansion: <code>renameReflect</code>,
-<code>substReflect</code>, and <code>reflect</code>) require:
+<code>BetaReflect</code> (via <code>renameReflect</code> and
+<code>substReflect</code>) directly over functional <code>renameU</code> /
+<code>substU</code> requires:
 <ul>
   <li><strong>R03:</strong> <code>foreach</code> binders and pattern refinement
       over indexed GADT terms <code>UTerm n</code> and <code>Fin n</code>
       (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>).</li>
   <li><strong>R13/R16:</strong> Open checked equations for higher-order
       GADT-indexed <code>renameU</code> and <code>substU</code>
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>,
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstTermOpenEq.hs"><code>R13_SubstTermOpenEq.hs</code></a>).</li>
+      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).</li>
 </ul>
 </div>
 
@@ -96,8 +151,8 @@ proving the reverse direction (subject expansion: <code>renameReflect</code>,
 - Adapted from [Soundness (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Soundness/)
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/Soundness.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct structural proofs of `denotPreserve` and `denotPreserveMulti`
-  (explicitly parameterized by `BetaPres`, using `lamInversion` in the `Beta`
-  case).
-- Marked `substPres` and subject expansion (`renameReflect`, `substReflect`,
-  `reflect`) with `[WIP NOTICE]`.
+- Checked direct structural proofs of **both** forward preservation
+  (`denotPreserve`, `denotPreserveMulti`, using `lamInversion`) **and** backward
+  subject expansion (`denotReflect`, `denotReflectMulti`), combined into
+  **`denotEquivSteps :: BetaPres -> BetaReflect -> BetaSteps m m' -> DenEq (Den m) (Den m')`**.
+- Marked the substitution lemmas (`BetaPres`, `BetaReflect`) with `[WIP NOTICE]`.

@@ -18,6 +18,8 @@ module PLFH.Part2.BigStep
   , lookupEnv
   , EnvLookup (..)
   , EvalBig (..)
+  , IsLamClos (..)
+  , evalBigIsLam
   , idClos
   , evalIdApp
   , evalConstOmega
@@ -106,6 +108,16 @@ evalConstOmega :: EvalBig 'ENil
            ('ECons ('MkClos ('UApp ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))
                                    ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))) 'ENil) 'ENil))
 evalConstOmega = EApp ELam ELam
+
+-- | Witness that a closure's term is a lambda abstraction (weak-head normal form).
+data IsLamClos (c :: Clos) where
+  MkIsLamClos :: IsLamClos ('MkClos ('ULam b) e)
+
+-- | Every call-by-name big-step evaluation produces a lambda closure!
+evalBigIsLam :: EvalBig e m c -> IsLamClos c
+evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
+evalBigIsLam ELam         = MkIsLamClos
+evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 ```
 
 ## Determinism (`⇓-determ`) and compiler blockers

@@ -11,14 +11,17 @@ import PLFH.Part1.Induction (fromTo, plusAssoc, timesComm)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Lists (decAll)
 import PLFH.Part1.Naturals (fiveAtRuntime)
-import PLFH.Part1.Quantifiers (EvenWitness (..), evenToWitness)
-import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), Odd (..), leToDiff)
+import PLFH.Part1.Negation (notLeToGt)
+import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
+import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff)
+import PLFH.Part2.BigStep (IsLamClos (..), evalBigIsLam, evalConstOmega)
 import PLFH.Part2.Confluence (Par (..), omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, omegaStep)
 import PLFH.Part3.Adequacy (decAboveFun)
-import PLFH.Part3.Denotational (Sub (..), Value (..), arrSubArrInv)
+import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
+import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denotId, denotIdAppId)
 
 natToInt :: Nat -> Int
 natToInt Zero     = 0
@@ -55,6 +58,14 @@ main = do
   let half4 = case evenToWitness (EvenS (OddS (EvenS (OddS EvenZ)))) of
         MkEvenWitness k Refl -> natToInt k
   assertEq "Quantifiers.evenToWitness 4" 2 half4
+  assertEq "Quantifiers.witnessToEven 4" True
+    (case witnessToEven (MkEvenWitness 2 Refl) of { EvenS (OddS (EvenS (OddS EvenZ))) -> True })
+  let halfOdd5 = case oddToWitness (OddS (EvenS (OddS (EvenS (OddS EvenZ))))) of
+        MkOddWitness k Refl -> natToInt k
+  assertEq "Quantifiers.oddToWitness 5" 2 halfOdd5
+  assertEq "Negation.notLeToGt 2 1" True
+    (case notLeToGt 2 1 (\le -> case le of { SleS (SleS p) -> case p of {} }) of
+      SltS ZltS -> True)
 
   let evens = [0, 2, 4] :: [Nat]
       mixed = [0, 3, 4] :: [Nat]
@@ -78,8 +89,9 @@ main = do
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
+  assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
 
-  -- Part 3: Denotational Semantics & Adequacy Decidability
+  -- Part 3: Denotational Semantics, Compositionality, & Adequacy Decidability
   assertEq "Adequacy.decAboveFun Bot" False (case decAboveFun Bot of { Yes _ -> True; No _ -> False })
   assertEq "Adequacy.decAboveFun (Join Bot Bot)" False (case decAboveFun (Join Bot Bot) of { Yes _ -> True; No _ -> False })
   assertEq "Adequacy.decAboveFun (Join Bot (Bot->Bot))" True (case decAboveFun (Join Bot (Arr Bot Bot)) of { Yes _ -> True; No _ -> False })
@@ -87,5 +99,9 @@ main = do
         (SubBot, SubBot) -> True
         _                -> True
   assertEq "Denotational.arrSubArrInv" True subInvOk
+  assertEq "Compositional.denAppToAppDen" True
+    (case denAppToAppDen (MkDen (denotIdAppId (MkValW Bot))) of { ADApp _ _ _ -> True; _ -> False })
+  assertEq "Compositional.lamInversion" True
+    (case lamInversion (MkValW (Arr Bot Bot)) denotId of { DVar _ -> True; _ -> False })
 
   putStrLn "All runtime smoke tests passed."

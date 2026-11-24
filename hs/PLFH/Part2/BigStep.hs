@@ -10,6 +10,8 @@ module PLFH.Part2.BigStep
   , lookupEnv
   , EnvLookup (..)
   , EvalBig (..)
+  , IsLamClos (..)
+  , evalBigIsLam
   , idClos
   , evalIdApp
   , evalConstOmega
@@ -19,7 +21,7 @@ import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 44 "content/part2/BigStep.md" #-}
+{-# LINE 46 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env 'Zero
@@ -38,7 +40,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 78 "content/part2/BigStep.md" #-}
+{-# LINE 80 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -70,3 +72,13 @@ evalConstOmega :: EvalBig 'ENil
            ('ECons ('MkClos ('UApp ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))
                                    ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))) 'ENil) 'ENil))
 evalConstOmega = EApp ELam ELam
+
+-- | Witness that a closure's term is a lambda abstraction (weak-head normal form).
+data IsLamClos (c :: Clos) where
+  MkIsLamClos :: IsLamClos ('MkClos ('ULam b) e)
+
+-- | Every call-by-name big-step evaluation produces a lambda closure!
+evalBigIsLam :: EvalBig e m c -> IsLamClos c
+evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
+evalBigIsLam ELam         = MkIsLamClos
+evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
