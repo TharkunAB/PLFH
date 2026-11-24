@@ -1,7 +1,7 @@
 ---
 title: "Untyped: Untyped lambda calculus with full normalisation"
 prev: /Inference/
-next: /Status/
+next: /More/
 src: content/part2/Untyped.md
 module: PLFH.Part2.Untyped
 plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Untyped/

@@ -126,11 +126,12 @@ if [[ -d "$PLFH_ROOT/reproducers" ]]; then
     fi
     if "$COMPILER" --make -v0 -O0 \
       -fomit-interface-pragmas -fno-write-if-simplified-core \
+      -dcore-lint -dstg-lint \
       -package-env - "${INCLUDES[@]}" "-i$PLFH_ROOT/reproducers" \
       -outputdir "$REPRO_BUILD" "$rep" >"$WORK/$slug.log" 2>&1; then
       echo "  [FIXED?!] $rel now PASSES — update chapter & PLFH-NOTES.md!"
     else
-      first_err=$(rg -m1 'panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/$slug.log" || head -n 1 "$WORK/$slug.log")
+      first_err=$(rg -m1 'Core Lint errors|panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/$slug.log" || head -n 1 "$WORK/$slug.log")
       echo "  [BLOCKED] $rel — $first_err"
     fi
   done

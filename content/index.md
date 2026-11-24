@@ -44,6 +44,11 @@ Comments, bug reports, and pull requests are welcome on
 - [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`/`Step`, `progress` (`[WIP]`) <span class="badge badge-partial">Syntax/Promoted ✓ · Progress WIP</span>
 - [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) returning `Term g a` <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Promoted ✓ · Eval WIP</span>
+- [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), promoted `Value`/`Step` <span class="badge badge-pass">Checked</span>
+- [Bisimulation](/Bisimulation/): Relating reduction systems (`SimRel`, `Leg`, **R11 Core Lint bug** on `simValue`) <span class="badge badge-partial">Rel ✓ · R11 Core Lint</span>
+- [BigStep](/BigStep/): Closure-based big-step semantics (`Env`, `Clos`, `EvalBig`) <span class="badge badge-partial">Relational ✓ · R13 lookupEnv</span>
+- [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>
+- [Confluence](/Confluence/): Parallel reduction, `parToBetas`, **Strip Lemma**, and **Confluence from Diamond**! <span class="badge badge-partial">Strip/Conf ✓ · Diamond WIP</span>
 
 ## Yardstick & Backmatter
 

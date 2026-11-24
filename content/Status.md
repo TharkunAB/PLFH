@@ -1,6 +1,6 @@
 ---
 title: "Yardstick Status Ledger"
-prev: /Untyped/
+prev: /Confluence/
 next: /Citing/
 src: content/Status.md
 ---
@@ -10,7 +10,7 @@ attempted in PLFH against the experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
 - **Current published compiler:** GHC `10.1.20261115.1`, commit `d15cbd41fe1a8158ddcc761902f815b3a51380d8` (588 checkpoint; initial baseline was 585 at `db2586fdc2`)
-- **Pending compiler team fixes:** Private candidate `c21ecc47ff` (`refs/spikes/plfh-typed-congruence-591`) fixes both `R03_TcInstFunPanic.hs` and `R03_CongPartialApp.hs` at `-O0` and `-O2` (awaiting publication).
+- **Pending compiler team fixes:** 5 of our earlier reproducers already pass in private compiler candidates awaiting integrated publication: `R03_TcInstFunPanic.hs` & `R03_CongPartialApp.hs` (`c21ecc47ff`), `R03_WithEqualityUnderTrans.hs` (job 2183), `R04_SigmaUnderForEach.hs` (jobs 2185/2194), and `R05_SubstTyEtaAliasPanic.hs` (`f0e828e46c`, **both GHC panics fixed!**).
 - **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint`
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
@@ -66,6 +66,12 @@ attempted in PLFH against the experimental Dependent Haskell compiler
 | [Inference](/Inference/) | `decEqTy`, `lookupCtx`, `infer`, `check` (certified STLC type inference) | `PLFH.Part2.Inference.*` | <span class="badge badge-pass">Direct port</span> | **Full certified STLC type inference & checking compiles!** Uses `matchArr`/`matchNat` & `App @g @a @b` (see R03 reproducers) |
 | [Untyped](/Untyped/) | `Fin`, `UTerm`, `renameU`, `substU`, promoted `Neutral`/`Normal`/`BetaStep` | `PLFH.Part2.Untyped.*` | <span class="badge badge-pass">Direct port</span> | Well-scoped syntax + GADT promotion compiles! |
 | [Untyped](/Untyped/) | Gas-bounded full normalizer over `foreach (t :: UTerm n)` | — | <span class="badge badge-wip">Blocker</span> | Same R03 indexed-GADT `foreach` domain boundary as `DeBruijn` |
+| [More](/More/) | `Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`, `rename`, `subst`, promoted `Value`/`Step` | `PLFH.Part2.More.*` | <span class="badge badge-pass">Direct port</span> | Full extended STLC + promoted `Value`/`Step` compiles! |
+| [Bisimulation](/Bisimulation/) | `SimRel`, `Leg`, `simValueLam` | `PLFH.Part2.Bisimulation.*` | <span class="badge badge-pass">Direct port</span> | Structural simulation relations compile |
+| [Bisimulation](/Bisimulation/) | General `simValue :: SimRel m m' -> Value m -> Value m'` | — | <span class="badge badge-wip">Blocker (Core Lint)</span> | **GHC Core Lint failure in Desugar** (`R11 mixed-kind coercion binder`: `R11_MixedKindCoercionCoreLint.hs`) |
+| [BigStep](/BigStep/) | `Env`, `Clos`, `lookupEnv`, `EvalBig`, `evalIdApp` | `PLFH.Part2.BigStep.*` | <span class="badge badge-pass">Direct port</span> | Relational `EnvLookup` compiles; functional `lookupEnv e x` in `EVar` hits `GHC-68947` (`R13_LookupEnvOpenEq.hs`) |
+| [Substitution](/Substitution/) | `Rename`, `Subst`, `ids`, `shift`, `ren`, `consSubst`, `seqSubst` | `PLFH.Part2.Substitution.*` | <span class="badge badge-pass">Direct port</span> | σ-calculus combinators compile; equational proofs wait on R03/R13 |
+| [Confluence](/Confluence/) | `Par`, `ParSteps`, `parToBetas`, `parsToBetas`, `Joinable`, **`strip`**, **`parConfluence`** | `PLFH.Part2.Confluence.*` | <span class="badge badge-pass">Direct port</span> | **Strip Lemma & Confluence-from-Diamond compile over promoted `UTerm`!** `parRefl`/`parDiamond` wait on R03/R11/R13 |
 
 ## Negative Controls (Verified Rejections)
 
@@ -95,7 +101,9 @@ Every reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tre
 | `R03_ForEachGadtEquations.hs` | R03 | `GHC-83605` | `foreach (m :: Term 'CEmpty a)` equations rejected on indexed GADT domain |
 | `R03_ForEachGadtCase.hs` | R03 | `GHC-25897` / mismatch | `case m of` on `foreach (m :: Term 'CEmpty a)` does not refine `m` |
 | `R03_TcInstFunPanic.hs` | R03 / Compiler bug | **GHC panic!** (fixed in private `c21ecc47ff`) | `substP @Even (toEqP (plusComm m n)) ev` panics in `GHC.Tc.Gen.App.tcInstFun` (line 3947) |
-| `R05_SubstTyEtaAliasPanic.hs` | R05 / Compiler bug | **GHC panic!** | Eta-reduced alias `lengthReverseLaw = lengthReverse` panics in `GHC.Core.TyCo.Subst.substTy` (line 900) |
+| `R05_SubstTyEtaAliasPanic.hs` | R05 / Compiler bug | **GHC panic!** (fixed in private `f0e828e46c`) | Eta-reduced alias `lengthReverseLaw = lengthReverse` panics in `GHC.Core.TyCo.Subst.substTy` (line 900) |
+| `R11_MixedKindCoercionCoreLint.hs` | R11 / Core Lint bug | **Core Lint error!** | Matching `SimPair` & `VPair` over promoted `Term g a` emits `R11 mixed-kind coercion binder` in Desugar |
+| `R13_LookupEnvOpenEq.hs` | R13 / R16 | `GHC-68947` | GADT-indexed `lookupEnv e x` in `EVar` has no checked type-level equations |
 | `R03_CaseRefinementMultiIndexGadt.hs` | R03 | `GHC-83605` | `case t of` refuses to refine captured multi-indexed GADT `Term g t` |
 | `R03_UntouchableUnderRetainedApp.hs` | R03 | `GHC-83865` | `MkTyped b (App lArr m)` fails with untouchable `g0`/`a0` under retained application |
 | `R04_SigmaUnderForEach.hs` | R04 | Rejected sum position | Returning inline `some (k :: Size) \| k :~: plus m n` under `foreach` rejected |
