@@ -49,7 +49,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` (`SimRel`, `simRefl`/`simTrans`, bidirectional `simValue`/`simValueInv`, `valNoStep`, **20-constructor `simRename`**, **20-constructor `simExt`/`simSubst`**, **27-rule `sim` & `simInv`**, `simSteps`/`simStepsInv`) <span class="badge badge-partial">simRename/simSubst + 27-rule Bisim ✓ · SubstCompat WIP</span>
 - [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, **`omegaDiverges`**, **same-module functional `EvalFun` (`lookupEnv`)**, `(λx y. x) Ω`, cross-module `BigStepFunctional`) <span class="badge badge-pass">Checked</span>
 - [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>
-- [Confluence](/Confluence/): Parallel reduction, **`parRefl`**, **`betaToPar`**, `parToBetas`, **Strip Lemma**, **Par Confluence**, **Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-partial">parRefl/betaToPar/CR ✓ · Diamond WIP</span>
+- [Confluence](/Confluence/): Parallel reduction, **`parRefl`**, **`betaToPar`**, **`parShift`/`parSubst`**, **`parDiamond`**, **Strip Lemma**, **Par Confluence**, **unconditional Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-pass">Checked</span>
 
 ## Part 3: Denotational Semantics
 

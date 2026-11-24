@@ -25,7 +25,8 @@ import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfA
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
-import PLFH.Part2.Confluence (Par (..), ParSteps (..), betaToPar, normalNoBetaSteps, normalPar, normalParSteps, omegaPar, parRefl, parToBetas)
+import qualified PLFH.Part2.Confluence as Conf
+import PLFH.Part2.Confluence (Par (..), ParSteps (..), betaToPar, churchRosser, normalNoBetaSteps, normalPar, normalParSteps, omegaPar, parDiamond, parRefl, parToBetas, uniqueNormalForm)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
 import qualified PLFH.Part2.DeBruijnProgress as DBP
@@ -103,6 +104,29 @@ checkBetaToPar t = case eqIdApp t of
   Just Refl -> case betaToPar t idAppStep of
     PBeta PVar (PLam PVar) _ -> True
     _                        -> False
+  Nothing -> False
+
+checkParDiamond :: U.UTerm Zero -> Bool
+checkParDiamond t = case eqIdApp t of
+  Just Refl ->
+    case parDiamond @Zero @(U.UApp U.IdTerm U.IdTerm) @U.IdTerm
+           t (PApp (PLam PVar) (PLam PVar)) (PBeta PVar (PLam PVar) U.SUEq) of
+      Conf.Join (PBeta PVar (PLam PVar) U.SUEq) (PLam PVar) -> True
+      _                                                     -> False
+  Nothing -> False
+
+checkChurchRosser :: U.UTerm Zero -> Bool
+checkChurchRosser t = case eqIdApp t of
+  Just Refl ->
+    case churchRosser @Zero @(U.UApp U.IdTerm U.IdTerm) @U.IdTerm
+           t BRefl (BCons idAppStep BRefl) of
+      Conf.Join _ _ -> True
+  Nothing -> False
+
+checkUniqueNormalForm :: U.UTerm Zero -> Bool
+checkUniqueNormalForm t = case eqIdApp t of
+  Just Refl -> case uniqueNormalForm t (BCons idAppStep BRefl) (BCons idAppStep BRefl) idIsNormal idIsNormal of
+    Refl -> True
   Nothing -> False
 
 plugHole :: forall (t :: U.UTerm Zero). foreach (c :: UCtx Zero Zero) -> Maybe (C.plug c t :~: t)
@@ -494,6 +518,12 @@ main = do
     (checkParallel (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.betaToPar idAppStep" True
     (checkBetaToPar (U.UApp U.idTerm U.idTerm))
+  assertEq "Confluence.parDiamond (PApp vs PBeta on id id)" True
+    (checkParDiamond (U.UApp U.idTerm U.idTerm))
+  assertEq "Confluence.churchRosser (unconditional on id id)" True
+    (checkChurchRosser (U.UApp U.idTerm U.idTerm))
+  assertEq "Confluence.uniqueNormalForm (unconditional on id id)" True
+    (checkUniqueNormalForm (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
   assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
   assertEq "Confluence.normalPar idIsNormal" True (case normalPar idIsNormal (PLam PVar) of Refl -> True)
