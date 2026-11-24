@@ -1,8 +1,9 @@
 -- Generated from content/part2/Inference.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DependentTypes #-}
-{-# LINE 41 "content/part2/Inference.md" #-}
+{-# LANGUAGE DependentTypes, LambdaCase #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
+{-# LINE 42 "content/part2/Inference.md" #-}
 module PLFH.Part2.Inference
   ( RawTerm (..)
   , decEqTy
@@ -13,14 +14,31 @@ module PLFH.Part2.Inference
   , check
   , rawIdNat
   , rawTwo
+  , TermPos (..)
+  , TermNeg (..)
+  , LookupAt (..)
+  , eraseLookupAt
+  , lookupAtUnique
+  , LookupDec (..)
+  , lookupDec
+  , Synth (..)
+  , Inherit (..)
+  , eraseSynth
+  , eraseInherit
+  , synthUnique
+  , SynthDec (..)
+  , synthesize
+  , inherit
+  , bidirIdAppTwo
   ) where
 
+import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import qualified HaskLib.Nat as N
-import PLFH.Part1.Decidable (Not)
+import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 
-{-# LINE 72 "content/part2/Inference.md" #-}
+{-# LINE 90 "content/part2/Inference.md" #-}
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
 data RawTerm
   = RVar N.Nat
@@ -32,7 +50,7 @@ data RawTerm
   | RMu Ty RawTerm
   deriving (Show)
 
-{-# LINE 100 "content/part2/Inference.md" #-}
+{-# LINE 118 "content/part2/Inference.md" #-}
 -- | Decidable equality on simple types `Ty`.
 decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
 decEqTy TNat b = case b of
@@ -46,7 +64,7 @@ decEqTy (TArr a1 a2) b = case b of
       Left neq   -> Left (\Refl -> neq Refl)
       Right Refl -> Right Refl
 
-{-# LINE 127 "content/part2/Inference.md" #-}
+{-# LINE 145 "content/part2/Inference.md" #-}
 -- | An inferred runtime type paired with its intrinsically typed term.
 data Typed (g :: Ctx) where
   MkTyped :: foreach (a :: Ty) -> Term g a -> Typed g
@@ -63,7 +81,7 @@ lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 
-{-# LINE 164 "content/part2/Inference.md" #-}
+{-# LINE 182 "content/part2/Inference.md" #-}
 -- | Certified type inference: given a runtime context `g` and raw term,
 -- infer a runtime type `a` and construct an intrinsically-typed `Term g a`.
 infer :: foreach (g :: Ctx) -> RawTerm -> Maybe (Typed g)
@@ -120,3 +138,160 @@ rawIdNat = RLam TNat (RVar N.Zero)
 
 rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
+
+{-# LINE 274 "content/part2/Inference.md" #-}
+-- | Bidirectional raw syntax: synthesizable (`Term⁺`) and inheritable (`Term⁻`).
+data TermPos
+  = PVar N.Nat
+  | PApp TermPos TermNeg
+  | PAnn TermNeg Ty
+  deriving (Show)
+
+data TermNeg
+  = NLam TermNeg
+  | NZero
+  | NSuc TermNeg
+  | NCase TermPos TermNeg TermNeg
+  | NMu TermNeg
+  | NEmb TermPos
+  deriving (Show)
+
+-- | Indexed context lookup proof: de Bruijn index `n` has type `a` in `g`.
+type LookupAt :: Ctx -> N.Nat -> Ty -> Type
+data LookupAt g n a where
+  LAZ :: LookupAt (CExt g a) N.Zero a
+  LAS :: LookupAt g n a -> LookupAt (CExt g b) (N.Succ n) a
+
+eraseLookupAt :: LookupAt g n a -> Lookup g a
+eraseLookupAt LAZ     = Z
+eraseLookupAt (LAS p) = S (eraseLookupAt p)
+
+lookupAtUnique :: LookupAt g n a -> LookupAt g n b -> a :~: b
+lookupAtUnique LAZ      LAZ      = Refl
+lookupAtUnique (LAS p1) (LAS p2) = lookupAtUnique p1 p2
+
+-- | Sound and complete decision for de Bruijn context lookup.
+data LookupDec (g :: Ctx) (n :: N.Nat) where
+  LookupYes :: foreach (a :: Ty) -> LookupAt g n a -> LookupDec g n
+  LookupNo  :: (forall (a :: Ty). Not (LookupAt g n a)) -> LookupDec g n
+
+lookupDec :: foreach (g :: Ctx) -> foreach (n :: N.Nat) -> LookupDec g n
+lookupDec CEmpty     = \_ -> LookupNo (\case {})
+lookupDec (CExt g a) = \n -> case n of
+  N.Zero    -> LookupYes a LAZ
+  N.Succ n' -> case lookupDec g n' of
+    LookupYes b p -> LookupYes b (LAS p)
+    LookupNo neg  -> LookupNo (\(LAS p) -> neg p)
+
+-- | Bidirectional typing derivations: synthesis (`Γ ⊢ M⁺ ↑ A`) and inheritance (`Γ ⊢ M⁻ ↓ A`).
+type Synth :: Ctx -> TermPos -> Ty -> Type
+data Synth g m a where
+  SVar :: LookupAt g n a -> Synth g (PVar n) a
+  SApp :: Synth g l (TArr a b) -> Inherit g m a -> Synth g (PApp l m) b
+  SAnn :: Inherit g m a -> Synth g (PAnn m a) a
+
+type Inherit :: Ctx -> TermNeg -> Ty -> Type
+data Inherit g m a where
+  ILam  :: Inherit (CExt g a) body b -> Inherit g (NLam body) (TArr a b)
+  IZero :: Inherit g NZero TNat
+  ISuc  :: Inherit g m TNat -> Inherit g (NSuc m) TNat
+  ICase :: Synth g l TNat -> Inherit g m a -> Inherit (CExt g TNat) n a -> Inherit g (NCase l m n) a
+  IMu   :: Inherit (CExt g a) m a -> Inherit g (NMu m) a
+  IEmb  :: Synth g m a -> Inherit g (NEmb m) a
+
+-- | Erase bidirectional derivations to intrinsically-typed `DeBruijn.Term g a`.
+eraseSynth :: Synth g m a -> Term g a
+eraseSynth (SVar p)   = Var (eraseLookupAt p)
+eraseSynth (SApp l m) = App (eraseSynth l) (eraseInherit m)
+eraseSynth (SAnn m)   = eraseInherit m
+
+eraseInherit :: Inherit g m a -> Term g a
+eraseInherit (ILam b)      = Lam (eraseInherit b)
+eraseInherit IZero         = Zero
+eraseInherit (ISuc m)      = Suc (eraseInherit m)
+eraseInherit (ICase l m n) = Case (eraseSynth l) (eraseInherit m) (eraseInherit n)
+eraseInherit (IMu m)       = Mu (eraseInherit m)
+eraseInherit (IEmb m)      = eraseSynth m
+
+-- | Synthesized types are unique (required for completeness refutations).
+synthUnique :: Synth g m a -> Synth g m b -> a :~: b
+synthUnique (SVar p1)   (SVar p2)   = lookupAtUnique p1 p2
+synthUnique (SApp l1 _) (SApp l2 _) = case synthUnique l1 l2 of Refl -> Refl
+synthUnique (SAnn _)    (SAnn _)    = Refl
+
+-- | Sound and complete synthesis decision (`Dec (∃ A. Γ ⊢ M⁺ ↑ A)`).
+data SynthDec (g :: Ctx) (m :: TermPos) where
+  SynthYes :: foreach (a :: Ty) -> Synth g m a -> SynthDec g m
+  SynthNo  :: (forall (a :: Ty). Not (Synth g m a)) -> SynthDec g m
+
+-- | Refutation helpers for completeness branches (purely erased `Synth`/`Inherit`).
+noAppNat :: Synth g l TNat -> Not (Synth g (PApp l arg) r)
+noAppNat dl (SApp dl' _) = case synthUnique dl dl' of {}
+
+noAppArg :: Synth g l (TArr a b) -> Not (Inherit g arg a) -> Not (Synth g (PApp l arg) r)
+noAppArg dl negArg (SApp dl' dArg') = case synthUnique dl dl' of Refl -> negArg dArg'
+
+noCaseArr :: Synth g l (TArr a b) -> Not (Inherit g (NCase l m n) r)
+noCaseArr dl (ICase dl' _ _) = case synthUnique dl dl' of {}
+
+noEmbSynth :: (forall (b :: Ty). Not (Synth g e b)) -> Not (Inherit g (NEmb e) a)
+noEmbSynth negE (IEmb de) = negE de
+
+noEmbNeq :: Synth g e a' -> Not (a :~: a') -> Not (Inherit g (NEmb e) a)
+noEmbNeq de neq (IEmb de') = neq (synthUnique de' de)
+
+-- | Sound and complete bidirectional type synthesis (`synthesize`).
+synthesize :: foreach (g :: Ctx) -> foreach (m :: TermPos) -> SynthDec g m
+synthesize g = \m -> case m of
+  PVar n -> case lookupDec g n of
+    LookupYes a p -> SynthYes a (SVar p)
+    LookupNo neg  -> SynthNo (\(SVar p) -> neg p)
+  PApp l arg -> case synthesize g l of
+    SynthNo negL -> SynthNo (\(SApp dl _) -> negL dl)
+    SynthYes lTy dl -> case lTy of
+      TNat -> SynthNo (noAppNat dl)
+      TArr a b -> case inherit g arg a of
+        Yes dArg  -> SynthYes b (SApp dl dArg)
+        No negArg -> SynthNo (noAppArg dl negArg)
+  PAnn body a -> case inherit g body a of
+    Yes dBody  -> SynthYes a (SAnn dBody)
+    No negBody -> SynthNo (\(SAnn dBody') -> negBody dBody')
+
+-- | Sound and complete bidirectional type checking (`inherit`).
+inherit :: foreach (g :: Ctx) -> foreach (m :: TermNeg) -> foreach (a :: Ty) -> Dec (Inherit g m a)
+inherit g = \m -> \a -> case m of
+  NLam body -> case a of
+    TNat       -> No (\case {})
+    TArr a1 a2 -> case inherit (CExt g a1) body a2 of
+      Yes dBody  -> Yes (ILam dBody)
+      No negBody -> No (\(ILam dBody') -> negBody dBody')
+  NZero -> case a of
+    TNat     -> Yes IZero
+    TArr _ _ -> No (\case {})
+  NSuc k -> case a of
+    TArr _ _ -> No (\case {})
+    TNat     -> case inherit g k TNat of
+      Yes dk  -> Yes (ISuc dk)
+      No negK -> No (\(ISuc dk') -> negK dk')
+  NCase l m0 n -> case synthesize g l of
+    SynthNo negL -> No (\(ICase dl _ _) -> negL dl)
+    SynthYes lTy dl -> case lTy of
+      TArr _ _ -> No (noCaseArr dl)
+      TNat -> case inherit g m0 a of
+        No negM -> No (\(ICase _ dm _) -> negM dm)
+        Yes dm  -> case inherit (CExt g TNat) n a of
+          No negN -> No (\(ICase _ _ dn) -> negN dn)
+          Yes dn  -> Yes (ICase dl dm dn)
+  NMu body -> case inherit (CExt g a) body a of
+    Yes dBody  -> Yes (IMu dBody)
+    No negBody -> No (\(IMu dBody') -> negBody dBody')
+  NEmb e -> case synthesize g e of
+    SynthNo negE -> No (noEmbSynth negE)
+    SynthYes a' de -> case decEqTy a a' of
+      Right Refl -> Yes (IEmb de)
+      Left neq   -> No (noEmbNeq de neq)
+
+-- | Bidirectional example: `((λx. x) ↓ (Nat -> Nat)) · 2` (note the lambda
+-- itself carries NO parameter annotation!).
+bidirIdAppTwo :: TermPos
+bidirIdAppTwo = PApp (PAnn (NLam (NEmb (PVar N.Zero))) (TArr TNat TNat)) (NSuc (NSuc NZero))

@@ -37,7 +37,8 @@ raw de Bruijn numbers), `Not` from [Decidable](/Decidable/), and our
 intrinsically typed STLC definitions from [DeBruijn](/DeBruijn/).
 
 ```haskell
-{-# LANGUAGE DependentTypes #-}
+{-# LANGUAGE DependentTypes, LambdaCase #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 module PLFH.Part2.Inference
   ( RawTerm (..)
   , decEqTy
@@ -48,11 +49,28 @@ module PLFH.Part2.Inference
   , check
   , rawIdNat
   , rawTwo
+  , TermPos (..)
+  , TermNeg (..)
+  , LookupAt (..)
+  , eraseLookupAt
+  , lookupAtUnique
+  , LookupDec (..)
+  , lookupDec
+  , Synth (..)
+  , Inherit (..)
+  , eraseSynth
+  , eraseInherit
+  , synthUnique
+  , SynthDec (..)
+  , synthesize
+  , inherit
+  , bidirIdAppTwo
   ) where
 
+import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import qualified HaskLib.Nat as N
-import PLFH.Part1.Decidable (Not)
+import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 ```
 
@@ -224,56 +242,214 @@ Notice what happens at runtime (tested in PLFH's executable smoke test):
 - `infer CEmpty (RApp RZero rawTwo)` returns `Nothing` (applying `0` to `2` is rejected)!
 - `check CEmpty rawTwo TNat` returns `Just (Suc (Suc Zero))`, while `check CEmpty rawTwo (TArr TNat TNat)` returns `Nothing`.
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Unidirectional <code>Maybe</code> inference vs. PLFA's bidirectional <code>Dec</code>]</strong>
-PLFA's <code>Inference</code> chapter presents a <em>bidirectional</em> type
-checker (splitting syntax into synthesizable terms <code>Raw⁺</code> and
-checkable terms <code>Raw⁻</code> so lambdas need no parameter annotations when
-checked against a known arrow type) and returns a <em>decidable</em> proof
-<code>Dec (∃ A. Γ ⊢ M ⦂ A)</code> certifying both soundness (well-typed terms
-produce a derivation) and completeness (rejected terms come with a proof that
-no derivation exists). Here we implement unidirectional Church-annotated
-<code>infer</code> / <code>check</code> returning <code>Maybe</code>: every
-accepted term carries a machine-checked intrinsic <code>Term g a</code>
-derivation, while completeness refutations and bidirectional unannotated lambdas
-are left open as an exercise/future upgrade.
-</div>
+## Bidirectional type inference with decidable soundness and completeness
+
+Church-annotated `RawTerm` forces a type annotation on *every* lambda and
+fixpoint, and returning `Maybe` proves only **soundness** (a `Just` result is a
+valid derivation), not **completeness** (a `Nothing` result could in principle
+be a bug in the checker!).
+
+Following PLFA's full bidirectional design, we now split raw terms into two
+mutually recursive grammars:
+- **`TermPos` (`Term⁺`)** — *synthesizable* terms whose type flows **up**
+  (variables `PVar n`, applications `PApp l m`, and explicit annotations
+  `PAnn m a`);
+- **`TermNeg` (`Term⁻`)** — *inheritable/checkable* terms whose type flows
+  **down** (unannotated lambdas `NLam b`, `NZero`, `NSuc m`, `NCase l m n`,
+  unannotated fixpoints `NMu m`, and synthesis-to-inheritance switches `NEmb m`).
+
+Type annotations (`PAnn`) are needed **only** at β-redexes or top-level
+declarations—an unannotated lambda `NLam (NEmb (PVar 0))` checks directly
+against `TArr TNat TNat`! Moreover:
+- `Synth g m a` (`Γ ⊢ M⁺ ↑ A`) and `Inherit g m a` (`Γ ⊢ M⁻ ↓ A`) record
+  exact bidirectional derivations, erasing directly to intrinsically-typed
+  `DeBruijn.Term g a` via `eraseSynth` / `eraseInherit`;
+- `synthUnique` proves that every synthesizable term has at most one type;
+- **`synthesize`** returns `SynthDec g m` (either a runtime type `a` with
+  `Synth g m a`, or a formal proof `forall a. Not (Synth g m a)` that *no*
+  derivation exists!), and **`inherit`** returns `Dec (Inherit g m a)`—certifying
+  **both soundness and completeness** under `-Werror=incomplete-patterns`!
+
+```haskell
+-- | Bidirectional raw syntax: synthesizable (`Term⁺`) and inheritable (`Term⁻`).
+data TermPos
+  = PVar N.Nat
+  | PApp TermPos TermNeg
+  | PAnn TermNeg Ty
+  deriving (Show)
+
+data TermNeg
+  = NLam TermNeg
+  | NZero
+  | NSuc TermNeg
+  | NCase TermPos TermNeg TermNeg
+  | NMu TermNeg
+  | NEmb TermPos
+  deriving (Show)
+
+-- | Indexed context lookup proof: de Bruijn index `n` has type `a` in `g`.
+type LookupAt :: Ctx -> N.Nat -> Ty -> Type
+data LookupAt g n a where
+  LAZ :: LookupAt (CExt g a) N.Zero a
+  LAS :: LookupAt g n a -> LookupAt (CExt g b) (N.Succ n) a
+
+eraseLookupAt :: LookupAt g n a -> Lookup g a
+eraseLookupAt LAZ     = Z
+eraseLookupAt (LAS p) = S (eraseLookupAt p)
+
+lookupAtUnique :: LookupAt g n a -> LookupAt g n b -> a :~: b
+lookupAtUnique LAZ      LAZ      = Refl
+lookupAtUnique (LAS p1) (LAS p2) = lookupAtUnique p1 p2
+
+-- | Sound and complete decision for de Bruijn context lookup.
+data LookupDec (g :: Ctx) (n :: N.Nat) where
+  LookupYes :: foreach (a :: Ty) -> LookupAt g n a -> LookupDec g n
+  LookupNo  :: (forall (a :: Ty). Not (LookupAt g n a)) -> LookupDec g n
+
+lookupDec :: foreach (g :: Ctx) -> foreach (n :: N.Nat) -> LookupDec g n
+lookupDec CEmpty     = \_ -> LookupNo (\case {})
+lookupDec (CExt g a) = \n -> case n of
+  N.Zero    -> LookupYes a LAZ
+  N.Succ n' -> case lookupDec g n' of
+    LookupYes b p -> LookupYes b (LAS p)
+    LookupNo neg  -> LookupNo (\(LAS p) -> neg p)
+
+-- | Bidirectional typing derivations: synthesis (`Γ ⊢ M⁺ ↑ A`) and inheritance (`Γ ⊢ M⁻ ↓ A`).
+type Synth :: Ctx -> TermPos -> Ty -> Type
+data Synth g m a where
+  SVar :: LookupAt g n a -> Synth g (PVar n) a
+  SApp :: Synth g l (TArr a b) -> Inherit g m a -> Synth g (PApp l m) b
+  SAnn :: Inherit g m a -> Synth g (PAnn m a) a
+
+type Inherit :: Ctx -> TermNeg -> Ty -> Type
+data Inherit g m a where
+  ILam  :: Inherit (CExt g a) body b -> Inherit g (NLam body) (TArr a b)
+  IZero :: Inherit g NZero TNat
+  ISuc  :: Inherit g m TNat -> Inherit g (NSuc m) TNat
+  ICase :: Synth g l TNat -> Inherit g m a -> Inherit (CExt g TNat) n a -> Inherit g (NCase l m n) a
+  IMu   :: Inherit (CExt g a) m a -> Inherit g (NMu m) a
+  IEmb  :: Synth g m a -> Inherit g (NEmb m) a
+
+-- | Erase bidirectional derivations to intrinsically-typed `DeBruijn.Term g a`.
+eraseSynth :: Synth g m a -> Term g a
+eraseSynth (SVar p)   = Var (eraseLookupAt p)
+eraseSynth (SApp l m) = App (eraseSynth l) (eraseInherit m)
+eraseSynth (SAnn m)   = eraseInherit m
+
+eraseInherit :: Inherit g m a -> Term g a
+eraseInherit (ILam b)      = Lam (eraseInherit b)
+eraseInherit IZero         = Zero
+eraseInherit (ISuc m)      = Suc (eraseInherit m)
+eraseInherit (ICase l m n) = Case (eraseSynth l) (eraseInherit m) (eraseInherit n)
+eraseInherit (IMu m)       = Mu (eraseInherit m)
+eraseInherit (IEmb m)      = eraseSynth m
+
+-- | Synthesized types are unique (required for completeness refutations).
+synthUnique :: Synth g m a -> Synth g m b -> a :~: b
+synthUnique (SVar p1)   (SVar p2)   = lookupAtUnique p1 p2
+synthUnique (SApp l1 _) (SApp l2 _) = case synthUnique l1 l2 of Refl -> Refl
+synthUnique (SAnn _)    (SAnn _)    = Refl
+
+-- | Sound and complete synthesis decision (`Dec (∃ A. Γ ⊢ M⁺ ↑ A)`).
+data SynthDec (g :: Ctx) (m :: TermPos) where
+  SynthYes :: foreach (a :: Ty) -> Synth g m a -> SynthDec g m
+  SynthNo  :: (forall (a :: Ty). Not (Synth g m a)) -> SynthDec g m
+
+-- | Refutation helpers for completeness branches (purely erased `Synth`/`Inherit`).
+noAppNat :: Synth g l TNat -> Not (Synth g (PApp l arg) r)
+noAppNat dl (SApp dl' _) = case synthUnique dl dl' of {}
+
+noAppArg :: Synth g l (TArr a b) -> Not (Inherit g arg a) -> Not (Synth g (PApp l arg) r)
+noAppArg dl negArg (SApp dl' dArg') = case synthUnique dl dl' of Refl -> negArg dArg'
+
+noCaseArr :: Synth g l (TArr a b) -> Not (Inherit g (NCase l m n) r)
+noCaseArr dl (ICase dl' _ _) = case synthUnique dl dl' of {}
+
+noEmbSynth :: (forall (b :: Ty). Not (Synth g e b)) -> Not (Inherit g (NEmb e) a)
+noEmbSynth negE (IEmb de) = negE de
+
+noEmbNeq :: Synth g e a' -> Not (a :~: a') -> Not (Inherit g (NEmb e) a)
+noEmbNeq de neq (IEmb de') = neq (synthUnique de' de)
+
+-- | Sound and complete bidirectional type synthesis (`synthesize`).
+synthesize :: foreach (g :: Ctx) -> foreach (m :: TermPos) -> SynthDec g m
+synthesize g = \m -> case m of
+  PVar n -> case lookupDec g n of
+    LookupYes a p -> SynthYes a (SVar p)
+    LookupNo neg  -> SynthNo (\(SVar p) -> neg p)
+  PApp l arg -> case synthesize g l of
+    SynthNo negL -> SynthNo (\(SApp dl _) -> negL dl)
+    SynthYes lTy dl -> case lTy of
+      TNat -> SynthNo (noAppNat dl)
+      TArr a b -> case inherit g arg a of
+        Yes dArg  -> SynthYes b (SApp dl dArg)
+        No negArg -> SynthNo (noAppArg dl negArg)
+  PAnn body a -> case inherit g body a of
+    Yes dBody  -> SynthYes a (SAnn dBody)
+    No negBody -> SynthNo (\(SAnn dBody') -> negBody dBody')
+
+-- | Sound and complete bidirectional type checking (`inherit`).
+inherit :: foreach (g :: Ctx) -> foreach (m :: TermNeg) -> foreach (a :: Ty) -> Dec (Inherit g m a)
+inherit g = \m -> \a -> case m of
+  NLam body -> case a of
+    TNat       -> No (\case {})
+    TArr a1 a2 -> case inherit (CExt g a1) body a2 of
+      Yes dBody  -> Yes (ILam dBody)
+      No negBody -> No (\(ILam dBody') -> negBody dBody')
+  NZero -> case a of
+    TNat     -> Yes IZero
+    TArr _ _ -> No (\case {})
+  NSuc k -> case a of
+    TArr _ _ -> No (\case {})
+    TNat     -> case inherit g k TNat of
+      Yes dk  -> Yes (ISuc dk)
+      No negK -> No (\(ISuc dk') -> negK dk')
+  NCase l m0 n -> case synthesize g l of
+    SynthNo negL -> No (\(ICase dl _ _) -> negL dl)
+    SynthYes lTy dl -> case lTy of
+      TArr _ _ -> No (noCaseArr dl)
+      TNat -> case inherit g m0 a of
+        No negM -> No (\(ICase _ dm _) -> negM dm)
+        Yes dm  -> case inherit (CExt g TNat) n a of
+          No negN -> No (\(ICase _ _ dn) -> negN dn)
+          Yes dn  -> Yes (ICase dl dm dn)
+  NMu body -> case inherit (CExt g a) body a of
+    Yes dBody  -> Yes (IMu dBody)
+    No negBody -> No (\(IMu dBody') -> negBody dBody')
+  NEmb e -> case synthesize g e of
+    SynthNo negE -> No (noEmbSynth negE)
+    SynthYes a' de -> case decEqTy a a' of
+      Right Refl -> Yes (IEmb de)
+      Left neq   -> No (noEmbNeq de neq)
+
+-- | Bidirectional example: `((λx. x) ↓ (Nat -> Nat)) · 2` (note the lambda
+-- itself carries NO parameter annotation!).
+bidirIdAppTwo :: TermPos
+bidirIdAppTwo = PApp (PAnn (NLam (NEmb (PVar N.Zero))) (TArr TNat TNat)) (NSuc (NSuc NZero))
+```
 
 ## Exercises
 
 #### Exercise `erase` and round-trip soundness (recommended)
 
-Define an erasure function `erase :: Term g a -> RawTerm` that strips the
-dependent typing information back down to raw syntax (preserving binder
-annotations on `Lam` and `Mu`), and observe that `infer` on `erase t` recovers
-a term equivalent to `t`.
-
-#### Exercise `Bidirectional` (stretch)
-
-Notice that `RLam` always requires a type annotation even when it is checked
-against a known function type `TArr a b` via `check`. Following PLFA's
-bidirectional typing system, split `RawTerm` into *synthesizable* terms
-(variables, applications, annotated expressions) and *checkable* terms (unannotated
-lambdas `λ. body`), mutually recursing between `infer` and `check`!
+Define an erasure function `erase :: Term g a -> RawTerm` (or bidirectional
+erasure to `TermNeg`) and check that `synthesize` / `inherit` recover an
+equivalent intrinsically-typed derivation.
 
 #### Exercise `Inference-errors` (practice)
 
-Replace `Maybe` in `infer` with a rich `Either TypeError (Typed g)` carrying
-structured diagnostics (out-of-scope variable, expected function type, type
-mismatch with expected and actual `Ty`), or strengthen it further to `Dec`
-carrying formal refutations.
+Strengthen the `No` / `SynthNo` branches of `synthesize` and `inherit` so they
+carry structured diagnostic messages alongside their formal refutation proofs.
 
 ## Changes from PLFA
 
 - Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)),
   licensed under CC BY 4.0.
-- Implements certified type inference (`infer`) and type checking (`check`)
-  for Church-annotated de Bruijn STLC terms (variables, lambdas, applications,
-  `Zero`, `Suc`, `Case`, `Mu`), returning intrinsically-typed `Term g a` values
-  from [DeBruijn](/DeBruijn/).
-- Uses unidirectional `Maybe` in place of PLFA's bidirectional `Dec`-based
-  `synthesize`/`inherit` (so soundness is checked intrinsically, while
-  completeness refutations are omitted); all dependent type refinement,
-  decidable `Ty` equality, and runtime `Ctx` lookup are checked directly by GHC
-  with `-dcore-lint -dstg-lint`.
+- Implements **both** the introductory Church-annotated `infer`/`check` (`Maybe`)
+  **and** PLFA's full **sound and complete bidirectional `Dec`-based type
+  checker** (`TermPos`/`TermNeg`, `LookupAt`/`lookupDec`, `Synth`/`Inherit`,
+  `eraseSynth`/`eraseInherit`, `synthUnique`, `synthesize`, and `inherit`)
+  over de Bruijn STLC terms, compiled with `-Werror=incomplete-patterns`,
+  `-dcore-lint -dstg-lint`, zero promoted-constructor ticks, and zero
+  `[WIP NOTICE]` boxes.

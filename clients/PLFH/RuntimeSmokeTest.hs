@@ -30,6 +30,7 @@ import PLFH.Part2.Confluence (Par (..), ParSteps (..), betaToPar, churchRosser, 
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
 import qualified PLFH.Part2.DeBruijnProgress as DBP
+import qualified PLFH.Part2.Inference as Inf
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
@@ -470,6 +471,23 @@ main = do
 
   assertEq "Inference.check 2 TNat" True  (case check CEmpty rawTwo TNat of { Just _ -> True; Nothing -> False })
   assertEq "Inference.check 2 (Nat->Nat)" False (case check CEmpty rawTwo (TArr TNat TNat) of { Just _ -> True; Nothing -> False })
+  assertEq "Inference.inherit unannotated (\\x. x) :: Nat->Nat" True
+    (case Inf.inherit CEmpty (Inf.NLam (Inf.NEmb (Inf.PVar Zero))) (TArr TNat TNat) of
+      Yes (Inf.ILam (Inf.IEmb (Inf.SVar Inf.LAZ))) -> True
+      _                                           -> False)
+  let bidirTerm = Inf.bidirIdAppTwo
+  assertEq "Inference.synthesize (((\\x. x) : Nat->Nat) 2) -> TNat" (Just "TNat")
+    (case Inf.synthesize CEmpty bidirTerm of
+      Inf.SynthYes t d -> case Inf.eraseSynth d of { DB.App _ _ -> Just (show t); _ -> Nothing }
+      Inf.SynthNo _    -> Nothing)
+  assertEq "Inference.synthesize ((0 : Nat) 0) -> SynthNo (complete refutation!)" True
+    (case Inf.synthesize CEmpty (Inf.PApp (Inf.PAnn Inf.NZero TNat) Inf.NZero) of
+      Inf.SynthNo _    -> True
+      Inf.SynthYes _ _ -> False)
+  assertEq "Inference.inherit (\\x. x) TNat -> No (complete refutation!)" True
+    (case Inf.inherit CEmpty (Inf.NLam (Inf.NEmb (Inf.PVar Zero))) TNat of
+      No _  -> True
+      Yes _ -> False)
 
   let bisimPairTerm :: M.Term M.CEmpty (M.TProd (M.TArr M.TNat M.TNat) (M.TArr M.TNat M.TNat))
       bisimPairTerm = M.Pair (M.Lam (M.Var M.Z)) (M.Lam (M.Var M.Z))
