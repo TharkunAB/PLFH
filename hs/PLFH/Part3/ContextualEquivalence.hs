@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 14 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 43 "content/part3/ContextualEquivalence.md" #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , SoundnessProp
@@ -19,11 +19,11 @@ import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 
-{-# LINE 46 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 68 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
-  MkTerminates :: BetaSteps m ('ULam b) -> Terminates m
+  MkTerminates :: BetaSteps m (ULam b) -> Terminates m
 
 -- | Soundness property: multi-step β-reduction preserves and reflects denotations.
 type SoundnessProp =
@@ -32,13 +32,13 @@ type SoundnessProp =
 
 -- | Adequacy property: a closed term denotationally equal to a lambda terminates.
 type AdequacyProp =
-  forall (u :: UTerm 'Zero) (b :: UTerm ('Succ 'Zero)).
-    DenEq (Den u) (Den ('ULam b)) -> Terminates u
+  forall (u :: UTerm Zero) (b :: UTerm (Succ Zero)).
+    DenEq (Den u) (Den (ULam b)) -> Terminates u
 
 -- | One direction (`denot-equal-terminates`): if `ℰ (C[M]) ≃ ℰ (C[N])` and
 -- `C[M]` terminates (for closed plugged programs `cm`, `cn`), then `C[N]` terminates.
 denotEqualTerminates
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      SoundnessProp
   -> AdequacyProp
   -> DenEq (Den cm) (Den cn)
@@ -50,7 +50,7 @@ denotEqualTerminates soundness adequacy eqC (MkTerminates cmToLam) =
 -- | Both directions (`denot-equal-contex-equal`): denotational equality of
 -- closed plugged contexts implies mutual termination (contextual equivalence).
 denotEqualCtxEquiv
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      SoundnessProp
   -> AdequacyProp
   -> DenEq (Den cm) (Den cn)
@@ -62,7 +62,7 @@ denotEqualCtxEquiv soundness adequacy eqC =
 
 -- | Instantiate `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`!
 denotEqualCtxEquivFromSoundness
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      AdequacyProp
   -> DenEq (Den cm) (Den cn)
   -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)

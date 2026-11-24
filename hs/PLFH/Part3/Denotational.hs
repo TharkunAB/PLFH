@@ -4,7 +4,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving, StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
-{-# LINE 15 "content/part3/Denotational.md" #-}
+{-# LINE 68 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -64,7 +64,7 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 96 "content/part3/Denotational.md" #-}
+{-# LINE 135 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values),
 -- declared directly in GADT syntax!
 data Value where
@@ -77,40 +77,39 @@ deriving instance Show Value
 -- | Retained runtime witness for a promoted `Value`, using a single `foreach`
 -- field (not a singleton!). Carrying `ValW` in `DElim`, `DJoin`, and `DSub`
 -- retains intermediate `Value`s just as Agda's `∀ {v}` retains them at runtime,
--- while letting proofs match GADT equalities before unpacking `foreach`
--- (avoiding the `R03_ForEachGadtEqTypeFamily.hs` type-family rewriting bug).
+-- while letting proofs match GADT equalities before unpacking `foreach`.
 data ValW (v :: Value) where
   MkValW :: foreach (v :: Value) -> ValW v
 
 -- | Split a retained witness of a join into witnesses of its two components.
-unJoinW :: ValW ('Join a b) -> (ValW a, ValW b)
+unJoinW :: ValW (Join a b) -> (ValW a, ValW b)
 unJoinW (MkValW v) = go v Refl
   where
-    go :: foreach (x :: Value) -> x :~: 'Join a b -> (ValW a, ValW b)
+    go :: foreach (x :: Value) -> x :~: Join a b -> (ValW a, ValW b)
     go Bot        eq = case eq of {}
     go (Arr _ _)  eq = case eq of {}
     go (Join x y) eq = case eq of Refl -> (MkValW x, MkValW y)
 
 -- | Split a retained witness of an arrow into witnesses of its domain and codomain.
-unArrW :: ValW ('Arr a b) -> (ValW a, ValW b)
+unArrW :: ValW (Arr a b) -> (ValW a, ValW b)
 unArrW (MkValW v) = go v Refl
   where
-    go :: foreach (x :: Value) -> x :~: 'Arr a b -> (ValW a, ValW b)
+    go :: foreach (x :: Value) -> x :~: Arr a b -> (ValW a, ValW b)
     go Bot        eq = case eq of {}
     go (Join _ _) eq = case eq of {}
     go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
 
-{-# LINE 138 "content/part3/Denotational.md" #-}
+{-# LINE 186 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
-  SubBot    :: Sub 'Bot v
+  SubBot    :: Sub Bot v
   SubRefl   :: Sub v v
-  SubJoinL  :: Sub v u -> Sub w u -> Sub ('Join v w) u
-  SubJoinR1 :: forall (u :: Value) (v :: Value) (w :: Value). Sub u v -> Sub u ('Join v w)
-  SubJoinR2 :: forall (u :: Value) (v :: Value) (w :: Value). Sub u w -> Sub u ('Join v w)
+  SubJoinL  :: Sub v u -> Sub w u -> Sub (Join v w) u
+  SubJoinR1 :: forall (u :: Value) (v :: Value) (w :: Value). Sub u v -> Sub u (Join v w)
+  SubJoinR2 :: forall (u :: Value) (v :: Value) (w :: Value). Sub u w -> Sub u (Join v w)
   SubTrans  :: foreach (v :: Value) -> Sub u v -> Sub v w -> Sub u w
-  SubArr    :: Sub v' v -> Sub w w' -> Sub ('Arr v w) ('Arr v' w')
-  SubDist   :: Sub ('Arr v ('Join w w')) ('Join ('Arr v w) ('Arr v w'))
+  SubArr    :: Sub v' v -> Sub w w' -> Sub (Arr v w) (Arr v' w')
+  SubDist   :: Sub (Arr v (Join w w')) (Join (Arr v w) (Arr v w'))
 
 -- | Reflexivity of `Sub` can also be derived by structural induction on `Value`.
 subRefl :: foreach (v :: Value) -> Sub v v
@@ -119,13 +118,13 @@ subRefl (Arr v w)  = SubArr (subRefl v) (subRefl w)
 subRefl (Join v w) = SubJoinL (SubJoinR1 (subRefl v)) (SubJoinR2 (subRefl w))
 
 -- | Monotonicity of `Join` (`⊔⊑⊔`).
-joinSubJoin :: Sub v v' -> Sub w w' -> Sub ('Join v w) ('Join v' w')
+joinSubJoin :: Sub v v' -> Sub w w' -> Sub (Join v w) (Join v' w')
 joinSubJoin d1 d2 = SubJoinL (SubJoinR1 d1) (SubJoinR2 d2)
 
 -- | Combining two function entries with distinct inputs (`⊔↦⊔-dist`).
 joinArrDist :: foreach (v :: Value) -> foreach (v' :: Value)
             -> foreach (w :: Value) -> foreach (w' :: Value)
-            -> Sub ('Arr ('Join v v') ('Join w w')) ('Join ('Arr v w) ('Arr v' w'))
+            -> Sub (Arr (Join v v') (Join w w')) (Join (Arr v w) (Arr v' w'))
 joinArrDist v v' w w' =
   SubTrans (Join (Arr (Join v v') w) (Arr (Join v v') w')) SubDist
     (joinSubJoin
@@ -133,27 +132,27 @@ joinArrDist v v' w w' =
       (SubArr (SubJoinR2 (subRefl v')) (subRefl w')))
 
 -- | Left and right inversion on joins (`⊔⊑-invL`, `⊔⊑-invR`).
-joinSubInvL :: Sub ('Join u v) w -> Sub u w
+joinSubInvL :: Sub (Join u v) w -> Sub u w
 joinSubInvL SubRefl            = SubJoinR1 SubRefl
 joinSubInvL (SubJoinL lt1 _)   = lt1
 joinSubInvL (SubJoinR1 lt)     = SubJoinR1 (joinSubInvL lt)
 joinSubInvL (SubJoinR2 lt)     = SubJoinR2 (joinSubInvL lt)
 joinSubInvL (SubTrans m l1 l2) = SubTrans m (joinSubInvL l1) l2
 
-joinSubInvR :: Sub ('Join u v) w -> Sub v w
+joinSubInvR :: Sub (Join u v) w -> Sub v w
 joinSubInvR SubRefl            = SubJoinR2 SubRefl
 joinSubInvR (SubJoinL _ lt2)   = lt2
 joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 193 "content/part3/Denotational.md" #-}
+{-# LINE 247 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
-  MemBot   :: ValMem 'Bot 'Bot
-  MemArr   :: ValMem ('Arr v w) ('Arr v w)
-  MemJoinL :: ValMem u v -> ValMem u ('Join v w)
-  MemJoinR :: ValMem u w -> ValMem u ('Join v w)
+  MemBot   :: ValMem Bot Bot
+  MemArr   :: ValMem (Arr v w) (Arr v w)
+  MemJoinL :: ValMem u v -> ValMem u (Join v w)
+  MemJoinR :: ValMem u w -> ValMem u (Join v w)
 
 -- | Subset inclusion of join-trees (`v ⊆ w`).
 type ValSubset (v :: Value) (w :: Value) = forall (u :: Value). ValMem u v -> ValMem u w
@@ -173,17 +172,17 @@ subsetToSub (Join a b) s =
 
 -- | Evidence that a value is a function entry `v ↦ w`.
 data Fun (u :: Value) where
-  IsFun :: Fun ('Arr v w)
+  IsFun :: Fun (Arr v w)
 
 -- | Every leaf in `v` is a function entry.
 type AllFuns (v :: Value) = forall (u :: Value). ValMem u v -> Fun u
 
-notFunBot :: Not (Fun 'Bot)
+notFunBot :: Not (Fun Bot)
 notFunBot = \case {}
 
 data SomeArrMem (u :: Value) where
   MkSomeArrMem :: foreach (v :: Value) -> foreach (w :: Value)
-               -> ValMem ('Arr v w) u -> SomeArrMem u
+               -> ValMem (Arr v w) u -> SomeArrMem u
 
 -- | Every non-empty collection of functions contains at least one function entry.
 allFunsMem :: foreach (u :: Value) -> AllFuns u -> SomeArrMem u
@@ -207,7 +206,7 @@ cod (Join a b) = Join (cod a) (cod b)
 
 -- | If `v ↦ w ∈ u` then `v ⊆ dom u` (`↦∈→⊆dom`).
 arrMemToSubDom :: forall (v :: Value) (w :: Value) (x :: Value).
-                  foreach (u :: Value) -> ValMem ('Arr v w) u -> ValMem x v -> ValMem x (dom u)
+                  foreach (u :: Value) -> ValMem (Arr v w) u -> ValMem x v -> ValMem x (dom u)
 arrMemToSubDom Bot        m            _ = case m of {}
 arrMemToSubDom (Arr _ _)  MemArr       x = x
 arrMemToSubDom (Join a b) (MemJoinL m) x = MemJoinL @x @(dom a) @(dom b) (arrMemToSubDom @v @w @x a m x)
@@ -215,13 +214,13 @@ arrMemToSubDom (Join a b) (MemJoinR m) x = MemJoinR @x @(dom b) @(dom a) (arrMem
 
 -- | If `u ⊆ v ↦ w` then `cod u ⊆ w` (`⊆↦→cod⊆`).
 subArrToCodSub :: forall (v :: Value) (w :: Value) (x :: Value).
-                  foreach (u :: Value) -> ValSubset u ('Arr v w) -> ValMem x (cod u) -> ValMem x w
-subArrToCodSub Bot        s _            = case s @'Bot MemBot of {}
-subArrToCodSub (Arr a b)  s x            = case s @('Arr a b) MemArr of { MemArr -> x }
+                  foreach (u :: Value) -> ValSubset u (Arr v w) -> ValMem x (cod u) -> ValMem x w
+subArrToCodSub Bot        s _            = case s @Bot MemBot of {}
+subArrToCodSub (Arr a b)  s x            = case s @(Arr a b) MemArr of { MemArr -> x }
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 274 "content/part3/Denotational.md" #-}
+{-# LINE 332 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -232,38 +231,38 @@ data Factor (u :: Value) (v :: Value) (w :: Value) where
            -> Sub w (cod u')
            -> Factor u v w
 
-allFunsArr :: AllFuns ('Arr a b)
+allFunsArr :: AllFuns (Arr a b)
 allFunsArr MemArr = IsFun
 
-allFunsDist :: AllFuns ('Join ('Arr a b) ('Arr a c))
+allFunsDist :: AllFuns (Join (Arr a b) (Arr a c))
 allFunsDist (MemJoinL MemArr) = IsFun
 allFunsDist (MemJoinR MemArr) = IsFun
 
-subJoinSelf :: Sub ('Join a a) a
+subJoinSelf :: Sub (Join a a) a
 subJoinSelf = SubJoinL SubRefl SubRefl
 
 mkJoinFactor :: forall (u2 :: Value) (d1 :: Value) (c1 :: Value) (d2 :: Value) (c2 :: Value).
-                Factor u2 d1 c1 -> Factor u2 d2 c2 -> Factor u2 ('Join d1 d2) ('Join c1 c2)
+                Factor u2 d1 c1 -> Factor u2 d2 c2 -> Factor u2 (Join d1 d2) (Join c1 c2)
 mkJoinFactor (MkFactor u31 f1 s1 d1 c1) (MkFactor u32 f2 s2 d2 c2) =
-  MkFactor @u2 @('Join d1 d2) @('Join c1 c2) (Join u31 u32)
+  MkFactor @u2 @(Join d1 d2) @(Join c1 c2) (Join u31 u32)
     (\case { MemJoinL m -> f1 m; MemJoinR m -> f2 m })
     (\case { MemJoinL m -> s1 m; MemJoinR m -> s2 m })
     (joinSubJoin d1 d2)
     (joinSubJoin c1 c2)
 
-mkArrFactor :: foreach (a :: Value) -> foreach (b :: Value) -> Factor ('Arr a b) a b
-mkArrFactor a b = MkFactor @('Arr a b) @a @b (Arr a b) allFunsArr (\z -> z) SubRefl SubRefl
+mkArrFactor :: foreach (a :: Value) -> foreach (b :: Value) -> Factor (Arr a b) a b
+mkArrFactor a b = MkFactor @(Arr a b) @a @b (Arr a b) allFunsArr (\z -> z) SubRefl SubRefl
 
 mkArrSubFactor :: forall (v :: Value) (w :: Value).
                   foreach (u21 :: Value) -> foreach (u22 :: Value)
-               -> Sub u21 v -> Sub w u22 -> Factor ('Arr u21 u22) v w
+               -> Sub u21 v -> Sub w u22 -> Factor (Arr u21 u22) v w
 mkArrSubFactor u21 u22 lt1 lt2 =
-  MkFactor @('Arr u21 u22) @v @w (Arr u21 u22) allFunsArr (\z -> z) lt1 lt2
+  MkFactor @(Arr u21 u22) @v @w (Arr u21 u22) allFunsArr (\z -> z) lt1 lt2
 
 mkDistFactor :: foreach (a :: Value) -> foreach (b :: Value) -> foreach (c :: Value)
-             -> Factor ('Join ('Arr a b) ('Arr a c)) a ('Join b c)
+             -> Factor (Join (Arr a b) (Arr a c)) a (Join b c)
 mkDistFactor a b c =
-  MkFactor @('Join ('Arr a b) ('Arr a c)) @a @('Join b c) (Join (Arr a b) (Arr a c))
+  MkFactor @(Join (Arr a b) (Arr a c)) @a @(Join b c) (Join (Arr a b) (Arr a c))
     allFunsDist (\z -> z) subJoinSelf SubRefl
 
 -- | Transitivity factoring lemma (`sub-inv-trans`).
@@ -271,7 +270,7 @@ subInvTrans :: forall (u :: Value) (u2 :: Value).
                foreach (u' :: Value)
             -> AllFuns u'
             -> ValSubset u' u
-            -> (forall (v' :: Value) (w' :: Value). ValMem ('Arr v' w') u -> Factor u2 v' w')
+            -> (forall (v' :: Value) (w' :: Value). ValMem (Arr v' w') u -> Factor u2 v' w')
             -> Factor u2 (dom u') (cod u')
 subInvTrans Bot        fu _    _  = absurd (notFunBot (fu MemBot))
 subInvTrans (Arr _ _)  _  subU ih = ih (subU MemArr)
@@ -281,42 +280,42 @@ subInvTrans (Join a b) fu subU ih =
     (subInvTrans @u @u2 b (\m -> fu (MemJoinR m)) (\m -> subU (MemJoinR m)) ih)
 
 mapFactorL :: forall (a :: Value) (b :: Value) (v :: Value) (w :: Value).
-              Factor a v w -> Factor ('Join a b) v w
-mapFactorL (MkFactor u' f s d c) = MkFactor @('Join a b) @v @w u' f (\z -> MemJoinL (s z)) d c
+              Factor a v w -> Factor (Join a b) v w
+mapFactorL (MkFactor u' f s d c) = MkFactor @(Join a b) @v @w u' f (\z -> MemJoinL (s z)) d c
 
 mapFactorR :: forall (a :: Value) (b :: Value) (v :: Value) (w :: Value).
-              Factor b v w -> Factor ('Join a b) v w
-mapFactorR (MkFactor u' f s d c) = MkFactor @('Join a b) @v @w u' f (\z -> MemJoinR (s z)) d c
+              Factor b v w -> Factor (Join a b) v w
+mapFactorR (MkFactor u' f s d c) = MkFactor @(Join a b) @v @w u' f (\z -> MemJoinR (s z)) d c
 
-subInvRefl :: foreach (x :: Value) -> ValMem ('Arr v w) x -> Factor x v w
+subInvRefl :: foreach (x :: Value) -> ValMem (Arr v w) x -> Factor x v w
 subInvRefl Bot        m            = case m of {}
 subInvRefl (Arr a b)  MemArr       = mkArrFactor a b
 subInvRefl (Join a _) (MemJoinL m) = mapFactorL (subInvRefl a m)
 subInvRefl (Join _ b) (MemJoinR m) = mapFactorR (subInvRefl b m)
 
 subInvJoinR1 :: forall (a :: Value) (b :: Value) (u1 :: Value) (v :: Value) (w :: Value).
-                foreach (x :: Value) -> (x :~: 'Join a b) -> Sub u1 a -> ValMem ('Arr v w) u1 -> Factor x v w
+                foreach (x :: Value) -> (x :~: Join a b) -> Sub u1 a -> ValMem (Arr v w) u1 -> Factor x v w
 subInvJoinR1 Bot        eq _ _ = case eq of {}
 subInvJoinR1 (Arr _ _)  eq _ _ = case eq of {}
 subInvJoinR1 (Join a _) eq lt1 m = case eq of
   Refl -> mapFactorL (subInv a lt1 m)
 
 subInvJoinR2 :: forall (a :: Value) (b :: Value) (u1 :: Value) (v :: Value) (w :: Value).
-                foreach (x :: Value) -> (x :~: 'Join a b) -> Sub u1 b -> ValMem ('Arr v w) u1 -> Factor x v w
+                foreach (x :: Value) -> (x :~: Join a b) -> Sub u1 b -> ValMem (Arr v w) u1 -> Factor x v w
 subInvJoinR2 Bot        eq _ _ = case eq of {}
 subInvJoinR2 (Arr _ _)  eq _ _ = case eq of {}
 subInvJoinR2 (Join _ b) eq lt2 m = case eq of
   Refl -> mapFactorR (subInv b lt2 m)
 
 subInvArr :: forall (u21 :: Value) (u22 :: Value) (v :: Value) (w :: Value).
-             foreach (x :: Value) -> (x :~: 'Arr u21 u22) -> Sub u21 v -> Sub w u22 -> Factor x v w
+             foreach (x :: Value) -> (x :~: Arr u21 u22) -> Sub u21 v -> Sub w u22 -> Factor x v w
 subInvArr Bot        eq _   _   = case eq of {}
 subInvArr (Join _ _) eq _   _   = case eq of {}
 subInvArr (Arr a b)  eq lt1 lt2 = case eq of
   Refl -> mkArrSubFactor @v @w a b lt1 lt2
 
 subInvDist :: forall (a :: Value) (b :: Value) (c :: Value).
-              foreach (x :: Value) -> (x :~: 'Join ('Arr a b) ('Arr a c)) -> Factor x a ('Join b c)
+              foreach (x :: Value) -> (x :~: Join (Arr a b) (Arr a c)) -> Factor x a (Join b c)
 subInvDist Bot        eq = case eq of {}
 subInvDist (Arr _ _)  eq = case eq of {}
 subInvDist (Join l r) eq = case l of
@@ -331,7 +330,7 @@ subInvDist (Join l r) eq = case l of
 -- | Main inversion theorem for `Sub` (`sub-inv`): if `u1 ⊑ u2` and `v ↦ w ∈ u1`,
 -- then `v ↦ w` factors `u2` into a sub-collection of functions.
 subInv :: forall (u1 :: Value) (v :: Value) (w :: Value).
-          foreach (u2 :: Value) -> Sub u1 u2 -> ValMem ('Arr v w) u1 -> Factor u2 v w
+          foreach (u2 :: Value) -> Sub u1 u2 -> ValMem (Arr v w) u1 -> Factor u2 v w
 subInv u2 lt m = case lt of
   SubBot            -> case m of {}
   SubRefl           -> subInvRefl u2 m
@@ -352,9 +351,9 @@ subInv u2 lt m = case lt of
     MemArr -> subInvDist u2 Refl
 
 finishArrSubInv :: forall (v :: Value) (w :: Value) (v' :: Value) (w' :: Value).
-                   Factor ('Arr v' w') v w -> (Sub v' v, Sub w w')
+                   Factor (Arr v' w') v w -> (Sub v' v, Sub w w')
 finishArrSubInv (MkFactor g f s db cc) = case allFunsMem g f of
-  MkSomeArrMem u u' m -> case s @('Arr u u') m of
+  MkSomeArrMem u u' m -> case s @(Arr u u') m of
     MemArr ->
       ( SubTrans (dom g) (subsetToSub @(dom g) u (\x -> arrMemToSubDom @u @u' g m x)) db
       , SubTrans (cod g) cc (subsetToSub @w' (cod g) (\x -> subArrToCodSub @v' @w' g s x)) )
@@ -362,20 +361,20 @@ finishArrSubInv (MkFactor g f s db cc) = case allFunsMem g f of
 -- | Function subtyping inversion (`↦⊑↦-inv`): if `v ↦ w ⊑ v' ↦ w'` then `v' ⊑ v` and `w ⊑ w'`.
 arrSubArrInv :: forall (v :: Value) (w :: Value).
                 foreach (v' :: Value) -> foreach (w' :: Value)
-             -> Sub ('Arr v w) ('Arr v' w') -> (Sub v' v, Sub w w')
+             -> Sub (Arr v w) (Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 427 "content/part3/Denotational.md" #-}
+{-# LINE 499 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
-  VNil  :: ValEnv 'Zero
-  VCons :: ValEnv n -> Value -> ValEnv ('Succ n)
+  VNil  :: ValEnv Zero
+  VCons :: ValEnv n -> Value -> ValEnv (Succ n)
 
 -- | Relational variable lookup in a value environment.
 type ValLookup :: forall (n :: Nat). ValEnv n -> Fin n -> Value -> Type
 data ValLookup e x v where
-  VLZ :: ValLookup ('VCons e v) 'FZ v
-  VLS :: ValLookup e x v -> ValLookup ('VCons e w) ('FS x) v
+  VLZ :: ValLookup (VCons e v) FZ v
+  VLS :: ValLookup e x v -> ValLookup (VCons e w) (FS x) v
 
 -- | Witness that variable `x` in `e2` has a value at least `v1`.
 data LookupSub (e2 :: ValEnv n) (x :: Fin n) (v1 :: Value) where
@@ -389,13 +388,13 @@ type EnvSub (e1 :: ValEnv n) (e2 :: ValEnv n) =
 envSubRefl :: EnvSub e e
 envSubRefl lk = LSRefl lk
 
-envSubCons :: ValW v2 -> EnvSub e1 e2 -> Sub v1 v2 -> EnvSub ('VCons e1 v1) ('VCons e2 v2)
+envSubCons :: ValW v2 -> EnvSub e1 e2 -> Sub v1 v2 -> EnvSub (VCons e1 v1) (VCons e2 v2)
 envSubCons wv2 _  lt VLZ      = LSSub wv2 VLZ lt
 envSubCons _   es _  (VLS lk) = case es lk of
   LSRefl lk2       -> LSRefl (VLS lk2)
   LSSub wv2 lk2 lt -> LSSub wv2 (VLS lk2) lt
 
-envSubConsRefl :: EnvSub e1 e2 -> EnvSub ('VCons e1 v) ('VCons e2 v)
+envSubConsRefl :: EnvSub e1 e2 -> EnvSub (VCons e1 v) (VCons e2 v)
 envSubConsRefl _  VLZ      = LSRefl VLZ
 envSubConsRefl es (VLS lk) = case es lk of
   LSRefl lk2       -> LSRefl (VLS lk2)
@@ -407,39 +406,39 @@ envSubConsRefl es (VLS lk) = case es lk of
 -- application inversion (`Compositional`) and the Fundamental Lemma (`Adequacy`).
 type Denotes :: forall (n :: Nat). ValEnv n -> UTerm n -> Value -> Type
 data Denotes e m v where
-  DVar   :: ValLookup e x v -> Denotes e ('UVar x) v
-  DElim  :: ValW v -> Denotes e l ('Arr v w) -> Denotes e m v -> Denotes e ('UApp l m) w
-  DIntro :: Denotes ('VCons e v) b w -> Denotes e ('ULam b) ('Arr v w)
-  DBot   :: Denotes e m 'Bot
-  DJoin  :: ValW v -> ValW w -> Denotes e m v -> Denotes e m w -> Denotes e m ('Join v w)
+  DVar   :: ValLookup e x v -> Denotes e (UVar x) v
+  DElim  :: ValW v -> Denotes e l (Arr v w) -> Denotes e m v -> Denotes e (UApp l m) w
+  DIntro :: Denotes (VCons e v) b w -> Denotes e (ULam b) (Arr v w)
+  DBot   :: Denotes e m Bot
+  DJoin  :: ValW v -> ValW w -> Denotes e m v -> Denotes e m w -> Denotes e m (Join v w)
   DSub   :: ValW v -> Denotes e m v -> Sub w v -> Denotes e m w
 
 -- | Identity function: `e ⊢ λx. x ↓ v ↦ v`.
-denotId :: Denotes e ('ULam ('UVar 'FZ)) ('Arr v v)
+denotId :: Denotes e (ULam (UVar FZ)) (Arr v v)
 denotId = DIntro (DVar VLZ)
 
 -- | Two-row table for identity: `e ⊢ λx. x ↓ (v ↦ v) ⊔ (w ↦ w)`.
-denotIdTwo :: ValW v -> ValW w -> Denotes e ('ULam ('UVar 'FZ)) ('Join ('Arr v v) ('Arr w w))
+denotIdTwo :: ValW v -> ValW w -> Denotes e (ULam (UVar FZ)) (Join (Arr v v) (Arr w w))
 denotIdTwo (MkValW v) (MkValW w) =
   DJoin (MkValW (Arr v v)) (MkValW (Arr w w)) denotId denotId
 
 -- | Self-application of identity: `[] ⊢ id · id ↓ u ↦ u`.
-denotIdAppId :: ValW u -> Denotes 'VNil ('UApp ('ULam ('UVar 'FZ)) ('ULam ('UVar 'FZ))) ('Arr u u)
+denotIdAppId :: ValW u -> Denotes VNil (UApp (ULam (UVar FZ)) (ULam (UVar FZ))) (Arr u u)
 denotIdAppId (MkValW u) = DElim (MkValW (Arr u u)) denotId denotId
 
 -- | Self-application combinator Δ = λx. x x: `[] ⊢ Δ ↓ ((v ↦ w) ⊔ v) ↦ w`.
 denotDelta :: ValW v -> ValW w
-           -> Denotes 'VNil ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ))) ('Arr ('Join ('Arr v w) v) w)
+           -> Denotes VNil (ULam (UApp (UVar FZ) (UVar FZ))) (Arr (Join (Arr v w) v) w)
 denotDelta wv@(MkValW v) (MkValW w) =
   let wTable = MkValW (Join (Arr v w) v)
   in DIntro (DElim wv (DSub wTable (DVar VLZ) (SubJoinR1 SubRefl))
                       (DSub wTable (DVar VLZ) (SubJoinR2 SubRefl)))
 
 -- | Diverging term Ω = Δ · Δ derives ⊥ (both via `DElim` and trivially via `DBot`).
-denotOmega :: Denotes 'VNil
-                ('UApp ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)))
-                       ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ))))
-                'Bot
+denotOmega :: Denotes VNil
+                (UApp (ULam (UApp (UVar FZ) (UVar FZ)))
+                      (ULam (UApp (UVar FZ) (UVar FZ))))
+                Bot
 denotOmega =
   DElim (MkValW (Join (Arr Bot Bot) Bot))
         (denotDelta (MkValW Bot) (MkValW Bot))
@@ -457,9 +456,10 @@ envSubMono es (DJoin w1 w2 d1 d2) = DJoin w1 w2 (envSubMono es d1) (envSubMono e
 envSubMono es (DSub wv d lt)    = DSub wv (envSubMono es d) lt
 
 -- | Enlarging the most recently bound variable (`up-env`).
-upEnv :: ValW u2 -> Denotes ('VCons e u1) m v -> Sub u1 u2 -> Denotes ('VCons e u2) m v
+upEnv :: ValW u2 -> Denotes (VCons e u1) m v -> Sub u1 u2 -> Denotes (VCons e u2) m v
 upEnv wu2 d lt = envSubMono (envSubCons wu2 envSubRefl lt) d
 
+{-# LINE 603 "content/part3/Denotational.md" #-}
 -- | A denotation in scope depth `n` relates environments to values (matchable arrows `%M`).
 type Denotation (n :: Nat) = ValEnv n %M -> Value %M -> Type
 

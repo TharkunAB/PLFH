@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 14 "content/part3/Soundness.md" #-}
+{-# LINE 42 "content/part3/Soundness.md" #-}
 module PLFH.Part3.Soundness
   ( InsertEnv (..)
   , denotShift
@@ -51,12 +51,12 @@ import PLFH.Part3.Denotational
   , unArrW
   )
 
-{-# LINE 82 "content/part3/Soundness.md" #-}
+{-# LINE 104 "content/part3/Soundness.md" #-}
 -- | Inserting a single value `u` at de Bruijn index `c` into `e` yields `e'`.
-type InsertEnv :: forall (n :: Nat). Fin ('Succ n) -> ValEnv n -> Value -> ValEnv ('Succ n) -> Type
+type InsertEnv :: forall (n :: Nat). Fin (Succ n) -> ValEnv n -> Value -> ValEnv (Succ n) -> Type
 data InsertEnv c e u e' where
-  IEZ :: InsertEnv 'FZ e u ('VCons e u)
-  IES :: InsertEnv c e u e' -> InsertEnv ('FS c) ('VCons e w) u ('VCons e' w)
+  IEZ :: InsertEnv FZ e u (VCons e u)
+  IES :: InsertEnv c e u e' -> InsertEnv (FS c) (VCons e w) u (VCons e' w)
 
 lookupBump :: InsertEnv c e u e' -> BumpFin c x y -> ValLookup e x v -> ValLookup e' y v
 lookupBump IEZ      BumpZ       lk       = VLS lk
@@ -104,7 +104,7 @@ denotUnshift _                  _  DBot               = DBot
 denotUnshift sh                 ie (DJoin w1 w2 d1 d2) = DJoin w1 w2 (denotUnshift sh ie d1) (denotUnshift sh ie d2)
 denotUnshift sh                 ie (DSub wv d lt)     = DSub wv (denotUnshift sh ie d) lt
 
-{-# LINE 143 "content/part3/Soundness.md" #-}
+{-# LINE 171 "content/part3/Soundness.md" #-}
 -- | Forward single-variable substitution lemma (`subst-pres`).
 denotSubst :: SubstAtU c w m m'
            -> InsertEnv c e u e'
@@ -121,16 +121,16 @@ denotSubst sub             ie dw (DSub wv d lt)     = DSub wv (denotSubst sub ie
 
 -- | Existential result of backward substitution expansion: an argument value `u`,
 -- an extended environment `e'`, a denotation `e ⊢ w ↓ u`, and `e' ⊢ m ↓ v`.
-data SubstReflRes (c :: Fin ('Succ n)) (e :: ValEnv n) (w :: UTerm n) (m :: UTerm ('Succ n)) (v :: Value) where
-  MkSubstRefl :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (w :: UTerm n)
-                        (m :: UTerm ('Succ n)) (v :: Value) (u :: Value) (e' :: ValEnv ('Succ n)).
+data SubstReflRes (c :: Fin (Succ n)) (e :: ValEnv n) (w :: UTerm n) (m :: UTerm (Succ n)) (v :: Value) where
+  MkSubstRefl :: forall (n :: Nat) (c :: Fin (Succ n)) (e :: ValEnv n) (w :: UTerm n)
+                        (m :: UTerm (Succ n)) (v :: Value) (u :: Value) (e' :: ValEnv (Succ n)).
                  ValW u
               -> InsertEnv c e u e'
               -> Denotes e w u
               -> Denotes e' m v
               -> SubstReflRes c e w m v
 
-data RebindInsert (c :: Fin ('Succ n)) (e :: ValEnv n) (u :: Value) where
+data RebindInsert (c :: Fin (Succ n)) (e :: ValEnv n) (u :: Value) where
   MkRebindInsert :: InsertEnv c e u e' -> RebindInsert c e u
 
 rebindInsert :: InsertEnv c e u1 e1 -> RebindInsert c e u2
@@ -138,9 +138,9 @@ rebindInsert IEZ      = MkRebindInsert IEZ
 rebindInsert (IES ie) = case rebindInsert ie of
   MkRebindInsert ie' -> MkRebindInsert (IES ie')
 
-data JoinInsertRes (c :: Fin ('Succ n)) (e :: ValEnv n) (u1 :: Value) (u2 :: Value)
-                   (e1 :: ValEnv ('Succ n)) (e2 :: ValEnv ('Succ n)) where
-  MkJoinInsert :: InsertEnv c e ('Join u1 u2) e3
+data JoinInsertRes (c :: Fin (Succ n)) (e :: ValEnv n) (u1 :: Value) (u2 :: Value)
+                   (e1 :: ValEnv (Succ n)) (e2 :: ValEnv (Succ n)) where
+  MkJoinInsert :: InsertEnv c e (Join u1 u2) e3
                -> EnvSub e1 e3
                -> EnvSub e2 e3
                -> JoinInsertRes c e u1 u2 e1 e2
@@ -160,11 +160,11 @@ joinInsert wu1 wu2 (IES ie1) (IES ie2) = case joinInsert wu1 wu2 ie1 ie2 of
 
 -- | Backward single-variable substitution expansion (`subst-reflect`)!
 denotSubstReflect
-  :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (eBot :: ValEnv ('Succ n))
-            (w :: UTerm n) (m :: UTerm ('Succ n)) (m' :: UTerm n) (v :: Value).
+  :: forall (n :: Nat) (c :: Fin (Succ n)) (e :: ValEnv n) (eBot :: ValEnv (Succ n))
+            (w :: UTerm n) (m :: UTerm (Succ n)) (m' :: UTerm n) (v :: Value).
      ValW v
   -> SubstAtU c w m m'
-  -> InsertEnv c e 'Bot eBot
+  -> InsertEnv c e Bot eBot
   -> Denotes e m' v
   -> SubstReflRes c e w m v
 denotSubstReflect _  _   ieBot DBot = MkSubstRefl (MkValW Bot) ieBot DBot DBot
@@ -200,15 +200,15 @@ denotSubstReflect wv (SULam shW sB) ieBot (DIntro dBody) =
         MkSubstRefl wu ie (denotUnshift shW IEZ dwShifted) (DIntro db)
 
 -- | Unconditional β-redex preservation.
-betaPres :: SubstAtU 'FZ w b r -> Denotes ('VCons e u) b v -> Denotes e w u -> Denotes e r v
+betaPres :: SubstAtU FZ w b r -> Denotes (VCons e u) b v -> Denotes e w u -> Denotes e r v
 betaPres sub db dw = denotSubst sub IEZ dw db
 
 -- | Unconditional β-redex subject expansion.
-betaReflect :: ValW v -> SubstAtU 'FZ w b r -> Denotes e r v -> Denotes e ('UApp ('ULam b) w) v
+betaReflect :: ValW v -> SubstAtU FZ w b r -> Denotes e r v -> Denotes e (UApp (ULam b) w) v
 betaReflect wv sub dr = case denotSubstReflect wv sub IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 
-{-# LINE 254 "content/part3/Soundness.md" #-}
+{-# LINE 282 "content/part3/Soundness.md" #-}
 -- | Unconditional forward preservation under a single β-step (`preserve`).
 denotPreserve :: ValW v -> Denotes e m v -> BetaStep m m' -> Denotes e m' v
 denotPreserve _ (DVar _) step = case step of {}

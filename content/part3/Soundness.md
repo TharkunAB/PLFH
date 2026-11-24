@@ -8,6 +8,34 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Soundness/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
+A denotational semantics is only useful for reasoning about programs if it
+agrees with operational reduction! Specifically, if `M —↠ N` via full
+β-reduction (`BetaSteps` from [Untyped](/Untyped/)), then `M` and `N` must have
+the **exact same denotation**: `ℰ M ≃ ℰ N`!
+
+In PLFA's **Soundness** chapter, we prove **both directions** of that
+equivalence completely **unconditionally**:
+
+1. **Forward Preservation (`denotPreserve`, `denotPreserveMulti`):** If
+   `e ⊢ M ↓ v` and `M —→ N`, then `e ⊢ N ↓ v`. In the `Beta` case, we invert
+   `e ⊢ (λ b) · w ↓ v` using `lamInversion` from
+   [Compositional](/Compositional/) and apply forward substitution
+   (`denotSubst`).
+2. **Backward Subject Expansion (`denotReflect`, `denotReflectMulti`):** If
+   `e ⊢ N ↓ v` and `M —→ N`, then `e ⊢ M ↓ v`! Notice how interesting this
+   direction is: to reconstruct `e ⊢ (λ b) · w ↓ v` from `e ⊢ b [ w ] ↓ v`,
+   `denotSubstReflect` walks the derivation of `b [ w ]`, collecting every
+   finite approximation of `w` used at each occurrence of variable `c` and
+   **joining** them together into a single argument value `u` (`joinInsert`)!
+3. **Unconditional Soundness (`denotEquivSteps`):** Combining forward
+   preservation and backward reflection yields
+   `denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`!
+
+Every single theorem in this chapter checks **100% unconditionally** with
+`-dcore-lint -dstg-lint` and **zero `[WIP NOTICE]` gaps**!
+
+## Imports
+
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
@@ -59,31 +87,25 @@ import PLFH.Part3.Denotational
   )
 ```
 
-In PLFA's **Soundness** chapter, we prove that full β-reduction both
-**preserves** (`denotPreserve`, `denotPreserveMulti`) and **reflects**
-(`denotReflect`, `denotReflectMulti`) denotations: if `M —↠ N`, then
-`ℰ M ≃ ℰ N` (`denotEquivSteps`)!
-
-Because `BetaStep` in [Untyped](/Untyped/) uses our deterministic relational
-substitution `SubstAtU`, **every single lemma in this chapter—weakening
-(`denotShift`), strengthening (`denotUnshift`), forward substitution
-(`denotSubst`), backward substitution expansion (`denotSubstReflect`), forward
-preservation (`denotPreserve`), backward subject expansion (`denotReflect`),
-and full soundness (`denotEquivSteps`)—proves 100% unconditionally** with
-`-dcore-lint -dstg-lint`!
-
 ## Environment insertion, weakening (`denotShift`), and strengthening (`denotUnshift`)
 
-To track the variable position `c` across `ShiftU` and `SubstAtU`, we define
+Because our deterministic substitution relation `SubstAtU c w m m'` tracks the
+exact de Bruijn cutoff `c :: Fin (Succ n)` as it descends underneath lambda
+binders, we define the matching environment insertion relation
 `InsertEnv c e u e'`, witnessing that `e'` is obtained by inserting value `u`
-at index `c` into `e`:
+at index `c` into `e`.
+
+Six small lookup lemmas then immediately prove **weakening** (`denotShift`:
+shifting a term's free variables past a newly inserted environment slot
+preserves its denotation) and **strengthening** (`denotUnshift`: dropping an
+unused environment slot from a shifted term preserves its denotation):
 
 ```haskell
 -- | Inserting a single value `u` at de Bruijn index `c` into `e` yields `e'`.
-type InsertEnv :: forall (n :: Nat). Fin ('Succ n) -> ValEnv n -> Value -> ValEnv ('Succ n) -> Type
+type InsertEnv :: forall (n :: Nat). Fin (Succ n) -> ValEnv n -> Value -> ValEnv (Succ n) -> Type
 data InsertEnv c e u e' where
-  IEZ :: InsertEnv 'FZ e u ('VCons e u)
-  IES :: InsertEnv c e u e' -> InsertEnv ('FS c) ('VCons e w) u ('VCons e' w)
+  IEZ :: InsertEnv FZ e u (VCons e u)
+  IES :: InsertEnv c e u e' -> InsertEnv (FS c) (VCons e w) u (VCons e' w)
 
 lookupBump :: InsertEnv c e u e' -> BumpFin c x y -> ValLookup e x v -> ValLookup e' y v
 lookupBump IEZ      BumpZ       lk       = VLS lk
@@ -135,9 +157,15 @@ denotUnshift sh                 ie (DSub wv d lt)     = DSub wv (denotUnshift sh
 ## Substitution preservation (`denotSubst`) and expansion (`denotSubstReflect`)
 
 Both directions of single-variable substitution follow directly by structural
-induction on `Denotes` and `SubstAtU`, using environment monotonicity
-(`envSubMono`) to join argument values when an application or join needs two
-different approximations of the substituted term `w`:
+induction on `Denotes` and `SubstAtU`:
+- In **`denotSubst`**, wherever variable `c` is looked up (`SUEq`), we plug in
+  the given denotation `e ⊢ w ↓ u`; under a lambda (`SULam`), we weaken `dw`
+  using `denotShift`.
+- In **`denotSubstReflect`**, notice what happens when `c` occurs multiple
+  times (in `SUApp` or `DJoin`): the two sub-derivations may require two
+  different finite approximations `u₁` and `u₂` of `w`! We combine them into
+  `Join u₁ u₂` using `joinInsert` and `envSubMono`—and if `c` never occurs at
+  all (e.g., `DBot` or `SUNeq`), `Bot` suffices (`DBot`)!
 
 ```haskell
 -- | Forward single-variable substitution lemma (`subst-pres`).
@@ -156,16 +184,16 @@ denotSubst sub             ie dw (DSub wv d lt)     = DSub wv (denotSubst sub ie
 
 -- | Existential result of backward substitution expansion: an argument value `u`,
 -- an extended environment `e'`, a denotation `e ⊢ w ↓ u`, and `e' ⊢ m ↓ v`.
-data SubstReflRes (c :: Fin ('Succ n)) (e :: ValEnv n) (w :: UTerm n) (m :: UTerm ('Succ n)) (v :: Value) where
-  MkSubstRefl :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (w :: UTerm n)
-                        (m :: UTerm ('Succ n)) (v :: Value) (u :: Value) (e' :: ValEnv ('Succ n)).
+data SubstReflRes (c :: Fin (Succ n)) (e :: ValEnv n) (w :: UTerm n) (m :: UTerm (Succ n)) (v :: Value) where
+  MkSubstRefl :: forall (n :: Nat) (c :: Fin (Succ n)) (e :: ValEnv n) (w :: UTerm n)
+                        (m :: UTerm (Succ n)) (v :: Value) (u :: Value) (e' :: ValEnv (Succ n)).
                  ValW u
               -> InsertEnv c e u e'
               -> Denotes e w u
               -> Denotes e' m v
               -> SubstReflRes c e w m v
 
-data RebindInsert (c :: Fin ('Succ n)) (e :: ValEnv n) (u :: Value) where
+data RebindInsert (c :: Fin (Succ n)) (e :: ValEnv n) (u :: Value) where
   MkRebindInsert :: InsertEnv c e u e' -> RebindInsert c e u
 
 rebindInsert :: InsertEnv c e u1 e1 -> RebindInsert c e u2
@@ -173,9 +201,9 @@ rebindInsert IEZ      = MkRebindInsert IEZ
 rebindInsert (IES ie) = case rebindInsert ie of
   MkRebindInsert ie' -> MkRebindInsert (IES ie')
 
-data JoinInsertRes (c :: Fin ('Succ n)) (e :: ValEnv n) (u1 :: Value) (u2 :: Value)
-                   (e1 :: ValEnv ('Succ n)) (e2 :: ValEnv ('Succ n)) where
-  MkJoinInsert :: InsertEnv c e ('Join u1 u2) e3
+data JoinInsertRes (c :: Fin (Succ n)) (e :: ValEnv n) (u1 :: Value) (u2 :: Value)
+                   (e1 :: ValEnv (Succ n)) (e2 :: ValEnv (Succ n)) where
+  MkJoinInsert :: InsertEnv c e (Join u1 u2) e3
                -> EnvSub e1 e3
                -> EnvSub e2 e3
                -> JoinInsertRes c e u1 u2 e1 e2
@@ -195,11 +223,11 @@ joinInsert wu1 wu2 (IES ie1) (IES ie2) = case joinInsert wu1 wu2 ie1 ie2 of
 
 -- | Backward single-variable substitution expansion (`subst-reflect`)!
 denotSubstReflect
-  :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (eBot :: ValEnv ('Succ n))
-            (w :: UTerm n) (m :: UTerm ('Succ n)) (m' :: UTerm n) (v :: Value).
+  :: forall (n :: Nat) (c :: Fin (Succ n)) (e :: ValEnv n) (eBot :: ValEnv (Succ n))
+            (w :: UTerm n) (m :: UTerm (Succ n)) (m' :: UTerm n) (v :: Value).
      ValW v
   -> SubstAtU c w m m'
-  -> InsertEnv c e 'Bot eBot
+  -> InsertEnv c e Bot eBot
   -> Denotes e m' v
   -> SubstReflRes c e w m v
 denotSubstReflect _  _   ieBot DBot = MkSubstRefl (MkValW Bot) ieBot DBot DBot
@@ -235,11 +263,11 @@ denotSubstReflect wv (SULam shW sB) ieBot (DIntro dBody) =
         MkSubstRefl wu ie (denotUnshift shW IEZ dwShifted) (DIntro db)
 
 -- | Unconditional β-redex preservation.
-betaPres :: SubstAtU 'FZ w b r -> Denotes ('VCons e u) b v -> Denotes e w u -> Denotes e r v
+betaPres :: SubstAtU FZ w b r -> Denotes (VCons e u) b v -> Denotes e w u -> Denotes e r v
 betaPres sub db dw = denotSubst sub IEZ dw db
 
 -- | Unconditional β-redex subject expansion.
-betaReflect :: ValW v -> SubstAtU 'FZ w b r -> Denotes e r v -> Denotes e ('UApp ('ULam b) w) v
+betaReflect :: ValW v -> SubstAtU FZ w b r -> Denotes e r v -> Denotes e (UApp (ULam b) w) v
 betaReflect wv sub dr = case denotSubstReflect wv sub IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 ```
@@ -307,16 +335,29 @@ denotEquivSteps steps wv =
   )
 ```
 
+## Exercises
+
+#### Exercise `beta-conv-sound` (practice)
+
+Using `denotEquivSteps`, `denEqSym`, and `denEqTrans`, show that any two
+β-convertible terms (connected by a zig-zag of forward and backward
+`BetaSteps`) have equivalent denotations!
+
+#### Exercise `omega-denot-bot` (recommended)
+
+Reflect on why `denotPreserve` alone is **not** enough to prove `Ω` never
+denotes `Arr Bot Bot`—whereas [Adequacy](/Adequacy/) next will prove that any
+closed term denoting `Arr Bot Bot` *must* terminate at a lambda!
+
 ## Changes from PLFA
 
 - Adapted from [Soundness](https://plfa.inf.ed.ac.uk/Soundness/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Soundness.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- **100% unconditional proofs** passing `-dcore-lint -dstg-lint` over sound
-  relational `SubstAtU`/`BetaStep`: `InsertEnv`, `denotShift` (weakening),
-  `denotUnshift` (strengthening), `denotSubst` (forward substitution),
-  `denotSubstReflect` (backward substitution expansion), `betaPres`,
-  `betaReflect`, `denotPreserve`, `denotPreserveMulti`, `denotReflect`,
-  `denotReflectMulti`, and **`denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`**!
+- 100% unconditional proofs passing `-dcore-lint -dstg-lint` with zero
+  promoted-constructor ticks over sound relational `SubstAtU`/`BetaStep`:
+  `InsertEnv`, `denotShift`, `denotUnshift`, `denotSubst`, `denotSubstReflect`,
+  `betaPres`, `betaReflect`, `denotPreserve`, `denotPreserveMulti`,
+  `denotReflect`, `denotReflectMulti`, and `denotEquivSteps`.
 - Uses single-variable relational `SubstAtU` rather than functional simultaneous
   `substU` (tracked separately in `R13_SubstSingleUOpenEq.hs`).

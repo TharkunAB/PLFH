@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeFamilies #-}
 {-# LANGUAGE TypeOperators, UndecidableInstances #-}
-{-# LINE 16 "content/part3/Adequacy.md" #-}
+{-# LINE 54 "content/part3/Adequacy.md" #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -64,21 +64,21 @@ import PLFH.Part3.Denotational
   , unJoinW
   )
 
-{-# LINE 95 "content/part3/Adequacy.md" #-}
+{-# LINE 126 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
-  MkAboveFun :: Sub ('Arr v w) u -> AboveFun u
+  MkAboveFun :: Sub (Arr v w) u -> AboveFun u
 
-aboveFunArr :: AboveFun ('Arr v w)
+aboveFunArr :: AboveFun (Arr v w)
 aboveFunArr = MkAboveFun SubRefl
 
-aboveFunJoinL :: AboveFun a -> AboveFun ('Join a b)
+aboveFunJoinL :: AboveFun a -> AboveFun (Join a b)
 aboveFunJoinL (MkAboveFun lt) = MkAboveFun (SubJoinR1 lt)
 
-aboveFunJoinR :: AboveFun b -> AboveFun ('Join a b)
+aboveFunJoinR :: AboveFun b -> AboveFun (Join a b)
 aboveFunJoinR (MkAboveFun lt) = MkAboveFun (SubJoinR2 lt)
 
-aboveFunFromMem :: ValMem ('Arr v w) u -> AboveFun u
+aboveFunFromMem :: ValMem (Arr v w) u -> AboveFun u
 aboveFunFromMem m = MkAboveFun (memToSub m)
 
 -- | Upward closure of `AboveFun` under `Sub` (`above-fun-⊑`).
@@ -86,14 +86,14 @@ aboveFunSub :: foreach (u :: Value) -> AboveFun u -> Sub u u' -> AboveFun u'
 aboveFunSub u (MkAboveFun lt') lt = MkAboveFun (SubTrans u lt' lt)
 
 -- | Bottom is never above a function (`above-fun⊥`), proved via `subInv`!
-notAboveFunBot :: Not (AboveFun 'Bot)
+notAboveFunBot :: Not (AboveFun Bot)
 notAboveFunBot (MkAboveFun lt) = case subInv Bot lt MemArr of
   MkFactor u2 f s _ _ -> case allFunsMem u2 f of
     MkSomeArrMem _ _ m -> case s m of {}
 
 -- | If `u ⊔ u'` is above a function, then `u` or `u'` is (`above-fun-⊔`).
 aboveFunJoin :: foreach (u :: Value) -> foreach (u' :: Value)
-             -> AboveFun ('Join u u') -> Either (AboveFun u) (AboveFun u')
+             -> AboveFun (Join u u') -> Either (AboveFun u) (AboveFun u')
 aboveFunJoin u u' (MkAboveFun lt) = case subInv (Join u u') lt MemArr of
   MkFactor g f s _ _ -> case allFunsMem g f of
     MkSomeArrMem _ _ m -> case s m of
@@ -102,13 +102,13 @@ aboveFunJoin u u' (MkAboveFun lt) = case subInv (Join u u') lt MemArr of
 
 -- | If neither `u` nor `u'` is above a function, neither is their join.
 notAboveFunJoin :: foreach (u :: Value) -> foreach (u' :: Value)
-                -> Not (AboveFun u) -> Not (AboveFun u') -> Not (AboveFun ('Join u u'))
+                -> Not (AboveFun u) -> Not (AboveFun u') -> Not (AboveFun (Join u u'))
 notAboveFunJoin u u' nu nu' af = case aboveFunJoin u u' af of
   Left  au  -> nu au
   Right au' -> nu' au'
 
 -- | Converse: if `u ⊔ u'` is not above a function, neither component is.
-notAboveFunJoinInv :: Not (AboveFun ('Join u u')) -> (Not (AboveFun u), Not (AboveFun u'))
+notAboveFunJoinInv :: Not (AboveFun (Join u u')) -> (Not (AboveFun u), Not (AboveFun u'))
 notAboveFunJoinInv n = (\af -> n (aboveFunJoinL af), \af -> n (aboveFunJoinR af))
 
 -- | Decision procedure for `AboveFun` (`above-fun?`)!
@@ -120,41 +120,41 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 163 "content/part3/Adequacy.md" #-}
+{-# LINE 196 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
-  WLam :: WHNF ('ULam b)
+  WLam :: WHNF (ULam b)
 
 -- | Witness that evaluating `m` in `e` halts at a lambda closure related to `v`.
 type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
-  MkHaltsV :: EvalBig e m ('MkClos ('ULam b) d) -> LogVLam v d b -> HaltsV e m v
+  MkHaltsV :: EvalBig e m (MkClos (ULam b) d) -> LogVLam v d b -> HaltsV e m v
 
 -- | Expression logical relation `𝔼`: if `v` is above a function, `(m, e)` halts in `LogVLam`.
 type LogE :: forall (k :: Nat). Value -> Env k -> UTerm k -> Type
 type LogE v e m = AboveFun v -> HaltsV e m v
 
 -- | Wrapper for the impredicative `forall k d m` in the `Arr` clause of `LogVLam`.
-newtype LogArr (v :: Value) (w :: Value) (e :: Env n) (b :: UTerm ('Succ n)) =
+newtype LogArr (v :: Value) (w :: Value) (e :: Env n) (b :: UTerm (Succ n)) =
   MkLogArr { runLogArr :: forall (k :: Nat) (d :: Env k) (m :: UTerm k).
-                          LogE v d m -> AboveFun w -> HaltsV ('ECons ('MkClos m d) e) b w }
+                          LogE v d m -> AboveFun w -> HaltsV (ECons (MkClos m d) e) b w }
 
 -- | Value logical relation `𝕍` on lambda closures, defined by recursion on `Value`!
-type LogVLam :: forall (n :: Nat). Value -> Env n -> UTerm ('Succ n) -> Type
+type LogVLam :: forall (n :: Nat). Value -> Env n -> UTerm (Succ n) -> Type
 type family LogVLam v e b where
-  LogVLam 'Bot        e b = ()
-  LogVLam ('Arr v w)  e b = LogArr v w e b
-  LogVLam ('Join u v) e b = (LogVLam u e b, LogVLam v e b)
+  LogVLam Bot        e b = ()
+  LogVLam (Arr v w)  e b = LogArr v w e b
+  LogVLam (Join u v) e b = (LogVLam u e b, LogVLam v e b)
 
-logVBotLam :: LogVLam 'Bot e b
+logVBotLam :: LogVLam Bot e b
 logVBotLam = ()
 
-logVJoinLam :: LogVLam u e b -> LogVLam v e b -> LogVLam ('Join u v) e b
+logVJoinLam :: LogVLam u e b -> LogVLam v e b -> LogVLam (Join u v) e b
 logVJoinLam u v = (u, v)
 
 -- | Any value not above a function relates trivially to every lambda closure (`not-above-fun-𝕍`).
-notAboveFunLogV :: forall (n :: Nat) (e :: Env n) (b :: UTerm ('Succ n)).
+notAboveFunLogV :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)).
                    foreach (v :: Value) -> Not (AboveFun v) -> LogVLam v e b
 notAboveFunLogV Bot        _  = ()
 notAboveFunLogV (Arr _ _)  na = absurd (na aboveFunArr)
@@ -168,29 +168,29 @@ haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
               foreach (w1 :: Value) -> foreach (w2 :: Value)
            -> LogE w1 e m
            -> LogE w2 e m
-           -> LogE ('Join w1 w2) e m
+           -> LogE (Join w1 w2) e m
 haltsVJoin w1 w2 le1 le2 af = case (decAboveFun w1, decAboveFun w2) of
   (Yes af1, Yes af2) -> case (le1 af1, le2 af2) of
     (MkHaltsV ev1 lv1, MkHaltsV ev2 lv2) -> case evalDeterm ev1 ev2 of
       Refl -> MkHaltsV ev1 (lv1, lv2)
   (Yes af1, No na2) -> case le1 af1 of
-    MkHaltsV (ev1 :: EvalBig e m ('MkClos ('ULam b) (d :: Env k))) lv1 ->
+    MkHaltsV (ev1 :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv1 ->
       MkHaltsV ev1 (lv1, notAboveFunLogV @k @d @b w2 na2)
   (No na1, Yes af2) -> case le2 af2 of
-    MkHaltsV (ev2 :: EvalBig e m ('MkClos ('ULam b) (d :: Env k))) lv2 ->
+    MkHaltsV (ev2 :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv2 ->
       MkHaltsV ev2 (notAboveFunLogV @k @d @b w1 na1, lv2)
   (No na1, No na2) -> absurd (notAboveFunJoin w1 w2 na1 na2 af)
 
-subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm ('Succ n))
+subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n))
                         (a :: Value) (w1 :: Value) (w2 :: Value).
                  ValW w1 -> ValW w2
               -> (LogArr a w1 e b, LogArr a w2 e b)
-              -> LogArr a ('Join w1 w2) e b
+              -> LogArr a (Join w1 w2) e b
 subDistHelper (MkValW w1) (MkValW w2) (f1, f2) =
   MkLogArr (\le af -> haltsVJoin w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
 
 -- | Full unconditional downward closure of `LogVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
-subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm ('Succ n)) (u :: Value) (v :: Value).
+subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)) (u :: Value) (v :: Value).
               ValW u -> ValW v
            -> Sub u v
            -> LogVLam v e b
@@ -222,23 +222,23 @@ subLogE :: forall (n :: Nat) (e :: Env n) (m :: UTerm n) (u :: Value) (v :: Valu
         -> LogE v e m
         -> LogE u e m
 subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
-  MkHaltsV (ev :: EvalBig e m ('MkClos ('ULam b) (d :: Env k))) lv ->
+  MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 275 "content/part3/Adequacy.md" #-}
+{-# LINE 311 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
-  MkEnvLogHit :: EnvLookup e' x ('MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
+  MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
 
 -- | Environment logical relation (`𝒢`): every variable value in `e` is
 -- logically related to its closure in `e'`.
 type EnvLog (e' :: Env n) (e :: ValEnv n) =
   forall (x :: Fin n) (v :: Value). ValLookup e x v -> EnvLogHit e' x v
 
-envLogNil :: EnvLog 'ENil 'VNil
+envLogNil :: EnvLog ENil VNil
 envLogNil lk = case lk of {}
 
-envLogCons :: LogE v d' m' -> EnvLog e' e -> EnvLog ('ECons ('MkClos m' d') e') ('VCons e v)
+envLogCons :: LogE v d' m' -> EnvLog e' e -> EnvLog (ECons (MkClos m' d') e') (VCons e v)
 envLogCons le _  VLZ      = MkEnvLogHit ELZ le
 envLogCons _  el (VLS lk) = case el lk of
   MkEnvLogHit envLk le' -> MkEnvLogHit (ELS envLk) le'
@@ -267,16 +267,16 @@ fundamental wv el (DSub wSuper d1 lt) af =
 
 -- | Big-step termination witness: `(m, e)` evaluates to some lambda closure.
 data HaltsBig (e :: Env n) (m :: UTerm n) where
-  MkHaltsBig :: EvalBig e m ('MkClos ('ULam b) d) -> HaltsBig e m
+  MkHaltsBig :: EvalBig e m (MkClos (ULam b) d) -> HaltsBig e m
 
 -- | Unconditional Big-Step Adequacy theorem (`adequacy`):
 -- every closed term with a non-trivial function denotation halts at a lambda!
-adequacyBigStep :: ValW v -> Denotes 'VNil m v -> AboveFun v -> HaltsBig 'ENil m
+adequacyBigStep :: ValW v -> Denotes VNil m v -> AboveFun v -> HaltsBig ENil m
 adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev
 
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!
-adequacyIdApp :: HaltsBig 'ENil ('UApp ('ULam ('UVar 'FZ)) ('ULam ('UVar 'FZ)))
+adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
 adequacyIdApp =
   adequacyBigStep (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) aboveFunArr

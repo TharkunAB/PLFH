@@ -4,7 +4,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 15 "content/part3/Compositional.md" #-}
+{-# LINE 42 "content/part3/Compositional.md" #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -45,13 +45,13 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 71 "content/part3/Compositional.md" #-}
+{-# LINE 95 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
-type LamDen :: forall (n :: Nat). Denotation ('Succ n) -> ValEnv n -> Value -> Type
+type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
-  LDIntro :: d ('VCons e v) w -> LamDen d e ('Arr v w)
-  LDBot   :: LamDen d e 'Bot
-  LDJoin  :: ValW u -> ValW v -> LamDen d e u -> LamDen d e v -> LamDen d e ('Join u v)
+  LDIntro :: d (VCons e v) w -> LamDen d e (Arr v w)
+  LDBot   :: LamDen d e Bot
+  LDJoin  :: ValW u -> ValW v -> LamDen d e u -> LamDen d e v -> LamDen d e (Join u v)
 
 -- | Downward closure of `LamDen` under `Sub` (`sub-ℱ`).
 subLamDen :: ValW u -> ValW v -> LamDen (Den b) e v -> Sub u v -> LamDen (Den b) e u
@@ -72,7 +72,7 @@ subLamDen wu _  (LDJoin _ _ (LDIntro (MkDen d1)) (LDIntro (MkDen d2))) SubDist =
       (ww1, ww2) -> LDIntro (MkDen (DJoin ww1 ww2 d1 d2))
 
 -- | Forward direction (`ℰƛ→ℱℰ`).
-denLamToF :: ValW v -> Den ('ULam b) e v -> LamDen (Den b) e v
+denLamToF :: ValW v -> Den (ULam b) e v -> LamDen (Den b) e v
 denLamToF _  (MkDen (DIntro d))          = LDIntro (MkDen d)
 denLamToF _  (MkDen DBot)                = LDBot
 denLamToF _  (MkDen (DJoin w1 w2 d1 d2)) =
@@ -80,19 +80,19 @@ denLamToF _  (MkDen (DJoin w1 w2 d1 d2)) =
 denLamToF wv (MkDen (DSub wSuper d lt))  = subLamDen wv wSuper (denLamToF wSuper (MkDen d)) lt
 
 -- | Lambda inversion lemma (`lambda-inversion`): if `e ⊢ λb ↓ v1 ↦ v2` then `(e, v1) ⊢ b ↓ v2`.
-lamInversion :: ValW ('Arr v1 v2) -> Denotes e ('ULam b) ('Arr v1 v2) -> Denotes ('VCons e v1) b v2
+lamInversion :: ValW (Arr v1 v2) -> Denotes e (ULam b) (Arr v1 v2) -> Denotes (VCons e v1) b v2
 lamInversion wArr d = case denLamToF wArr (MkDen d) of
   LDIntro (MkDen db) -> db
 
 -- | Backward direction (`ℱℰ→ℰƛ`).
-fToDenLam :: LamDen (Den b) e v -> Den ('ULam b) e v
+fToDenLam :: LamDen (Den b) e v -> Den (ULam b) e v
 fToDenLam (LDIntro (MkDen d))   = MkDen (DIntro d)
 fToDenLam LDBot                 = MkDen DBot
 fToDenLam (LDJoin w1 w2 d1 d2)  =
   MkDen (DJoin w1 w2 (unDen (fToDenLam d1)) (unDen (fToDenLam d2)))
 
 -- | Compositional semantic equation for lambda: `ℰ (λb) ≃ ℱ (ℰ b)`.
-lamEquiv :: DenEq (Den ('ULam b)) (LamDen (Den b))
+lamEquiv :: DenEq (Den (ULam b)) (LamDen (Den b))
 lamEquiv wv = (denLamToF wv, fToDenLam)
 
 -- | `LamDen` respects denotational equivalence (`ℱ-cong`).
@@ -106,15 +106,15 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
     go eq' _   (LDJoin w1 w2 d1 d2) = LDJoin w1 w2 (go eq' w1 d1) (go eq' w2 d2)
 
 -- | Congruence for lambda abstraction (`lam-cong`): `ℰ b ≃ ℰ b'` implies `ℰ (λb) ≃ ℰ (λb')`.
-lamCong :: DenEq (Den b) (Den b') -> DenEq (Den ('ULam b)) (Den ('ULam b'))
+lamCong :: DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 142 "content/part3/Compositional.md" #-}
+{-# LINE 170 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
-  ADBot :: Sub w 'Bot -> AppDen d1 d2 e w
-  ADApp :: ValW v -> d1 e ('Arr v w) -> d2 e v -> AppDen d1 d2 e w
+  ADBot :: Sub w Bot -> AppDen d1 d2 e w
+  ADApp :: ValW v -> d1 e (Arr v w) -> d2 e v -> AppDen d1 d2 e w
 
 -- | Downward closure of `AppDen` under `Sub`.
 subAppDen :: ValW v -> AppDen (Den l) (Den m) e v -> Sub w v -> AppDen (Den l) (Den m) e w
@@ -126,7 +126,7 @@ subAppDen (MkValW v) (ADApp wArg@(MkValW a) (MkDen d1) d2) lt =
 joinAppDen :: ValW w1 -> ValW w2
            -> AppDen (Den l) (Den m) e w1
            -> AppDen (Den l) (Den m) e w2
-           -> AppDen (Den l) (Den m) e ('Join w1 w2)
+           -> AppDen (Den l) (Den m) e (Join w1 w2)
 joinAppDen _ _ (ADBot lt1) (ADBot lt2) = ADBot (SubJoinL lt1 lt2)
 joinAppDen _ (MkValW w2) (ADBot lt1) (ADApp wArg@(MkValW a) (MkDen d1) d2) =
   ADApp wArg
@@ -149,7 +149,7 @@ joinAppDen (MkValW w1) (MkValW w2)
   in ADApp (MkValW (Join v1 v2)) (MkDen d1F) (MkDen d2F)
 
 -- | Forward direction for application (`ℰ·→●ℰ`)!
-denAppToAppDen :: Den ('UApp l m) e w -> AppDen (Den l) (Den m) e w
+denAppToAppDen :: Den (UApp l m) e w -> AppDen (Den l) (Den m) e w
 denAppToAppDen (MkDen (DElim wv d1 d2))    = ADApp wv (MkDen d1) (MkDen d2)
 denAppToAppDen (MkDen DBot)                = ADBot SubRefl
 denAppToAppDen (MkDen (DJoin w1 w2 d1 d2)) =
@@ -157,12 +157,12 @@ denAppToAppDen (MkDen (DJoin w1 w2 d1 d2)) =
 denAppToAppDen (MkDen (DSub wv d lt))      = subAppDen wv (denAppToAppDen (MkDen d)) lt
 
 -- | Backward direction for application (`●ℰ→ℰ·`).
-appDenToDenApp :: AppDen (Den l) (Den m) e w -> Den ('UApp l m) e w
+appDenToDenApp :: AppDen (Den l) (Den m) e w -> Den (UApp l m) e w
 appDenToDenApp (ADBot lt)                        = MkDen (DSub (MkValW Bot) DBot lt)
 appDenToDenApp (ADApp wv (MkDen d1) (MkDen d2))  = MkDen (DElim wv d1 d2)
 
 -- | Compositional semantic equation for application: `ℰ (l · m) ≃ ℰ l ● ℰ m`!
-appEquiv :: DenEq (Den ('UApp l m)) (AppDen (Den l) (Den m))
+appEquiv :: DenEq (Den (UApp l m)) (AppDen (Den l) (Den m))
 appEquiv _ = (denAppToAppDen, appDenToDenApp)
 
 -- | `AppDen` respects denotational equivalence (`●-cong`).
@@ -176,13 +176,14 @@ appDenCong e1 e2 wv = (go e1 e2 wv, go (denEqSym e1) (denEqSym e2) wv)
 
 -- | Congruence for application (`app-cong`): `ℰ l ≃ ℰ l'` & `ℰ m ≃ ℰ m'` implies `ℰ (l·m) ≃ ℰ (l'·m')`!
 appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
-        -> DenEq (Den ('UApp l m)) (Den ('UApp l' m'))
+        -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
 
+{-# LINE 247 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
-  CLam  :: UCtx ('Succ m) ('Succ n) -> UCtx ('Succ m) n
+  CLam  :: UCtx (Succ m) (Succ n) -> UCtx (Succ m) n
   CAppL :: UCtx m n -> UTerm n -> UCtx m n
   CAppR :: UTerm n -> UCtx m n -> UCtx m n
 

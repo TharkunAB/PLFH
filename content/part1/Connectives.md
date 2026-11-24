@@ -45,18 +45,24 @@ is therefore a theorem of propositional logic!
 
 ## Imports
 
-We import `Void` and `absurd` from `Data.Void` and `Iff` from
-[Isomorphism](/Isomorphism/).
+We import propositional equality `(:~:)`, `Void` and `absurd` from `Data.Void`,
+and both `Iff` and polymorphic `Iso` from [Isomorphism](/Isomorphism/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
 module PLFH.Part1.Connectives
-  ( prodComm
+  ( swapProd
+  , swapProdRT
+  , prodCommIso
+  , prodComm
   , prodAssoc
   , prodUnitR
   , prodUnitL
   , prodZeroR
   , prodZeroL
+  , swapSum
+  , swapSumRT
+  , sumCommIso
   , sumComm
   , sumAssoc
   , sumZeroR
@@ -74,8 +80,9 @@ module PLFH.Part1.Connectives
   , arrCong
   ) where
 
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import PLFH.Part1.Isomorphism (Iff (..))
+import PLFH.Part1.Isomorphism (Iff (..), Iso (..))
 ```
 
 ## Conjunction (`(a, b)`) and Truth (`()`)
@@ -95,9 +102,21 @@ associative, has truth `()` as its left and right identity (`a × 1 = a`),
 and has falsehood `Void` as its left and right absorbing zero (`a × 0 = 0`):
 
 ```haskell
+-- | Swap the two components of a pair.
+swapProd :: (a, b) -> (b, a)
+swapProd (x, y) = (y, x)
+
+-- | Swapping a pair twice returns the original pair.
+swapProdRT :: foreach (p :: (a, b)) -> swapProd (swapProd p) :~: p
+swapProdRT p = case p of { (,) _ _ -> Refl }
+
+-- | Commutativity of conjunction as a true isomorphism: (a, b) ≃ (b, a).
+prodCommIso :: Iso (a, b) (b, a)
+prodCommIso = MkIso swapProd swapProd swapProdRT swapProdRT
+
 -- | Commutativity of conjunction: (a, b) ⇔ (b, a).
 prodComm :: Iff (a, b) (b, a)
-prodComm = Iff (\(x, y) -> (y, x)) (\(y, x) -> (x, y))
+prodComm = Iff swapProd swapProd
 
 -- | Associativity of conjunction: ((a, b), c) ⇔ (a, (b, c)).
 prodAssoc :: Iff ((a, b), c) (a, (b, c))
@@ -143,9 +162,23 @@ associative, with falsehood `Void` as its left and right identity
 (`a + 0 = a`):
 
 ```haskell
+-- | Swap the two branches of a sum.
+swapSum :: Either a b -> Either b a
+swapSum (Left x)  = Right x
+swapSum (Right y) = Left y
+
+-- | Swapping a sum twice returns the original sum.
+swapSumRT :: foreach (s :: Either a b) -> swapSum (swapSum s) :~: s
+swapSumRT (Left _)  = Refl
+swapSumRT (Right _) = Refl
+
+-- | Commutativity of disjunction as a true isomorphism: Either a b ≃ Either b a.
+sumCommIso :: Iso (Either a b) (Either b a)
+sumCommIso = MkIso swapSum swapSum swapSumRT swapSumRT
+
 -- | Commutativity of disjunction: Either a b ⇔ Either b a.
 sumComm :: Iff (Either a b) (Either b a)
-sumComm = Iff (either Right Left) (either Right Left)
+sumComm = Iff swapSum swapSum
 
 -- | Associativity of disjunction: Either (Either a b) c ⇔ Either a (Either b c).
 sumAssoc :: Iff (Either (Either a b) c) (Either a (Either b c))
@@ -263,19 +296,15 @@ arrCong :: Iff a a' -> Iff b b' -> Iff (a -> b) (a' -> b')
 arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Upgrading polymorphic connective laws from <code>Iff</code> to <code>Iso</code> (R13)]</strong>
-Although polymorphic <code>Iso a b</code> is now checked in
-<a href="/Isomorphism/">Isomorphism</a>, upgrading algebraic connective laws
-such as <code>sumComm :: Iso (Either a b) (Either b a)</code> or
-<code>prodComm :: Iso (a, b) (b, a)</code> currently awaits checked open
-equations for polymorphic swap functions on sums and products
-(<code>GHC-68947</code>; see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PolymorphicSwapOpenEq.hs"><code>reproducers/R13_PolymorphicSwapOpenEq.hs</code></a>),
-and exponential laws such as <code>currying</code> additionally rely on
-function extensionality (which neither Agda nor Dependent Haskell proves
-internally).
-</div>
+## Isomorphisms vs. logical equivalences
+
+Above we proved commutativity of both products (`prodCommIso :: Iso (a, b) (b, a)`)
+and sums (`sumCommIso :: Iso (Either a b) (Either b a)`) as **full polymorphic
+isomorphisms** with machine-checked round-trip proofs (`swapProdRT`,
+`swapSumRT`), while stating associativity, unit/zero, distributivity, and the
+exponential laws via `Iff`. Notice that the exponential laws (like `currying`)
+additionally require function extensionality to upgrade from `Iff` to `Iso`—which
+neither Agda nor Dependent Haskell proves internally without an axiom.
 
 ## Exercises
 
@@ -299,7 +328,8 @@ Check by hand that for any finite type `a` with `n` inhabitants,
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Connectives.lagda.md)),
   licensed under CC BY 4.0.
 - Uses standard Haskell `(,)`, `Either`, `()`, and `Void` directly.
-- Proved all commutative semiring, exponential (`currying`, `expSum`,
+- Proved polymorphic product & sum commutativity as genuine isomorphisms
+  (`prodCommIso :: Iso (a, b) (b, a)` and `sumCommIso :: Iso (Either a b) (Either b a)`),
+  along with all commutative semiring, exponential (`currying`, `expSum`,
   `expProd`, `expUnit`, `expZero`, `expToUnit`), and congruence (`prodCong`,
-  `sumCong`, `arrCong`) laws as constructive `Iff` equivalences; noted the
-  upgrade to `Iso` with `[WIP NOTICE]` (`R13_PolymorphicSwapOpenEq.hs`).
+  `sumCong`, `arrCong`) laws as constructive `Iff` equivalences.

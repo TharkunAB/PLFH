@@ -8,6 +8,35 @@ plfaChapter: https://plfa.inf.ed.ac.uk/ContextualEquivalence/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
+When should a compiler optimization—such as replacing an expression `M` with an
+optimized expression `N`—be considered **behaviorally valid**?
+
+James H. Morris (1968) and Gordon Plotkin gave the gold-standard operational
+definition: **contextual equivalence** (`M ≃ᶜᵗˣ N`). Two terms `M` and `N` are
+contextually equivalent if, for **every** closing program context `C[_]` into
+which we can plug them, `C[M]` terminates if and only if `C[N]` terminates!
+
+### Why proving contextual equivalence directly is hard—and why Part 3 makes it easy
+
+Proving `M ≃ᶜᵗˣ N` directly from operational semantics is notoriously difficult
+because of the universal quantification over **all possible contexts `C`**.
+Yet once we have our three pillars from Part 3—**Compositionality**,
+**Soundness**, and **Adequacy**—the proof that **denotational equality implies
+contextual equivalence** (`ℰ M ≃ ℰ N` implies `M ≃ᶜᵗˣ N`) takes only **one
+line**!
+
+Suppose `ℰ M ≃ ℰ N` and `C[M]` terminates at some lambda `λ b` (`C[M] —↠ λ b`):
+1. By **Compositionality** ([Compositional](/Compositional/)), `ℰ (C[M]) ≃ ℰ (C[N])`.
+2. By **Soundness** ([Soundness](/Soundness/)), `C[M] —↠ λ b` implies
+   `ℰ (C[M]) ≃ ℰ (λ b)`.
+3. By symmetry and transitivity of `≃`, `ℰ (C[N]) ≃ ℰ (λ b)`.
+4. By **Adequacy** ([Adequacy](/Adequacy/)), since `λ b` has a non-trivial
+   function denotation (`⊥ ↦ ⊥`), `C[N]` must also terminate!
+
+And by symmetry, if `C[N]` terminates then `C[M]` terminates too!
+
+## Imports
+
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
@@ -27,26 +56,19 @@ import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 ```
 
-In PLFA's final Part 3 chapter, **ContextualEquivalence**, we combine
-**Compositionality**, **Soundness**, and **Adequacy** to prove that
-denotationally equal terms are *contextually equivalent*: plugging them into
-any closing context `C` produces programs that either both terminate or both
-diverge.
-
 ## Termination and the contextual equivalence corollary
 
-Now that [Soundness](/Soundness/) (`denotEquivSteps`) and big-step
-[Adequacy](/Adequacy/) (`adequacyBigStep`) are both proved **unconditionally**,
-`denotEqualCtxEquivFromSoundness` instantiates `SoundnessProp` directly with
-`Soundness.denotEquivSteps` (parameterized only by the small-step `AdequacyProp`
-bridge while big-step → small-step and `UCtx`/`plug` compositionality await
-our tracked R03/R13 blockers):
+Because [Soundness](/Soundness/) (`denotEquivSteps`) is proved
+**unconditionally**, `denotEqualCtxEquivFromSoundness` instantiates
+`SoundnessProp` directly with `Soundness.denotEquivSteps` (parameterized only
+by the small-step `AdequacyProp` bridge while big-step → small-step and
+`UCtx`/`plug` compositionality await our tracked R03/R13 blockers):
 
 ```haskell
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
-  MkTerminates :: BetaSteps m ('ULam b) -> Terminates m
+  MkTerminates :: BetaSteps m (ULam b) -> Terminates m
 
 -- | Soundness property: multi-step β-reduction preserves and reflects denotations.
 type SoundnessProp =
@@ -55,13 +77,13 @@ type SoundnessProp =
 
 -- | Adequacy property: a closed term denotationally equal to a lambda terminates.
 type AdequacyProp =
-  forall (u :: UTerm 'Zero) (b :: UTerm ('Succ 'Zero)).
-    DenEq (Den u) (Den ('ULam b)) -> Terminates u
+  forall (u :: UTerm Zero) (b :: UTerm (Succ Zero)).
+    DenEq (Den u) (Den (ULam b)) -> Terminates u
 
 -- | One direction (`denot-equal-terminates`): if `ℰ (C[M]) ≃ ℰ (C[N])` and
 -- `C[M]` terminates (for closed plugged programs `cm`, `cn`), then `C[N]` terminates.
 denotEqualTerminates
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      SoundnessProp
   -> AdequacyProp
   -> DenEq (Den cm) (Den cn)
@@ -73,7 +95,7 @@ denotEqualTerminates soundness adequacy eqC (MkTerminates cmToLam) =
 -- | Both directions (`denot-equal-contex-equal`): denotational equality of
 -- closed plugged contexts implies mutual termination (contextual equivalence).
 denotEqualCtxEquiv
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      SoundnessProp
   -> AdequacyProp
   -> DenEq (Den cm) (Den cn)
@@ -85,7 +107,7 @@ denotEqualCtxEquiv soundness adequacy eqC =
 
 -- | Instantiate `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`!
 denotEqualCtxEquivFromSoundness
-  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
      AdequacyProp
   -> DenEq (Den cm) (Den cn)
   -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
@@ -95,18 +117,37 @@ denotEqualCtxEquivFromSoundness = denotEqualCtxEquiv denotEquivSteps
 <div class="wip-notice">
 <strong>[WIP NOTICE — Unconditional Contextual Equivalence over <code>UCtx</code> / <code>plug</code>]</strong>
 The checked theorems above prove the exact logical reduction from
-compositionality, soundness, and adequacy to contextual equivalence. Obtaining
-the unconditional theorem quantified over arbitrary <code>UCtx m 'Zero</code>
-with <code>plug c m</code> awaits the remaining theorem blockers tracked in
-<a href="/Compositional/">Compositional</a>, <a href="/Soundness/">Soundness</a>,
-<a href="/Adequacy/">Adequacy</a>, and <a href="/BigStep/">BigStep</a>.
+compositionality, soundness, and adequacy to contextual equivalence—with
+<code>SoundnessProp</code> already discharged unconditionally via
+<code>Soundness.denotEquivSteps</code>. Obtaining the unconditional theorem
+quantified over arbitrary <code>UCtx m Zero</code> with <code>plug c m</code>
+awaits the remaining theorem blockers tracked in
+<a href="/Compositional/">Compositional</a> (<code>plug</code> open equations)
+and <a href="/Adequacy/">Adequacy</a> (big-step → small-step bridge).
 </div>
+
+## Exercises
+
+#### Exercise `beta-ctx-equiv` (practice)
+
+Using `denotEquivSteps` from [Soundness](/Soundness/) together with
+`denotEqualCtxEquivFromSoundness`, verify that whenever two closed terms satisfy
+`BetaSteps m n`, they terminate identically under any `AdequacyProp`.
+
+#### Exercise `full-abstraction` (stretch)
+
+Our theorem proves *soundness* of denotational equality for contextual
+equivalence: `ℰ M ≃ ℰ N` implies `M ≃ᶜᵗˣ N`. Think about the converse
+(**full abstraction**): if `M ≃ᶜᵗˣ N`, must `ℰ M ≃ ℰ N`? (Hint: consider
+Plotkin's famous *parallel-or* question—is there a finite table in `Value` that
+no sequential λ-term can distinguish?)
 
 ## Changes from PLFA
 
 - Adapted from [ContextualEquivalence](https://plfa.inf.ed.ac.uk/ContextualEquivalence/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/ContextualEquivalence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of `Terminates`, `denotEqualTerminates`, and
-  `denotEqualCtxEquiv` (explicitly parameterized by `SoundnessProp` and
-  `AdequacyProp` while those upstream Part 3 theorem blockers remain open).
+- Checked direct ports of `Terminates`, `denotEqualTerminates`,
+  `denotEqualCtxEquiv`, and `denotEqualCtxEquivFromSoundness` (discharging
+  `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`), with zero
+  promoted-constructor ticks.

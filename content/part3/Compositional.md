@@ -8,6 +8,33 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Compositional/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
+What makes a semantics truly **denotational**? **Compositionality** (Frege's
+principle): *the meaning of a compound expression depends solely on the
+meanings of its immediate subexpressions!*
+
+In [Denotational](/Denotational/), we defined `Denotes` (`e ⊢ M ↓ v`) via six
+inductive rules. Three rules (`DVar`, `DElim`, `DIntro`) are syntax-directed,
+but the other three (`DBot`, `DJoin`, `DSub`) apply to *any* term `M`! That
+means knowing `e ⊢ λ b ↓ v ↦ w` does not immediately tell you `DIntro` was the
+last rule applied—it could have ended with `DJoin` or `DSub`!
+
+In this chapter we untangle those structural rules by proving two fundamental
+**compositional semantic equations**:
+
+1. **Lambda abstraction (`lamEquiv`):** `ℰ (λ b) ≃ ℱ (ℰ b)`, where `LamDen`
+   (`ℱ`) builds the denotation of a lambda purely from the denotation of its
+   body—yielding **Lambda Inversion** (`lamInversion`: `e ⊢ λ b ↓ v₁ ↦ v₂`
+   implies `(e, v₁) ⊢ b ↓ v₂`) and **Lambda Congruence** (`lamCong`)!
+2. **Application (`appEquiv`):** `ℰ (l · m) ≃ ℰ l ● ℰ m`, where `AppDen` (`●`)
+   combines the denotation of `l` and the denotation of `m`—yielding
+   **Application Congruence** (`appCong`)!
+
+Together, `lamCong` and `appCong` prove that replacing any subterm with a
+denotationally equivalent subterm preserves the meaning of the surrounding
+program!
+
+## Imports
+
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
@@ -53,27 +80,24 @@ import PLFH.Part3.Denotational
   )
 ```
 
-In PLFA's **Compositional** chapter, we prove that the relational denotational
-semantics `ℰ` obeys **both** compositional equations—for **lambda abstraction**
-(`ℰ (ƛ N) ≃ ℱ (ℰ N)`) and for **application** (`ℰ (L · M) ≃ ℰ L ● ℰ M`)—and
-derive both **lambda inversion** (`lamInversion`) and congruence for abstraction
-and application (`lamCong`, `appCong`)!
-
 ## Semantic equation and inversion for lambda abstraction (`ℱ`)
 
-We define the semantic curry operator `LamDen` (`ℱ`) inductively over the
-target `Value`, prove downward closure (`subLamDen` / `sub-ℱ`), prove **both
-directions** of `ℰ (ƛ N) ≃ ℱ (ℰ N)` (`denLamToF`, `fToDenLam`, `lamEquiv`),
-derive the key **lambda inversion lemma** (`lamInversion`), and prove congruence
-(`lamCong`):
+The semantic curry operator `LamDen d e v` (`ℱ d`) allows only three forms—
+single arrows `LDIntro`, bottom `LDBot`, and joins `LDJoin`—with **no**
+`DSub` rule! The key lemma is **`subLamDen`** (`sub-ℱ`): proving that
+`LamDen (Den b)` is *already* downward-closed under `Sub` (using `upEnv` in the
+contravariant `SubArr` case and `DJoin` in the `SubDist` case!).
+
+Once `subLamDen` is in hand, `denLamToF` pushes every `DSub` inside `LamDen`,
+and **`lamInversion`** becomes a two-line match on `LDIntro`!
 
 ```haskell
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
-type LamDen :: forall (n :: Nat). Denotation ('Succ n) -> ValEnv n -> Value -> Type
+type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
-  LDIntro :: d ('VCons e v) w -> LamDen d e ('Arr v w)
-  LDBot   :: LamDen d e 'Bot
-  LDJoin  :: ValW u -> ValW v -> LamDen d e u -> LamDen d e v -> LamDen d e ('Join u v)
+  LDIntro :: d (VCons e v) w -> LamDen d e (Arr v w)
+  LDBot   :: LamDen d e Bot
+  LDJoin  :: ValW u -> ValW v -> LamDen d e u -> LamDen d e v -> LamDen d e (Join u v)
 
 -- | Downward closure of `LamDen` under `Sub` (`sub-ℱ`).
 subLamDen :: ValW u -> ValW v -> LamDen (Den b) e v -> Sub u v -> LamDen (Den b) e u
@@ -94,7 +118,7 @@ subLamDen wu _  (LDJoin _ _ (LDIntro (MkDen d1)) (LDIntro (MkDen d2))) SubDist =
       (ww1, ww2) -> LDIntro (MkDen (DJoin ww1 ww2 d1 d2))
 
 -- | Forward direction (`ℰƛ→ℱℰ`).
-denLamToF :: ValW v -> Den ('ULam b) e v -> LamDen (Den b) e v
+denLamToF :: ValW v -> Den (ULam b) e v -> LamDen (Den b) e v
 denLamToF _  (MkDen (DIntro d))          = LDIntro (MkDen d)
 denLamToF _  (MkDen DBot)                = LDBot
 denLamToF _  (MkDen (DJoin w1 w2 d1 d2)) =
@@ -102,19 +126,19 @@ denLamToF _  (MkDen (DJoin w1 w2 d1 d2)) =
 denLamToF wv (MkDen (DSub wSuper d lt))  = subLamDen wv wSuper (denLamToF wSuper (MkDen d)) lt
 
 -- | Lambda inversion lemma (`lambda-inversion`): if `e ⊢ λb ↓ v1 ↦ v2` then `(e, v1) ⊢ b ↓ v2`.
-lamInversion :: ValW ('Arr v1 v2) -> Denotes e ('ULam b) ('Arr v1 v2) -> Denotes ('VCons e v1) b v2
+lamInversion :: ValW (Arr v1 v2) -> Denotes e (ULam b) (Arr v1 v2) -> Denotes (VCons e v1) b v2
 lamInversion wArr d = case denLamToF wArr (MkDen d) of
   LDIntro (MkDen db) -> db
 
 -- | Backward direction (`ℱℰ→ℰƛ`).
-fToDenLam :: LamDen (Den b) e v -> Den ('ULam b) e v
+fToDenLam :: LamDen (Den b) e v -> Den (ULam b) e v
 fToDenLam (LDIntro (MkDen d))   = MkDen (DIntro d)
 fToDenLam LDBot                 = MkDen DBot
 fToDenLam (LDJoin w1 w2 d1 d2)  =
   MkDen (DJoin w1 w2 (unDen (fToDenLam d1)) (unDen (fToDenLam d2)))
 
 -- | Compositional semantic equation for lambda: `ℰ (λb) ≃ ℱ (ℰ b)`.
-lamEquiv :: DenEq (Den ('ULam b)) (LamDen (Den b))
+lamEquiv :: DenEq (Den (ULam b)) (LamDen (Den b))
 lamEquiv wv = (denLamToF wv, fToDenLam)
 
 -- | `LamDen` respects denotational equivalence (`ℱ-cong`).
@@ -128,22 +152,26 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
     go eq' _   (LDJoin w1 w2 d1 d2) = LDJoin w1 w2 (go eq' w1 d1) (go eq' w2 d2)
 
 -- | Congruence for lambda abstraction (`lam-cong`): `ℰ b ≃ ℰ b'` implies `ℰ (λb) ≃ ℰ (λb')`.
-lamCong :: DenEq (Den b) (Den b') -> DenEq (Den ('ULam b)) (Den ('ULam b'))
+lamCong :: DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 ```
 
 ## Full semantic equation for application (`●`), `UCtx`, and `plug`
 
-Using retained `ValW` witnesses in `AppDen` and `Denotes`, **both directions**
-of application compositionality (`denAppToAppDen` / `ℰ·→●ℰ`, `appDenToDenApp` /
-`●ℰ→ℰ·`, `appEquiv`, and `appCong`) compile directly with `-dcore-lint -dstg-lint`!
+Dually, semantic application `AppDen d1 d2 e w` (`d1 ● d2`) allows either a
+trivial bottom bound `ADBot` (`w ⊑ Bot`) or a single function lookup `ADApp`.
+Notice why **`SubDist`** was essential in [Denotational](/Denotational/): in
+`joinAppDen`, combining an application returning `w₁` (at input `v₁`) and an
+application returning `w₂` (at input `v₂`) into a *single* application returning
+`Join w₁ w₂` (at input `Join v₁ v₂`) uses `SubDist` to fuse the two arrows
+`Arr (Join v₁ v₂) w₁` and `Arr (Join v₁ v₂) w₂` into `Arr (Join v₁ v₂) (Join w₁ w₂)`!
 
 ```haskell
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
-  ADBot :: Sub w 'Bot -> AppDen d1 d2 e w
-  ADApp :: ValW v -> d1 e ('Arr v w) -> d2 e v -> AppDen d1 d2 e w
+  ADBot :: Sub w Bot -> AppDen d1 d2 e w
+  ADApp :: ValW v -> d1 e (Arr v w) -> d2 e v -> AppDen d1 d2 e w
 
 -- | Downward closure of `AppDen` under `Sub`.
 subAppDen :: ValW v -> AppDen (Den l) (Den m) e v -> Sub w v -> AppDen (Den l) (Den m) e w
@@ -155,7 +183,7 @@ subAppDen (MkValW v) (ADApp wArg@(MkValW a) (MkDen d1) d2) lt =
 joinAppDen :: ValW w1 -> ValW w2
            -> AppDen (Den l) (Den m) e w1
            -> AppDen (Den l) (Den m) e w2
-           -> AppDen (Den l) (Den m) e ('Join w1 w2)
+           -> AppDen (Den l) (Den m) e (Join w1 w2)
 joinAppDen _ _ (ADBot lt1) (ADBot lt2) = ADBot (SubJoinL lt1 lt2)
 joinAppDen _ (MkValW w2) (ADBot lt1) (ADApp wArg@(MkValW a) (MkDen d1) d2) =
   ADApp wArg
@@ -178,7 +206,7 @@ joinAppDen (MkValW w1) (MkValW w2)
   in ADApp (MkValW (Join v1 v2)) (MkDen d1F) (MkDen d2F)
 
 -- | Forward direction for application (`ℰ·→●ℰ`)!
-denAppToAppDen :: Den ('UApp l m) e w -> AppDen (Den l) (Den m) e w
+denAppToAppDen :: Den (UApp l m) e w -> AppDen (Den l) (Den m) e w
 denAppToAppDen (MkDen (DElim wv d1 d2))    = ADApp wv (MkDen d1) (MkDen d2)
 denAppToAppDen (MkDen DBot)                = ADBot SubRefl
 denAppToAppDen (MkDen (DJoin w1 w2 d1 d2)) =
@@ -186,12 +214,12 @@ denAppToAppDen (MkDen (DJoin w1 w2 d1 d2)) =
 denAppToAppDen (MkDen (DSub wv d lt))      = subAppDen wv (denAppToAppDen (MkDen d)) lt
 
 -- | Backward direction for application (`●ℰ→ℰ·`).
-appDenToDenApp :: AppDen (Den l) (Den m) e w -> Den ('UApp l m) e w
+appDenToDenApp :: AppDen (Den l) (Den m) e w -> Den (UApp l m) e w
 appDenToDenApp (ADBot lt)                        = MkDen (DSub (MkValW Bot) DBot lt)
 appDenToDenApp (ADApp wv (MkDen d1) (MkDen d2))  = MkDen (DElim wv d1 d2)
 
 -- | Compositional semantic equation for application: `ℰ (l · m) ≃ ℰ l ● ℰ m`!
-appEquiv :: DenEq (Den ('UApp l m)) (AppDen (Den l) (Den m))
+appEquiv :: DenEq (Den (UApp l m)) (AppDen (Den l) (Den m))
 appEquiv _ = (denAppToAppDen, appDenToDenApp)
 
 -- | `AppDen` respects denotational equivalence (`●-cong`).
@@ -205,13 +233,21 @@ appDenCong e1 e2 wv = (go e1 e2 wv, go (denEqSym e1) (denEqSym e2) wv)
 
 -- | Congruence for application (`app-cong`): `ℰ l ≃ ℰ l'` & `ℰ m ≃ ℰ m'` implies `ℰ (l·m) ≃ ℰ (l'·m')`!
 appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
-        -> DenEq (Den ('UApp l m)) (Den ('UApp l' m'))
+        -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
+```
 
+## One-hole program contexts (`UCtx`) and `plug`
+
+A **one-hole context** `UCtx m n` represents a program of scope depth `n`
+containing a single hole `[]` at scope depth `m` into which any term
+`UTerm m` can be plugged (`plug c t`):
+
+```haskell
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
-  CLam  :: UCtx ('Succ m) ('Succ n) -> UCtx ('Succ m) n
+  CLam  :: UCtx (Succ m) (Succ n) -> UCtx (Succ m) n
   CAppL :: UCtx m n -> UTerm n -> UCtx m n
   CAppR :: UTerm n -> UCtx m n -> UCtx m n
 
@@ -226,7 +262,7 @@ plug (CAppR l c) t = UApp l (plug c t)
 <div class="wip-notice">
 <strong>[WIP NOTICE — General <code>compositionality</code> over <code>plug c m</code> (R03/R13)]</strong>
 Both structural congruence theorems (<code>lamCong</code> and
-<code>appCong</code>) are now <strong>100% checked</strong>! Only the final
+<code>appCong</code>) are <strong>100% checked</strong>! Only the final
 induction over arbitrary one-hole contexts <code>UCtx m n</code>:
 <pre class="wip"><code>compositionality :: foreach (c :: UCtx m n)
                  -&gt; DenEq (Den t) (Den t')
@@ -236,16 +272,29 @@ remains open, requiring R13 checked source equations for GADT-indexed
 (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>).
 </div>
 
+## Exercises
+
+#### Exercise `cong-chain` (practice)
+
+Using `lamCong`, `appCong`, and `denEqRefl`, prove directly that if
+`DenEq (Den m) (Den m')`, then
+`DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))`.
+
+#### Exercise `lam-inv-app` (practice)
+
+Use `lamInversion` on `denotDelta` from [Denotational](/Denotational/) to
+extract a direct derivation of
+`Denotes (VCons VNil (Join (Arr v w) v)) (UApp (UVar FZ) (UVar FZ)) w`.
+
 ## Changes from PLFA
 
 - Adapted from [Compositional](https://plfa.inf.ed.ac.uk/Compositional/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Compositional.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of **both** lambda compositionality (`LamDen`,
-  **`subLamDen`**, **`denLamToF`**, **`lamInversion`**, **`fToDenLam`**,
-  **`lamEquiv`**, `lamDenCong`, **`lamCong`**) **and** full application
-  compositionality (`AppDen`, **`subAppDen`**, **`joinAppDen`**,
-  **`denAppToAppDen`**, **`appDenToDenApp`**, **`appEquiv`**, `appDenCong`,
-  **`appCong`**), plus `UCtx` and `plug`.
+- Checked direct ports of both lambda compositionality (`LamDen`, `subLamDen`,
+  `denLamToF`, `lamInversion`, `fToDenLam`, `lamEquiv`, `lamDenCong`, `lamCong`)
+  and full application compositionality (`AppDen`, `subAppDen`, `joinAppDen`,
+  `denAppToAppDen`, `appDenToDenApp`, `appEquiv`, `appDenCong`, `appCong`),
+  plus `UCtx` and `plug`, with zero promoted-constructor ticks.
 - Marked `compositionality` over `foreach (c :: UCtx m n)` / `plug c t` with
   `[WIP NOTICE]` (R03/R13).

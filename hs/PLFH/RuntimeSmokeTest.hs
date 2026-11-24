@@ -8,6 +8,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
 import System.Exit (exitFailure)
 import HaskLib.Nat (Nat (..))
+import PLFH.Part1.Connectives (prodCommIso, sumCommIso)
 import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
 import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
@@ -114,6 +115,18 @@ main = do
               n = 6
           in case left n of Refl -> natToInt (from (to n))
   assertEq "Isomorphism.embedTrans embedRefl binEmbedding 6" 6 natEmbedTrans
+  let prodSwapRT = case prodCommIso @Nat @Bool of
+        MkIso to from left _ ->
+          let p :: (Nat, Bool)
+              p = (4, True)
+          in case left p of Refl -> (natToInt (fst (from (to p))), snd (from (to p)))
+  assertEq "Connectives.prodCommIso (4, True)" (4, True) prodSwapRT
+  let sumSwapRT = case sumCommIso @Bool @Nat of
+        MkIso to from left _ ->
+          let s :: Either Bool Nat
+              s = Right 7
+          in case left s of Refl -> case from (to s) of { Right n -> natToInt n; Left _ -> -1 }
+  assertEq "Connectives.sumCommIso (Right 7)" 7 sumSwapRT
 
   let sum23 = case plusExists 2 3 of
         Pair k Refl -> natToInt k
