@@ -4,7 +4,7 @@ prev: /Connectives/
 next: /Quantifiers/
 src: content/part1/Negation.md
 module: PLFH.Part1.Negation
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Negation/
+plfaChapter: https://plfa.inf.ed.ac.uk/Negation/
 ---
 
 ```haskell
@@ -179,10 +179,10 @@ notLeToGt (Succ _) Zero     _   = ZltS
 notLeToGt (Succ m) (Succ n) nle = SltS (notLeToGt m n (\le -> nle (SleS le)))
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Negation (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Negation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Negation.lagda.md)).
+- Adapted from [Negation](https://plfa.inf.ed.ac.uk/Negation/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Negation.lagda.md)).
 - Every intuitionistic negation law, double-negation monad operation,
   classical equivalence (`emToDne`, `dneToPeirce`, `peirceToEm`, `emToImpOr`,
   `impOrToEm`, `emToDeMorganProd`), `irrefutableLEM`, and order-negation lemma

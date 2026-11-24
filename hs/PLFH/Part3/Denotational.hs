@@ -4,7 +4,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
-{-# LINE 16 "content/part3/Denotational.md" #-}
+{-# LINE 15 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -64,7 +64,7 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 98 "content/part3/Denotational.md" #-}
+{-# LINE 97 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values).
 -- Note: declared with H98 syntax rather than GADT syntax so ordinary `dom`
 -- and `cod` get R13 checked source equations (see WIP notice below).
@@ -100,7 +100,7 @@ unArrW (MkValW v) = go v Refl
     go (Join _ _) eq = case eq of {}
     go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
 
-{-# LINE 140 "content/part3/Denotational.md" #-}
+{-# LINE 139 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
   SubBot    :: Sub 'Bot v
@@ -147,7 +147,7 @@ joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 195 "content/part3/Denotational.md" #-}
+{-# LINE 194 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
   MemBot   :: ValMem 'Bot 'Bot
@@ -221,7 +221,7 @@ subArrToCodSub (Arr a b)  s x            = case s @('Arr a b) MemArr of { MemArr
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 289 "content/part3/Denotational.md" #-}
+{-# LINE 288 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -370,7 +370,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub ('Arr v w) ('Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 458 "content/part3/Denotational.md" #-}
+{-# LINE 457 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv 'Zero

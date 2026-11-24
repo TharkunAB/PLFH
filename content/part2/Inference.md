@@ -4,7 +4,7 @@ prev: /DeBruijn/
 next: /Untyped/
 src: content/part2/Inference.md
 module: PLFH.Part2.Inference
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Inference/
+plfaChapter: https://plfa.inf.ed.ac.uk/Inference/
 ---
 
 ```haskell
@@ -206,10 +206,10 @@ clean R03 ergonomic boundaries on GHC <code>d15cbd41fe</code>:
 </ol>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Inference (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Inference/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Inference.lagda.md)).
+- Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)).
 - Implements full certified type inference (`infer`) and type checking (`check`)
   for Church-annotated de Bruijn STLC terms (variables, lambdas, applications,
   `Zero`, `Suc`, `Case`, `Mu`), returning intrinsically-typed `Term g a` values

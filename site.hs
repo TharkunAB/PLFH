@@ -89,13 +89,13 @@ pageCtx baseUrl =
     <> constField "siteTitle" "Programming Language Foundations in Haskell"
     <> constField "repoUrl" "https://github.com/Tritlo/PLFH"
     <> constField "repoBranch" "main"
-    <> constField "plfaUrl" "https://plfa.inf.ed.ac.uk/22.08/"
+    <> constField "plfaUrl" "https://plfa.inf.ed.ac.uk/"
     <> constField "licenseName" "Creative Commons Attribution 4.0 International License"
     <> constField "licenseUrl" "https://creativecommons.org/licenses/by/4.0/"
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
     <> field "srcUrl" mkSrcUrl
-    <> field "plfaEditionLabel" (mkDefaultMeta "plfaEdition" "PLFA v22.08")
+    <> field "plfaEditionLabel" (mkDefaultMeta "plfaEdition" "PLFA")
     <> field "plfaAuthorsLabel" (mkDefaultMeta "plfaAuthors" "Philip Wadler, Wen Kokke, and Jeremy G. Siek")
     <> defaultContext
 

@@ -4,7 +4,7 @@ prev: /Decidable/
 next: /Lambda/
 src: content/part1/Lists.md
 module: PLFH.Part1.Lists
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Lists/
+plfaChapter: https://plfa.inf.ed.ac.uk/Lists/
 ---
 
 ```haskell
@@ -284,10 +284,10 @@ on GHC <code>d15cbd41fe</code>:
 </ol>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Lists (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Lists/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Lists.lagda.md)).
+- Adapted from [Lists](https://plfa.inf.ed.ac.uk/Lists/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)).
 - Used standard Prelude `[a]`, `(++)`, and `map` directly instead of a custom
   `List` datatype.
 - Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.

@@ -4,8 +4,7 @@ prev: /Denotational/
 next: /Soundness/
 src: content/part3/Compositional.md
 module: PLFH.Part3.Compositional
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Compositional/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Compositional/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -239,10 +238,10 @@ and R13 checked source equations for GADT-indexed <code>plug</code>
 (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>).
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Compositional (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Compositional/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/Compositional.lagda.md))
+- Adapted from [Compositional](https://plfa.inf.ed.ac.uk/Compositional/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Compositional.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of **both** lambda compositionality (`LamDen`,
   **`subLamDen`**, **`denLamToF`**, **`lamInversion`**, **`fToDenLam`**,

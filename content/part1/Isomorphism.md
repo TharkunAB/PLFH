@@ -4,7 +4,7 @@ prev: /Equality/
 next: /Connectives/
 src: content/part1/Isomorphism.md
 module: PLFH.Part1.Isomorphism
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Isomorphism/
+plfaChapter: https://plfa.inf.ed.ac.uk/Isomorphism/
 ---
 
 ```haskell
@@ -118,10 +118,10 @@ isomorphisms and embeddings await R03/R04 support; in
 using <code>Iff</code>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Isomorphism (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Isomorphism/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Isomorphism.lagda.md)).
+- Adapted from [Isomorphism](https://plfa.inf.ed.ac.uk/Isomorphism/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Isomorphism.lagda.md)).
 - Checked direct ports of `Iff`, `iffRefl`, `iffSym`, `iffTrans`, and the
   declaration of `IsoSize`.
 - Marked polymorphic `Iso`/`Embed` and constructing `MkIsoSize` with

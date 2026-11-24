@@ -4,7 +4,7 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 16 "content/part3/Compositional.md" #-}
+{-# LINE 15 "content/part3/Compositional.md" #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -45,7 +45,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 72 "content/part3/Compositional.md" #-}
+{-# LINE 71 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation ('Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -109,7 +109,7 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
 lamCong :: DenEq (Den b) (Den b') -> DenEq (Den ('ULam b)) (Den ('ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 143 "content/part3/Compositional.md" #-}
+{-# LINE 142 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where

@@ -4,7 +4,7 @@
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 16 "content/part2/Confluence.md" #-}
+{-# LINE 15 "content/part2/Confluence.md" #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1
@@ -19,6 +19,8 @@ module PLFH.Part2.Confluence
   , Joinable (..)
   , strip
   , parConfluence
+  , betasToPars
+  , churchRosser
   ) where
 
 import Data.Kind (Type)
@@ -32,7 +34,7 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 64 "content/part2/Confluence.md" #-}
+{-# LINE 65 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -51,7 +53,7 @@ bsLam :: BetaSteps b b' -> BetaSteps ('ULam b) ('ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 90 "content/part2/Confluence.md" #-}
+{-# LINE 91 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -91,7 +93,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 133 "content/part2/Confluence.md" #-}
+{-# LINE 134 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `n`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -117,3 +119,21 @@ parConfluence _       PSRefl         ps2 = Join ps2 PSRefl
 parConfluence diamond (PSCons p1 q1) ps2 = case strip diamond p1 ps2 of
   Join r1 r2 -> case parConfluence diamond q1 r1 of
     Join s1 s2 -> Join s1 (psTrans r2 s2)
+
+-- | Lift a one-step embedding `BetaStep -> Par` to multi-step reduction.
+betasToPars :: forall (n :: Nat) (m1 :: UTerm n) (m2 :: UTerm n).
+               (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
+            -> BetaSteps m1 m2 -> ParSteps m1 m2
+betasToPars _   BRefl        = PSRefl
+betasToPars b2p (BCons s bs) = PSCons (b2p s) (betasToPars b2p bs)
+
+-- | Church-Rosser Confluence for full β-reduction (`_—↠_`),
+-- given `betaToPar` and the one-step diamond property for `Par`!
+churchRosser :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
+                (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
+             -> (forall (a :: UTerm n) (b :: UTerm n) (c :: UTerm n).
+                   Par a b -> Par a c -> Joinable Par b c)
+             -> BetaSteps l m1 -> BetaSteps l m2 -> Joinable BetaSteps m1 m2
+churchRosser b2p diamond bs1 bs2 =
+  case parConfluence diamond (betasToPars b2p bs1) (betasToPars b2p bs2) of
+    Join ps1 ps2 -> Join (parsToBetas ps1) (parsToBetas ps2)

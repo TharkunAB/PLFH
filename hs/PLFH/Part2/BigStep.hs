@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 15 "content/part2/BigStep.md" #-}
+{-# LINE 14 "content/part2/BigStep.md" #-}
 module PLFH.Part2.BigStep
   ( Env (..)
   , Clos (..)
@@ -21,7 +21,7 @@ import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 46 "content/part2/BigStep.md" #-}
+{-# LINE 45 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env 'Zero
@@ -40,7 +40,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 80 "content/part2/BigStep.md" #-}
+{-# LINE 79 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where

@@ -4,7 +4,7 @@ prev: /Untyped/
 next: /Bisimulation/
 src: content/part2/More.md
 module: PLFH.Part2.More
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/More/
+plfaChapter: https://plfa.inf.ed.ac.uk/More/
 ---
 
 ```haskell
@@ -192,10 +192,10 @@ and
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>).
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [More (v22.08)](https://plfa.inf.ed.ac.uk/22.08/More/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/More.lagda.md)).
+- Adapted from [More](https://plfa.inf.ed.ac.uk/More/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/More.lagda.md)).
 - All extended constructs (`Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`),
   renaming, substitution (`substSingle`, `substDouble`), and GADT-promoted
   `Value` compile cleanly with `-dcore-lint -dstg-lint`.

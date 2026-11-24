@@ -4,7 +4,7 @@ prev: /Inference/
 next: /More/
 src: content/part2/Untyped.md
 module: PLFH.Part2.Untyped
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Untyped/
+plfaChapter: https://plfa.inf.ed.ac.uk/Untyped/
 ---
 
 ```haskell
@@ -105,7 +105,7 @@ substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 
 <div class="wip-notice">
 <strong>[WIP NOTICE — Functional <code>substSingleU</code> in promoted-GADT types (R13/R16)]</strong>
-PLFA <code>v22.08</code> writes the β-rule directly using the function
+PLFA writes the β-rule directly using the function
 <code>substSingleU b w</code>. As uncovered in our interface audit (see
 <a href="/Lambda/">Lambda</a>), writing unqualified <code>substSingleU</code>
 in <code>Beta</code> silently bound a fresh unconstrained type variable
@@ -225,8 +225,11 @@ badBeta = Beta SUEq
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Gas-bounded normalizer over promoted <code>UTerm n</code> (R03)]</strong>
-Writing PLFA's gas-bounded full β-normalizer
+<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R03)]</strong>
+Full β-reduction is non-deterministic, whereas PLFA's deterministic
+<code>progress</code> implements <em>normal-order</em> (leftmost-outermost)
+reduction—guaranteed to find a normal form whenever one exists.
+Writing PLFA's gas-bounded normal-order β-normalizer
 <code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> hits the
 same R03 indexed-GADT <code>foreach</code> boundary documented in
 <a href="/DeBruijn/">DeBruijn</a>
@@ -236,10 +239,10 @@ and promoted <code>Neutral</code>/<code>Normal</code>/<code>BetaStep</code>
 relations compile cleanly with <code>-dcore-lint -dstg-lint</code>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Untyped (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Untyped/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Untyped.lagda.md)).
+- Adapted from [Untyped](https://plfa.inf.ed.ac.uk/Untyped/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Untyped.lagda.md)).
 - Checked direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`,
   `substU`, `substSingleU`, `Neutral`, `Normal`, `BetaStep`, `BetaSteps`,
   `idIsNormal`, `idAppStep`, `omegaTerm`, and `omegaStep`.

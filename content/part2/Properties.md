@@ -4,7 +4,7 @@ prev: /Lambda/
 next: /DeBruijn/
 src: content/part2/Properties.md
 module: PLFH.Part2.Properties
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Properties/
+plfaChapter: https://plfa.inf.ed.ac.uk/Properties/
 ---
 
 ```haskell
@@ -150,10 +150,10 @@ will slot directly into this chapter with zero workarounds and a sound
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstTermOpenEq.hs"><code>reproducers/R13_SubstTermOpenEq.hs</code></a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Properties (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Properties/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Properties.lagda.md)).
+- Adapted from [Properties](https://plfa.inf.ed.ac.uk/Properties/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Properties.lagda.md)).
 - `Canonical`, `canonical`, `extCtx`, `renameTyping`, `weakenTyping`,
   `dropTyping`, and `swapTyping` are all **checked direct ports** passing
   `-dcore-lint -dstg-lint`.

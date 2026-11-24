@@ -4,7 +4,7 @@ prev: /Induction/
 next: /Equality/
 src: content/part1/Relations.md
 module: PLFH.Part1.Relations
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Relations/
+plfaChapter: https://plfa.inf.ed.ac.uk/Relations/
 ---
 
 ```haskell
@@ -37,16 +37,26 @@ module PLFH.Part1.Relations
   , oddPlusEven
   , evenPlusOdd
   , oddPlusOdd
+  , evenOrOdd
+  , notBothEvenOdd
   , One (..)
   , Can (..)
   , incOne
   , incCan
+  , toBinCan
+  , PosNat (..)
+  , onePos
+  , toBinDoubleSucc
+  , toFromDoubleOne
+  , toFromOne
+  , toFromCan
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Void (Void)
 import HaskLib (rewrite)
 import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc, plusZero)
-import PLFH.Part1.Naturals (Bin (..), inc)
+import PLFH.Part1.Naturals (Bin (..), fromBin, inc, toBin)
 ```
 
 After defining operations on the naturals and proving properties of them
@@ -237,6 +247,17 @@ evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
 -- | Odd + Odd = Even.
 oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
 oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
+
+-- | Every natural number is either even or odd.
+evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
+evenOrOdd Zero     = Left EvenZ
+evenOrOdd (Succ n) = case evenOrOdd n of
+  Left  ev -> Right (OddS ev)
+  Right od -> Left  (EvenS od)
+
+-- | No natural number is both even and odd.
+notBothEvenOdd :: Even n -> Odd n -> Void
+notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
 ```
 
 ## Relating `<`, `≤`, and addition
@@ -317,6 +338,78 @@ incCan (X0 _) p = case p of
   CanOne (OneX0 o) -> CanOne (OneX1' o)
 incCan (X1 b) p = case p of
   CanOne o -> CanOne (incOne (X1 b) o)
+
+-- | Converting any natural number to binary produces a canonical bitstring (`to-Can`).
+toBinCan :: foreach (n :: Nat) -> Can (toBin n)
+toBinCan Zero     = CanZ
+toBinCan (Succ n) = incCan (toBin n) (toBinCan n)
+
+-- | Witness that a natural number is strictly positive (`n = Succ k`).
+data PosNat (n :: Nat) where
+  MkPos :: foreach (k :: Nat) -> n :~: 'Succ k -> PosNat n
+
+-- | Every `One` bitstring represents a strictly positive natural number.
+onePos :: foreach (b :: Bin) -> One b -> PosNat (fromBin b)
+onePos Nil    o = case o of {}
+onePos (X0 b) o = case o of
+  OneX0 o' -> case onePos b o' of
+    MkPos k eq -> rewrite eq (MkPos (plus k (Succ k)) Refl)
+onePos (X1 b) _ = case b of
+  Nil   -> MkPos Zero Refl
+  X0 b' -> MkPos (plus (fromBin (X0 b')) (fromBin (X0 b'))) Refl
+  X1 b' -> MkPos (plus (fromBin (X1 b')) (fromBin (X1 b'))) Refl
+
+-- | Doubling a positive natural shifts its binary representation left by one zero bit.
+toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus ('Succ n) ('Succ n)) :~: 'X0 (toBin ('Succ n))
+toBinDoubleSucc Zero     = Refl
+toBinDoubleSucc (Succ k) =
+  rewrite (plusSucc (Succ k) (Succ k))
+    (rewrite (toBinDoubleSucc k) Refl)
+
+toFromDoubleOne :: foreach (b :: Bin) -> One b -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+toFromDoubleOne b o =
+  let ih = toFromOne b o
+  in case onePos b o of
+    MkPos k eq -> go (toBinDoubleSucc k) eq ih
+  where
+    go :: toBin (plus ('Succ k) ('Succ k)) :~: 'X0 (toBin ('Succ k))
+       -> fromBin b :~: 'Succ k
+       -> toBin (fromBin b) :~: b
+       -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+    go dbl Refl Refl = dbl
+
+-- | Round-trip law for positive canonical bitstrings: `toBin (fromBin b) = b`.
+toFromOne :: foreach (b :: Bin) -> One b -> toBin (fromBin b) :~: b
+toFromOne Nil    o = case o of {}
+toFromOne (X0 b) o = case o of
+  OneX0 o' -> toFromDoubleOne b o'
+toFromOne (X1 b) o = case b of
+  Nil -> case o of
+    OneX1    -> Refl
+    OneX1' x -> case x of {}
+  X0 b' -> case o of
+    OneX1' o' -> congInc (toFromDoubleOne (X0 b') o')
+  X1 b' -> case o of
+    OneX1' o' -> congInc (toFromDoubleOne (X1 b') o')
+  where
+    congInc :: x :~: y -> inc x :~: inc y
+    congInc Refl = Refl
+
+-- | Full round-trip law for canonical binary numbers (`to-from`):
+-- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection!
+toFromCan :: foreach (b :: Bin) -> Can b -> toBin (fromBin b) :~: b
+toFromCan Nil    c = case c of
+  CanOne o -> case o of {}
+toFromCan (X0 b) c = case b of
+  Nil   -> case c of
+    CanZ     -> Refl
+    CanOne o -> case o of { OneX0 o' -> case o' of {} }
+  X0 b' -> case c of
+    CanOne o -> toFromOne (X0 (X0 b')) o
+  X1 b' -> case c of
+    CanOne o -> toFromOne (X0 (X1 b')) o
+toFromCan (X1 b) c = case c of
+  CanOne o -> toFromOne (X1 b) o
 ```
 
 ### Negative control: `Succ Zero <= Zero` is uninhabited
@@ -335,10 +428,10 @@ oneLeZero :: LE 1 0
 oneLeZero = ZleN
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Relations (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Relations/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Relations.lagda.md)).
+- Adapted from [Relations](https://plfa.inf.ed.ac.uk/Relations/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Relations.lagda.md)).
 - Every core theorem (`LE`, `invSleS`, `invZleN`, `leRefl`, `leTrans`,
   `leAntisym`, `Total`, `leTotal`, `plusMonoR`, `plusMonoL`, `plusMono`,
   `LT'`, `ltTrans`, `Trichotomy`, `ltTrichotomy`, `Even`/`Odd`, and all four

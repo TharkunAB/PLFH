@@ -4,8 +4,7 @@ prev: /Substitution/
 next: /Denotational/
 src: content/part2/Confluence.md
 module: PLFH.Part2.Confluence
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Confluence/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Confluence/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -27,6 +26,8 @@ module PLFH.Part2.Confluence
   , Joinable (..)
   , strip
   , parConfluence
+  , betasToPars
+  , churchRosser
   ) where
 
 import Data.Kind (Type)
@@ -155,6 +156,24 @@ parConfluence _       PSRefl         ps2 = Join ps2 PSRefl
 parConfluence diamond (PSCons p1 q1) ps2 = case strip diamond p1 ps2 of
   Join r1 r2 -> case parConfluence diamond q1 r1 of
     Join s1 s2 -> Join s1 (psTrans r2 s2)
+
+-- | Lift a one-step embedding `BetaStep -> Par` to multi-step reduction.
+betasToPars :: forall (n :: Nat) (m1 :: UTerm n) (m2 :: UTerm n).
+               (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
+            -> BetaSteps m1 m2 -> ParSteps m1 m2
+betasToPars _   BRefl        = PSRefl
+betasToPars b2p (BCons s bs) = PSCons (b2p s) (betasToPars b2p bs)
+
+-- | Church-Rosser Confluence for full β-reduction (`_—↠_`),
+-- given `betaToPar` and the one-step diamond property for `Par`!
+churchRosser :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
+                (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
+             -> (forall (a :: UTerm n) (b :: UTerm n) (c :: UTerm n).
+                   Par a b -> Par a c -> Joinable Par b c)
+             -> BetaSteps l m1 -> BetaSteps l m2 -> Joinable BetaSteps m1 m2
+churchRosser b2p diamond bs1 bs2 =
+  case parConfluence diamond (betasToPars b2p bs1) (betasToPars b2p bs2) of
+    Join ps1 ps2 -> Join (parsToBetas ps1) (parsToBetas ps2)
 ```
 
 ## Remaining Church-Rosser ingredients (`par-refl`, `beta-par`, `par-diamond`)
@@ -180,10 +199,10 @@ Church-Rosser confluence for <code>BetaSteps</code>:
 </ul>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Confluence (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Confluence/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Confluence.lagda.md))
+- Adapted from [Confluence](https://plfa.inf.ed.ac.uk/Confluence/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Confluence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `bsTrans`/`bsApp1`/`bsApp2`/`bsLam`, `Par`,
   `ParSteps`, `parToBetas`, `parsToBetas`, `omegaPar`, `Joinable`, `strip`, and

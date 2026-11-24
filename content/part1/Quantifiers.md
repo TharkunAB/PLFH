@@ -4,7 +4,7 @@ prev: /Negation/
 next: /Decidable/
 src: content/part1/Quantifiers.md
 module: PLFH.Part1.Quantifiers
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Quantifiers/
+plfaChapter: https://plfa.inf.ed.ac.uk/Quantifiers/
 ---
 
 ```haskell
@@ -178,10 +178,10 @@ oddIffWitness :: Iff (Odd n) (OddWitness n)
 oddIffWitness = Iff oddToWitness witnessToOdd
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Quantifiers (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Quantifiers/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Quantifiers.lagda.md)).
+- Adapted from [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Quantifiers.lagda.md)).
 - Contrasts erased `Exists` GADTs with retained `GHC.Sigma` (`some ... | ...`)
   and `foreach`-carrying GADT witnesses (`EvenWitness`, `OddWitness`).
 - Checked direct ports of `existsDistribSum`, `existsCurryTo`/`From`,

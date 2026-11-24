@@ -4,7 +4,7 @@ prev: /Setup/
 next: /Induction/
 src: content/part1/Naturals.md
 module: PLFH.Part1.Naturals
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Naturals/
+plfaChapter: https://plfa.inf.ed.ac.uk/Naturals/
 ---
 
 ```haskell
@@ -267,10 +267,10 @@ Remarkably, all three ordinary Haskell functions (`inc`, `toBin`, and
 in [Induction](/Induction/) we will prove `fromBin (inc b) :~: 'Succ (fromBin b)`
 and `fromBin (toBin n) :~: n` directly by induction!
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Naturals (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Naturals/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Naturals.lagda.md)).
+- Adapted from [Naturals](https://plfa.inf.ed.ac.uk/Naturals/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Naturals.lagda.md)).
 - Reused `Nat` (`Zero`/`Succ`) and `plus` from `HaskLib.Nat` instead of
   redefining `ℕ` and `_+_`.
 - Replaced Agda's `≡-Reasoning` chains on concrete examples with direct

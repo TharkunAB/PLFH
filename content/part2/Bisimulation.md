@@ -4,7 +4,7 @@ prev: /More/
 next: /BigStep/
 src: content/part2/Bisimulation.md
 module: PLFH.Part2.Bisimulation
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Bisimulation/
+plfaChapter: https://plfa.inf.ed.ac.uk/Bisimulation/
 ---
 
 ```haskell
@@ -66,10 +66,10 @@ compiler team's queued 597 candidate.) See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/R11_MixedKindCoercionCoreLint.hs</code></a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Bisimulation (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Bisimulation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Bisimulation.lagda.md)).
+- Adapted from [Bisimulation](https://plfa.inf.ed.ac.uk/Bisimulation/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Bisimulation.lagda.md)).
 - `SimRel`, `Leg` (parameterized cleanly over any reduction relation `step`),
   and `simValueLam` compile with `-dcore-lint -dstg-lint`.
 - General `simValue` (and full `sim`) uncovered a real **R11 Core Lint error**

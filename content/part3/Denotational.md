@@ -4,8 +4,7 @@ prev: /Confluence/
 next: /Compositional/
 src: content/part3/Denotational.md
 module: PLFH.Part3.Denotational
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Denotational/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Denotational/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -73,7 +72,7 @@ import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ```
 
-In Part 3 of PLFA (`v22.08`, authored by Jeremy G. Siek, Philip Wadler, and
+In Part 3 of PLFA (authored by Jeremy G. Siek, Philip Wadler, and
 Wen Kokke), we construct an elementary **denotational semantics** (a BCD
 filter / Plotkin graph model) for the untyped lambda calculus by representing
 functions as finite input-output tables `Value` ordered by approximation `Sub`
@@ -571,10 +570,10 @@ denEqTrans eq1 eq2 wv =
 newtype Den (m :: UTerm n) (e :: ValEnv n) (v :: Value) = MkDen { unDen :: Denotes e m v }
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Denotational (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Denotational/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/Denotational.lagda.md))
+- Adapted from [Denotational](https://plfa.inf.ed.ac.uk/Denotational/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Denotational.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `Value`, `Sub`, `subRefl`, `joinSubJoin`,
   `joinArrDist`, `joinSubInvL`/`R`, `ValMem`, `ValSubset`, `memToSub`,

@@ -4,7 +4,7 @@ prev: /Lists/
 next: /Properties/
 src: content/part2/Lambda.md
 module: PLFH.Part2.Lambda
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Lambda/
+plfaChapter: https://plfa.inf.ed.ac.uk/Lambda/
 ---
 
 ```haskell
@@ -212,10 +212,10 @@ badApp :: HasType 'CEmpty ('App 'TZero 'TZero) 'TNat
 badApp = TApp TZeroT TZeroT
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Lambda (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Lambda/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Lambda.lagda.md)).
+- Adapted from [Lambda](https://plfa.inf.ed.ac.uk/Lambda/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Lambda.lagda.md)).
 - Replaced `Id = String` with structural `type Id = Nat` so identifier
   equality does not depend on string-literal closed evaluation.
 - `Term`, `Ty`, `Ctx`, `Value`, `substTerm`, `Lookup`, and `HasType` all port

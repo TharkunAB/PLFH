@@ -3,21 +3,23 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 15 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 14 "content/part3/ContextualEquivalence.md" #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , SoundnessProp
   , AdequacyProp
   , denotEqualTerminates
   , denotEqualCtxEquiv
+  , denotEqualCtxEquivFromSoundness
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
+import PLFH.Part3.Soundness (BetaPres, BetaReflect, denotEquivSteps)
 
-{-# LINE 45 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 46 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
@@ -57,3 +59,13 @@ denotEqualCtxEquiv soundness adequacy eqC =
   ( denotEqualTerminates soundness adequacy eqC
   , denotEqualTerminates soundness adequacy (denEqSym eqC)
   )
+
+-- | Instantiate `SoundnessProp` directly via `Soundness.denotEquivSteps`!
+denotEqualCtxEquivFromSoundness
+  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+     BetaPres
+  -> BetaReflect
+  -> AdequacyProp
+  -> DenEq (Den cm) (Den cn)
+  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
+denotEqualCtxEquivFromSoundness bp br = denotEqualCtxEquiv (denotEquivSteps bp br)

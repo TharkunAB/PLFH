@@ -59,10 +59,21 @@ fi
 WORK=$(mktemp -d)
 trap 'rm -rf -- "$WORK"' EXIT
 
+HASKLIB_SRC=${PLFH_HASKLIB:-}
+OPEN_EVAL_SRC="$GHC_REPO/docs/dependent-haskell/examples/open-evaluation"
+if [[ -z "$HASKLIB_SRC" ]]; then
+  if [[ "$COMMIT" == 1a02a866e7* ]] && [[ -d "$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib" ]]; then
+    HASKLIB_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib"
+    OPEN_EVAL_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/examples/open-evaluation"
+  else
+    HASKLIB_SRC="$GHC_REPO/docs/dependent-haskell/hasklib"
+  fi
+fi
+
 INCLUDES=(
   "-i"
-  "-i$GHC_REPO/docs/dependent-haskell/hasklib"
-  "-i$GHC_REPO/docs/dependent-haskell/examples/open-evaluation"
+  "-i$HASKLIB_SRC"
+  "-i$OPEN_EVAL_SRC"
   "-i$PLFH_ROOT/hs"
 )
 

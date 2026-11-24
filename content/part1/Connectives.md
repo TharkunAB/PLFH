@@ -4,7 +4,7 @@ prev: /Isomorphism/
 next: /Negation/
 src: content/part1/Connectives.md
 module: PLFH.Part1.Connectives
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Connectives/
+plfaChapter: https://plfa.inf.ed.ac.uk/Connectives/
 ---
 
 ```haskell
@@ -181,10 +181,10 @@ waits on polymorphic retained function fields and higher-rank
 <a href="/Isomorphism/">Isomorphism</a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Connectives (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Connectives/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Connectives.lagda.md)).
+- Adapted from [Connectives](https://plfa.inf.ed.ac.uk/Connectives/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Connectives.lagda.md)).
 - Used standard Haskell `(,)`, `Either`, `()`, and `Void`.
 - Proved all commutative semiring, exponential (`currying`, `expSum`, `expProd`,
   `expUnit`, `expZero`, `expToUnit`), and congruence (`prodCong`, `sumCong`,

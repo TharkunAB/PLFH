@@ -4,7 +4,7 @@ prev: /Quantifiers/
 next: /Lists/
 src: content/part1/Decidable.md
 module: PLFH.Part1.Decidable
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Decidable/
+plfaChapter: https://plfa.inf.ed.ac.uk/Decidable/
 ---
 
 ```haskell
@@ -12,11 +12,20 @@ plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Decidable/
 module PLFH.Part1.Decidable
   ( Not
   , Dec (..)
+  , decNot
+  , decAnd
+  , decOr
+  , decImp
+  , decIff
   , zeroNeqSucc
   , decEqSize
   , decLeSize
+  , decLtSize
   , decEven
   , decOdd
+  , decEqBin
+  , decOne
+  , decCan
   , Reflects (..)
   , reflectsToDec
   , Sigma (..)
@@ -26,10 +35,12 @@ module PLFH.Part1.Decidable
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
-import Data.Void (Void)
+import Data.Void (Void, absurd)
 import GHC.Sigma (Sigma (Pair))
 import HaskLib.Nat (Nat (..), congSucc, plus)
-import PLFH.Part1.Relations (Even (..), LE (..), Odd (..), invSleS)
+import PLFH.Part1.Isomorphism (Iff (..))
+import PLFH.Part1.Naturals (Bin (..))
+import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 ```
 
 Before moving on to lists and lambda calculus, we assemble the core logical
@@ -71,6 +82,32 @@ of `p` (`Yes`) or a refutation `Not p` (`No`):
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
+
+-- | Decidable propositions are closed under negation, conjunction, disjunction,
+-- implication, and bi-implication.
+decNot :: Dec p -> Dec (Not p)
+decNot (Yes p)  = No (\np -> np p)
+decNot (No  np) = Yes np
+
+decAnd :: Dec p -> Dec q -> Dec (p, q)
+decAnd (Yes p) (Yes q) = Yes (p, q)
+decAnd (No np) _       = No (\(p, _) -> np p)
+decAnd _       (No nq) = No (\(_, q) -> nq q)
+
+decOr :: Dec p -> Dec q -> Dec (Either p q)
+decOr (Yes p) _       = Yes (Left p)
+decOr _       (Yes q) = Yes (Right q)
+decOr (No np) (No nq) = No (either np nq)
+
+decImp :: Dec p -> Dec q -> Dec (p -> q)
+decImp (No np) _       = Yes (\p -> absurd (np p))
+decImp _       (Yes q) = Yes (const q)
+decImp (Yes p) (No nq) = No (\f -> nq (f p))
+
+decIff :: Dec p -> Dec q -> Dec (Iff p q)
+decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
+  Yes (f, g) -> Yes (Iff f g)
+  No nfg     -> No (\(Iff f g) -> nfg (f, g))
 ```
 
 ### Decidable equality on `Nat`
@@ -104,6 +141,17 @@ decLeSize (Succ m) n = case n of
   Succ n' -> case decLeSize m n' of
     Yes p  -> Yes (SleS p)
     No np  -> No (\p -> np (invSleS p))
+
+-- | Decidable strict less-than relation on Nat (`_<?_`).
+decLtSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LT' m n)
+decLtSize Zero n = case n of
+  Zero   -> No (\case {})
+  Succ _ -> Yes ZltS
+decLtSize (Succ m) n = case n of
+  Zero    -> No (\case {})
+  Succ n' -> case decLtSize m n' of
+    Yes p  -> Yes (SltS p)
+    No  np -> No (\case SltS q -> np q)
 ```
 
 ### Decidable parity (`decEven`, `decOdd`) and Boolean reflection (`Reflects`)
@@ -141,6 +189,53 @@ data Reflects (p :: Type) (b :: Bool) where
 reflectsToDec :: foreach (b :: Bool) -> Reflects p b -> Dec p
 reflectsToDec True  (OfTrue p)   = Yes p
 reflectsToDec False (OfFalse np) = No np
+
+-- | Decidable equality and canonical-form predicates on binary numbers (`Bin`).
+decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
+decEqBin Nil b = case b of
+  Nil  -> Yes Refl
+  X0 _ -> No (\case {})
+  X1 _ -> No (\case {})
+decEqBin (X0 a) b = case b of
+  Nil   -> No (\case {})
+  X1 _  -> No (\case {})
+  X0 b' -> case decEqBin a b' of
+    Yes Refl -> Yes Refl
+    No  neq  -> No (\Refl -> neq Refl)
+decEqBin (X1 a) b = case b of
+  Nil   -> No (\case {})
+  X0 _  -> No (\case {})
+  X1 b' -> case decEqBin a b' of
+    Yes Refl -> Yes Refl
+    No  neq  -> No (\Refl -> neq Refl)
+
+decOne :: foreach (b :: Bin) -> Dec (One b)
+decOne Nil    = No (\case {})
+decOne (X0 b) = case decOne b of
+  Yes o  -> Yes (OneX0 o)
+  No  no -> No (\case OneX0 o -> no o)
+decOne (X1 b) = case b of
+  Nil   -> Yes OneX1
+  X0 b' -> case decOne (X0 b') of
+    Yes o  -> Yes (OneX1' o)
+    No  no -> No (\case OneX1' o -> no o)
+  X1 b' -> case decOne (X1 b') of
+    Yes o  -> Yes (OneX1' o)
+    No  no -> No (\case OneX1' o -> no o)
+
+decCan :: foreach (b :: Bin) -> Dec (Can b)
+decCan Nil    = No (\case CanOne o -> case o of {})
+decCan (X0 b) = case b of
+  Nil   -> Yes CanZ
+  X0 b' -> case decOne (X0 b') of
+    Yes o  -> Yes (CanOne (OneX0 o))
+    No  no -> No (\case CanOne (OneX0 o) -> no o)
+  X1 b' -> case decOne (X1 b') of
+    Yes o  -> Yes (CanOne (OneX0 o))
+    No  no -> No (\case CanOne (OneX0 o) -> no o)
+decCan (X1 b) = case decOne (X1 b) of
+  Yes o  -> Yes (CanOne o)
+  No  no -> No (\case CanOne o -> no o)
 ```
 
 ## Dependent pairs (existentials, `Σ`)
@@ -171,12 +266,12 @@ See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_SigmaUnderForEach.hs"><code>reproducers/R04_SigmaUnderForEach.hs</code></a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
 - Consolidates the core definitions needed for later chapters from
-  [Negation](https://plfa.inf.ed.ac.uk/22.08/Negation/),
-  [Quantifiers](https://plfa.inf.ed.ac.uk/22.08/Quantifiers/), and
-  [Decidable](https://plfa.inf.ed.ac.uk/22.08/Decidable/) (v22.08).
+  [Negation](https://plfa.inf.ed.ac.uk/Negation/),
+  [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/), and
+  [Decidable](https://plfa.inf.ed.ac.uk/Decidable/).
 - `Not`, `zeroNeqSucc`, `Dec`, `decEqSize`, `decLeSize`, `decEven`, `decOdd`,
   `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`/`mkSizeWitness`)
   all port directly and pass `-dcore-lint -dstg-lint`!

@@ -4,8 +4,7 @@ prev: /Adequacy/
 next: /Status/
 src: content/part3/ContextualEquivalence.md
 module: PLFH.Part3.ContextualEquivalence
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/ContextualEquivalence/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/ContextualEquivalence/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -18,12 +17,14 @@ module PLFH.Part3.ContextualEquivalence
   , AdequacyProp
   , denotEqualTerminates
   , denotEqualCtxEquiv
+  , denotEqualCtxEquivFromSoundness
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
+import PLFH.Part3.Soundness (BetaPres, BetaReflect, denotEquivSteps)
 ```
 
 In PLFA's final Part 3 chapter, **ContextualEquivalence**, we combine
@@ -81,6 +82,16 @@ denotEqualCtxEquiv soundness adequacy eqC =
   ( denotEqualTerminates soundness adequacy eqC
   , denotEqualTerminates soundness adequacy (denEqSym eqC)
   )
+
+-- | Instantiate `SoundnessProp` directly via `Soundness.denotEquivSteps`!
+denotEqualCtxEquivFromSoundness
+  :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
+     BetaPres
+  -> BetaReflect
+  -> AdequacyProp
+  -> DenEq (Den cm) (Den cn)
+  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
+denotEqualCtxEquivFromSoundness bp br = denotEqualCtxEquiv (denotEquivSteps bp br)
 ```
 
 <div class="wip-notice">
@@ -93,10 +104,10 @@ with <code>plug c m</code> awaits the remaining theorem blockers tracked in
 <a href="/Adequacy/">Adequacy</a>, and <a href="/BigStep/">BigStep</a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [ContextualEquivalence (v22.08)](https://plfa.inf.ed.ac.uk/22.08/ContextualEquivalence/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/ContextualEquivalence.lagda.md))
+- Adapted from [ContextualEquivalence](https://plfa.inf.ed.ac.uk/ContextualEquivalence/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/ContextualEquivalence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `Terminates`, `denotEqualTerminates`, and
   `denotEqualCtxEquiv` (explicitly parameterized by `SoundnessProp` and

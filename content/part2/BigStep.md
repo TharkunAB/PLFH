@@ -4,8 +4,7 @@ prev: /Bisimulation/
 next: /Substitution/
 src: content/part2/BigStep.md
 module: PLFH.Part2.BigStep
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/BigStep/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/BigStep/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -143,10 +142,10 @@ Two proofs in <strong>BigStep</strong> hit tracked compiler boundaries on GHC
 </ol>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [BigStep (v22.08)](https://plfa.inf.ed.ac.uk/22.08/BigStep/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/BigStep.lagda.md))
+- Adapted from [BigStep](https://plfa.inf.ed.ac.uk/BigStep/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
   `EvalBig`, `evalIdApp`, and PLFA's `(λx y. x) Ω` exercise (`evalConstOmega`).

@@ -4,8 +4,7 @@ prev: /Soundness/
 next: /ContextualEquivalence/
 src: content/part3/Adequacy.md
 module: PLFH.Part3.Adequacy
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Adequacy/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Adequacy/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -358,10 +357,10 @@ adequacyBigStep ed wv d af = case fundamental ed wv envLogNil d af of
 </ul>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Adequacy (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Adequacy/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/Adequacy.lagda.md))
+- Adapted from [Adequacy](https://plfa.inf.ed.ac.uk/Adequacy/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Adequacy.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `AboveFun`, `aboveFunSub`, **`notAboveFunBot`**,
   **`aboveFunJoin`**, `notAboveFunJoin`, `notAboveFunJoinInv`,

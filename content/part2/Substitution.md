@@ -4,8 +4,7 @@ prev: /BigStep/
 next: /Confluence/
 src: content/part2/Substitution.md
 module: PLFH.Part2.Substitution
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Substitution/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Substitution/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -127,10 +126,10 @@ All σ-calculus definitions and runtime combinators above compile cleanly with
 <code>-dcore-lint -dstg-lint</code>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Substitution (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Substitution/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Substitution.lagda.md))
+- Adapted from [Substitution](https://plfa.inf.ed.ac.uk/Substitution/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Substitution.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `Rename`, `Subst`, `ids`, `shift`, `ren`,
   `consSubst`, `seqSubst`, and the computational σ-calculus combinators.

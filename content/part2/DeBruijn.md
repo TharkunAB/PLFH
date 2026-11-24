@@ -4,7 +4,7 @@ prev: /Properties/
 next: /Inference/
 src: content/part2/DeBruijn.md
 module: PLFH.Part2.DeBruijn
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/DeBruijn/
+plfaChapter: https://plfa.inf.ed.ac.uk/DeBruijn/
 ---
 
 ```haskell
@@ -165,10 +165,10 @@ Two distinct Dependent Haskell frontiers currently meet here:
 </ol>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [DeBruijn (v22.08)](https://plfa.inf.ed.ac.uk/22.08/DeBruijn/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/DeBruijn.lagda.md)).
+- Adapted from [DeBruijn](https://plfa.inf.ed.ac.uk/DeBruijn/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/DeBruijn.lagda.md)).
 - `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
   `substSingle`, and the GADT-promoted `Value` definition all compile cleanly
   with `-dcore-lint -dstg-lint` and pass our `.hi` interface soundness audit.

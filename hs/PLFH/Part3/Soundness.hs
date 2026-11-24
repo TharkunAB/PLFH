@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 15 "content/part3/Soundness.md" #-}
+{-# LINE 14 "content/part3/Soundness.md" #-}
 module PLFH.Part3.Soundness
   ( BetaPres
   , denotPreserve
@@ -27,7 +27,7 @@ import PLFH.Part3.Denotational
   , unArrW
   )
 
-{-# LINE 54 "content/part3/Soundness.md" #-}
+{-# LINE 53 "content/part3/Soundness.md" #-}
 -- | Hypothesis: contracting a β-redex preserves denotations when its body and
 -- argument have matching denotations (i.e. single-variable substitution).
 type BetaPres =

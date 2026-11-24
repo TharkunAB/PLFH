@@ -3,7 +3,7 @@ title: "Preface"
 prev: /
 next: /Setup/
 src: content/Preface.md
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Preface/
+plfaChapter: https://plfa.inf.ed.ac.uk/Preface/
 ---
 
 The most profound connection between logic and computation is a pun.
@@ -21,9 +21,9 @@ Dependent Haskell both describe programming languages and are
 themselves Haskell programs compiled by GHC.
 
 This book is an adaptation of Philip Wadler, Wen Kokke, and Jeremy G. Siek's
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/22.08/)
-(edition [`22.08`](https://plfa.inf.ed.ac.uk/22.08/), commit
-`e2d545f3df0db4d4206c5448735665abde02d81f`,
+[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
+([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit
+`c0885696578474ebcfe7bb3d7a592224567d9754`,
 licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 It serves a dual purpose:
 
@@ -76,11 +76,11 @@ Following PLFA:
 - Exercises labelled **(stretch)** provide an extra challenge.
 - Exercises labelled **(practice)** give extra hands-on fluency.
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
 - Replaced Agda tooling and personal-history remarks with PLFH's
   Dependent Haskell yardstick framing, totality discipline, `[WIP NOTICE]`
   policy, and `HaskLib` reuse notes.
 - Retained the opening exposition of *Propositions as Types* and exercise
   labels from Philip Wadler and Wen Kokke's original Preface
-  ([source](https://github.com/plfa/plfa.github.io/blob/v22.08/src/plfa/frontmatter/Preface.md)).
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/frontmatter/Preface.md)).

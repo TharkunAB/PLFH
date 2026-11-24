@@ -4,7 +4,7 @@ prev: /Naturals/
 next: /Relations/
 src: content/part1/Induction.md
 module: PLFH.Part1.Induction
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Induction/
+plfaChapter: https://plfa.inf.ed.ac.uk/Induction/
 ---
 
 ```haskell
@@ -322,10 +322,10 @@ fromTo Zero     = Refl
 fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 ```
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Induction (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Induction/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Induction.lagda.md)).
+- Adapted from [Induction](https://plfa.inf.ed.ac.uk/Induction/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
 - Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
 - Checked direct ports of `plusAssoc`, `plusAssocRewrite`, `plusComm`,
   `plusRearrange`, `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`,

@@ -2,7 +2,7 @@
 title: "How to Cite & Licence"
 prev: /Status/
 src: content/Citing.md
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Citing/
+plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 ---
 
 ## Licence
@@ -14,37 +14,34 @@ repository for the complete legal text.
 
 ## Attribution to PLFA
 
-PLFH is adapted from **edition `22.08`** of
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/22.08/)
+PLFH is adapted from the latest upstream
+[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
 by **Philip Wadler, Wen Kokke, and Jeremy G. Siek**
-([tagged source `v22.08`](https://github.com/plfa/plfa.github.io/tree/v22.08),
-commit `e2d545f3df0db4d4206c5448735665abde02d81f`),
+([`plfa/plfa.github.io`, `dev` branch](https://github.com/plfa/plfa.github.io/tree/dev),
+synced against commit `c0885696578474ebcfe7bb3d7a592224567d9754`),
 which is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 All 25 adapted chapters across Parts 1, 2, and 3 carry an attribution banner
-linking to the corresponding `v22.08` chapter and document the changes made in
-translation to Dependent Haskell (`-XExperimentalDependentTypes` in
+linking to the corresponding upstream PLFA chapter and document the changes
+made in translation to Dependent Haskell (`-XExperimentalDependentTypes` in
 [`Tritlo/ghc`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-### Citing the original PLFA (`v22.08`)
+### Citing the original PLFA
 
 #### Chicago
 
 > Wadler, Philip, Wen Kokke, and Jeremy G. Siek.
 > *Programming Language Foundations in Agda*.
-> Edition 22.08.
-> Available at `https://plfa.inf.ed.ac.uk/22.08/`.
-> 2022.
+> Available at `https://plfa.inf.ed.ac.uk/`.
 
 #### BibTeX
 
 ```bibtex
-@Book{plfa22.08,
+@Book{plfa,
   author = {Philip Wadler and Wen Kokke and Jeremy G. Siek},
   title  = {Programming Language Foundations in {A}gda},
-  note   = {Edition 22.08, available at \url{https://plfa.inf.ed.ac.uk/22.08/}},
-  year   = 2022,
+  note   = {Available at \url{https://plfa.inf.ed.ac.uk/}},
 }
 ```
 
@@ -57,7 +54,7 @@ translation to Dependent Haskell (`-XExperimentalDependentTypes` in
   title        = {Programming Language Foundations in {H}askell},
   howpublished = {\url{https://github.mpg.is/PLFH/}},
   note         = {Adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek,
-                  \emph{Programming Language Foundations in Agda} (v22.08, CC BY 4.0),
+                  \emph{Programming Language Foundations in Agda} (CC BY 4.0),
                   for Dependent Haskell in GHC},
   year         = 2026,
 }
@@ -67,5 +64,5 @@ translation to Dependent Haskell (`-XExperimentalDependentTypes` in
 
 - **Iosevka** monospace font (loaded via `@fontsource/iosevka`):
   SIL Open Font License 1.1 (OFL-1.1).
-- **Site styling**: Adapted from PLFA `v22.08` (CC BY 4.0) and Jekyll
+- **Site styling**: Adapted from PLFA (CC BY 4.0) and Jekyll
   `minima` (MIT), compiled with [Hakyll](https://jaspervdj.be/hakyll/) (BSD-3-Clause).

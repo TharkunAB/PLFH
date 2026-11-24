@@ -4,7 +4,7 @@ prev: /Relations/
 next: /Isomorphism/
 src: content/part1/Equality.md
 module: PLFH.Part1.Equality
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Equality/
+plfaChapter: https://plfa.inf.ed.ac.uk/Equality/
 ---
 
 ```haskell
@@ -229,10 +229,10 @@ eta-expanded lambda <code>@(\z -&gt; EqP x z)</code>. See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>.
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Equality (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Equality/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Equality.lagda.md)).
+- Adapted from [Equality](https://plfa.inf.ed.ac.uk/Equality/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Equality.lagda.md)).
 - `EqP`, `symP`, `transP`, `congP`, `congAppP`, `substP`, `substU`,
   `evenComm`, and both `Leibniz` and `LeibnizU` (with `leibnizUSym` via R17
   type-level lambdas!) port directly and pass `-dcore-lint -dstg-lint`.

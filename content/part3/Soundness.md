@@ -4,8 +4,7 @@ prev: /Compositional/
 next: /Adequacy/
 src: content/part3/Soundness.md
 module: PLFH.Part3.Soundness
-plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Soundness/
-plfaEdition: "PLFA v22.08"
+plfaChapter: https://plfa.inf.ed.ac.uk/Soundness/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
@@ -146,10 +145,10 @@ Discharging <code>BetaPres</code> (via <code>substPres</code>) and
 </ul>
 </div>
 
-## Changes from PLFA `v22.08`
+## Changes from PLFA
 
-- Adapted from [Soundness (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Soundness/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part3/Soundness.lagda.md))
+- Adapted from [Soundness](https://plfa.inf.ed.ac.uk/Soundness/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Soundness.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct structural proofs of **both** forward preservation
   (`denotPreserve`, `denotPreserveMulti`, using `lamInversion`) **and** backward

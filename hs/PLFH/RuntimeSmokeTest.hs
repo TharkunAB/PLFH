@@ -6,14 +6,14 @@ module PLFH.RuntimeSmokeTest (main) where
 import Data.Type.Equality ((:~:) (Refl))
 import System.Exit (exitFailure)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part1.Decidable (Dec (..), decEqSize, decEven)
+import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize)
 import PLFH.Part1.Induction (fromTo, plusAssoc, timesComm)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Lists (decAll)
-import PLFH.Part1.Naturals (fiveAtRuntime)
+import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
-import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff)
+import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (IsLamClos (..), evalBigIsLam, evalConstOmega)
 import PLFH.Part2.Confluence (Par (..), omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
@@ -54,6 +54,16 @@ main = do
   assertEq "Decidable.decEqSize 2 3" False (case decEqSize 2 3 of { Yes Refl -> True; No _ -> False })
   assertEq "Decidable.decEven 4"     True  (case decEven 4 of { Yes _ -> True; No _ -> False })
   assertEq "Decidable.decEven 3"     False (case decEven 3 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decLtSize 2 5" True  (case decLtSize 2 5 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decLtSize 5 2" False (case decLtSize 5 2 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decEqBin (X1 Nil) (X1 Nil)" True
+    (case decEqBin (X1 Nil) (X1 Nil) of { Yes Refl -> True; No _ -> False })
+  assertEq "Decidable.decCan (X0 (X1 Nil))" True
+    (case decCan (X0 (X1 Nil)) of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decCan (X0 (X0 Nil))" False
+    (case decCan (X0 (X0 Nil)) of { Yes _ -> True; No _ -> False })
+  assertEq "Relations.toFromCan (toBin 5)" True
+    (case toFromCan (toBin 5) (toBinCan 5) of Refl -> True)
 
   let half4 = case evenToWitness (EvenS (OddS (EvenS (OddS EvenZ)))) of
         MkEvenWitness k Refl -> natToInt k
