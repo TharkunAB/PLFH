@@ -106,15 +106,14 @@ data IsVal m where
   YesVal :: Value m -> IsVal m
   NotVal :: IsVal m
 
--- | Case-based value classification over retained intrinsically-typed `Term 'CEmpty a`!
+-- | Equation-style value classification over retained intrinsically-typed `Term 'CEmpty a`!
 checkValue :: forall (a :: Ty). foreach (m :: Term 'CEmpty a) -> IsVal m
-checkValue m = case m of
-  Var x      -> case x of {}
-  Lam _      -> YesVal VLam
-  App _ _    -> NotVal
-  Zero       -> YesVal VZero
-  Suc n      -> case checkValue n of
-    YesVal v -> YesVal (VSuc v)
-    NotVal   -> NotVal
-  Case _ _ _ -> NotVal
-  Mu _       -> NotVal
+checkValue (Var x)      = case x of {}
+checkValue (Lam _)      = YesVal VLam
+checkValue (App _ _)    = NotVal
+checkValue Zero         = YesVal VZero
+checkValue (Suc n)      = case checkValue n of
+  YesVal v -> YesVal (VSuc v)
+  NotVal   -> NotVal
+checkValue (Case _ _ _) = NotVal
+checkValue (Mu _)       = NotVal

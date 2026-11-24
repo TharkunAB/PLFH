@@ -187,9 +187,7 @@ qualifying them from a split syntax module currently fails with
 <code>GHC-70565</code>. Functional <code>Step</code> and
 intrinsically-typed <code>progress</code> remain tracked as
 <code>[WIP NOTICE]</code> (see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>
-and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>).
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
 </div>
 
 ## Changes from PLFA

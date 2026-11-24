@@ -112,11 +112,9 @@ subSub :: foreach (s1 :: Subst m n) -&gt; foreach (s2 :: Subst n p)
        -&gt; substU s2 (substU s1 t) :~: substU (seqSubst s1 s2) t</code></pre>
 requires two capabilities already isolated by our yardstick:
 <ol>
-  <li><strong>R03:</strong> <code>foreach</code> binders and pattern
-      refinement over indexed GADT domains (<code>UTerm n</code>,
-      <code>Fin n</code>) and function domains (<code>Subst m n</code>),
-      tracked in <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>
-      and <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_PolyFunctionFieldInIso.hs"><code>R04_PolyFunctionFieldInIso.hs</code></a>.</li>
+  <li><strong>R03/R04:</strong> <code>foreach</code> binders over polymorphic
+      function domains (<code>Subst m n</code>), tracked in
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_PolyFunctionFieldInIso.hs"><code>R04_PolyFunctionFieldInIso.hs</code></a>.</li>
   <li><strong>R13/R16:</strong> Open source equations for higher-order
       GADT-indexed functions (<code>substU</code>, <code>renameU</code>,
       <code>extsU</code>), analogous to

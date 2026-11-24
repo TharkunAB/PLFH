@@ -231,10 +231,8 @@ induction over arbitrary one-hole contexts <code>UCtx m n</code>:
 <pre class="wip"><code>compositionality :: foreach (c :: UCtx m n)
                  -&gt; DenEq (Den t) (Den t')
                  -&gt; DenEq (Den (plug c t)) (Den (plug c t'))</code></pre>
-remains open, requiring both
-<code>foreach</code> over the indexed GADT <code>UCtx m n</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>)
-and R13 checked source equations for GADT-indexed <code>plug</code>
+remains open, requiring R13 checked source equations for GADT-indexed
+<code>plug</code>
 (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>).
 </div>
 

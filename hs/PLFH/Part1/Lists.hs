@@ -60,17 +60,17 @@ lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppendLaw = lengthAppend
 
--- | Length of map (reused from HaskLib.lengthMap; eta-expanded due to R04/R05 bug below).
+-- | Length of map (reused directly from HaskLib.lengthMap).
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a])
              -> size (map f xs) :~: size xs
-lengthMapLaw f xs = lengthMap f xs
+lengthMapLaw = lengthMap
 
 -- | Length of reverse (reused directly from HaskLib.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 126 "content/part1/Lists.md" #-}
+{-# LINE 115 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a]) -> foreach (ys :: [a])
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -90,7 +90,7 @@ mapId :: forall a. foreach (xs :: [a]) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 164 "content/part1/Lists.md" #-}
+{-# LINE 153 "content/part1/Lists.md" #-}
 -- | Accumulating list reversal helper `shunt`.
 shunt :: [a] -> [a] -> [a]
 shunt []     ys = ys
@@ -122,7 +122,7 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 224 "content/part1/Lists.md" #-}
+{-# LINE 213 "content/part1/Lists.md" #-}
 -- | Evidence that predicate `p` holds for every element of `xs`.
 data All (p :: a -> Type) (xs :: [a]) where
   AllNil  :: All p '[]

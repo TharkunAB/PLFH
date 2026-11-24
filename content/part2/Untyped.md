@@ -225,15 +225,14 @@ badBeta = Beta SUEq
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R03)]</strong>
+<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R13/R16)]</strong>
 Full β-reduction is non-deterministic, whereas PLFA's deterministic
 <code>progress</code> implements <em>normal-order</em> (leftmost-outermost)
 reduction—guaranteed to find a normal form whenever one exists.
-Writing PLFA's gas-bounded normal-order β-normalizer
-<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> hits the
-same R03 indexed-GADT <code>foreach</code> boundary documented in
-<a href="/DeBruijn/">DeBruijn</a>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>).
+Writing PLFA's functional normal-order β-normalizer
+<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> still
+depends on open source equations for <code>substSingleU</code>
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
 All well-scoped syntax, renaming, substitution, relational <code>SubstAtU</code>,
 and promoted <code>Neutral</code>/<code>Normal</code>/<code>BetaStep</code>
 relations compile cleanly with <code>-dcore-lint -dstg-lint</code>.

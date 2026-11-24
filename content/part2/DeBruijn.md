@@ -145,37 +145,27 @@ data IsVal m where
   YesVal :: Value m -> IsVal m
   NotVal :: IsVal m
 
--- | Case-based value classification over retained intrinsically-typed `Term 'CEmpty a`!
+-- | Equation-style value classification over retained intrinsically-typed `Term 'CEmpty a`!
 checkValue :: forall (a :: Ty). foreach (m :: Term 'CEmpty a) -> IsVal m
-checkValue m = case m of
-  Var x      -> case x of {}
-  Lam _      -> YesVal VLam
-  App _ _    -> NotVal
-  Zero       -> YesVal VZero
-  Suc n      -> case checkValue n of
-    YesVal v -> YesVal (VSuc v)
-    NotVal   -> NotVal
-  Case _ _ _ -> NotVal
-  Mu _       -> NotVal
+checkValue (Var x)      = case x of {}
+checkValue (Lam _)      = YesVal VLam
+checkValue (App _ _)    = NotVal
+checkValue Zero         = YesVal VZero
+checkValue (Suc n)      = case checkValue n of
+  YesVal v -> YesVal (VSuc v)
+  NotVal   -> NotVal
+checkValue (Case _ _ _) = NotVal
+checkValue (Mu _)       = NotVal
 ```
 
 ## Intrinsically-typed Reduction (`Step`) and Progress (`progress`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>Step</code> (R13/R16) &amp; Equation-style <code>foreach</code> on indexed GADTs (R03)]</strong>
-Two distinct Dependent Haskell frontiers remain open here:
-<ol>
-  <li><strong>R13/R16 (Open equations for GADT-indexed higher-order <code>substSingle</code>):</strong>
-      Writing qualified <code>Syntax.substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
-      still fails with <code>GHC-68947</code>/<code>GHC-70565</code> because
-      <code>substSingle</code> calls higher-order GADT-indexed <code>subst</code>.
-      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>.</li>
-  <li><strong>R03 (Direct equation-style matching on <code>foreach (m :: Term 'CEmpty a)</code>):</strong>
-      While <code>case m of</code> now works cleanly (see <code>checkValue</code> above!),
-      matching <code>Term 'CEmpty a</code> directly in function equations still hits
-      <code>GHC-83605</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>.</li>
-</ol>
+<strong>[WIP NOTICE — Functional <code>Step</code> (R13/R16)]</strong>
+Writing qualified <code>Syntax.substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
+currently fails with <code>GHC-68947</code>/<code>GHC-70565</code> because
+<code>substSingle</code> calls higher-order GADT-indexed <code>subst</code>.
+See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>reproducers/R13_SubstSingleUOpenEq.hs</code></a>.
 </div>
 
 ## Changes from PLFA
@@ -183,9 +173,9 @@ Two distinct Dependent Haskell frontiers remain open here:
 - Adapted from [DeBruijn](https://plfa.inf.ed.ac.uk/DeBruijn/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/DeBruijn.lagda.md)).
 - `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
-  `substSingle`, GADT-promoted `Value`, and case-based **`IsVal`/`checkValue`**
-  over retained `foreach (m :: Term 'CEmpty a)` all compile cleanly with
-  `-dcore-lint -dstg-lint` and pass our `.hi` interface soundness audit!
-- Functional `Step` (`substSingle`, R13/R16) and direct equation-style
-  `foreach` on indexed GADTs (`R03_ForEachGadtEquations.hs`) remain marked
+  `substSingle`, GADT-promoted `Value`, and direct equation-style
+  **`IsVal`/`checkValue`** over retained `foreach (m :: Term 'CEmpty a)` all
+  compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
+  soundness audit!
+- Functional `Step` (`substSingle`, `R13_SubstSingleUOpenEq.hs`) remains marked
   `[WIP NOTICE]`.

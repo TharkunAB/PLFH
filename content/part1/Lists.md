@@ -87,27 +87,16 @@ lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppendLaw = lengthAppend
 
--- | Length of map (reused from HaskLib.lengthMap; eta-expanded due to R04/R05 bug below).
+-- | Length of map (reused directly from HaskLib.lengthMap).
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a])
              -> size (map f xs) :~: size xs
-lengthMapLaw f xs = lengthMap f xs
+lengthMapLaw = lengthMap
 
 -- | Length of reverse (reused directly from HaskLib.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Eta-reduced alias with function-valued <code>foreach (f :: a -&gt; b)</code> (R04/R05)]</strong>
-Writing the eta-reduced alias
-<code>lengthMapLaw = lengthMap</code> currently fails with <code>GHC-83865</code>
-printing <em>identical</em> expected and actual types
-(<code>foreach (f :: a -&gt; b) -&gt; foreach (xs :: [a]) -&gt; size (map f xs) :~: size xs</code>),
-whereas eta-expanding <code>lengthMapLaw f xs = lengthMap f xs</code> checks
-cleanly. Isolated in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_EtaAliasForEachFunctionBinder.hs"><code>reproducers/R04_EtaAliasForEachFunctionBinder.hs</code></a>.
-</div>
 
 <div class="note-box">
 <strong>Rewrite rules note:</strong>
