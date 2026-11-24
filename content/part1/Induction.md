@@ -9,7 +9,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Induction/
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, TypeApplications, TypeOperators #-}
+{-# LANGUAGE GADTs, Modifiers, PolyKinds, RequiredTypeArguments, TypeOperators #-}
 module PLFH.Part1.Induction
   ( cong
   , assocExample
@@ -69,38 +69,27 @@ from `Data.Type.Equality`, `rewrite` from `HaskLib`, `Nat` and `plus` from
 
 We also define **congruence**: a relation is said to be a *congruence* for
 a given function `f` if it is preserved by applying `f`—given evidence that
-`x :~: y`, `cong @f` returns evidence that `f x :~: f y`. Thanks to
+`x :~: y`, `cong f` returns evidence that `f x :~: f y`. Thanks to
 matchability polymorphism (`{m :: Matchability}`, `-XModifiers`, explored
-further in [Equality](/Equality/)), a **single** definition of `cong`
-works uniformly for both promoted data constructors (`cong @Succ`, matchable
-arrow `Nat -> Nat`) and partially applied promoted functions (`cong @(plus m)`,
-`cong @(times a)`, `cong @(pow m)`, unmatchable arrow `Nat %U -> Nat`):
+further in [Equality](/Equality/)) together with `RequiredTypeArguments`
+(`forall (f :: a %m -> b) -> ...`), a **single** definition of `cong`
+works just like Agda's—with **no `@` sign needed**—for both promoted data
+constructors (`cong Succ`, matchable arrow `Nat -> Nat`) and partially applied
+promoted functions (`cong (plus m)`, `cong (times a)`, unmatchable arrow
+`Nat %U -> Nat`):
 
 ```haskell
--- | Unified matchability-polymorphic congruence: works for both constructors
--- (`cong @Succ`) and promoted functions (`cong @(plus m)`, `cong @(times a)`).
-cong :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (x :: a) (y :: a).
+-- | Unified matchability-polymorphic congruence (`cong`): works just like Agda
+-- for both constructors (`cong Succ`) and promoted functions (`cong (plus m)`).
+cong :: forall {a} {b} {m :: Matchability}.
+        forall (f :: a %m -> b) -> forall (x :: a) (y :: a).
         x :~: y -> f x :~: f y
-cong Refl = Refl
+cong _ Refl = Refl
 
 -- | Evidence that 2 * 3 = 6 using ordinary `times` imported from Naturals.
 twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Agda-style visible <code>cong Succ</code> without <code>@</code> (R23 / <code>RequiredTypeArguments</code>)]</strong>
-With <code>TypeApplications</code>, our single unified <code>cong</code> handles
-both <code>cong @Succ (plusAssoc m n p)</code> and
-<code>cong @(plus m) (sym (plusAssoc n p q))</code> cleanly. However, trying to
-drop the <code>@</code> via <code>RequiredTypeArguments</code>
-(<code>forall (f :: a %m -&gt; b) -&gt; ...</code>) currently fails on
-<code>cong Succ (plusAssoc m n p)</code> with <code>GHC-83865</code>
-(<em><code>y0</code> is untouchable inside the constraints: <code>()</code>
-bound by a retained application</em>) and on <code>cong (plus m)</code> with
-<code>GHC-70565</code>. See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityPolyCong.hs"><code>reproducers/R23_MatchabilityPolyCong.hs</code></a>.
-</div>
 
 ## Properties of operators
 
@@ -231,7 +220,7 @@ ordinary runtime `Nat` value that can also appear in the result type:
 plusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> plus (plus m n) p :~: plus m (plus n p)
 plusAssoc Zero     _ _ = Refl
-plusAssoc (Succ m) n p = cong @Succ (plusAssoc m n p)
+plusAssoc (Succ m) n p = cong Succ (plusAssoc m n p)
 ```
 
 Let's unpack what GHC checks in each equation:
@@ -243,7 +232,7 @@ Let's unpack what GHC checks in each equation:
   `(Succ m + n) + p ≡ Succ m + (n + p)`. Simplifying both sides with the
   inductive case of addition yields `Succ ((m + n) + p) ≡ Succ (m + (n + p))`.
   The recursive invocation `plusAssoc m n p` has as its type the induction
-  hypothesis `(m + n) + p ≡ m + (n + p)`, and `cong @Succ` prefaces `Succ`
+  hypothesis `(m + n) + p ≡ m + (n + p)`, and `cong Succ` prefaces `Succ`
   to each side to yield the needed equation!
 
 Here the inductive hypothesis is not assumed, but instead proved by a
@@ -275,11 +264,11 @@ plusAssoc0 _ _ = Refl
 
 plusAssoc1 :: foreach (n :: Nat) -> foreach (p :: Nat)
            -> plus (plus 1 n) p :~: plus 1 (plus n p)
-plusAssoc1 n p = cong @Succ (plusAssoc0 n p)
+plusAssoc1 n p = cong Succ (plusAssoc0 n p)
 
 plusAssoc2 :: foreach (n :: Nat) -> foreach (p :: Nat)
            -> plus (plus 2 n) p :~: plus 2 (plus n p)
-plusAssoc2 n p = cong @Succ (plusAssoc1 n p)
+plusAssoc2 n p = cong Succ (plusAssoc1 n p)
 ```
 
 ## Terminology and notation
@@ -333,7 +322,7 @@ Finally, here is our proposition's statement and proof by induction on the
 plusComm :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
 plusComm m n = case n of
   Zero   -> plusZero m
-  Succ k -> plusSucc m k `trans` cong @Succ (plusComm m k)
+  Succ k -> plusSucc m k `trans` cong Succ (plusComm m k)
 ```
 
 - **Base case (`Zero`):** We must show `m + Zero ≡ Zero + m`, which
@@ -341,7 +330,7 @@ plusComm m n = case n of
   `plusZero m`.
 - **Inductive case (`Succ k`):** We must show `m + Succ k ≡ Succ k + m`,
   which simplifies to `m + Succ k ≡ Succ (k + m)`. First `plusSucc m k`
-  gives `m + Succ k ≡ Succ (m + k)`, and then `cong @Succ (plusComm m k)`
+  gives `m + Succ k ≡ Succ (m + k)`, and then `cong Succ (plusComm m k)`
   gives `Succ (m + k) ≡ Succ (k + m)`; chaining them with `trans` completes
   the proof!
 
@@ -360,7 +349,7 @@ on the right-hand side works cleanly. See
 
 We can apply associativity to rearrange parentheses however we like,
 without needing induction at all—simply applying `plusAssoc`, `sym`, and
-`cong @(plus m)`:
+`cong (plus m)`:
 
 ```haskell
 -- | Rearranging parentheses in a four-way sum: (m + n) + (p + q) = (m + (n + p)) + q.
@@ -369,7 +358,7 @@ plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
               -> plus (plus m n) (plus p q) :~: plus (plus m (plus n p)) q
 plusRearrange m n p q =
   plusAssoc m n (plus p q)
-    `trans` cong @(plus m) (sym (plusAssoc n p q))
+    `trans` cong (plus m) (sym (plusAssoc n p q))
     `trans` sym (plusAssoc m (plus n p) q)
 ```
 
@@ -377,7 +366,7 @@ Notice two tools used here:
 
 - `sym` interchanges the sides of an equation: if `e` provides evidence for
   `x :~: y`, then `sym e` provides evidence for `y :~: x`.
-- `cong @(plus m)` lifts `sym (plusAssoc n p q)` (`n + (p + q) ≡ (n + p) + q`)
+- `cong (plus m)` lifts `sym (plusAssoc n p q)` (`n + (p + q) ≡ (n + p) + q`)
   under the partially applied function `plus m` (mirroring Agda's section
   `cong (m +_)`).
 
@@ -484,7 +473,7 @@ timesSuccR :: foreach (m :: Nat) -> foreach (n :: Nat)
 timesSuccR Zero     _ = Refl
 timesSuccR (Succ m) n =
   rewrite (timesSuccR m n)
-    (cong @Succ (plusSwap n m (times m n)))
+    (cong Succ (plusSwap n m (times m n)))
 
 -- | Commutativity of multiplication (`*-comm`): m * n = n * m.
 timesComm :: foreach (m :: Nat) -> foreach (n :: Nat)
@@ -560,7 +549,7 @@ timesInterchange :: foreach (a :: Nat) -> foreach (b :: Nat)
                  -> times (times a b) (times c d) :~: times (times a c) (times b d)
 timesInterchange a b c d =
   timesAssoc a b (times c d)
-    `trans` cong @(times a) (timesSwap b c d)
+    `trans` cong (times a) (timesSwap b c d)
     `trans` sym (timesAssoc a c (times b d))
 
 -- | Concrete exponentiation example (cross-module from Naturals): 3 ^ 4 = 81.
@@ -592,8 +581,7 @@ powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
 powTimes m n p = case p of
   Zero   -> rewrite (timesZeroR n) Refl
   Succ k -> rewrite (powTimes m n k)
-              (sym (powPlus m n (times n k))
-                 `trans` cong @(pow m) (sym (timesSuccR n k)))
+              (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
 ```
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
@@ -612,12 +600,12 @@ fromInc Nil    = Refl
 fromInc (X0 _) = Refl
 fromInc (X1 b) =
   rewrite (fromInc b)
-    (cong @Succ (plusSucc (fromBin b) (fromBin b)))
+    (cong Succ (plusSucc (fromBin b) (fromBin b)))
 
 -- | Round-tripping Nat -> Bin -> Nat is the identity.
 fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n
 fromTo Zero     = Refl
-fromTo (Succ n) = fromInc (toBin n) `trans` cong @Succ (fromTo n)
+fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
 ```
 
 ## Changes from PLFA
@@ -625,11 +613,11 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong @Succ (fromTo n)
 - Adapted from [Induction](https://plfa.inf.ed.ac.uk/Induction/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
 - Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
-- Uses a single matchability-polymorphic `cong` (`{m :: Matchability}`) via
-  `TypeApplications` for both constructors (`cong @Succ`) and promoted
-  functions (`cong @(plus m)`, `cong @(times a)`, `cong @(pow m)`); Agda-style
-  visible `cong Succ` without `@` via `RequiredTypeArguments` is tracked in
-  `R23_MatchabilityPolyCong.hs`.
+- Uses a single Agda-style matchability-polymorphic `cong` (`{m :: Matchability}`
+  + `RequiredTypeArguments`) for both constructors (`cong Succ`) and promoted
+  functions (`cong (plus m)`, `cong (times a)`), with no `@` needed (partial
+  application of right-first `pow m` under visible `cong` is tracked in
+  `R23_CongRightFirstPartialApp.hs`).
 - Checked direct ports of every theorem and exercise in PLFA Induction:
   `assocExample`, `plusAssoc`, `plusAssoc0`/`1`/`2`, `plusAssocRewrite`,
   `plusIdentityR`, `plusSuc`, `plusComm`, `plusCommRewrite`, `plusRearrange`,

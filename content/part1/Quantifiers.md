@@ -201,7 +201,7 @@ evenTwoSigma = Pair 1 Refl
 Packaging the exact same retained witness as `EvenWitness n` and `OddWitness n`
 (carrying `foreach (k :: Nat)` so the half `k` is available at runtime!), we
 prove **both directions** of both equivalences (`evenIffWitness` and
-`oddIffWitness`), using unified `cong @Succ` and `HaskLib.rewrite (plusSucc k k)`:
+`oddIffWitness`), using unified `cong Succ` and `HaskLib.rewrite (plusSucc k k)`:
 
 ```haskell
 -- | Retained existential witness that `n` is double some runtime `k`.
@@ -213,7 +213,7 @@ evenWitnessZero = MkEvenWitness Zero Refl
 
 evenWitnessSuc2 :: EvenWitness n -> EvenWitness (Succ (Succ n))
 evenWitnessSuc2 (MkEvenWitness k Refl) =
-  MkEvenWitness (Succ k) (cong @Succ (plusSucc k k))
+  MkEvenWitness (Succ k) (cong Succ (plusSucc k k))
 
 -- | Every double `k + k` is even (proved directly using `HaskLib.rewrite`).
 evenDouble :: foreach (k :: Nat) -> Even (plus k k)
@@ -279,4 +279,4 @@ triple `(b AA, b BB, b CC)` while `Exists b` behaves like the 3-way sum
   `forallDistribProd`, quantifier De Morgan (`notExistsToForallNot`,
   `forallNotToNotExists`), `EvenSigma`, and **both directions** of the parity
   witness equivalences (`evenIffWitness`, `oddIffWitness`), using unified
-  `cong @Succ` and tick-free `Zero`/`Succ`.
+  `cong Succ` and tick-free `Zero`/`Succ`.

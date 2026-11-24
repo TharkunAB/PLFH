@@ -47,6 +47,12 @@ module PLFH.Part2.More
   , Value (..)
   , swapPair
   , mapMaybeNat
+  , TBool
+  , tTrue
+  , tFalse
+  , ifThenElse
+  , swapSum
+  , appendList
   ) where
 
 import Data.Kind (Type)
@@ -214,6 +220,31 @@ swapPair = Lam (Pair (Snd (Var Z)) (Fst (Var Z)))
 -- | Example: unwrap a `Sum Unit Nat` (Maybe Nat) defaulting to Zero.
 mapMaybeNat :: Term g (TArr (TSum TUnit TNat) TNat)
 mapMaybeNat = Lam (CaseSum (Var Z) Zero (Var Z))
+
+-- | Booleans encoded as `Unit + Unit` (`Bool ≃ ⊤ ⊎ ⊤`).
+type TBool = TSum TUnit TUnit
+
+tTrue :: Term g TBool
+tTrue = Inl TT
+
+tFalse :: Term g TBool
+tFalse = Inr TT
+
+-- | Conditional expression over `TBool`.
+ifThenElse :: Term g (TArr TBool (TArr a (TArr a a)))
+ifThenElse = Lam (Lam (Lam (CaseSum (Var (S (S Z))) (Var (S (S Z))) (Var (S Z)))))
+
+-- | Commutativity of sums inside our object language: λs. case s of Inl x -> Inr x | Inr y -> Inl y.
+swapSum :: Term g (TArr (TSum a b) (TSum b a))
+swapSum = Lam (CaseSum (Var Z) (Inr (Var Z)) (Inl (Var Z)))
+
+-- | Intrinsically-typed recursive list append (`++`) using `Mu` and `CaseLst`.
+appendList :: Term g (TArr (TList a) (TArr (TList a) (TList a)))
+appendList =
+  Mu (Lam (Lam
+    (CaseLst (Var (S Z))
+      (Var Z)
+      (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))
 ```
 
 ## Extended call-by-value reduction (`Step`)

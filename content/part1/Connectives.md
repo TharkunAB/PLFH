@@ -108,7 +108,7 @@ swapProd (x, y) = (y, x)
 
 -- | Swapping a pair twice returns the original pair.
 swapProdRT :: foreach (p :: (a, b)) -> swapProd (swapProd p) :~: p
-swapProdRT p = case p of { (,) _ _ -> Refl }
+swapProdRT (_, _) = Refl
 
 -- | Commutativity of conjunction as a true isomorphism: (a, b) ≃ (b, a).
 prodCommIso :: Iso (a, b) (b, a)

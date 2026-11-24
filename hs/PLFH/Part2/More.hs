@@ -18,11 +18,17 @@ module PLFH.Part2.More
   , Value (..)
   , swapPair
   , mapMaybeNat
+  , TBool
+  , tTrue
+  , tFalse
+  , ifThenElse
+  , swapSum
+  , appendList
   ) where
 
 import Data.Kind (Type)
 
-{-# LINE 76 "content/part2/More.md" #-}
+{-# LINE 82 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -62,7 +68,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 130 "content/part2/More.md" #-}
+{-# LINE 136 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -121,7 +127,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 197 "content/part2/More.md" #-}
+{-# LINE 203 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -142,3 +148,28 @@ swapPair = Lam (Pair (Snd (Var Z)) (Fst (Var Z)))
 -- | Example: unwrap a `Sum Unit Nat` (Maybe Nat) defaulting to Zero.
 mapMaybeNat :: Term g (TArr (TSum TUnit TNat) TNat)
 mapMaybeNat = Lam (CaseSum (Var Z) Zero (Var Z))
+
+-- | Booleans encoded as `Unit + Unit` (`Bool ≃ ⊤ ⊎ ⊤`).
+type TBool = TSum TUnit TUnit
+
+tTrue :: Term g TBool
+tTrue = Inl TT
+
+tFalse :: Term g TBool
+tFalse = Inr TT
+
+-- | Conditional expression over `TBool`.
+ifThenElse :: Term g (TArr TBool (TArr a (TArr a a)))
+ifThenElse = Lam (Lam (Lam (CaseSum (Var (S (S Z))) (Var (S (S Z))) (Var (S Z)))))
+
+-- | Commutativity of sums inside our object language: λs. case s of Inl x -> Inr x | Inr y -> Inl y.
+swapSum :: Term g (TArr (TSum a b) (TSum b a))
+swapSum = Lam (CaseSum (Var Z) (Inr (Var Z)) (Inl (Var Z)))
+
+-- | Intrinsically-typed recursive list append (`++`) using `Mu` and `CaseLst`.
+appendList :: Term g (TArr (TList a) (TArr (TList a) (TList a)))
+appendList =
+  Mu (Lam (Lam
+    (CaseLst (Var (S Z))
+      (Var Z)
+      (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))

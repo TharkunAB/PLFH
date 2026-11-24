@@ -109,7 +109,7 @@ evenWitnessZero = MkEvenWitness Zero Refl
 
 evenWitnessSuc2 :: EvenWitness n -> EvenWitness (Succ (Succ n))
 evenWitnessSuc2 (MkEvenWitness k Refl) =
-  MkEvenWitness (Succ k) (cong @Succ (plusSucc k k))
+  MkEvenWitness (Succ k) (cong Succ (plusSucc k k))
 
 -- | Every double `k + k` is even (proved directly using `HaskLib.rewrite`).
 evenDouble :: foreach (k :: Nat) -> Even (plus k k)

@@ -31,12 +31,12 @@ Comments, bug reports, and pull requests are welcome on
 - [Induction](/Induction/): Proof by induction (`+-assoc`, `HaskLib.rewrite`, `+-comm`, `cong`/`+-rearrange`, `+-swap`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, **`+*^`**, `Bin-laws`) <span class="badge badge-pass">Checked</span>
 - [Relations](/Relations/): Inductive relations (`_≤_`, `_<_`, trichotomy, `DiffWitness`, `Even`/`Odd`, canonical `One`/`Can` bijection) <span class="badge badge-pass">Checked</span>
 - [Equality](/Equality/): Equality, `RequiredTypeArguments` chains, `substP @Even`, and Leibniz equality with `%U` and inline type lambdas <span class="badge badge-pass">Checked</span>
-- [Isomorphism](/Isomorphism/): Polymorphic `_≃_` (`Iso`, **`isoRefl`**, `isoSym`), `_≲_` (`Embed`, **`embedRefl`**, `binEmbedding`), `_⇔_` (`Iff`), and `isoTrans` boundary <span class="badge badge-pass">Checked</span>
-- [Connectives](/Connectives/): Conjunction, disjunction, truth, falsehood, currying, distributivity, exponential laws <span class="badge badge-pass">Checked</span>
+- [Isomorphism](/Isomorphism/): Polymorphic `_≃_` (`Iso`, **`isoRefl`**, `isoSym`, **`isoTrans`**), `_≲_` (`Embed`, **`embedRefl`**, **`embedTrans`**, `binEmbedding`), and `_⇔_` (`Iff`) <span class="badge badge-pass">Checked</span>
+- [Connectives](/Connectives/): Conjunction, disjunction, truth, falsehood, polymorphic **`prodCommIso`/`sumCommIso`**, currying, distributivity, exponential laws <span class="badge badge-pass">Checked</span>
 - [Negation](/Negation/): Intuitionistic negation, De Morgan, order-negation laws, and classical equivalences (EM ⇔ DNE ⇔ Peirce) <span class="badge badge-pass">Checked</span>
 - [Quantifiers](/Quantifiers/): Erased `Exists`, retained `Sigma` (`some`), and `Even`/`Odd` existential witnesses <span class="badge badge-pass">Checked</span>
 - [Decidable](/Decidable/): Negation, decidable equality/ordering/parity/`Bin`, `Reflects`, and inline `Sigma` (`plusExists`) <span class="badge badge-pass">Checked</span>
-- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `downFrom`, matchability-poly `All`/`Any`/`In`, **`notAnyIffAllNot`**, `decAll`/`decAny` <span class="badge badge-partial">Partial · R03/R13</span>
+- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, **`rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses`**, `downFrom`, matchability-poly `All`/`Any`/`In`, **`notAnyIffAllNot`**, `allToIn`/`inToAll`, `decAll`/`decAny`/`decIn` <span class="badge badge-partial">Partial · R03/R13</span>
 
 ## Part 2: Programming Language Foundations
 
@@ -46,10 +46,10 @@ Comments, bug reports, and pull requests are welcome on
 - [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) with inline GADT refinement returning `Term g a` <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Beta ✓ · Eval WIP</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value` <span class="badge badge-partial">Syntax/Subst ✓ · Step WIP</span>
-- [Bisimulation](/Bisimulation/): Relating reduction systems (`SimRel`, `Leg`, full checked **`simValue`**) <span class="badge badge-partial">simValue ✓ · sim WIP</span>
+- [Bisimulation](/Bisimulation/): Relating reduction systems (`SimRel`, `Leg`, `simSym`/`simTrans`, full checked **`simValue`**) <span class="badge badge-partial">simValue ✓ · sim WIP</span>
 - [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, `(λx y. x) Ω`) <span class="badge badge-partial">Determ ✓ · R13 lookupEnv</span>
 - [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>
-- [Confluence](/Confluence/): Parallel reduction, `parToBetas`, **Strip Lemma**, **Par Confluence**, and **Church-Rosser** <span class="badge badge-partial">CR ✓ · Diamond WIP</span>
+- [Confluence](/Confluence/): Parallel reduction, `parToBetas`, **Strip Lemma**, **Par Confluence**, **Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-partial">CR ✓ · Diamond WIP</span>
 
 ## Part 3: Denotational Semantics
 

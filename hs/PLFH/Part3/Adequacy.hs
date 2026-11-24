@@ -36,6 +36,7 @@ module PLFH.Part3.Adequacy
   , HaltsBig (..)
   , adequacyBigStep
   , adequacyIdApp
+  , adequacyDelta
   ) where
 
 import Data.Kind (Type)
@@ -57,6 +58,7 @@ import PLFH.Part3.Denotational
   , ValW (..)
   , Value (..)
   , allFunsMem
+  , denotDelta
   , denotIdAppId
   , memToSub
   , subInv
@@ -64,7 +66,7 @@ import PLFH.Part3.Denotational
   , unJoinW
   )
 
-{-# LINE 126 "content/part3/Adequacy.md" #-}
+{-# LINE 128 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
   MkAboveFun :: Sub (Arr v w) u -> AboveFun u
@@ -120,7 +122,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 196 "content/part3/Adequacy.md" #-}
+{-# LINE 198 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
@@ -225,7 +227,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 311 "content/part3/Adequacy.md" #-}
+{-# LINE 313 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
@@ -280,3 +282,11 @@ adequacyBigStep wv d af = case fundamental wv envLogNil d af of
 adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
 adequacyIdApp =
   adequacyBigStep (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) aboveFunArr
+
+-- | Adequacy on the self-application combinator Δ = λx. x x: Δ itself halts!
+adequacyDelta :: HaltsBig ENil (ULam (UApp (UVar FZ) (UVar FZ)))
+adequacyDelta =
+  adequacyBigStep
+    (MkValW (Arr (Join (Arr Bot Bot) Bot) Bot))
+    (denotDelta (MkValW Bot) (MkValW Bot))
+    aboveFunArr

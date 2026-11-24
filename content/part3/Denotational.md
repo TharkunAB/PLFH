@@ -104,6 +104,7 @@ module PLFH.Part3.Denotational
   , denotId
   , denotIdTwo
   , denotIdAppId
+  , denotK
   , denotDelta
   , denotOmega
   , envSubMono
@@ -556,6 +557,10 @@ denotIdTwo (MkValW v) (MkValW w) =
 -- | Self-application of identity: `[] ⊢ id · id ↓ u ↦ u`.
 denotIdAppId :: ValW u -> Denotes VNil (UApp (ULam (UVar FZ)) (ULam (UVar FZ))) (Arr u u)
 denotIdAppId (MkValW u) = DElim (MkValW (Arr u u)) denotId denotId
+
+-- | Constant combinator K = λx. λy. x: `[] ⊢ K ↓ v ↦ (⊥ ↦ v)`.
+denotK :: Denotes VNil (ULam (ULam (UVar (FS FZ)))) (Arr v (Arr Bot v))
+denotK = DIntro (DIntro (DVar (VLS VLZ)))
 
 -- | Self-application combinator Δ = λx. x x: `[] ⊢ Δ ↓ ((v ↦ w) ⊔ v) ↦ w`.
 denotDelta :: ValW v -> ValW w

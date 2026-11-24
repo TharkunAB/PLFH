@@ -211,13 +211,13 @@ GHC statically rules out that case as impossible.
 ### Anti-symmetry
 
 Anti-symmetry likewise inducts directly on the two inequality derivations,
-using unified `cong @Succ` from [Induction](/Induction/) in the inductive step:
+using unified `cong Succ` from [Induction](/Induction/) in the inductive step:
 
 ```haskell
 -- | Antisymmetry: if m <= n and n <= m then m = n.
 leAntisym :: LE m n -> LE n m -> m :~: n
 leAntisym ZleN     ZleN     = Refl
-leAntisym (SleS p) (SleS q) = cong @Succ (leAntisym p q)
+leAntisym (SleS p) (SleS q) = cong Succ (leAntisym p q)
 ```
 
 #### Exercise `invZleN` and impossible cases (practice)
@@ -351,7 +351,7 @@ ltTrichotomy (Succ m) n = case n of
   Zero    -> TriGT ZltS
   Succ n' -> case ltTrichotomy m n' of
     TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (cong @Succ eq)
+    TriEQ eq -> TriEQ (cong Succ eq)
     TriGT p  -> TriGT (SltS p)
 ```
 
@@ -574,9 +574,9 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> cong @inc (toFromDoubleOne (X0 b') o')
+    OneX1' o' -> rewrite (toFromDoubleOne (X0 b') o') Refl
   X1 b' -> case o of
-    OneX1' o' -> cong @inc (toFromDoubleOne (X1 b') o')
+    OneX1' o' -> rewrite (toFromDoubleOne (X1 b') o') Refl
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
 -- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
@@ -626,9 +626,9 @@ oneLeZero = ZleN
   canonical binary bijection `toBinCan` & `toFromCan`) ports directly and
   passes `-dcore-lint -dstg-lint`.
 - All promoted constructors (`Zero`, `Succ`, `Nil`, `X0`, `X1`) are written
-  without leading `'` ticks under `-XDataKinds`, and congruence uses the
-  unified matchability-polymorphic `cong` (`cong @Succ`, `cong @inc`) from
-  [Induction](/Induction/).
+  without leading `'` ticks under `-XDataKinds`, and congruence uses Agda-style
+  visible `cong Succ` from [Induction](/Induction/) (passing bare unary `inc`
+  to visible `cong` is tracked in `R23_CongBareUnaryFunction.hs`).
 - In `leTotal`, `plusMonoL`, and `ltTrichotomy`, inspecting the second
   retained argument uses `case ... of` on the RHS due to the R03 leading-column
   restriction noted in [Induction](/Induction/).

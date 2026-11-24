@@ -51,12 +51,13 @@ symP ReflP = ReflP
 transP :: EqP x y -> EqP y z -> EqP x z
 transP ReflP q = q
 
-{-# LINE 127 "content/part1/Equality.md" #-}
--- | Matchability-polymorphic congruence: works for both constructors (`Succ`)
--- and promoted functions (`plus m`).
-congP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (x :: a) (y :: a).
+{-# LINE 128 "content/part1/Equality.md" #-}
+-- | Agda-style matchability-polymorphic congruence: works for both constructors
+-- (`congP Succ`) and promoted functions (`congP (plus m)`).
+congP :: forall {a} {b} {m :: Matchability}.
+         forall (f :: a %m -> b) -> forall (x :: a) (y :: a).
          EqP x y -> EqP (f x) (f y)
-congP ReflP = ReflP
+congP _ ReflP = ReflP
 
 -- | Application congruence: equal functions yield equal results at any input x.
 congAppP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (g :: a %m -> b) (x :: a).
@@ -73,7 +74,7 @@ substU :: forall {a} (p :: a %U -> Type) (x :: a) (y :: a).
           EqP x y -> p x -> p y
 substU ReflP px = px
 
-{-# LINE 156 "content/part1/Equality.md" #-}
+{-# LINE 158 "content/part1/Equality.md" #-}
 -- | Convert standard `Data.Type.Equality.:~:` into our local `EqP`.
 toEqP :: x :~: y -> EqP x y
 toEqP Refl = ReflP
@@ -83,7 +84,7 @@ evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 
-{-# LINE 186 "content/part1/Equality.md" #-}
+{-# LINE 188 "content/part1/Equality.md" #-}
 -- | Start an equational reasoning chain from `x` to `y`.
 beginEq :: forall x y -> x :~: y -> x :~: y
 beginEq _ _ p = p
@@ -96,7 +97,7 @@ qedEq _ = Refl
 stepEq :: forall x y z -> x :~: y -> y :~: z -> x :~: z
 stepEq _ _ _ Refl Refl = Refl
 
-{-# LINE 203 "content/part1/Equality.md" #-}
+{-# LINE 205 "content/part1/Equality.md" #-}
 -- | Example equational chain proving `n + 0 = n`.
 plusZeroChain :: foreach (n :: Nat) -> plus n Zero :~: n
 plusZeroChain Zero     = beginEq (type (plus Zero Zero)) (type Zero) (qedEq (type Zero))
@@ -104,10 +105,10 @@ plusZeroChain (Succ n) =
   stepEq (type (plus (Succ n) Zero)) (type (Succ (plus n Zero))) (type (Succ n))
     Refl
     (stepEq (type (Succ (plus n Zero))) (type (Succ n)) (type (Succ n))
-      (cong @Succ (plusZeroChain n))
+      (cong Succ (plusZeroChain n))
       (qedEq (type (Succ n))))
 
-{-# LINE 250 "content/part1/Equality.md" #-}
+{-# LINE 252 "content/part1/Equality.md" #-}
 -- | Leibniz equality over matchable predicates `p :: a -> Type`.
 type Leibniz (x :: a) (y :: a) = forall (p :: a -> Type). p x -> p y
 
@@ -128,7 +129,7 @@ eqToLeibniz ReflP px = px
 leibnizToEq :: forall {a} (x :: a) (y :: a). Leibniz x y -> EqP x y
 leibnizToEq f = f @(EqP x) ReflP
 
-{-# LINE 284 "content/part1/Equality.md" #-}
+{-# LINE 286 "content/part1/Equality.md" #-}
 -- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
 type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 

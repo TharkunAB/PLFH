@@ -90,7 +90,7 @@ leTrans (SleS p) (SleS q) = SleS (leTrans p q)
 -- | Antisymmetry: if m <= n and n <= m then m = n.
 leAntisym :: LE m n -> LE n m -> m :~: n
 leAntisym ZleN     ZleN     = Refl
-leAntisym (SleS p) (SleS q) = cong @Succ (leAntisym p q)
+leAntisym (SleS p) (SleS q) = cong Succ (leAntisym p q)
 
 {-# LINE 235 "content/part1/Relations.md" #-}
 -- | Evidence that either m <= n or n <= m.
@@ -158,7 +158,7 @@ ltTrichotomy (Succ m) n = case n of
   Zero    -> TriGT ZltS
   Succ n' -> case ltTrichotomy m n' of
     TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (cong @Succ eq)
+    TriEQ eq -> TriEQ (cong Succ eq)
     TriGT p  -> TriGT (SltS p)
 
 {-# LINE 365 "content/part1/Relations.md" #-}
@@ -317,9 +317,9 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> cong @inc (toFromDoubleOne (X0 b') o')
+    OneX1' o' -> rewrite (toFromDoubleOne (X0 b') o') Refl
   X1 b' -> case o of
-    OneX1' o' -> cong @inc (toFromDoubleOne (X1 b') o')
+    OneX1' o' -> rewrite (toFromDoubleOne (X1 b') o') Refl
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
 -- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.

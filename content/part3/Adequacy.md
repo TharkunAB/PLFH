@@ -81,6 +81,7 @@ module PLFH.Part3.Adequacy
   , HaltsBig (..)
   , adequacyBigStep
   , adequacyIdApp
+  , adequacyDelta
   ) where
 
 import Data.Kind (Type)
@@ -102,6 +103,7 @@ import PLFH.Part3.Denotational
   , ValW (..)
   , Value (..)
   , allFunsMem
+  , denotDelta
   , denotIdAppId
   , memToSub
   , subInv
@@ -362,6 +364,14 @@ adequacyBigStep wv d af = case fundamental wv envLogNil d af of
 adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
 adequacyIdApp =
   adequacyBigStep (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) aboveFunArr
+
+-- | Adequacy on the self-application combinator Δ = λx. x x: Δ itself halts!
+adequacyDelta :: HaltsBig ENil (ULam (UApp (UVar FZ) (UVar FZ)))
+adequacyDelta =
+  adequacyBigStep
+    (MkValW (Arr (Join (Arr Bot Bot) Bot) Bot))
+    (denotDelta (MkValW Bot) (MkValW Bot))
+    aboveFunArr
 ```
 
 <div class="wip-notice">

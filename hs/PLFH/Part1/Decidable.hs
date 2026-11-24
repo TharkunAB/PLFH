@@ -89,7 +89,7 @@ decEqSize Zero n = case n of
 decEqSize (Succ m) n = case n of
   Zero    -> No (\case {})
   Succ n' -> case decEqSize m n' of
-    Yes eq -> Yes (cong @Succ eq)
+    Yes eq -> Yes (cong Succ eq)
     No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).

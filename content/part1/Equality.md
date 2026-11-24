@@ -117,18 +117,20 @@ In Dependent Haskell, type-level functions come in two flavors controlled by
   including promoted ordinary Haskell functions (like `plus m`) and type-level
   lambdas (`\z -> ...`).
 
-By quantifying over `{m :: Matchability}` in `congP`, a single congruence
-combinator handles *both* constructors (`congP @Succ`) and promoted functions
-(`congP @(plus m)`)! For substitution, we provide both `substP` (for matchable
-predicates such as GADTs like `Even`) and `substU` (for unmatchable
-predicates such as type lambdas or promoted functions):
+By quantifying over `{m :: Matchability}` with `RequiredTypeArguments` in
+`congP`, a single Agda-style congruence combinator handles *both* constructors
+(`congP Succ`) and promoted functions (`congP (plus m)`) with no `@` needed!
+For substitution, we provide both `substP` (for matchable predicates such as
+GADTs like `Even`) and `substU` (for unmatchable predicates such as type
+lambdas or promoted functions):
 
 ```haskell
--- | Matchability-polymorphic congruence: works for both constructors (`Succ`)
--- and promoted functions (`plus m`).
-congP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (x :: a) (y :: a).
+-- | Agda-style matchability-polymorphic congruence: works for both constructors
+-- (`congP Succ`) and promoted functions (`congP (plus m)`).
+congP :: forall {a} {b} {m :: Matchability}.
+         forall (f :: a %m -> b) -> forall (x :: a) (y :: a).
          EqP x y -> EqP (f x) (f y)
-congP ReflP = ReflP
+congP _ ReflP = ReflP
 
 -- | Application congruence: equal functions yield equal results at any input x.
 congAppP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (g :: a %m -> b) (x :: a).
@@ -197,7 +199,7 @@ stepEq _ _ _ Refl Refl = Refl
 ```
 
 Here is our earlier right-identity proof `plus n Zero :~: n` written as an
-explicit equational chain, using `cong @Succ` for the inductive step:
+explicit equational chain, using `cong Succ` for the inductive step:
 
 ```haskell
 -- | Example equational chain proving `n + 0 = n`.
@@ -207,7 +209,7 @@ plusZeroChain (Succ n) =
   stepEq (type (plus (Succ n) Zero)) (type (Succ (plus n Zero))) (type (Succ n))
     Refl
     (stepEq (type (Succ (plus n Zero))) (type (Succ n)) (type (Succ n))
-      (cong @Succ (plusZeroChain n))
+      (cong Succ (plusZeroChain n))
       (qedEq (type (Succ n))))
 ```
 

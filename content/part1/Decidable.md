@@ -149,7 +149,7 @@ clause—both choices are equally valid proofs.
 
 ### Decidable equality (`_≟_`) and ordering (`_≤?_`, `_<?_`) on `Nat`
 
-With `foreach`, `EmptyCase`, and unified `cong @Succ`, decidable equality,
+With `foreach`, `EmptyCase`, and unified `cong Succ`, decidable equality,
 weak inequality, and strict inequality on natural numbers are all direct
 structural recursions:
 
@@ -162,7 +162,7 @@ decEqSize Zero n = case n of
 decEqSize (Succ m) n = case n of
   Zero    -> No (\case {})
   Succ n' -> case decEqSize m n' of
-    Yes eq -> Yes (cong @Succ eq)
+    Yes eq -> Yes (cong Succ eq)
     No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
@@ -330,6 +330,6 @@ absurd `case p of {}` in the impossible `Zero` / `Succ` branch.
   `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`,
   `mkSizeWitness`, and inline `plusExists`) all port directly and pass
   `-dcore-lint -dstg-lint`.
-- Uses unified `cong @Succ` from [Induction](/Induction/), `Data.Void.Void`,
+- Uses unified `cong Succ` from [Induction](/Induction/), `Data.Void.Void`,
   `EmptyCase` (`\case {}`), and tick-free promoted constructors (`Zero`,
   `Succ`, `True`, `False`).

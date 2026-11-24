@@ -30,7 +30,7 @@ from `GHC.Types`, `HaskLib`'s length laws (`lengthAppend`, `lengthMap`,
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Lists
@@ -65,8 +65,11 @@ module PLFH.Part1.Lists
   , notAnyToAllNot
   , allNotToNotAny
   , notAnyIffAllNot
+  , allToIn
+  , inToAll
   , decAll
   , decAny
+  , decIn
   , zeroInList
   , threeNotInList
   ) where
@@ -422,6 +425,19 @@ If a predicate `p` is decidable (`foreach (x :: a) -> Dec (p x)`), then both
 `All p xs` and `Any p xs` are decidable for every finite list `xs`:
 
 ```haskell
+-- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
+-- and `x ∈ xs`, then `p x` (`All-to-∈`).
+allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
+           All p xs -> In x xs -> p x
+allToIn (AllCons px _)   (Here Refl) = px
+allToIn (AllCons _  pxs) (There r)   = allToIn pxs r
+
+-- | Converse (`∈-to-All`): if `p x` holds for every member `x ∈ xs`, then `All p xs`.
+inToAll :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
+           foreach (xs :: List a) -> (forall (x :: a). In x xs -> p x) -> All p xs
+inToAll []       _ = AllNil
+inToAll (x : xs) f = AllCons (f @x (Here Refl)) (inToAll xs (\r -> f (There r)))
+
 -- | Decidability of universal list quantification `All p xs` (`All?`).
 decAll :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
           (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (All p xs)
@@ -443,6 +459,18 @@ decAny d xs = case xs of
     No  npx -> case decAny d xs' of
       Yes axs -> Yes (There axs)
       No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
+
+-- | Decidability of list membership `In x xs` given decidable element equality (`∈?`).
+decIn :: forall {a}.
+         (foreach (x :: a) -> foreach (y :: a) -> Dec (x :~: y))
+      -> foreach (x :: a) -> foreach (xs :: List a) -> Dec (In x xs)
+decIn decEq x xs = case xs of
+  []    -> No (\case {})
+  y:ys  -> case decEq x y of
+    Yes Refl -> Yes (Here Refl)
+    No  neq  -> case decIn decEq x ys of
+      Yes iys -> Yes (There iys)
+      No niys -> No (\case { Here eq -> neq eq; There r -> niys r })
 
 -- | Concrete membership proof: 0 ∈ [0, 1, 0] (zero ticks with NoListTuplePuns!).
 zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]

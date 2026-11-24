@@ -1,5 +1,5 @@
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE LambdaCase, TypeApplications, TypeOperators #-}
+{-# LANGUAGE LambdaCase, ScopedTypeVariables, TypeApplications, TypeOperators #-}
 -- | Executable runtime smoke test exercising checked Dependent Haskell proofs
 -- across Part 1, Part 2, and Part 3 at real runtime inputs (including decimal Nat literals)!
 module PLFH.RuntimeSmokeTest (main) where
@@ -14,22 +14,22 @@ import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
-import PLFH.Part1.Lists (All (..), Any (..), decAll, downFrom, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import PLFH.Part1.Lists (All (..), Any (..), In, allToIn, decAll, decIn, downFrom, inToAll, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp)
-import PLFH.Part2.Bisimulation (SimRel (..), simValue)
-import PLFH.Part2.Confluence (Par (..), omegaPar, parToBetas)
+import PLFH.Part2.Bisimulation (SimRel (..), simSym, simTrans, simValue)
+import PLFH.Part2.Confluence (Par (..), normalNoBetaSteps, omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
-import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, omegaStep)
-import PLFH.Part3.Adequacy (HaltsBig (..), adequacyIdApp, decAboveFun)
+import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, idIsNormal, omegaStep)
+import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
 import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
 import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
@@ -37,6 +37,23 @@ import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 natToInt :: Nat -> Int
 natToInt Zero     = 0
 natToInt (Succ n) = 1 + natToInt n
+
+isEvenNonZero :: Even n -> Bool
+isEvenNonZero (EvenS _) = True
+isEvenNonZero EvenZ     = False
+
+allToInEven :: forall xs. All Even xs -> forall x. In x xs -> Even x
+allToInEven allEv i = allToIn allEv i
+
+checkAllInEv :: forall xs x. All Even xs -> In x xs -> Bool
+checkAllInEv allEv inEv = isEvenNonZero (allToIn allEv inEv)
+
+checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
+checkAllInRoundTrip xs x = case decAll decEven xs of
+  No _      -> False
+  Yes allEv -> case decIn decEqSize x xs of
+    No _     -> False
+    Yes inEv -> checkAllInEv @xs @x (inToAll xs (allToInEven @xs allEv)) inEv
 
 assertEq :: (Eq a, Show a) => String -> a -> a -> IO ()
 assertEq label expected actual
@@ -192,6 +209,15 @@ main = do
               There (Here (EvenS (OddS (EvenS (OddS ev))))) -> case ev of {}
               There (There r) -> case r of {})
         in case allNot of AllCons _ (AllCons _ AllNil) -> True)
+  let twoN :: Nat
+      twoN = 2
+      threeN :: Nat
+      threeN = 3
+  assertEq "Lists.decIn decEqSize 2 [0,2,4]" True
+    (case decIn decEqSize twoN evens of { Yes (There (Here Refl)) -> True; _ -> False })
+  assertEq "Lists.decIn decEqSize 3 [0,2,4]" False
+    (case decIn decEqSize threeN evens of { Yes _ -> True; No _ -> False })
+  assertEq "Lists.allToIn / inToAll round-trip" True (checkAllInRoundTrip evens twoN)
 
   -- Part 2: STLC Progress & Preservation, Certified Inference, Untyped, Bisimulation, BigStep, Confluence
   let idTy :: L.HasType L.CEmpty (L.App (L.Lam Zero (L.Var Zero)) L.TZero) L.TNat
@@ -238,10 +264,13 @@ main = do
 
   assertEq "Bisimulation.simValue (Pair VLam VLam)" True
     (case simValue (SimPair SimRefl SimRefl) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
+  assertEq "Bisimulation.simTrans / simSym" True
+    (case simValue (simTrans (simSym (SimPair SimRefl SimRefl)) (SimPair SimRefl SimRefl)) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
 
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
+  assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
 
@@ -263,5 +292,7 @@ main = do
     (case denotReflect (MkValW (Arr Bot Bot)) idAppStep denotId of { DElim _ (DIntro _) _ -> True; _ -> False })
   assertEq "Adequacy.adequacyIdApp (unconditional Big-Step Adequacy!)" True
     (case adequacyIdApp of { MkHaltsBig (EApp _ _) -> True; _ -> False })
+  assertEq "Adequacy.adequacyDelta (unconditional Delta halts!)" True
+    (case adequacyDelta of { MkHaltsBig ELam -> True; _ -> False })
 
   putStrLn "All runtime smoke tests passed."

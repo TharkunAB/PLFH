@@ -17,24 +17,34 @@ module PLFH.Part2.Confluence
   , parsToBetas
   , omegaPar
   , Joinable (..)
+  , joinSym
   , strip
   , parConfluence
   , betasToPars
   , churchRosser
+  , neutralNoBetaStep
+  , normalNoBetaStep
+  , normalNoBetaSteps
+  , uniqueNormalForm
   ) where
 
 import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Void (absurd)
 import HaskLib.Nat (Nat (..))
+import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.Untyped
   ( BetaStep (..)
   , BetaSteps (..)
   , Fin (..)
+  , Neutral (..)
+  , Normal (..)
   , OmegaTerm
   , SubstAtU (..)
   , UTerm (..)
   )
 
-{-# LINE 104 "content/part2/Confluence.md" #-}
+{-# LINE 114 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -53,7 +63,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 138 "content/part2/Confluence.md" #-}
+{-# LINE 148 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -93,7 +103,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 194 "content/part2/Confluence.md" #-}
+{-# LINE 204 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -137,3 +147,36 @@ churchRosser :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n)
 churchRosser b2p diamond bs1 bs2 =
   case parConfluence diamond (betasToPars b2p bs1) (betasToPars b2p bs2) of
     Join ps1 ps2 -> Join (parsToBetas ps1) (parsToBetas ps2)
+-- | Joinability is symmetric for any reduction relation `rel`.
+joinSym :: Joinable rel m1 m2 -> Joinable rel m2 m1
+joinSym (Join p1 p2) = Join p2 p1
+
+-- | Neutral terms cannot take a β-step.
+neutralNoBetaStep :: Neutral m -> Not (BetaStep m n)
+neutralNoBetaStep NVar         s          = case s of {}
+neutralNoBetaStep (NApp nl _)  (XiApp1 s) = neutralNoBetaStep nl s
+neutralNoBetaStep (NApp _  nm) (XiApp2 s) = normalNoBetaStep nm s
+neutralNoBetaStep (NApp nl _)  (Beta _)   = case nl of {}
+
+-- | Normal forms cannot take a β-step.
+normalNoBetaStep :: Normal m -> Not (BetaStep m n)
+normalNoBetaStep (NNeu nm) s         = neutralNoBetaStep nm s
+normalNoBetaStep (NLam nb) (XiLam s) = normalNoBetaStep nb s
+
+-- | A normal form reduces in zero or more steps only to itself.
+normalNoBetaSteps :: Normal m -> BetaSteps m n -> m :~: n
+normalNoBetaSteps _  BRefl       = Refl
+normalNoBetaSteps nm (BCons s _) = absurd (normalNoBetaStep nm s)
+
+-- | Corollary of Church-Rosser: every term has at most one normal form!
+uniqueNormalForm :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
+                    (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
+                 -> (forall (a :: UTerm n) (b :: UTerm n) (c :: UTerm n).
+                       Par a b -> Par a c -> Joinable Par b c)
+                 -> BetaSteps l m1 -> BetaSteps l m2
+                 -> Normal m1 -> Normal m2
+                 -> m1 :~: m2
+uniqueNormalForm b2p diamond bs1 bs2 nm1 nm2 =
+  case churchRosser b2p diamond bs1 bs2 of
+    Join r1 r2 -> case (normalNoBetaSteps nm1 r1, normalNoBetaSteps nm2 r2) of
+      (Refl, Refl) -> Refl

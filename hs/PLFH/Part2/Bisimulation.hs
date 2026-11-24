@@ -7,6 +7,8 @@
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
   , Leg (..)
+  , simSym
+  , simTrans
   , simValueLam
   , simValue
   ) where
@@ -14,7 +16,7 @@ module PLFH.Part2.Bisimulation
 import Data.Kind (Type)
 import PLFH.Part2.More (Ctx (..), Term (..), Ty (..), Value (..))
 
-{-# LINE 69 "content/part2/Bisimulation.md" #-}
+{-# LINE 71 "content/part2/Bisimulation.md" #-}
 -- | Structural simulation relation over promoted extended STLC terms.
 type SimRel :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data SimRel m m' where
@@ -28,6 +30,21 @@ data SimRel m m' where
 type Leg :: forall (g :: Ctx) (a :: Ty). (Term g a -> Term g a -> Type) -> Term g a -> Term g a -> Type
 data Leg step m' n where
   MkLeg :: step m' n' -> SimRel n n' -> Leg step m' n
+
+-- | Symmetry of `SimRel`: `m ~ m'` implies `m' ~ m` (making `SimRel` a bisimulation relation!).
+simSym :: SimRel m m' -> SimRel m' m
+simSym SimRefl         = SimRefl
+simSym (SimLam s)      = SimLam (simSym s)
+simSym (SimApp s1 s2)  = SimApp (simSym s1) (simSym s2)
+simSym (SimPair s1 s2) = SimPair (simSym s1) (simSym s2)
+
+-- | Transitivity of `SimRel`: `l ~ m` and `m ~ n` implies `l ~ n`.
+simTrans :: SimRel l m -> SimRel m n -> SimRel l n
+simTrans SimRefl         s               = s
+simTrans s               SimRefl         = s
+simTrans (SimLam s1)     (SimLam s2)     = SimLam (simTrans s1 s2)
+simTrans (SimApp l1 m1)  (SimApp l2 m2)  = SimApp (simTrans l1 l2) (simTrans m1 m2)
+simTrans (SimPair m1 n1) (SimPair m2 n2) = SimPair (simTrans m1 m2) (simTrans n1 n2)
 
 -- | Simulation preserves lambda values cleanly.
 simValueLam :: SimRel (Lam n) (Lam n') -> Value (Lam n) -> Value (Lam n')
