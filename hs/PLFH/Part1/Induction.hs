@@ -95,11 +95,10 @@ plusSuc = plusSucc
 {-# LINE 321 "content/part1/Induction.md" #-}
 -- | Commutativity of addition: m + n = n + m (`+-comm`).
 plusComm :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
-plusComm m n = case n of
-  Zero   -> plusZero m
-  Succ k -> plusSucc m k `trans` cong Succ (plusComm m k)
+plusComm m Zero     = plusZero m
+plusComm m (Succ k) = plusSucc m k `trans` cong Succ (plusComm m k)
 
-{-# LINE 355 "content/part1/Induction.md" #-}
+{-# LINE 343 "content/part1/Induction.md" #-}
 -- | Rearranging parentheses in a four-way sum: (m + n) + (p + q) = (m + (n + p)) + q.
 plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
               -> foreach (p :: Nat) -> foreach (q :: Nat)
@@ -109,7 +108,7 @@ plusRearrange m n p q =
     `trans` cong (plus m) (sym (plusAssoc n p q))
     `trans` sym (plusAssoc m (plus n p) q)
 
-{-# LINE 396 "content/part1/Induction.md" #-}
+{-# LINE 384 "content/part1/Induction.md" #-}
 -- | Associativity proved via `HaskLib.rewrite` (`+-assoc′`).
 plusAssocRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                  -> plus (plus m n) p :~: plus m (plus n p)
@@ -118,11 +117,10 @@ plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 
 -- | Commutativity proved via nested `HaskLib.rewrite` (`+-comm′`).
 plusCommRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
-plusCommRewrite m n = case n of
-  Zero   -> rewrite (plusZero m) Refl
-  Succ k -> rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
+plusCommRewrite m Zero     = rewrite (plusZero m) Refl
+plusCommRewrite m (Succ k) = rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
 
-{-# LINE 433 "content/part1/Induction.md" #-}
+{-# LINE 420 "content/part1/Induction.md" #-}
 -- | Swap the first two addends: m + (n + p) = n + (m + p).
 plusSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> plus m (plus n p) :~: plus n (plus m p)
@@ -131,7 +129,7 @@ plusSwap m n p =
     `trans` rewrite (plusComm m n) Refl
     `trans` plusAssoc n m p
 
-{-# LINE 448 "content/part1/Induction.md" #-}
+{-# LINE 435 "content/part1/Induction.md" #-}
 -- | Right distributivity of multiplication over addition (`*-distrib-+`):
 -- (m + n) * p = m * p + n * p.
 timesDistribPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
@@ -170,7 +168,7 @@ timesComm (Succ m) n =
   rewrite (timesComm m n)
     (sym (timesSuccR n m))
 
-{-# LINE 495 "content/part1/Induction.md" #-}
+{-# LINE 482 "content/part1/Induction.md" #-}
 -- | Concrete examples of truncated subtraction (cross-module from Naturals):
 -- 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
 threeMonusTwo :: monus 3 2 :~: 1
@@ -184,23 +182,16 @@ zeroMonus :: foreach (n :: Nat) -> monus Zero n :~: Zero
 zeroMonus Zero     = Refl
 zeroMonus (Succ _) = Refl
 
-{-# LINE 515 "content/part1/Induction.md" #-}
+{-# LINE 502 "content/part1/Induction.md" #-}
 -- | Two successive subtractions subtract the sum of their operands (`∸-+-assoc`).
 monusPlusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                -> monus (monus m n) p :~: monus m (plus n p)
-monusPlusAssoc m n p = subtractLeft n m p
+monusPlusAssoc Zero     Zero     _ = Refl
+monusPlusAssoc Zero     (Succ _) p = zeroMonus p
+monusPlusAssoc (Succ _) Zero     _ = Refl
+monusPlusAssoc (Succ m) (Succ n) p = monusPlusAssoc m n p
 
-subtractLeft :: foreach (n :: Nat) -> foreach (m :: Nat) -> foreach (p :: Nat)
-             -> monus (monus m n) p :~: monus m (plus n p)
-subtractLeft Zero     _ _ = Refl
-subtractLeft (Succ n) m p = subtractSucc m n p
-
-subtractSucc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
-             -> monus (monus m (Succ n)) p :~: monus m (plus (Succ n) p)
-subtractSucc Zero     _ p = zeroMonus p
-subtractSucc (Succ m) n p = monusPlusAssoc m n p
-
-{-# LINE 538 "content/part1/Induction.md" #-}
+{-# LINE 518 "content/part1/Induction.md" #-}
 -- | Swap the first two factors: m * (n * p) = n * (m * p).
 timesSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> times m (times n p) :~: times n (times m p)
@@ -226,30 +217,30 @@ threePowFour = Refl
 -- m ^ (n + p) = (m ^ n) * (m ^ p).
 powPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
         -> pow m (plus n p) :~: times (pow m n) (pow m p)
-powPlus m n p = case n of
-  Zero   -> sym (plusZero (pow m p))
-  Succ k -> rewrite (powPlus m k p)
-              (sym (timesAssoc m (pow m k) (pow m p)))
+powPlus m Zero     p = sym (plusZero (pow m p))
+powPlus m (Succ k) p =
+  rewrite (powPlus m k p)
+    (sym (timesAssoc m (pow m k) (pow m p)))
 
 -- | Distributivity of exponentiation over multiplication (`^-distribʳ-*`):
 -- (m * n) ^ p = (m ^ p) * (n ^ p).
 powMul :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
        -> pow (times m n) p :~: times (pow m p) (pow n p)
-powMul m n p = case p of
-  Zero   -> Refl
-  Succ k -> rewrite (powMul m n k)
-              (timesInterchange m n (pow m k) (pow n k))
+powMul _ _ Zero     = Refl
+powMul m n (Succ k) =
+  rewrite (powMul m n k)
+    (timesInterchange m n (pow m k) (pow n k))
 
 -- | Associativity of iterated exponentiation (`^-*-assoc`):
 -- (m ^ n) ^ p = m ^ (n * p).
 powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> pow (pow m n) p :~: pow m (times n p)
-powTimes m n p = case p of
-  Zero   -> rewrite (timesZeroR n) Refl
-  Succ k -> rewrite (powTimes m n k)
-              (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
+powTimes _ n Zero     = rewrite (timesZeroR n) Refl
+powTimes m n (Succ k) =
+  rewrite (powTimes m n k)
+    (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
 
-{-# LINE 597 "content/part1/Induction.md" #-}
+{-# LINE 577 "content/part1/Induction.md" #-}
 -- | Incrementing a bitstring adds one to its unary value.
 fromInc :: foreach (b :: Bin) -> fromBin (inc b) :~: Succ (fromBin b)
 fromInc Nil    = Refl

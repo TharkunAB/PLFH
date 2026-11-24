@@ -241,7 +241,7 @@ data Step (m :: Term) (n :: Term) where
   XiCase   :: Step l l' -> Step (TCase l m x n) (TCase l' m x n)
   BetaZero :: Step (TCase TZero m x n) m
   BetaSuc  :: forall v m x n. Value v -> Step (TCase (TSuc v) m x n) (substTerm n x v)
-  BetaMu   :: forall x m. Step (TMu x m) (substTerm m x ('TMu x m))
+  BetaMu   :: forall x m. Step (TMu x m) (substTerm m x (TMu x m))
 
 -- | Reflexive-transitive closure of one-step reduction (M —↠ N).
 data Steps (m :: Term) (n :: Term) where
@@ -253,17 +253,6 @@ The three `β` constructors bind their term indices with explicit `forall` so
 that `substTerm` refers strictly to the top-level substitution function rather
 than an unconstrained type variable. The negative control `NegBetaMuTarget`
 below verifies that GHC enforces the exact computed target of `BetaMu`.
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Unquoted promoted constructor inside promoted function call (R13)]</strong>
-Every promoted constructor in <code>Lambda</code> works without a leading tick
-<code>'</code> under <code>-XDataKinds</code> <em>except</em> the single
-argument <code>'TMu</code> inside <code>substTerm m x ('TMu x m)</code> in
-<code>BetaMu</code>: omitting that tick triggers <code>GHC-68947</code>
-(<em>No checked equations are available for <code>substTerm</code> in a
-type</em>). See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_UnquotedConstructorBreaksOpenEq.hs"><code>reproducers/R13_UnquotedConstructorBreaksOpenEq.hs</code></a>.
-</div>
 
 ## Context lookup and typing (`_∋_⦂_`, `_⊢_⦂_`)
 

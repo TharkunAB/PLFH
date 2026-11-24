@@ -19,8 +19,9 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the latest verified published component binary on dependent-haskell:
-#   35916907b9 (Agda-style RequiredTypeArguments cong + 1dbee32a7a boxed pair patterns + da06279b7a),
-#   falling back to da06279b7a, f0bc12e601, 6c8ab7f7de, 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+#   9d310102c7 (later retained constructor columns + unquoted promoted constructors + c130ce0391 foldr + 35916907b9),
+#   falling back to 35916907b9, da06279b7a, f0bc12e601, 6c8ab7f7de, 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+COMP_9D3="$GHC_REPO/_build/on-demand/plfh-retained-columns-and-constructors-7c18bfb.lOliSoZj/final.rAKHTW1r/component/ghc"
 COMP_359="$GHC_REPO/_build/on-demand/plfh-r23-matchability-20261124/tuple/component/ghc"
 COMP_DA0="$GHC_REPO/_build/on-demand/plfh-connectives-swap-combined.a9mMutyA/broad.iwYHO6WH/compiler/ghc"
 COMP_F0B="$GHC_REPO/_build/on-demand/plfh-r13-rev-local-9111-20261124/checked/component/ghc"
@@ -37,7 +38,10 @@ LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$COMP_359" ]]; then
+if [[ -x "$COMP_9D3" ]]; then
+  DEFAULT_COMPILER="$COMP_9D3"
+  DEFAULT_LIBDIR="$COMP_LIB"
+elif [[ -x "$COMP_359" ]]; then
   DEFAULT_COMPILER="$COMP_359"
   DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$COMP_DA0" ]]; then
@@ -113,7 +117,9 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_359" ]]; then
+if [[ "$COMPILER" == "$COMP_9D3" ]]; then
+  echo "Commit:   9d310102c7222750985c6918102a8db75f44ace2 (verified component; base libdir seed: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_359" ]]; then
   echo "Commit:   35916907b952a29fa44613222079d35cd1237b12 (verified component; base libdir seed: $COMMIT)"
 elif [[ "$COMPILER" == "$COMP_DA0" ]]; then
   echo "Commit:   da06279b7a4ba86fef478e3f988297ebd3306fd2 (verified component; base libdir seed: $COMMIT)"

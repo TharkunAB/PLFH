@@ -320,9 +320,8 @@ Finally, here is our proposition's statement and proof by induction on the
 ```haskell
 -- | Commutativity of addition: m + n = n + m (`+-comm`).
 plusComm :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
-plusComm m n = case n of
-  Zero   -> plusZero m
-  Succ k -> plusSucc m k `trans` cong Succ (plusComm m k)
+plusComm m Zero     = plusZero m
+plusComm m (Succ k) = plusSucc m k `trans` cong Succ (plusComm m k)
 ```
 
 - **Base case (`Zero`):** We must show `m + Zero ≡ Zero + m`, which
@@ -333,17 +332,6 @@ plusComm m n = case n of
   gives `m + Succ k ≡ Succ (m + k)`, and then `cong Succ (plusComm m k)`
   gives `Succ (m + k) ≡ Succ (k + m)`; chaining them with `trans` completes
   the proof!
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Pattern matching a non-leading retained argument in equations (R03)]</strong>
-In Agda, <code>+-comm</code> splits directly on its second argument in the
-function equations (<code>+-comm m zero = ...; +-comm m (suc n) = ...</code>).
-Currently, constructor equations may only split the
-<em>first</em> retained index column; writing <code>plusComm m Zero = ...</code>
-fails with <code>GHC-83605</code>. Splitting via an explicit <code>case n of</code>
-on the right-hand side works cleanly. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_SecondColumnPattern.hs"><code>reproducers/R03_SecondColumnPattern.hs</code></a>.
-</div>
 
 ## Our first corollary: rearranging {#sections}
 
@@ -401,9 +389,8 @@ plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 
 -- | Commutativity proved via nested `HaskLib.rewrite` (`+-comm′`).
 plusCommRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
-plusCommRewrite m n = case n of
-  Zero   -> rewrite (plusZero m) Refl
-  Succ k -> rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
+plusCommRewrite m Zero     = rewrite (plusZero m) Refl
+plusCommRewrite m (Succ k) = rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
 ```
 
 ### Negative control: zero is not equal to its successor
@@ -515,17 +502,10 @@ side and the induction hypothesis applies to their predecessors:
 -- | Two successive subtractions subtract the sum of their operands (`∸-+-assoc`).
 monusPlusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                -> monus (monus m n) p :~: monus m (plus n p)
-monusPlusAssoc m n p = subtractLeft n m p
-
-subtractLeft :: foreach (n :: Nat) -> foreach (m :: Nat) -> foreach (p :: Nat)
-             -> monus (monus m n) p :~: monus m (plus n p)
-subtractLeft Zero     _ _ = Refl
-subtractLeft (Succ n) m p = subtractSucc m n p
-
-subtractSucc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
-             -> monus (monus m (Succ n)) p :~: monus m (plus (Succ n) p)
-subtractSucc Zero     _ p = zeroMonus p
-subtractSucc (Succ m) n p = monusPlusAssoc m n p
+monusPlusAssoc Zero     Zero     _ = Refl
+monusPlusAssoc Zero     (Succ _) p = zeroMonus p
+monusPlusAssoc (Succ _) Zero     _ = Refl
+monusPlusAssoc (Succ m) (Succ n) p = monusPlusAssoc m n p
 ```
 
 ### Exponentiation exercises (`+*^`: `powPlus`, `powMul`, `powTimes`)
@@ -560,28 +540,28 @@ threePowFour = Refl
 -- m ^ (n + p) = (m ^ n) * (m ^ p).
 powPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
         -> pow m (plus n p) :~: times (pow m n) (pow m p)
-powPlus m n p = case n of
-  Zero   -> sym (plusZero (pow m p))
-  Succ k -> rewrite (powPlus m k p)
-              (sym (timesAssoc m (pow m k) (pow m p)))
+powPlus m Zero     p = sym (plusZero (pow m p))
+powPlus m (Succ k) p =
+  rewrite (powPlus m k p)
+    (sym (timesAssoc m (pow m k) (pow m p)))
 
 -- | Distributivity of exponentiation over multiplication (`^-distribʳ-*`):
 -- (m * n) ^ p = (m ^ p) * (n ^ p).
 powMul :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
        -> pow (times m n) p :~: times (pow m p) (pow n p)
-powMul m n p = case p of
-  Zero   -> Refl
-  Succ k -> rewrite (powMul m n k)
-              (timesInterchange m n (pow m k) (pow n k))
+powMul _ _ Zero     = Refl
+powMul m n (Succ k) =
+  rewrite (powMul m n k)
+    (timesInterchange m n (pow m k) (pow n k))
 
 -- | Associativity of iterated exponentiation (`^-*-assoc`):
 -- (m ^ n) ^ p = m ^ (n * p).
 powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> pow (pow m n) p :~: pow m (times n p)
-powTimes m n p = case p of
-  Zero   -> rewrite (timesZeroR n) Refl
-  Succ k -> rewrite (powTimes m n k)
-              (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
+powTimes _ n Zero     = rewrite (timesZeroR n) Refl
+powTimes m n (Succ k) =
+  rewrite (powTimes m n k)
+    (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
 ```
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
@@ -628,5 +608,4 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   explicit negative control (`NegZeroSucc`) verifying GHC rejects `0 :~: 1`
   (`GHC-83865`).
 - Omitted Agda's Emacs interactive proof-building walkthrough and Unicode
-  table, and noted the R03 second-column equation limitation
-  (`R03_SecondColumnPattern.hs`).
+  table.

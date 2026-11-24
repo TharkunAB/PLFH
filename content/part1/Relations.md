@@ -240,18 +240,17 @@ data Total (m :: Nat) (n :: Nat) where
 
 In PLFA, the recursive call inside `≤-total (suc m) (suc n)` uses Agda's
 `with` abstraction to inspect the result of `≤-total m n`. In Haskell,
-ordinary `case ... of` expressions perform the exact same inspection (and we
-likewise inspect the second retained argument `n` with `case n of`):
+ordinary `case ... of` expressions perform the exact same inspection while
+splitting both `m` and `n` directly in the function equations:
 
 ```haskell
 -- | Ordering on naturals is total.
 leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
-leTotal Zero     _ = Forward ZleN
-leTotal (Succ m) n = case n of
-  Zero    -> Flipped ZleN
-  Succ n' -> case leTotal m n' of
-    Forward p -> Forward (SleS p)
-    Flipped p -> Flipped (SleS p)
+leTotal Zero     _        = Forward ZleN
+leTotal (Succ _) Zero     = Flipped ZleN
+leTotal (Succ m) (Succ n) = case leTotal m n of
+  Forward p -> Forward (SleS p)
+  Flipped p -> Flipped (SleS p)
 ```
 
 Notice that when `m = n = 0`, both `Forward ZleN` and `Flipped ZleN` are
@@ -284,10 +283,10 @@ PLFA proves `+-monoˡ-≤` either via commutativity or directly by induction):
 -- | Left monotonicity: if m <= n then m + p <= n + p.
 plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
-plusMonoL m n p mn = case p of
-  Zero    -> rewrite (plusZero m) (rewrite (plusZero n) mn)
-  Succ p' -> rewrite (plusSucc m p')
-               (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
+plusMonoL m n Zero     mn = rewrite (plusZero m) (rewrite (plusZero n) mn)
+plusMonoL m n (Succ p) mn =
+  rewrite (plusSucc m p)
+    (rewrite (plusSucc n p) (SleS (plusMonoL m n p mn)))
 ```
 
 Combining left and right monotonicity with `leTrans` yields full monotonicity
@@ -344,15 +343,13 @@ data Trichotomy (m :: Nat) (n :: Nat) where
 
 -- | Every pair of finite naturals satisfies trichotomy.
 ltTrichotomy :: foreach (m :: Nat) -> foreach (n :: Nat) -> Trichotomy m n
-ltTrichotomy Zero n = case n of
-  Zero   -> TriEQ Refl
-  Succ _ -> TriLT ZltS
-ltTrichotomy (Succ m) n = case n of
-  Zero    -> TriGT ZltS
-  Succ n' -> case ltTrichotomy m n' of
-    TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (cong Succ eq)
-    TriGT p  -> TriGT (SltS p)
+ltTrichotomy Zero     Zero     = TriEQ Refl
+ltTrichotomy Zero     (Succ _) = TriLT ZltS
+ltTrichotomy (Succ _) Zero     = TriGT ZltS
+ltTrichotomy (Succ m) (Succ n) = case ltTrichotomy m n of
+  TriLT p  -> TriLT (SltS p)
+  TriEQ eq -> TriEQ (cong Succ eq)
+  TriGT p  -> TriGT (SltS p)
 ```
 
 ### Relating `<`, `≤`, and addition

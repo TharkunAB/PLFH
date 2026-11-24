@@ -101,48 +101,47 @@ data Total (m :: Nat) (n :: Nat) where
 {-# LINE 247 "content/part1/Relations.md" #-}
 -- | Ordering on naturals is total.
 leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
-leTotal Zero     _ = Forward ZleN
-leTotal (Succ m) n = case n of
-  Zero    -> Flipped ZleN
-  Succ n' -> case leTotal m n' of
-    Forward p -> Forward (SleS p)
-    Flipped p -> Flipped (SleS p)
+leTotal Zero     _        = Forward ZleN
+leTotal (Succ _) Zero     = Flipped ZleN
+leTotal (Succ m) (Succ n) = case leTotal m n of
+  Forward p -> Forward (SleS p)
+  Flipped p -> Flipped (SleS p)
 
-{-# LINE 273 "content/part1/Relations.md" #-}
+{-# LINE 272 "content/part1/Relations.md" #-}
 -- | Right monotonicity: if p <= q then n + p <= n + q.
 plusMonoR :: foreach (n :: Nat) -> LE p q -> LE (plus n p) (plus n q)
 plusMonoR Zero     pq = pq
 plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 
-{-# LINE 284 "content/part1/Relations.md" #-}
+{-# LINE 283 "content/part1/Relations.md" #-}
 -- | Left monotonicity: if m <= n then m + p <= n + p.
 plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
-plusMonoL m n p mn = case p of
-  Zero    -> rewrite (plusZero m) (rewrite (plusZero n) mn)
-  Succ p' -> rewrite (plusSucc m p')
-               (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
+plusMonoL m n Zero     mn = rewrite (plusZero m) (rewrite (plusZero n) mn)
+plusMonoL m n (Succ p) mn =
+  rewrite (plusSucc m p)
+    (rewrite (plusSucc n p) (SleS (plusMonoL m n p mn)))
 
-{-# LINE 297 "content/part1/Relations.md" #-}
+{-# LINE 296 "content/part1/Relations.md" #-}
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
 plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> foreach (p :: Nat) -> foreach (q :: Nat)
          -> LE m n -> LE p q -> LE (plus m p) (plus n q)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 
-{-# LINE 319 "content/part1/Relations.md" #-}
+{-# LINE 318 "content/part1/Relations.md" #-}
 -- | Strict inequality on natural numbers.
 data LT' (m :: Nat) (n :: Nat) where
   ZltS :: LT' Zero (Succ n)
   SltS :: LT' m n -> LT' (Succ m) (Succ n)
 
-{-# LINE 329 "content/part1/Relations.md" #-}
+{-# LINE 328 "content/part1/Relations.md" #-}
 -- | Strict inequality is transitive.
 ltTrans :: LT' m n -> LT' n p -> LT' m p
 ltTrans ZltS     (SltS _) = ZltS
 ltTrans (SltS p) (SltS q) = SltS (ltTrans p q)
 
-{-# LINE 339 "content/part1/Relations.md" #-}
+{-# LINE 338 "content/part1/Relations.md" #-}
 -- | Trichotomy witness: m < n, m = n, or n < m.
 data Trichotomy (m :: Nat) (n :: Nat) where
   TriLT :: LT' m n -> Trichotomy m n
@@ -151,17 +150,15 @@ data Trichotomy (m :: Nat) (n :: Nat) where
 
 -- | Every pair of finite naturals satisfies trichotomy.
 ltTrichotomy :: foreach (m :: Nat) -> foreach (n :: Nat) -> Trichotomy m n
-ltTrichotomy Zero n = case n of
-  Zero   -> TriEQ Refl
-  Succ _ -> TriLT ZltS
-ltTrichotomy (Succ m) n = case n of
-  Zero    -> TriGT ZltS
-  Succ n' -> case ltTrichotomy m n' of
-    TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (cong Succ eq)
-    TriGT p  -> TriGT (SltS p)
+ltTrichotomy Zero     Zero     = TriEQ Refl
+ltTrichotomy Zero     (Succ _) = TriLT ZltS
+ltTrichotomy (Succ _) Zero     = TriGT ZltS
+ltTrichotomy (Succ m) (Succ n) = case ltTrichotomy m n of
+  TriLT p  -> TriLT (SltS p)
+  TriEQ eq -> TriEQ (cong Succ eq)
+  TriGT p  -> TriGT (SltS p)
 
-{-# LINE 365 "content/part1/Relations.md" #-}
+{-# LINE 362 "content/part1/Relations.md" #-}
 -- | Strict inequality implies shifted non-strict inequality: m < n -> Succ m <= n.
 ltToLe :: LT' m n -> LE (Succ m) n
 ltToLe ZltS     = SleS ZleN
@@ -191,7 +188,7 @@ diffToLe :: foreach (m :: Nat) -> foreach (k :: Nat) -> LE m (plus m k)
 diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 
-{-# LINE 411 "content/part1/Relations.md" #-}
+{-# LINE 408 "content/part1/Relations.md" #-}
 -- | Mutually inductive parity predicates on Nat.
 data Even (n :: Nat) where
   EvenZ :: Even Zero
@@ -200,7 +197,7 @@ data Even (n :: Nat) where
 data Odd (n :: Nat) where
   OddS :: Even n -> Odd (Succ n)
 
-{-# LINE 427 "content/part1/Relations.md" #-}
+{-# LINE 424 "content/part1/Relations.md" #-}
 -- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`).
 evenPlusEven :: Even m -> Even n -> Even (plus m n)
 evenPlusEven EvenZ      en = en
@@ -219,7 +216,7 @@ evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
 oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
 oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
 
-{-# LINE 450 "content/part1/Relations.md" #-}
+{-# LINE 447 "content/part1/Relations.md" #-}
 -- | Every natural number is either even or odd.
 evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
 evenOrOdd Zero     = Left EvenZ
@@ -231,7 +228,7 @@ evenOrOdd (Succ n) = case evenOrOdd n of
 notBothEvenOdd :: Even n -> Odd n -> Void
 notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
 
-{-# LINE 481 "content/part1/Relations.md" #-}
+{-# LINE 478 "content/part1/Relations.md" #-}
 -- | Evidence that a binary number is positive and has no leading zero bits.
 data One (b :: Bin) where
   OneX1  :: One (X1 Nil)
@@ -243,7 +240,7 @@ data Can (b :: Bin) where
   CanZ   :: Can (X0 Nil)
   CanOne :: One b -> Can b
 
-{-# LINE 497 "content/part1/Relations.md" #-}
+{-# LINE 494 "content/part1/Relations.md" #-}
 -- | Incrementing a positive canonical binary number stays positive canonical.
 incOne :: foreach (b :: Bin) -> One b -> One (inc b)
 incOne Nil    p = case p of {}
@@ -272,7 +269,7 @@ toBinCan :: foreach (n :: Nat) -> Can (toBin n)
 toBinCan Zero     = CanZ
 toBinCan (Succ n) = incCan (toBin n) (toBinCan n)
 
-{-# LINE 533 "content/part1/Relations.md" #-}
+{-# LINE 530 "content/part1/Relations.md" #-}
 -- | Witness that a natural number is strictly positive (`n = Succ k`).
 data PosNat (n :: Nat) where
   MkPos :: foreach (k :: Nat) -> n :~: Succ k -> PosNat n

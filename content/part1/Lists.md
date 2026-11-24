@@ -53,6 +53,8 @@ module PLFH.Part1.Lists
   , zeros
   , lengthDownFrom
   , lengthZeros
+  , foldrPlusSeed
+  , foldrPlusAppend
   , All (..)
   , Any (..)
   , In
@@ -75,13 +77,15 @@ module PLFH.Part1.Lists
   ) where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:) (Refl), gcastWith, sym)
+import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Void (Void)
+import qualified GHC.Internal.List as List
 import GHC.Tuple (Tuple2)
 import GHC.Types (List, Matchability)
 import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
+import PLFH.Part1.Induction (cong, plusAssoc)
 import PLFH.Part1.Isomorphism (Iff (..))
 ```
 
@@ -164,33 +168,20 @@ prove the append-homomorphism and functor laws (`mapAppend`, `mapCompose`,
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
-mapAppend f xs ys = case xs of
-  []        -> Refl
-  (_ : xs') -> gcastWith (mapAppend f xs' ys) Refl
+mapAppend _ []       _  = Refl
+mapAppend f (_ : xs) ys = gcastWith (mapAppend f xs ys) Refl
 
 -- | Functor composition law: map (g . f) xs = map g (map f xs).
 mapCompose :: forall a b c. foreach (g :: b -> c) -> foreach (f :: a -> b) -> foreach (xs :: List a)
            -> map (g . f) xs :~: map g (map f xs)
-mapCompose g f xs = case xs of
-  []        -> Refl
-  (_ : xs') -> gcastWith (mapCompose g f xs') Refl
+mapCompose _ _ []       = Refl
+mapCompose g f (_ : xs) = gcastWith (mapCompose g f xs) Refl
 
 -- | Functor identity law: map id xs = xs.
 mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Equations with a leading retained function binder (R03)]</strong>
-Notice that <code>mapAppend</code> and <code>mapCompose</code> match on
-<code>xs</code> using <code>case xs of</code> rather than constructor
-equations <code>mapAppend _ [] _ = Refl</code>. Currently,
-multi-equation constructor splitting after a leading function-valued retained
-binder reports <code>GHC-83605</code> (<em>Function-valued retained binders
-require bare variable patterns or wildcards</em>). See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>.
-</div>
 
 ## Faster reverse (`shunt`), countdown lists (`downFrom`, `zeros`), and `foldr`
 
@@ -276,25 +267,45 @@ lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 ```
 
+### Right folds and monoid homomorphisms (`foldr`)
+
+Using the standard library's own `GHC.Internal.List.foldr`, we prove both of
+PLFA's additive fold laws directly—moving the seed `z` outside a right fold
+(`foldrPlusSeed`) and proving that summing a concatenated list equals adding
+the individual sums (`foldrPlusAppend`, PLFA's `foldr-monoid-++` instantiated
+at `(Nat, plus, 0)`), using our visible `cong (plus x)` and `sym (plusAssoc ...)`
+from [Induction](/Induction/):
+
+```haskell
+-- | Move the seed to the right of the zero-seeded fold.
+foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
+              -> List.foldr plus z xs :~: plus (List.foldr plus Zero xs) z
+foldrPlusSeed []       _ = Refl
+foldrPlusSeed (x : xs) z =
+  trans (cong (plus x) (foldrPlusSeed xs z))
+        (sym (plusAssoc x (List.foldr plus Zero xs) z))
+
+-- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
+foldrPlusAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+                -> List.foldr plus Zero (xs ++ ys)
+               :~: plus (List.foldr plus Zero xs) (List.foldr plus Zero ys)
+foldrPlusAppend []       _  = Refl
+foldrPlusAppend (x : xs) ys =
+  trans (cong (plus x) (foldrPlusAppend xs ys))
+        (sym (plusAssoc x (List.foldr plus Zero xs) (List.foldr plus Zero ys)))
+```
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — Higher-order <code>foldr</code> (R03) &amp; default <code>-O2</code> list rewrite rules]</strong>
-Two classic PLFA Lists items remain open:
-<ol>
-  <li><strong>Higher-order <code>foldr</code> in retained arguments (R03):</strong>
-      Passing <code>foldrL plus Zero xs</code> as a retained runtime argument
-      to an associative lemma like <code>plusAssoc</code> fails with
-      <code>GHC-83605</code> (<em>GHC cannot use this expression as a retained
-      index</em>), blocking <code>foldr-monoid-++</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FoldrRetainedIndex.hs"><code>reproducers/R03_FoldrRetainedIndex.hs</code></a>.</li>
-  <li><strong>Default <code>-O2</code> with rewrite rules enabled:</strong>
-      Without <code>-fno-enable-rewrite-rules</code>, default <code>-O2</code>
-      rejects <code>shuntAppend</code> and list-literal <code>rev</code> with
-      <code>GHC-83605</code> / <code>GHC-70565</code> at the Prelude list-fusion
-      rewrite-rule guard (see
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>
-      and
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>).</li>
-</ol>
+<strong>[WIP NOTICE — Default <code>-O2</code> list rewrite rules]</strong>
+This module disables list-fusion rewrite rules via
+<code>-fno-enable-rewrite-rules</code>. With rewrite rules enabled at default
+<code>-O2</code>, GHC rejects <code>mapAppend</code>, <code>shuntAppend</code>,
+and list-literal <code>rev</code> at the Prelude list-fusion rewrite-rule guard
+(see
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>,
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>,
+and
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>).
 </div>
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
@@ -519,9 +530,10 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
 - Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
   `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
   `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
-  `lengthDownFrom`/`lengthZeros`, `All`, `Any`, `In`, `allAppend`/`Inv`,
-  `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `decAll`, `decAny`,
-  `zeroInList`, and `threeNotInList`.
-- Marked `foldr` as a retained index, default `-O2` list rewrite rules on
-  `shunt`/`rev`, and multi-equation splitting after a retained function with
-  `[WIP NOTICE]` and minimal reproducers.
+  `lengthDownFrom`/`lengthZeros`, `foldrPlusSeed`/`foldrPlusAppend` over
+  installed `GHC.Internal.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
+  `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
+  `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
+- Marked default `-O2` list rewrite-rule guards (`R03_FunctionColumnSplit.hs`,
+  `R13_ShuntAccumOpenEq.hs`, `R13_RevOpenEq.hs`) with `[WIP NOTICE]` and
+  minimal reproducers.

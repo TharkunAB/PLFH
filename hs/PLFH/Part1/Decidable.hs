@@ -83,36 +83,31 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
 {-# LINE 157 "content/part1/Decidable.md" #-}
 -- | Decidable propositional equality on Nat (`_≡ℕ?_`).
 decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
-decEqSize Zero n = case n of
-  Zero   -> Yes Refl
-  Succ _ -> No (\case {})
-decEqSize (Succ m) n = case n of
-  Zero    -> No (\case {})
-  Succ n' -> case decEqSize m n' of
-    Yes eq -> Yes (cong Succ eq)
-    No neq -> No (\Refl -> neq Refl)
+decEqSize Zero     Zero     = Yes Refl
+decEqSize Zero     (Succ _) = No (\case {})
+decEqSize (Succ _) Zero     = No (\case {})
+decEqSize (Succ m) (Succ n) = case decEqSize m n of
+  Yes eq -> Yes (cong Succ eq)
+  No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
 decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
-decLeSize Zero _ = Yes ZleN
-decLeSize (Succ m) n = case n of
-  Zero    -> No (\case {})
-  Succ n' -> case decLeSize m n' of
-    Yes p  -> Yes (SleS p)
-    No np  -> No (\p -> np (invSleS p))
+decLeSize Zero     _        = Yes ZleN
+decLeSize (Succ _) Zero     = No (\case {})
+decLeSize (Succ m) (Succ n) = case decLeSize m n of
+  Yes p -> Yes (SleS p)
+  No np -> No (\p -> np (invSleS p))
 
 -- | Decidable strict less-than relation on Nat (`_<?_`).
 decLtSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LT' m n)
-decLtSize Zero n = case n of
-  Zero   -> No (\case {})
-  Succ _ -> Yes ZltS
-decLtSize (Succ m) n = case n of
-  Zero    -> No (\case {})
-  Succ n' -> case decLtSize m n' of
-    Yes p  -> Yes (SltS p)
-    No  np -> No (\case SltS q -> np q)
+decLtSize Zero     Zero     = No (\case {})
+decLtSize Zero     (Succ _) = Yes ZltS
+decLtSize (Succ _) Zero     = No (\case {})
+decLtSize (Succ m) (Succ n) = case decLtSize m n of
+  Yes p -> Yes (SltS p)
+  No np -> No (\case SltS q -> np q)
 
-{-# LINE 203 "content/part1/Decidable.md" #-}
+{-# LINE 198 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
@@ -143,22 +138,19 @@ reflectsToDec False (OfFalse np) = No np
 
 -- | Decidable equality on binary numbers (`Bin`).
 decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
-decEqBin Nil b = case b of
-  Nil  -> Yes Refl
-  X0 _ -> No (\case {})
-  X1 _ -> No (\case {})
-decEqBin (X0 a) b = case b of
-  Nil   -> No (\case {})
-  X1 _  -> No (\case {})
-  X0 b' -> case decEqBin a b' of
-    Yes Refl -> Yes Refl
-    No  neq  -> No (\Refl -> neq Refl)
-decEqBin (X1 a) b = case b of
-  Nil   -> No (\case {})
-  X0 _  -> No (\case {})
-  X1 b' -> case decEqBin a b' of
-    Yes Refl -> Yes Refl
-    No  neq  -> No (\Refl -> neq Refl)
+decEqBin Nil    Nil    = Yes Refl
+decEqBin Nil    (X0 _) = No (\case {})
+decEqBin Nil    (X1 _) = No (\case {})
+decEqBin (X0 _) Nil    = No (\case {})
+decEqBin (X0 _) (X1 _) = No (\case {})
+decEqBin (X0 a) (X0 b) = case decEqBin a b of
+  Yes Refl -> Yes Refl
+  No  neq  -> No (\Refl -> neq Refl)
+decEqBin (X1 _) Nil    = No (\case {})
+decEqBin (X1 _) (X0 _) = No (\case {})
+decEqBin (X1 a) (X1 b) = case decEqBin a b of
+  Yes Refl -> Yes Refl
+  No  neq  -> No (\Refl -> neq Refl)
 
 -- | Decidable `One` predicate (`One?`).
 decOne :: foreach (b :: Bin) -> Dec (One b)
@@ -190,7 +182,7 @@ decCan (X1 b) = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 294 "content/part1/Decidable.md" #-}
+{-# LINE 286 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
 type SizeWitness = some (k :: Nat) | LE Zero k
 

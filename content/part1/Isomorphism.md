@@ -59,9 +59,8 @@ module PLFH.Part1.Isomorphism
   ) where
 
 import Data.Type.Equality ((:~:) (Refl), trans)
-import HaskLib (cong)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part1.Induction (fromTo)
+import PLFH.Part1.Induction (cong, fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 ```
 
@@ -174,7 +173,7 @@ an isomorphism `Iso b c` with maps `h :: b -> c` and `k :: c -> b`, we compose
 the forward maps with Prelude `(.)` as `h . f` and the reverse maps as `g . k`.
 
 To prove the left round trip `g (k (h (f x))) :~: x`, the inner inverse proof
-`kh (f x)` gives `k (h (f x)) :~: f x`; applying `cong @g` surrounds both sides
+`kh (f x)` gives `k (h (f x)) :~: f x`; applying `cong g` surrounds both sides
 with `g`, and `trans` composes that step with the outer inverse proof `gf x`:
 
 ```haskell
@@ -184,7 +183,7 @@ composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> (foreach (x :: a) -> g (f x) :~: x)
             -> (foreach (y :: b) -> k (h y) :~: y)
             -> foreach (x :: a) -> g (k (h (f x))) :~: x
-composeLeft f g _ _ gf kh x = trans (cong @g (kh (f x))) (gf x)
+composeLeft f g _ _ gf kh x = trans (cong g (kh (f x))) (gf x)
 
 -- | Generic transitivity of isomorphism (`≃-trans`).
 isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
