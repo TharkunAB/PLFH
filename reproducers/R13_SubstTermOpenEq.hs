@@ -6,9 +6,9 @@
 module R13_SubstTermOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import ReproOps (Term (..), substTerm)
 
-substSuc :: foreach (m :: Term) -> foreach (y :: Size) -> foreach (v :: Term)
+substSuc :: foreach (m :: Term) -> foreach (y :: Nat) -> foreach (v :: Term)
          -> substTerm ('TSuc m) y v :~: 'TSuc (substTerm m y v)
 substSuc _ _ _ = Refl

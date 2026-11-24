@@ -5,8 +5,8 @@
 module R13_WildcardBreaksOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import ReproOps (timesWild)
 
-timesZeroL :: foreach (n :: Size) -> timesWild 'Zero n :~: 'Zero
+timesZeroL :: foreach (n :: Nat) -> timesWild 'Zero n :~: 'Zero
 timesZeroL _ = Refl

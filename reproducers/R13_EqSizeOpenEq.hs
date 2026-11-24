@@ -5,9 +5,9 @@
 module R13_EqSizeOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import ReproOps (eqSize)
 
-eqRefl :: foreach (n :: Size) -> eqSize n n :~: 'True
+eqRefl :: foreach (n :: Nat) -> eqSize n n :~: 'True
 eqRefl Zero     = Refl
 eqRefl (Succ n) = eqRefl n

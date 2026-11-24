@@ -4,7 +4,7 @@ prev: /Quantifiers/
 next: /Lists/
 src: content/part1/Decidable.md
 module: PLFH.Part1.Decidable
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Decidable/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Decidable/
 ---
 
 ```haskell
@@ -28,7 +28,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Size (Size (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), congSucc, plus)
 import PLFH.Part1.Relations (Even (..), LE (..), Odd (..), invSleS)
 ```
 
@@ -73,14 +73,14 @@ data Dec (p :: Type) where
   No  :: Not p -> Dec p
 ```
 
-### Decidable equality on `Size`
+### Decidable equality on `Nat`
 
 With `foreach` and `EmptyCase`, decidable equality on natural numbers is a
 direct structural recursion:
 
 ```haskell
--- | Decidable propositional equality on Size.
-decEqSize :: foreach (m :: Size) -> foreach (n :: Size) -> Dec (m :~: n)
+-- | Decidable propositional equality on Nat.
+decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
 decEqSize Zero n = case n of
   Zero   -> Yes Refl
   Succ _ -> No (\case {})
@@ -96,8 +96,8 @@ decEqSize (Succ m) n = case n of
 Similarly, `m ≤ n` is decidable for all finite `m` and `n`:
 
 ```haskell
--- | Decidable less-than-or-equal relation on Size.
-decLeSize :: foreach (m :: Size) -> foreach (n :: Size) -> Dec (LE m n)
+-- | Decidable less-than-or-equal relation on Nat.
+decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
 decLeSize Zero _ = Yes ZleN
 decLeSize (Succ m) n = case n of
   Zero    -> No (\case {})
@@ -108,14 +108,14 @@ decLeSize (Succ m) n = case n of
 
 ### Decidable parity (`decEven`, `decOdd`) and Boolean reflection (`Reflects`)
 
-Parity is also decidable by two-step structural recursion on `Size`. Notice
+Parity is also decidable by two-step structural recursion on `Nat`. Notice
 that GHC's R03 pattern-matching rules currently reject nested constructor
 patterns like `decEven (Succ Zero)` directly in a retained column, so we match
 the inner `n` in a `case` expression on the right-hand side:
 
 ```haskell
--- | Decidable evenness predicate on Size.
-decEven :: foreach (n :: Size) -> Dec (Even n)
+-- | Decidable evenness predicate on Nat.
+decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
 decEven (Succ n) = case n of
   Zero    -> No (\case EvenS o -> case o of {})
@@ -123,8 +123,8 @@ decEven (Succ n) = case n of
     Yes ev  -> Yes (EvenS (OddS ev))
     No  nev -> No (\case EvenS (OddS ev) -> nev ev)
 
--- | Decidable oddness predicate on Size.
-decOdd :: foreach (n :: Size) -> Dec (Odd n)
+-- | Decidable oddness predicate on Nat.
+decOdd :: foreach (n :: Nat) -> Dec (Odd n)
 decOdd Zero     = No (\case {})
 decOdd (Succ n) = case n of
   Zero    -> Yes (OddS EvenZ)
@@ -147,14 +147,14 @@ reflectsToDec False (OfFalse np) = No np
 
 This GHC fork provides retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`,
 constructed with `Pair x px`, Serokell R04). For example, we can pair a
-runtime `Size` with evidence that `Zero <= k`:
+runtime `Nat` with evidence that `Zero <= k`:
 
 ```haskell
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Size) | LE 'Zero k
+type SizeWitness = some (k :: Nat) | LE 'Zero k
 
 -- | Package any runtime size with its proof of Zero <= k.
-mkSizeWitness :: Size -> SizeWitness
+mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
 ```
 
@@ -162,8 +162,8 @@ mkSizeWitness k = Pair k ZleN
 <strong>[WIP NOTICE — Returning an inline <code>some</code> from a <code>foreach</code> function (R04)]</strong>
 Writing a dependent function whose result type is an inline retained sum
 mentioning the retained inputs:
-<pre class="wip"><code>plusExists :: foreach (m :: Size) -&gt; foreach (n :: Size)
-           -&gt; some (k :: Size) | k :~: plus m n</code></pre>
+<pre class="wip"><code>plusExists :: foreach (m :: Nat) -&gt; foreach (n :: Nat)
+           -&gt; some (k :: Nat) | k :~: plus m n</code></pre>
 is currently rejected on GHC <code>db2586fdc2</code> (<em>A retained dependent
 sum is supported in a top-level type synonym, as the result of a type family
 equation, in a complete top-level value signature, or in a constructor field...</em>).
@@ -171,12 +171,12 @@ See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_SigmaUnderForEach.hs"><code>reproducers/R04_SigmaUnderForEach.hs</code></a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
 - Consolidates the core definitions needed for later chapters from
-  [Negation](https://plfa.inf.ed.ac.uk/19.08/Negation/),
-  [Quantifiers](https://plfa.inf.ed.ac.uk/19.08/Quantifiers/), and
-  [Decidable](https://plfa.inf.ed.ac.uk/19.08/Decidable/) (v19.08).
+  [Negation](https://plfa.inf.ed.ac.uk/22.08/Negation/),
+  [Quantifiers](https://plfa.inf.ed.ac.uk/22.08/Quantifiers/), and
+  [Decidable](https://plfa.inf.ed.ac.uk/22.08/Decidable/) (v22.08).
 - `Not`, `zeroNeqSucc`, `Dec`, `decEqSize`, `decLeSize`, `decEven`, `decOdd`,
   `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`/`mkSizeWitness`)
   all port directly and pass `-dcore-lint -dstg-lint`!

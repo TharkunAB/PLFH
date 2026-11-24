@@ -20,7 +20,7 @@ module PLFH.Part2.Substitution
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
@@ -32,10 +32,10 @@ import PLFH.Part2.Untyped
 
 {-# LINE 49 "content/part2/Substitution.md" #-}
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
-type Rename (m :: Size) (n :: Size) = Fin m -> Fin n
+type Rename (m :: Nat) (n :: Nat) = Fin m -> Fin n
 
 -- | A simultaneous substitution mapping variables in depth `m` to terms in depth `n`.
-type Subst (m :: Size) (n :: Size) = Fin m -> UTerm n
+type Subst (m :: Nat) (n :: Nat) = Fin m -> UTerm n
 
 -- | Identity substitution: maps each variable to itself.
 ids :: Subst m m

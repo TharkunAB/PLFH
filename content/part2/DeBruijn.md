@@ -4,7 +4,7 @@ prev: /Properties/
 next: /Inference/
 src: content/part2/DeBruijn.md
 module: PLFH.Part2.DeBruijn
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/DeBruijn/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/DeBruijn/
 ---
 
 ```haskell
@@ -184,10 +184,10 @@ and
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtCase.hs"><code>R03_ForEachGadtCase.hs</code></a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [DeBruijn (v19.08)](https://plfa.inf.ed.ac.uk/19.08/DeBruijn/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/DeBruijn.lagda.md)).
+- Adapted from [DeBruijn (v22.08)](https://plfa.inf.ed.ac.uk/22.08/DeBruijn/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/DeBruijn.lagda.md)).
 - `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
   `substSingle`, and the GADT-promoted `Value`, `Step`, and `Progress`
   definitions all compile cleanly with `-dcore-lint -dstg-lint`!

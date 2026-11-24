@@ -33,7 +33,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
 import Data.Void (Void)
 import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
-import HaskLib.Size (Size (..), plus)
+import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
 
 {-# LINE 60 "content/part1/Lists.md" #-}
@@ -156,11 +156,11 @@ decAny d xs = case xs of
       No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
 
 -- | Concrete membership proof: 0 ∈ [0, 1, 0].
-zeroInList :: In 'Zero '[ 'Zero, 'Succ 'Zero, 'Zero ]
+zeroInList :: In (0 :: Nat) '[ (0 :: Nat), (1 :: Nat), (0 :: Nat) ]
 zeroInList = Here Refl
 
 -- | Concrete non-membership proof: 2 ∉ [0, 1].
-threeNotInList :: Not (In ('Succ ('Succ 'Zero)) '[ 'Zero, 'Succ 'Zero ])
+threeNotInList :: Not (In (2 :: Nat) '[ (0 :: Nat), (1 :: Nat) ])
 threeNotInList (Here eq)          = case eq of {}
 threeNotInList (There (Here eq))  = case eq of {}
 threeNotInList (There (There p))  = case p of {}

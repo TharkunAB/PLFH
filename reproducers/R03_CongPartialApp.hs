@@ -8,18 +8,18 @@ module R03_CongPartialApp where
 
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import GHC.Exts (U)
-import HaskLib.Size (Size (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), congSucc, plus)
 
 cong :: forall {a} {b} (f :: a %U -> b) (x :: a) (y :: a). x :~: y -> f x :~: f y
 cong Refl = Refl
 
-plusAssoc :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+plusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> plus (plus m n) p :~: plus m (plus n p)
 plusAssoc Zero     _ _ = Refl
 plusAssoc (Succ m) n p = congSucc (plusAssoc m n p)
 
-plusRearrange :: foreach (m :: Size) -> foreach (n :: Size)
-              -> foreach (p :: Size) -> foreach (q :: Size)
+plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
+              -> foreach (p :: Nat) -> foreach (q :: Nat)
               -> plus (plus m n) (plus p q) :~: plus (plus m (plus n p)) q
 plusRearrange m n p q =
   plusAssoc m n (plus p q)

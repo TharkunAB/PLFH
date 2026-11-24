@@ -4,7 +4,7 @@ prev: /Decidable/
 next: /Lambda/
 src: content/part1/Lists.md
 module: PLFH.Part1.Lists
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Lists/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Lists/
 ---
 
 ```haskell
@@ -39,7 +39,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
 import Data.Void (Void)
 import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
-import HaskLib.Size (Size (..), plus)
+import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
 ```
 
@@ -249,11 +249,11 @@ decAny d xs = case xs of
       No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
 
 -- | Concrete membership proof: 0 ∈ [0, 1, 0].
-zeroInList :: In 'Zero '[ 'Zero, 'Succ 'Zero, 'Zero ]
+zeroInList :: In (0 :: Nat) '[ (0 :: Nat), (1 :: Nat), (0 :: Nat) ]
 zeroInList = Here Refl
 
 -- | Concrete non-membership proof: 2 ∉ [0, 1].
-threeNotInList :: Not (In ('Succ ('Succ 'Zero)) '[ 'Zero, 'Succ 'Zero ])
+threeNotInList :: Not (In (2 :: Nat) '[ (0 :: Nat), (1 :: Nat) ])
 threeNotInList (Here eq)          = case eq of {}
 threeNotInList (There (Here eq))  = case eq of {}
 threeNotInList (There (There p))  = case p of {}
@@ -269,8 +269,8 @@ on GHC <code>d15cbd41fe</code>:
       second argument in the recursive call and fails <code>GHC-68947</code>
       when used in <code>shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)</code>.
       See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>.</li>
-  <li><strong><code>Size -&gt; [Size]</code> recursion (<code>downFrom</code>, R13):</strong>
-      Structural recursion matching <code>Size</code> and returning a Prelude
+  <li><strong><code>Nat -&gt; [Nat]</code> recursion (<code>downFrom</code>, R13):</strong>
+      Structural recursion matching <code>Nat</code> and returning a Prelude
       list (<code>downFrom (Succ n) = n : downFrom n</code>) fails
       <code>GHC-68947</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_DownFromOpenEq.hs"><code>reproducers/R13_DownFromOpenEq.hs</code></a>.</li>
@@ -284,10 +284,10 @@ on GHC <code>d15cbd41fe</code>:
 </ol>
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Lists (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Lists/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Lists.lagda.md)).
+- Adapted from [Lists (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Lists/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Lists.lagda.md)).
 - Used standard Prelude `[a]`, `(++)`, and `map` directly instead of a custom
   `List` datatype.
 - Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.

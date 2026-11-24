@@ -22,7 +22,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Size (Size (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), congSucc, plus)
 import PLFH.Part1.Relations (Even (..), LE (..), Odd (..), invSleS)
 
 {-# LINE 46 "content/part1/Decidable.md" #-}
@@ -40,8 +40,8 @@ data Dec (p :: Type) where
   No  :: Not p -> Dec p
 
 {-# LINE 82 "content/part1/Decidable.md" #-}
--- | Decidable propositional equality on Size.
-decEqSize :: foreach (m :: Size) -> foreach (n :: Size) -> Dec (m :~: n)
+-- | Decidable propositional equality on Nat.
+decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
 decEqSize Zero n = case n of
   Zero   -> Yes Refl
   Succ _ -> No (\case {})
@@ -52,8 +52,8 @@ decEqSize (Succ m) n = case n of
     No neq -> No (\Refl -> neq Refl)
 
 {-# LINE 99 "content/part1/Decidable.md" #-}
--- | Decidable less-than-or-equal relation on Size.
-decLeSize :: foreach (m :: Size) -> foreach (n :: Size) -> Dec (LE m n)
+-- | Decidable less-than-or-equal relation on Nat.
+decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
 decLeSize Zero _ = Yes ZleN
 decLeSize (Succ m) n = case n of
   Zero    -> No (\case {})
@@ -62,8 +62,8 @@ decLeSize (Succ m) n = case n of
     No np  -> No (\p -> np (invSleS p))
 
 {-# LINE 117 "content/part1/Decidable.md" #-}
--- | Decidable evenness predicate on Size.
-decEven :: foreach (n :: Size) -> Dec (Even n)
+-- | Decidable evenness predicate on Nat.
+decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
 decEven (Succ n) = case n of
   Zero    -> No (\case EvenS o -> case o of {})
@@ -71,8 +71,8 @@ decEven (Succ n) = case n of
     Yes ev  -> Yes (EvenS (OddS ev))
     No  nev -> No (\case EvenS (OddS ev) -> nev ev)
 
--- | Decidable oddness predicate on Size.
-decOdd :: foreach (n :: Size) -> Dec (Odd n)
+-- | Decidable oddness predicate on Nat.
+decOdd :: foreach (n :: Nat) -> Dec (Odd n)
 decOdd Zero     = No (\case {})
 decOdd (Succ n) = case n of
   Zero    -> Yes (OddS EvenZ)
@@ -92,8 +92,8 @@ reflectsToDec False (OfFalse np) = No np
 
 {-# LINE 153 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Size) | LE 'Zero k
+type SizeWitness = some (k :: Nat) | LE 'Zero k
 
 -- | Package any runtime size with its proof of Zero <= k.
-mkSizeWitness :: Size -> SizeWitness
+mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN

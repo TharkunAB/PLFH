@@ -4,7 +4,7 @@ prev: /Naturals/
 next: /Relations/
 src: content/part1/Induction.md
 module: PLFH.Part1.Induction
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Induction/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Induction/
 ---
 
 ```haskell
@@ -32,7 +32,7 @@ module PLFH.Part1.Induction
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import GHC.Exts (U)
 import HaskLib (rewrite)
-import HaskLib.Size (Size (..), congFirst, congSucc, plus, plusSucc, plusZero)
+import HaskLib.Nat (Nat (..), congFirst, congSucc, plus, plusSucc, plusZero)
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, times, toBin)
 ```
 
@@ -64,15 +64,15 @@ Addition is *associative* if parentheses do not matter:
     (m + n) + p ≡ m + (n + p)
 
 In Dependent Haskell, a universal quantifier over runtime natural numbers is
-written `foreach (m :: Size) -> ...`. Each retained argument is an ordinary
-runtime `Size` value that can also appear in the result type.
+written `foreach (m :: Nat) -> ...`. Each retained argument is an ordinary
+runtime `Nat` value that can also appear in the result type.
 
-Here is the direct port of PLFA's `+-assoc`, using `HaskLib.Size`'s
+Here is the direct port of PLFA's `+-assoc`, using `HaskLib.Nat`'s
 ordinary `plus` and `congSucc`:
 
 ```haskell
 -- | Associativity of addition: (m + n) + p = m + (n + p).
-plusAssoc :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+plusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> plus (plus m n) p :~: plus m (plus n p)
 plusAssoc Zero     _ _ = Refl
 plusAssoc (Succ m) n p = congSucc (plusAssoc m n p)
@@ -109,7 +109,7 @@ alias) brings a propositional equality `a :~: b` into scope as a local
 
 ```haskell
 -- | Associativity proved via `HaskLib.rewrite` (analogous to Agda `rewrite`).
-plusAssocRewrite :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+plusAssocRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                  -> plus (plus m n) p :~: plus m (plus n p)
 plusAssocRewrite Zero     _ _ = Refl
 plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
@@ -125,9 +125,9 @@ As a sanity check, we verify that GHC rejects a false equality between
 module NegZeroSucc (zeroEqualsOne) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 
-zeroEqualsOne :: 'Zero :~: 'Succ 'Zero
+zeroEqualsOne :: (0 :: Nat) :~: 1
 zeroEqualsOne = Refl
 ```
 
@@ -138,16 +138,16 @@ To prove `m + n = n + m`, PLFA first establishes two lemmas:
 1. **Right identity (`+-identityʳ`):** `plus m 'Zero :~: m`
 2. **Right successor (`+-suc`):** `plus m ('Succ n) :~: 'Succ (plus m n)`
 
-Both lemmas are already proved by induction in `HaskLib.Size` as `plusZero`
+Both lemmas are already proved by induction in `HaskLib.Nat` as `plusZero`
 and `plusSucc`! We reuse them directly:
 
 ```haskell
--- | Right identity of addition (reused from HaskLib.Size.plusZero).
-plusIdentityR :: foreach (m :: Size) -> plus m 'Zero :~: m
+-- | Right identity of addition (reused from HaskLib.Nat.plusZero).
+plusIdentityR :: foreach (m :: Nat) -> plus m 'Zero :~: m
 plusIdentityR = plusZero
 
--- | Move a successor from the second addend outside (reused from HaskLib.Size.plusSucc).
-plusSuc :: foreach (m :: Size) -> foreach (n :: Size)
+-- | Move a successor from the second addend outside (reused from HaskLib.Nat.plusSucc).
+plusSuc :: foreach (m :: Nat) -> foreach (n :: Nat)
         -> plus m ('Succ n) :~: 'Succ (plus m n)
 plusSuc = plusSucc
 ```
@@ -156,7 +156,7 @@ Now we prove commutativity by induction on the **second** argument `n`:
 
 ```haskell
 -- | Commutativity of addition: m + n = n + m.
-plusComm :: foreach (m :: Size) -> foreach (n :: Size) -> plus m n :~: plus n m
+plusComm :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
 plusComm m n = case n of
   Zero   -> plusZero m
   Succ k -> plusSucc m k `trans` congSucc (plusComm m k)
@@ -179,19 +179,19 @@ PLFA uses `+-assoc`, `sym`, and a section `cong (m +_)` to prove:
 
     (m + n) + (p + q) ≡ (m + (n + p)) + q
 
-Just as `HaskLib.Size` provides `congFirst` to lift an equality through the
+Just as `HaskLib.Nat` provides `congFirst` to lift an equality through the
 first argument of a binary size function, we define `congSecond` for the
 second argument:
 
 ```haskell
 -- | Lift an equality through the second argument of a binary size function.
-congSecond :: forall (f :: Size %U -> Size %U -> Size) l m n.
+congSecond :: forall (f :: Nat %U -> Nat %U -> Nat) l m n.
               m :~: n -> f l m :~: f l n
 congSecond Refl = Refl
 
 -- | Rearranging parentheses in a four-way sum.
-plusRearrange :: foreach (m :: Size) -> foreach (n :: Size)
-              -> foreach (p :: Size) -> foreach (q :: Size)
+plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
+              -> foreach (p :: Nat) -> foreach (q :: Nat)
               -> plus (plus m n) (plus p q) :~: plus (plus m (plus n p)) q
 plusRearrange m n p q =
   plusAssoc m n (plus p q)
@@ -216,7 +216,7 @@ checks cleanly. See
 
 ```haskell
 -- | Swap the first two addends: m + (n + p) = n + (m + p).
-plusSwap :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+plusSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> plus m (plus n p) :~: plus n (plus m p)
 plusSwap m n p =
   sym (plusAssoc m n p)
@@ -243,7 +243,7 @@ Haskell `times` function!
 ```haskell
 -- | Right distributivity of multiplication over addition:
 -- (m + n) * p = m * p + n * p.
-timesDistribPlus :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+timesDistribPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                  -> times (plus m n) p :~: plus (times m p) (times n p)
 timesDistribPlus Zero     _ _ = Refl
 timesDistribPlus (Succ m) n p =
@@ -251,7 +251,7 @@ timesDistribPlus (Succ m) n p =
     (sym (plusAssoc p (times m p) (times n p)))
 
 -- | Associativity of multiplication: (m * n) * p = m * (n * p).
-timesAssoc :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+timesAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
            -> times (times m n) p :~: times m (times n p)
 timesAssoc Zero     _ _ = Refl
 timesAssoc (Succ m) n p =
@@ -259,12 +259,12 @@ timesAssoc (Succ m) n p =
     (timesDistribPlus n (times m n) p)
 
 -- | Right zero for multiplication: m * 0 = 0.
-timesZeroR :: foreach (m :: Size) -> times m 'Zero :~: 'Zero
+timesZeroR :: foreach (m :: Nat) -> times m 'Zero :~: 'Zero
 timesZeroR Zero     = Refl
 timesZeroR (Succ m) = timesZeroR m
 
 -- | Right successor for multiplication: m * (Succ n) = m + m * n.
-timesSuccR :: foreach (m :: Size) -> foreach (n :: Size)
+timesSuccR :: foreach (m :: Nat) -> foreach (n :: Nat)
            -> times m ('Succ n) :~: plus m (times m n)
 timesSuccR Zero     _ = Refl
 timesSuccR (Succ m) n =
@@ -272,7 +272,7 @@ timesSuccR (Succ m) n =
     (congSucc (plusSwap n m (times m n)))
 
 -- | Commutativity of multiplication: m * n = n * m.
-timesComm :: foreach (m :: Size) -> foreach (n :: Size)
+timesComm :: foreach (m :: Nat) -> foreach (n :: Nat)
           -> times m n :~: times n m
 timesComm Zero     n = sym (timesZeroR n)
 timesComm (Succ m) n =
@@ -289,8 +289,8 @@ for <code>monus</code> or <code>pow</code>, the following PLFA Induction
 exercises cannot be stated directly over ordinary <code>monus</code> and
 <code>pow</code> without duplicating them as type families:
 <ul>
-  <li><code>zeroMonus :: foreach (n :: Size) -&gt; monus 'Zero n :~: 'Zero</code></li>
-  <li><code>monusPlusAssoc :: foreach (m :: Size) -&gt; foreach (n :: Size) -&gt; foreach (p :: Size) -&gt; monus (monus m n) p :~: monus m (plus n p)</code></li>
+  <li><code>zeroMonus :: foreach (n :: Nat) -&gt; monus 'Zero n :~: 'Zero</code></li>
+  <li><code>monusPlusAssoc :: foreach (m :: Nat) -&gt; foreach (n :: Nat) -&gt; foreach (p :: Nat) -&gt; monus (monus m n) p :~: monus m (plus n p)</code></li>
   <li><code>powPlus</code>, <code>powMul</code>, <code>powTimes</code> (exponentiation laws <code>+*^</code>)</li>
 </ul>
 Following PLFH's yardstick policy, we leave these un-worked-around until R13/R16
@@ -316,17 +316,17 @@ fromInc (X1 b) =
   rewrite (fromInc b)
     (congSucc (plusSucc (fromBin b) (fromBin b)))
 
--- | Round-tripping Size -> Bin -> Size is the identity.
-fromTo :: foreach (n :: Size) -> fromBin (toBin n) :~: n
+-- | Round-tripping Nat -> Bin -> Nat is the identity.
+fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n
 fromTo Zero     = Refl
 fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 ```
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Induction (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Induction/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Induction.lagda.md)).
-- Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Size`.
+- Adapted from [Induction (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Induction/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Induction.lagda.md)).
+- Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
 - Checked direct ports of `plusAssoc`, `plusAssocRewrite`, `plusComm`,
   `plusRearrange`, `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`,
   `timesSuccR`, `timesComm`, `fromInc`, and `fromTo`.

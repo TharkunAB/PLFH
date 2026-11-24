@@ -4,7 +4,7 @@ prev: /Negation/
 next: /Decidable/
 src: content/part1/Quantifiers.md
 module: PLFH.Part1.Quantifiers
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Quantifiers/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Quantifiers/
 ---
 
 ```haskell
@@ -27,7 +27,7 @@ module PLFH.Part1.Quantifiers
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Size (Size (..), congSucc, plus, plusSucc)
+import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
@@ -77,19 +77,19 @@ forallNotToNotExists fn (Witness px) = fn px
 PLFA shows that the inductive predicate `even n` is equivalent to the
 existential statement `∃ (k : ℕ), k + k ≡ n`.
 
-With GHC's retained dependent sum (`some (k :: Size) | plus k k :~: n`,
+With GHC's retained dependent sum (`some (k :: Nat) | plus k k :~: n`,
 Serokell R04) and `UndecidableInstances` (needed because the desugared
 type-lambda family calls `plus k k`), we can state `EvenSigma` directly:
 
 ```haskell
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
-type EvenSigma (n :: Size) = some (k :: Size) | plus k k :~: n
+type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
-evenZeroSigma :: EvenSigma 'Zero
+evenZeroSigma :: EvenSigma 0
 evenZeroSigma = Pair Zero Refl
 
-evenTwoSigma :: EvenSigma ('Succ ('Succ 'Zero))
-evenTwoSigma = Pair (Succ Zero) Refl
+evenTwoSigma :: EvenSigma 2
+evenTwoSigma = Pair 1 Refl
 ```
 
 We can also package the same retained witness as a GADT `EvenWitness n` and
@@ -98,8 +98,8 @@ convert *every* inductive `Even n` proof into a constructive runtime witness
 
 ```haskell
 -- | Retained existential witness that `n` is double some runtime `k`.
-data EvenWitness (n :: Size) where
-  MkEvenWitness :: foreach (k :: Size) -> plus k k :~: n -> EvenWitness n
+data EvenWitness (n :: Nat) where
+  MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n
 
 evenWitnessZero :: EvenWitness 'Zero
 evenWitnessZero = MkEvenWitness Zero Refl
@@ -118,10 +118,10 @@ Notice how `evenToWitness` works for **arbitrary unknown `n`**: pattern
 matching on `Even n` refines `n` and builds the exact runtime half `k`
 alongside its checked proof `plus k k :~: n`!
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Quantifiers (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Quantifiers/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Quantifiers.lagda.md)).
+- Adapted from [Quantifiers (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Quantifiers/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Quantifiers.lagda.md)).
 - Contrasts erased `Exists` GADTs with retained `GHC.Sigma` (`some ... | ...`)
   and `foreach`-carrying GADT witnesses (`EvenWitness`).
 - Checked direct ports of `existsDistribSum`, quantifier De Morgan

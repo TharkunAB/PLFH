@@ -18,7 +18,7 @@ module PLFH.Part3.Soundness
   , denotPreserveMulti
   ) where
 
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
 import PLFH.Part3.Compositional (lamInversion)
 import PLFH.Part3.Denotational (Denotes (..), ValEnv (..), Value (..))
@@ -43,7 +43,7 @@ GADT-indexed `substU`, we parameterize `denotPreserve` explicitly by
 -- | Hypothesis: contracting a β-redex preserves denotations when its body and
 -- argument have matching denotations (i.e. single-variable substitution).
 type BetaPres =
-  forall (n :: Size) (e :: ValEnv n) (b :: UTerm ('Succ n)) (w :: UTerm n)
+  forall (n :: Nat) (e :: ValEnv n) (b :: UTerm ('Succ n)) (w :: UTerm n)
          (m' :: UTerm n) (u :: Value) (v :: Value).
     BetaStep ('UApp ('ULam b) w) m'
   -> Denotes ('VCons e u) b v

@@ -5,8 +5,8 @@
 module R13_PowOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import ReproOps (pow)
 
-powZero :: foreach (m :: Size) -> pow m 'Zero :~: 'Succ 'Zero
+powZero :: foreach (m :: Nat) -> pow m 'Zero :~: 'Succ 'Zero
 powZero _ = Refl

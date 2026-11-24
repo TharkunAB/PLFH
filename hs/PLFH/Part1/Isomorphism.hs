@@ -14,7 +14,7 @@ module PLFH.Part1.Isomorphism
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 
 {-# LINE 42 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
@@ -36,19 +36,19 @@ iffTrans :: Iff a b -> Iff b c -> Iff a c
 iffTrans (Iff f1 g1) (Iff f2 g2) = Iff (f2 . f1) (g1 . g2)
 
 {-# LINE 78 "content/part1/Isomorphism.md" #-}
--- | Identity function on Size with explicit structural equations.
-idSize :: Size -> Size
+-- | Identity function on Nat with explicit structural equations.
+idSize :: Nat -> Nat
 idSize Zero     = Zero
 idSize (Succ n) = Succ n
 
 -- | Round-trip identity proof for `idSize`.
-idSizeId :: foreach (x :: Size) -> idSize (idSize x) :~: x
+idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
 idSizeId Zero     = Refl
 idSizeId (Succ _) = Refl
 
--- | Monomorphic isomorphism witness on Size (declaration checks!).
+-- | Monomorphic isomorphism witness on Nat (declaration checks!).
 data IsoSize where
-  MkIsoSize :: foreach (to :: Size -> Size) -> foreach (from :: Size -> Size)
-            -> (foreach (x :: Size) -> from (to x) :~: x)
-            -> (foreach (y :: Size) -> to (from y) :~: y)
+  MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
+            -> (foreach (x :: Nat) -> from (to x) :~: x)
+            -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize

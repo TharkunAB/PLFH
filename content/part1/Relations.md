@@ -4,7 +4,7 @@ prev: /Induction/
 next: /Equality/
 src: content/part1/Relations.md
 module: PLFH.Part1.Relations
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Relations/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Relations/
 ---
 
 ```haskell
@@ -45,7 +45,7 @@ module PLFH.Part1.Relations
 
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib (rewrite)
-import HaskLib.Size (Size (..), congSucc, plus, plusSucc, plusZero)
+import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc, plusZero)
 import PLFH.Part1.Naturals (Bin (..), inc)
 ```
 
@@ -55,7 +55,7 @@ types whose constructors represent inference rules.
 
 In Agda, indexed datatypes are written `data _≤_ : ℕ → ℕ → Set where ...`.
 In Dependent Haskell, the exact same concept is expressed with a GADT
-indexed by promoted values of kind `Size`.
+indexed by promoted values of kind `Nat`.
 
 ## Defining less-than-or-equal (`_≤_`)
 
@@ -74,12 +74,12 @@ In Dependent Haskell:
 
 ```haskell
 -- | Evidence that one natural number is less than or equal to another.
-data LE (m :: Size) (n :: Size) where
+data LE (m :: Nat) (n :: Nat) where
   ZleN :: LE 'Zero n
   SleS :: LE m n -> LE ('Succ m) ('Succ n)
 
--- | Concrete evidence that 2 <= 4.
-twoLeFour :: LE ('Succ ('Succ 'Zero)) ('Succ ('Succ ('Succ ('Succ 'Zero))))
+-- | Concrete evidence that 2 <= 4 (using decimal literals for fixed numbers!).
+twoLeFour :: LE 2 4
 twoLeFour = SleS (SleS ZleN)
 ```
 
@@ -103,13 +103,13 @@ invZleN ZleN = Refl
 ### Reflexivity, transitivity, and antisymmetry
 
 Reflexivity needs the runtime natural `n` to construct `n` layers of `SleS`,
-so its signature uses `foreach (n :: Size) -> LE n n`. Transitivity and
+so its signature uses `foreach (n :: Nat) -> LE n n`. Transitivity and
 antisymmetry recurse directly on the `LE` derivations and do not even need
-retained `Size` arguments!
+retained `Nat` arguments!
 
 ```haskell
 -- | Reflexivity: n <= n for every finite n.
-leRefl :: foreach (n :: Size) -> LE n n
+leRefl :: foreach (n :: Nat) -> LE n n
 leRefl Zero     = ZleN
 leRefl (Succ n) = SleS (leRefl n)
 
@@ -130,12 +130,12 @@ For any two finite natural numbers `m` and `n`, either `m ≤ n` or `n ≤ m`:
 
 ```haskell
 -- | Evidence that either m <= n or n <= m.
-data Total (m :: Size) (n :: Size) where
+data Total (m :: Nat) (n :: Nat) where
   Forward :: LE m n -> Total m n
   Flipped :: LE n m -> Total m n
 
 -- | Ordering on naturals is total.
-leTotal :: foreach (m :: Size) -> foreach (n :: Size) -> Total m n
+leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
 leTotal Zero     _ = Forward ZleN
 leTotal (Succ m) n = case n of
   Zero    -> Flipped ZleN
@@ -152,12 +152,12 @@ and `plusMonoL` use `HaskLib`'s ordinary `plus`, `plusZero`, `plusSucc`, and
 
 ```haskell
 -- | Right monotonicity: if p <= q then n + p <= n + q.
-plusMonoR :: foreach (n :: Size) -> LE p q -> LE (plus n p) (plus n q)
+plusMonoR :: foreach (n :: Nat) -> LE p q -> LE (plus n p) (plus n q)
 plusMonoR Zero     pq = pq
 plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 
 -- | Left monotonicity: if m <= n then m + p <= n + p.
-plusMonoL :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
+plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
 plusMonoL m n p mn = case p of
   Zero    -> rewrite (plusZero m) (rewrite (plusZero n) mn)
@@ -165,8 +165,8 @@ plusMonoL m n p mn = case p of
                (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
 
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
-plusMono :: foreach (m :: Size) -> foreach (n :: Size)
-         -> foreach (p :: Size) -> foreach (q :: Size)
+plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
+         -> foreach (p :: Nat) -> foreach (q :: Nat)
          -> LE m n -> LE p q -> LE (plus m p) (plus n q)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 ```
@@ -178,7 +178,7 @@ and trichotomy (`m < n`, `m ≡ n`, or `n < m`):
 
 ```haskell
 -- | Strict inequality on natural numbers.
-data LT' (m :: Size) (n :: Size) where
+data LT' (m :: Nat) (n :: Nat) where
   ZltS :: LT' 'Zero ('Succ n)
   SltS :: LT' m n -> LT' ('Succ m) ('Succ n)
 
@@ -188,13 +188,13 @@ ltTrans ZltS     (SltS _) = ZltS
 ltTrans (SltS p) (SltS q) = SltS (ltTrans p q)
 
 -- | Trichotomy witness: m < n, m = n, or n < m.
-data Trichotomy (m :: Size) (n :: Size) where
+data Trichotomy (m :: Nat) (n :: Nat) where
   TriLT :: LT' m n -> Trichotomy m n
   TriEQ :: m :~: n -> Trichotomy m n
   TriGT :: LT' n m -> Trichotomy m n
 
 -- | Every pair of finite naturals satisfies trichotomy.
-ltTrichotomy :: foreach (m :: Size) -> foreach (n :: Size) -> Trichotomy m n
+ltTrichotomy :: foreach (m :: Nat) -> foreach (n :: Nat) -> Trichotomy m n
 ltTrichotomy Zero n = case n of
   Zero   -> TriEQ Refl
   Succ _ -> TriLT ZltS
@@ -212,12 +212,12 @@ PLFA illustrates mutually recursive inductive relations with `even` and `odd`,
 and proves that the sum of two even numbers is even (mutually with odd + even):
 
 ```haskell
--- | Mutually inductive parity predicates on Size.
-data Even (n :: Size) where
+-- | Mutually inductive parity predicates on Nat.
+data Even (n :: Nat) where
   EvenZ :: Even 'Zero
   EvenS :: Odd n -> Even ('Succ n)
 
-data Odd (n :: Size) where
+data Odd (n :: Nat) where
   OddS :: Even n -> Odd ('Succ n)
 
 -- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`!).
@@ -256,12 +256,12 @@ leToLt :: LE ('Succ m) n -> LT' m n
 leToLt (SleS ZleN)     = ZltS
 leToLt (SleS (SleS p)) = SltS (leToLt (SleS p))
 
--- | Witness that m + k = n for some runtime Size k.
-data DiffWitness (m :: Size) (n :: Size) where
-  MkDiff :: foreach (k :: Size) -> plus m k :~: n -> DiffWitness m n
+-- | Witness that m + k = n for some runtime Nat k.
+data DiffWitness (m :: Nat) (n :: Nat) where
+  MkDiff :: foreach (k :: Nat) -> plus m k :~: n -> DiffWitness m n
 
 -- | From m <= n we can compute a difference witness k with m + k = n.
-leToDiff :: foreach (m :: Size) -> foreach (n :: Size) -> LE m n -> DiffWitness m n
+leToDiff :: foreach (m :: Nat) -> foreach (n :: Nat) -> LE m n -> DiffWitness m n
 leToDiff Zero     n p = case p of
   ZleN -> MkDiff n Refl
 leToDiff (Succ m) n p = case n of
@@ -271,7 +271,7 @@ leToDiff (Succ m) n p = case n of
       MkDiff k eq -> MkDiff k (rewrite eq Refl)
 
 -- | Conversely, m <= m + k for any finite m and k.
-diffToLe :: foreach (m :: Size) -> foreach (k :: Size) -> LE m (plus m k)
+diffToLe :: foreach (m :: Nat) -> foreach (k :: Nat) -> LE m (plus m k)
 diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 ```
@@ -328,17 +328,17 @@ using `ZleN`:
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
 module NegOneLeZero (oneLeZero) where
 
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Relations (LE (..))
 
-oneLeZero :: LE ('Succ 'Zero) 'Zero
+oneLeZero :: LE 1 0
 oneLeZero = ZleN
 ```
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Relations (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Relations/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Relations.lagda.md)).
+- Adapted from [Relations (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Relations/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Relations.lagda.md)).
 - Every core theorem (`LE`, `invSleS`, `invZleN`, `leRefl`, `leTrans`,
   `leAntisym`, `Total`, `leTotal`, `plusMonoR`, `plusMonoL`, `plusMono`,
   `LT'`, `ltTrans`, `Trichotomy`, `ltTrichotomy`, `Even`/`Odd`, and all four

@@ -22,7 +22,7 @@ module PLFH.Part3.Compositional
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
@@ -39,7 +39,7 @@ import PLFH.Part3.Denotational
 
 {-# LINE 62 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
-type LamDen :: forall (n :: Size). Denotation ('Succ n) -> ValEnv n -> Value -> Type
+type LamDen :: forall (n :: Nat). Denotation ('Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
   LDIntro :: d ('VCons e v) w -> LamDen d e ('Arr v w)
   LDBot   :: LamDen d e 'Bot
@@ -94,7 +94,7 @@ lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv)
 
 {-# LINE 120 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
-type AppDen :: forall (n :: Size). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
+type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
   ADBot :: Sub w 'Bot -> AppDen d1 d2 e w
   ADApp :: d1 e ('Arr v w) -> d2 e v -> AppDen d1 d2 e w
@@ -113,7 +113,7 @@ appDenCong e1 e2 = (go e1 e2, go (denEqSym e1) (denEqSym e2))
     go e1' e2' (ADApp d1 d2) = ADApp (fst e1' d1) (fst e2' d2)
 
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
-data UCtx (m :: Size) (n :: Size) where
+data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
   CLam  :: UCtx ('Succ m) ('Succ n) -> UCtx ('Succ m) n
   CAppL :: UCtx m n -> UTerm n -> UCtx m n

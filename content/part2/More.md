@@ -4,7 +4,7 @@ prev: /Untyped/
 next: /Bisimulation/
 src: content/part2/More.md
 module: PLFH.Part2.More
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/More/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/More/
 ---
 
 ```haskell
@@ -188,10 +188,10 @@ mapMaybeNat :: Term g ('TArr ('TSum 'TUnit 'TNat) 'TNat)
 mapMaybeNat = Lam (CaseSum (Var Z) Zero (Var Z))
 ```
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [More (v19.08)](https://plfa.inf.ed.ac.uk/19.08/More/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/More.lagda.md)).
+- Adapted from [More (v22.08)](https://plfa.inf.ed.ac.uk/22.08/More/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/More.lagda.md)).
 - All extended constructs (`Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`),
   renaming, substitution (`substSingle`, `substDouble`), and GADT-promoted
   `Value` and `Step` compile cleanly with `-dcore-lint -dstg-lint`.

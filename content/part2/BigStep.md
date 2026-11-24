@@ -24,12 +24,11 @@ module PLFH.Part2.BigStep
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ```
 
-In PLFA's **BigStep** chapter (published in edition `22.08`; an earlier draft
-also lived in the `19.08` repository tree), we give a **call-by-name**
+In PLFA's **BigStep** chapter, we give a **call-by-name**
 environment-and-closure big-step semantics (`e ⊢ m ⇓ c`) for the untyped lambda
 calculus. Because call-by-name delays evaluating function arguments until their
 value is actually needed, it aligns cleanly with the denotational semantics in
@@ -43,7 +42,7 @@ together with its closing environment `Env n`:
 
 ```haskell
 -- | Closure environment matching de Bruijn scope depth `n`.
-data Env (n :: Size) where
+data Env (n :: Nat) where
   ENil  :: Env 'Zero
   ECons :: Clos -> Env n -> Env ('Succ n)
 
@@ -77,13 +76,13 @@ a relational lookup `EnvLookup`:
 
 ```haskell
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
-type EnvLookup :: forall (n :: Size). Env n -> Fin n -> Clos -> Type
+type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
   ELZ :: EnvLookup ('ECons c e) 'FZ c
   ELS :: EnvLookup e x c -> EnvLookup ('ECons c' e) ('FS x) c
 
 -- | Call-by-name big-step evaluation: in environment `e`, term `t` evaluates to closure `v`.
-type EvalBig :: forall (n :: Size). Env n -> UTerm n -> Clos -> Type
+type EvalBig :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
 data EvalBig e t v where
   EVar :: EnvLookup e x ('MkClos m d) -> EvalBig d m v -> EvalBig e ('UVar x) v
   ELam :: EvalBig e ('ULam b) ('MkClos ('ULam b) e)

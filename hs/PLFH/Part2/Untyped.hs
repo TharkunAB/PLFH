@@ -22,16 +22,16 @@ module PLFH.Part2.Untyped
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 
 {-# LINE 42 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
-data Fin (n :: Size) where
+data Fin (n :: Nat) where
   FZ :: Fin ('Succ n)
   FS :: Fin n -> Fin ('Succ n)
 
 -- | Well-scoped untyped lambda terms with `n` free variables in scope.
-data UTerm (n :: Size) where
+data UTerm (n :: Nat) where
   UVar :: Fin n -> UTerm n
   ULam :: UTerm ('Succ n) -> UTerm n
   UApp :: UTerm n -> UTerm n -> UTerm n
@@ -76,19 +76,19 @@ substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 
 {-# LINE 102 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
-type Neutral :: forall (n :: Size). UTerm n -> Type
+type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
   NVar :: Neutral ('UVar x)
   NApp :: Neutral l -> Normal m -> Neutral ('UApp l m)
 
 -- | Normal forms under full β-reduction (no β-redexes anywhere).
-type Normal :: forall (n :: Size). UTerm n -> Type
+type Normal :: forall (n :: Nat). UTerm n -> Type
 data Normal t where
   NNeu :: Neutral t -> Normal t
   NLam :: Normal b  -> Normal ('ULam b)
 
 -- | Full β-reduction (including under lambdas and in neutral arguments).
-type BetaStep :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type BetaStep :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data BetaStep t t' where
   XiApp1 :: BetaStep l l' -> BetaStep ('UApp l m) ('UApp l' m)
   XiApp2 :: BetaStep m m' -> BetaStep ('UApp l m) ('UApp l m')
@@ -96,7 +96,7 @@ data BetaStep t t' where
   Beta   :: BetaStep ('UApp ('ULam b) w) (substSingleU b w)
 
 -- | Multi-step full β-reduction.
-type BetaSteps :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type BetaSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u

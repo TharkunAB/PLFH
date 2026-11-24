@@ -4,7 +4,7 @@ prev: /Equality/
 next: /Connectives/
 src: content/part1/Isomorphism.md
 module: PLFH.Part1.Isomorphism
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Isomorphism/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Isomorphism/
 ---
 
 ```haskell
@@ -20,7 +20,7 @@ module PLFH.Part1.Isomorphism
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 ```
 
 In PLFA, **Isomorphism** introduces three ways of relating two types `a`
@@ -70,26 +70,26 @@ data Iso a b where
         -> Iso a b
 ```
 
-On GHC `d15cbd41fe`, **monomorphic** `IsoSize` (fixing `a = b = Size`)
+On GHC `d15cbd41fe`, **monomorphic** `IsoSize` (fixing `a = b = Nat`)
 *does* declare cleanly as a GADT with retained function fields and
 higher-rank `foreach` proof fields:
 
 ```haskell
--- | Identity function on Size with explicit structural equations.
-idSize :: Size -> Size
+-- | Identity function on Nat with explicit structural equations.
+idSize :: Nat -> Nat
 idSize Zero     = Zero
 idSize (Succ n) = Succ n
 
 -- | Round-trip identity proof for `idSize`.
-idSizeId :: foreach (x :: Size) -> idSize (idSize x) :~: x
+idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
 idSizeId Zero     = Refl
 idSizeId (Succ _) = Refl
 
--- | Monomorphic isomorphism witness on Size (declaration checks!).
+-- | Monomorphic isomorphism witness on Nat (declaration checks!).
 data IsoSize where
-  MkIsoSize :: foreach (to :: Size -> Size) -> foreach (from :: Size -> Size)
-            -> (foreach (x :: Size) -> from (to x) :~: x)
-            -> (foreach (y :: Size) -> to (from y) :~: y)
+  MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
+            -> (foreach (x :: Nat) -> from (to x) :~: x)
+            -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize
 ```
 
@@ -108,8 +108,8 @@ on GHC <code>d15cbd41fe</code>:
       Even though <code>data IsoSize</code> itself compiles, constructing
       <code>MkIsoSize idSize idSize idSizeId idSizeId</code> fails with
       <code>GHC-83865</code> printing <em>identical</em> expected and actual types:
-      <code>Couldn't match expected type: foreach (x :: Size) -&gt; idSize (idSize x) :~: x
-      with actual type: foreach (x :: Size) -&gt; idSize (idSize x) :~: x</code>!
+      <code>Couldn't match expected type: foreach (x :: Nat) -&gt; idSize (idSize x) :~: x
+      with actual type: foreach (x :: Nat) -&gt; idSize (idSize x) :~: x</code>!
       See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_HigherRankForEachField.hs"><code>reproducers/R04_HigherRankForEachField.hs</code></a>.</li>
 </ol>
 Because we avoid workarounds, full <code>_≃_</code> / <code>_≲_</code>
@@ -118,10 +118,10 @@ isomorphisms and embeddings await R03/R04 support; in
 using <code>Iff</code>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Isomorphism (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Isomorphism/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Isomorphism.lagda.md)).
+- Adapted from [Isomorphism (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Isomorphism/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Isomorphism.lagda.md)).
 - Checked direct ports of `Iff`, `iffRefl`, `iffSym`, `iffTrans`, and the
   declaration of `IsoSize`.
 - Marked polymorphic `Iso`/`Embed` and constructing `MkIsoSize` with

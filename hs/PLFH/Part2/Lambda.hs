@@ -20,12 +20,12 @@ module PLFH.Part2.Lambda
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Not)
 
 {-# LINE 53 "content/part2/Lambda.md" #-}
 -- | Variable identifiers represented structurally as Peano naturals.
-type Id = Size
+type Id = Nat
 
 -- | Structural equality on variable identifiers.
 eqId :: Id -> Id -> Bool

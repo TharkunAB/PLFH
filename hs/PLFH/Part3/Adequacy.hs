@@ -29,7 +29,7 @@ module PLFH.Part3.Adequacy
 
 import Data.Kind (Type)
 import Data.Void (Void, absurd)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.BigStep (Clos (..), Env (..), EvalBig (..))
@@ -103,12 +103,12 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
 
 {-# LINE 136 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
-type WHNF :: forall (n :: Size). UTerm n -> Type
+type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
   WLam :: WHNF ('ULam b)
 
 -- | Witness that evaluating `m` in `e` halts at a closure related to `v` by `LogV`.
-type HaltsV :: forall (n :: Size). Env n -> UTerm n -> Value -> Type
+type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
   MkHaltsV :: EvalBig e m c' -> LogV v c' -> HaltsV e m v
 
@@ -141,7 +141,7 @@ logVJoinLam :: LogV u ('MkClos ('ULam b) e) -> LogV v ('MkClos ('ULam b) e)
 logVJoinLam u v = (u, v)
 
 -- | Any value not above a function relates trivially to every lambda closure (`not-above-fun-𝕍`).
-notAboveFunLogV :: forall (n :: Size) (b :: UTerm ('Succ n)) (e :: Env n).
+notAboveFunLogV :: forall (n :: Nat) (b :: UTerm ('Succ n)) (e :: Env n).
                    foreach (v :: Value) -> Not (AboveFun v) -> LogV v ('MkClos ('ULam b) e)
 notAboveFunLogV Bot        _  = ()
 notAboveFunLogV (Arr _ _)  na = absurd (na aboveFunArr)

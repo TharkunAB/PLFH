@@ -15,27 +15,26 @@ module ReproOps
   , substTerm
   ) where
 
-import PreludeAppendLengthSource (plus)
-import PreludeMapLengthSize (Size (..))
+import HaskLib.Nat (Nat (..), plus)
 
-timesWild :: Size -> Size -> Size
+timesWild :: Nat -> Nat -> Nat
 timesWild Zero     _ = Zero
 timesWild (Succ m) n = plus n (timesWild m n)
 
-timesNamed :: Size -> Size -> Size
+timesNamed :: Nat -> Nat -> Nat
 timesNamed Zero     n = Zero
 timesNamed (Succ m) n = plus n (timesNamed m n)
 
-monus :: Size -> Size -> Size
+monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-pow :: Size -> Size -> Size
+pow :: Nat -> Nat -> Nat
 pow m Zero     = Succ Zero
 pow m (Succ n) = timesNamed m (pow m n)
 
-eqSize :: Size -> Size -> Bool
+eqSize :: Nat -> Nat -> Bool
 eqSize Zero     Zero     = True
 eqSize Zero     (Succ _) = False
 eqSize (Succ _) Zero     = False
@@ -54,13 +53,13 @@ foldrL f z []       = z
 foldrL f z (x : xs) = f x (foldrL f z xs)
 
 data Term
-  = Var Size
-  | Lam Size Term
+  = Var Nat
+  | Lam Nat Term
   | App Term Term
   | TZero
   | TSuc Term
 
-substTerm :: Term -> Size -> Term -> Term
+substTerm :: Term -> Nat -> Term -> Term
 substTerm (Var x) y v = case eqSize x y of
   True  -> v
   False -> Var x

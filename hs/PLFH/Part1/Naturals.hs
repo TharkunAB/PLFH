@@ -1,11 +1,12 @@
 -- Generated from content/part1/Naturals.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, ExplicitNamespaces, ExperimentalDependentTypes, GADTs, TypeOperators #-}
 {-# LINE 12 "content/part1/Naturals.md" #-}
 module PLFH.Part1.Naturals
-  ( Size (..)
+  ( Nat (..)
   , plus
+  , type (+)
   , times
   , monus
   , pow
@@ -14,43 +15,46 @@ module PLFH.Part1.Naturals
   , toBin
   , fromBin
   , twoPlusThree
-  , twoPlusThreeRefl
+  , twoPlusThreeInfix
+  , fiveAtRuntime
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..), plus)
+import HaskLib.Nat (Nat (..), plus, type (+))
 
-{-# LINE 114 "content/part1/Naturals.md" #-}
--- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus`.
-twoPlusThree :: plus ('Succ ('Succ 'Zero)) ('Succ ('Succ ('Succ 'Zero)))
-            :~: 'Succ ('Succ ('Succ ('Succ ('Succ 'Zero))))
+{-# LINE 120 "content/part1/Naturals.md" #-}
+-- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus` and decimal literals!
+twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
 
--- | Compact synonym showing reflexivity directly.
-twoPlusThreeRefl :: plus ('Succ ('Succ 'Zero)) ('Succ ('Succ ('Succ 'Zero)))
-                :~: 'Succ ('Succ ('Succ ('Succ ('Succ 'Zero))))
-twoPlusThreeRefl = Refl
+-- | The same proof using `HaskLib.Nat`'s infix type operator `(+)`.
+twoPlusThreeInfix :: (2 + 3 :: Nat) :~: 5
+twoPlusThreeInfix = Refl
 
-{-# LINE 155 "content/part1/Naturals.md" #-}
+-- | Ordinary runtime arithmetic using the same `Nat` and `Num` instance.
+fiveAtRuntime :: Nat
+fiveAtRuntime = 2 + 3
+
+{-# LINE 161 "content/part1/Naturals.md" #-}
 -- | Multiply two sizes by recursion on the first argument.
-times :: Size -> Size -> Size
+times :: Nat -> Nat -> Nat
 times Zero     n = Zero
 times (Succ m) n = plus n (times m n)
 
-{-# LINE 188 "content/part1/Naturals.md" #-}
+{-# LINE 194 "content/part1/Naturals.md" #-}
 -- | Exponentiation by recursion on the second argument.
-pow :: Size -> Size -> Size
+pow :: Nat -> Nat -> Nat
 pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
-{-# LINE 210 "content/part1/Naturals.md" #-}
+{-# LINE 216 "content/part1/Naturals.md" #-}
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
-monus :: Size -> Size -> Size
+monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 234 "content/part1/Naturals.md" #-}
+{-# LINE 240 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil
@@ -64,13 +68,13 @@ inc Nil    = X1 Nil
 inc (X0 b) = X1 b
 inc (X1 b) = X0 (inc b)
 
--- | Convert unary `Size` to `Bin`.
-toBin :: Size -> Bin
+-- | Convert unary `Nat` to `Bin`.
+toBin :: Nat -> Bin
 toBin Zero     = X0 Nil
 toBin (Succ n) = inc (toBin n)
 
--- | Convert `Bin` back to unary `Size`.
-fromBin :: Bin -> Size
+-- | Convert `Bin` back to unary `Nat`.
+fromBin :: Bin -> Nat
 fromBin Nil    = Zero
 fromBin (X0 b) = plus (fromBin b) (fromBin b)
 fromBin (X1 b) = Succ (plus (fromBin b) (fromBin b))

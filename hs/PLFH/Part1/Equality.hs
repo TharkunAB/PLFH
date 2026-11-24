@@ -32,7 +32,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (U)
 import HaskLib (rewrite)
-import HaskLib.Size (Size (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), congSucc, plus)
 import PLFH.Part1.Induction (plusComm)
 import PLFH.Part1.Relations (Even (..))
 
@@ -73,7 +73,7 @@ substU ReflP px = px
 
 {-# LINE 121 "content/part1/Equality.md" #-}
 -- | If m + n is even, then n + m is even.
-evenComm :: foreach (m :: Size) -> foreach (n :: Size)
+evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = rewrite (plusComm m n) ev
 
@@ -91,7 +91,7 @@ stepEq :: forall x y z -> x :~: y -> y :~: z -> x :~: z
 stepEq _ _ _ Refl Refl = Refl
 
 -- | Example equational chain proving `n + 0 = n`.
-plusZeroChain :: foreach (n :: Size) -> plus n 'Zero :~: n
+plusZeroChain :: foreach (n :: Nat) -> plus n 'Zero :~: n
 plusZeroChain Zero     = beginEq (type (plus 'Zero 'Zero)) (type 'Zero) (qedEq (type 'Zero))
 plusZeroChain (Succ n) =
   stepEq (type (plus ('Succ n) 'Zero)) (type ('Succ (plus n 'Zero))) (type ('Succ n))

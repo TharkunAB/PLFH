@@ -21,7 +21,7 @@ module PLFH.Part2.Confluence
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( BetaStep (..)
   , BetaSteps (..)
@@ -50,7 +50,7 @@ bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
 {-# LINE 82 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
-type Par :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
   PVar  :: Par ('UVar x) ('UVar x)
   PLam  :: Par b b' -> Par ('ULam b) ('ULam b')
@@ -58,7 +58,7 @@ data Par t t' where
   PBeta :: Par b b' -> Par w w' -> Par ('UApp ('ULam b) w) (substSingleU b' w')
 
 -- | Reflexive-transitive closure of parallel reduction (`_⇛*_`).
-type ParSteps :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type ParSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data ParSteps t t' where
   PSRefl :: ParSteps t t
   PSCons :: Par s t -> ParSteps t u -> ParSteps s u
@@ -83,13 +83,13 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 
 {-# LINE 118 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `n`.
-type Joinable :: forall (n :: Size). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
+type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
   Join :: rel m1 k -> rel m2 k -> Joinable rel m1 m2
 
 -- | Strip Lemma: given the diamond property for `Par`, one `Par` step commutes
 -- with any sequence of `ParSteps`!
-strip :: forall (n :: Size) (m :: UTerm n) (n1 :: UTerm n) (n2 :: UTerm n).
+strip :: forall (n :: Nat) (m :: UTerm n) (n1 :: UTerm n) (n2 :: UTerm n).
          (forall (a :: UTerm n) (b :: UTerm n) (c :: UTerm n).
             Par a b -> Par a c -> Joinable Par b c)
       -> Par m n1 -> ParSteps m n2 -> Joinable ParSteps n1 n2
@@ -99,7 +99,7 @@ strip diamond p1 (PSCons p2 ps) = case diamond p1 p2 of
     Join r1 r2 -> Join (PSCons q1 r1) r2
 
 -- | Confluence of parallel reduction from the diamond property!
-parConfluence :: forall (n :: Size) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
+parConfluence :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
                  (forall (a :: UTerm n) (b :: UTerm n) (c :: UTerm n).
                     Par a b -> Par a c -> Joinable Par b c)
               -> ParSteps l m1 -> ParSteps l m2 -> Joinable ParSteps m1 m2

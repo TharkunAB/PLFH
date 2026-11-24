@@ -4,7 +4,7 @@ prev: /Lambda/
 next: /DeBruijn/
 src: content/part2/Properties.md
 module: PLFH.Part2.Properties
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Properties/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Properties/
 ---
 
 ```haskell
@@ -104,7 +104,7 @@ progress (TMuT _) = PStep BetaMu
 ```
 
 Look how clean that is: `progress` has the **exact same statement, hypotheses,
-and proof structure** as PLFA `v19.08`—no singletons, no type families, no
+and proof structure** as PLFA `v22.08`—no singletons, no type families, no
 coercions—and passes GHC's Core Lint and STG Lint!
 
 ## Structural context lemmas for Preservation (`ext`, `rename`, `weaken`, `drop`, `swap`)
@@ -191,10 +191,10 @@ See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstTermOpenEq.hs"><code>reproducers/R13_SubstTermOpenEq.hs</code></a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Properties (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Properties/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Properties.lagda.md)).
+- Adapted from [Properties (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Properties/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Properties.lagda.md)).
 - `Canonical`, `canonical`, `Progress`, `progress` (full closed well-typed
   progress theorem!), `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
   and `swapTyping` are all **checked direct ports** passing `-dcore-lint -dstg-lint`.

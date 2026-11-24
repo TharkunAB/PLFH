@@ -4,14 +4,15 @@ prev: /Setup/
 next: /Induction/
 src: content/part1/Naturals.md
 module: PLFH.Part1.Naturals
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Naturals/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Naturals/
 ---
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, ExplicitNamespaces, ExperimentalDependentTypes, GADTs, TypeOperators #-}
 module PLFH.Part1.Naturals
-  ( Size (..)
+  ( Nat (..)
   , plus
+  , type (+)
   , times
   , monus
   , pow
@@ -20,11 +21,12 @@ module PLFH.Part1.Naturals
   , toBin
   , fromBin
   , twoPlusThree
-  , twoPlusThreeRefl
+  , twoPlusThreeInfix
+  , fiveAtRuntime
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..), plus)
+import HaskLib.Nat (Nat (..), plus, type (+))
 ```
 
 The night sky holds more stars than I can count, though fewer than five
@@ -42,19 +44,19 @@ We can specify them with two inference rules:
 
 <div class="inference-rule">
   <div class="premises">&nbsp;</div>
-  <div class="conclusion">Zero :: Size</div>
+  <div class="conclusion">Zero :: Nat</div>
 </div>
 <div class="inference-rule">
-  <div class="premises">m :: Size</div>
-  <div class="conclusion">Succ m :: Size</div>
+  <div class="premises">m :: Nat</div>
+  <div class="conclusion">Succ m :: Nat</div>
 </div>
 
 In PLFA, the chapter defines `data ℕ : Set where zero : ℕ; suc : ℕ → ℕ`.
-In PLFH we reuse the identical inductive Peano type `Size` from
-`HaskLib.Size` (originally defined in `PreludeMapLengthSize`):
+In PLFH we reuse the identical inductive Peano type `Nat` from
+`HaskLib.Nat` (originally defined in `PreludeMapLengthSize`):
 
 ```{.haskell .ignore}
-data Size = Zero | Succ Size
+data Nat = Zero | Succ Nat
 ```
 
 Both definitions express the same two rules:
@@ -63,7 +65,7 @@ Both definitions express the same two rules:
 - *Inductive case*: if `m` is a natural number, then `Succ m` is also a natural number.
 
 In Dependent Haskell (with `DataKinds` and `ExperimentalDependentTypes`),
-`Size` is simultaneously an ordinary runtime algebraic datatype **and** a
+`Nat` is simultaneously an ordinary runtime algebraic datatype **and** a
 type-level kind whose promoted constructors are `'Zero` and `'Succ`.
 
 <div class="note-box">
@@ -94,11 +96,11 @@ zero    + n = n
 (suc m) + n = suc (m + n)
 ```
 
-`HaskLib.Size` already exports an ordinary Haskell function `plus` with the
+`HaskLib.Nat` already exports an ordinary Haskell function `plus` with the
 exact same recursion on its first argument (defined in `PreludeAppendLengthSource`):
 
 ```{.haskell .ignore}
-plus :: Size -> Size -> Size
+plus :: Nat -> Nat -> Nat
 plus Zero     n = n
 plus (Succ m) n = Succ (plus m n)
 ```
@@ -108,34 +110,38 @@ its defining equations in its interface so we can write `plus` directly in
 **both** ordinary runtime code and type-level propositions—without
 duplicating it as a separate `type family`!
 
-For example, we can ask GHC to prove `2 + 3 = 5` at the type level:
+For example, because `HaskLib.Nat` provides a `FromNatural` instance (at the
+type level) and a `Num` instance (at the term level) for `Nat`, we can write
+fixed natural numbers using **ordinary decimal numerals** (`0`, `1`, `2`, `3`,
+`5`, ...) while continuing to use `Zero` and `Succ` constructor patterns for
+inductive definitions and proofs:
 
 ```haskell
--- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus`.
-twoPlusThree :: plus ('Succ ('Succ 'Zero)) ('Succ ('Succ ('Succ 'Zero)))
-            :~: 'Succ ('Succ ('Succ ('Succ ('Succ 'Zero))))
+-- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus` and decimal literals!
+twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
 
--- | Compact synonym showing reflexivity directly.
-twoPlusThreeRefl :: plus ('Succ ('Succ 'Zero)) ('Succ ('Succ ('Succ 'Zero)))
-                :~: 'Succ ('Succ ('Succ ('Succ ('Succ 'Zero))))
-twoPlusThreeRefl = Refl
+-- | The same proof using `HaskLib.Nat`'s infix type operator `(+)`.
+twoPlusThreeInfix :: (2 + 3 :: Nat) :~: 5
+twoPlusThreeInfix = Refl
+
+-- | Ordinary runtime arithmetic using the same `Nat` and `Num` instance.
+fiveAtRuntime :: Nat
+fiveAtRuntime = 2 + 3
 ```
 
 Here `(:~:)` from `Data.Type.Equality` is propositional equality (playing
 the role of Agda's `_≡_`), and `Refl` is its sole constructor (playing the
-role of Agda's `refl`). GHC reduces `plus` using its checked source
-equations and immediately verifies that both sides normalize to `5`.
+role of Agda's `refl`). GHC converts the decimal literals to Peano naturals
+via `FromNatural`, reduces `plus` using its checked source equations, and
+immediately verifies that both sides normalize to `5`.
 
 <div class="note-box">
 <strong>HaskLib reuse:</strong>
-Both <code>Size</code> and <code>plus</code> are reused directly from
-<code>HaskLib.Size</code>. Note also that unlike Agda's
-<code>{-# BUILTIN NATURAL ℕ #-}</code>, decimal numeral literals in types
-for a custom Peano kind require a <code>FromNatural</code> instance
-(see <code>PackedVecLibrary</code> in the GHC fork); here we keep
-<code>'Zero</code> and <code>'Succ</code> explicit so every proof stays
-compatible with <code>HaskLib.Size</code>.
+<code>Nat</code>, <code>plus</code>, infix <code>type (+)</code>, and the
+<code>FromNatural</code> / <code>Num</code> decimal-numeral instances are
+reused directly from <code>HaskLib.Nat</code> (where <code>Size</code> remains
+exported as a compatibility synonym for <code>Nat</code>).
 </div>
 
 #### Exercise `+-example` (practice) {#plus-example}
@@ -153,7 +159,7 @@ recursion on its first argument:
 
 ```haskell
 -- | Multiply two sizes by recursion on the first argument.
-times :: Size -> Size -> Size
+times :: Nat -> Nat -> Nat
 times Zero     n = Zero
 times (Succ m) n = plus n (times m n)
 ```
@@ -186,7 +192,7 @@ argument:
 
 ```haskell
 -- | Exponentiation by recursion on the second argument.
-pow :: Size -> Size -> Size
+pow :: Nat -> Nat -> Nat
 pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 ```
@@ -208,7 +214,7 @@ returns zero whenever the second argument is larger than the first:
 
 ```haskell
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
-monus :: Size -> Size -> Size
+monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
@@ -244,13 +250,13 @@ inc Nil    = X1 Nil
 inc (X0 b) = X1 b
 inc (X1 b) = X0 (inc b)
 
--- | Convert unary `Size` to `Bin`.
-toBin :: Size -> Bin
+-- | Convert unary `Nat` to `Bin`.
+toBin :: Nat -> Bin
 toBin Zero     = X0 Nil
 toBin (Succ n) = inc (toBin n)
 
--- | Convert `Bin` back to unary `Size`.
-fromBin :: Bin -> Size
+-- | Convert `Bin` back to unary `Nat`.
+fromBin :: Bin -> Nat
 fromBin Nil    = Zero
 fromBin (X0 b) = plus (fromBin b) (fromBin b)
 fromBin (X1 b) = Succ (plus (fromBin b) (fromBin b))
@@ -261,11 +267,11 @@ Remarkably, all three ordinary Haskell functions (`inc`, `toBin`, and
 in [Induction](/Induction/) we will prove `fromBin (inc b) :~: 'Succ (fromBin b)`
 and `fromBin (toBin n) :~: n` directly by induction!
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Naturals (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Naturals/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Naturals.lagda.md)).
-- Reused `Size` (`Zero`/`Succ`) and `plus` from `HaskLib.Size` instead of
+- Adapted from [Naturals (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Naturals/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Naturals.lagda.md)).
+- Reused `Nat` (`Zero`/`Succ`) and `plus` from `HaskLib.Nat` instead of
   redefining `ℕ` and `_+_`.
 - Replaced Agda's `≡-Reasoning` chains on concrete examples with direct
   `(:~:)` / `Refl` checks (see [Induction](/Induction/) and [Equality](/Equality/)

@@ -4,7 +4,7 @@ prev: /Relations/
 next: /Isomorphism/
 src: content/part1/Equality.md
 module: PLFH.Part1.Equality
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Equality/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Equality/
 ---
 
 ```haskell
@@ -38,7 +38,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (U)
 import HaskLib (rewrite)
-import HaskLib.Size (Size (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), congSucc, plus)
 import PLFH.Part1.Induction (plusComm)
 import PLFH.Part1.Relations (Even (..))
 ```
@@ -82,7 +82,7 @@ In Dependent Haskell, type-level functions come in two flavors controlled by
 **matchability** (`-XModifiers`, Serokell R23):
 
 - **Matchable arrows (`a -> b`)** classify generative, injective type
-  constructors such as `Even :: Size -> Type` or `EqP x :: a -> Type`.
+  constructors such as `Even :: Nat -> Type` or `EqP x :: a -> Type`.
 - **Unmatchable arrows (`a %U -> b`)** classify arbitrary type-level functions,
   including promoted ordinary Haskell functions (like `plus`) and type-level
   lambdas (`\z -> ...`).
@@ -119,7 +119,7 @@ same theorem using `substP @Even`:
 
 ```haskell
 -- | If m + n is even, then n + m is even.
-evenComm :: foreach (m :: Size) -> foreach (n :: Size)
+evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = rewrite (plusComm m n) ev
 ```
@@ -161,7 +161,7 @@ stepEq :: forall x y z -> x :~: y -> y :~: z -> x :~: z
 stepEq _ _ _ Refl Refl = Refl
 
 -- | Example equational chain proving `n + 0 = n`.
-plusZeroChain :: foreach (n :: Size) -> plus n 'Zero :~: n
+plusZeroChain :: foreach (n :: Nat) -> plus n 'Zero :~: n
 plusZeroChain Zero     = beginEq (type (plus 'Zero 'Zero)) (type 'Zero) (qedEq (type 'Zero))
 plusZeroChain (Succ n) =
   stepEq (type (plus ('Succ n) 'Zero)) (type ('Succ (plus n 'Zero))) (type ('Succ n))
@@ -229,10 +229,10 @@ eta-expanded lambda <code>@(\z -&gt; EqP x z)</code>. See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Equality (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Equality/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Equality.lagda.md)).
+- Adapted from [Equality (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Equality/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Equality.lagda.md)).
 - `EqP`, `symP`, `transP`, `congP`, `congAppP`, `substP`, `substU`,
   `evenComm`, and both `Leibniz` and `LeibnizU` (with `leibnizUSym` via R17
   type-level lambdas!) port directly and pass `-dcore-lint -dstg-lint`.

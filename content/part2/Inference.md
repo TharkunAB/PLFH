@@ -4,7 +4,7 @@ prev: /DeBruijn/
 next: /Untyped/
 src: content/part2/Inference.md
 module: PLFH.Part2.Inference
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Inference/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Inference/
 ---
 
 ```haskell
@@ -27,7 +27,7 @@ module PLFH.Part2.Inference
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import qualified HaskLib.Size as S
+import qualified HaskLib.Nat as N
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 ```
@@ -49,12 +49,12 @@ with **no singletons and no type families**!
 
 Lambda abstractions and `μ`-recursions carry type annotations for their bound
 variables (bidirectional/Church-style syntax), while variable occurrences are
-plain runtime de Bruijn numbers (`S.Size`):
+plain runtime de Bruijn numbers (`N.Nat`):
 
 ```haskell
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
 data RawTerm
-  = RVar S.Size
+  = RVar N.Nat
   | RLam Ty RawTerm
   | RApp RawTerm RawTerm
   | RZero
@@ -113,10 +113,10 @@ matchNat TNat       t = Just t
 matchNat (TArr _ _) _ = Nothing
 
 -- | Look up a runtime de Bruijn number in a runtime typing context `g`.
-lookupCtx :: foreach (g :: Ctx) -> S.Size -> Maybe (LookupRes g)
+lookupCtx :: foreach (g :: Ctx) -> N.Nat -> Maybe (LookupRes g)
 lookupCtx CEmpty     _          = Nothing
-lookupCtx (CExt _ a) S.Zero     = Just (Found a Z)
-lookupCtx (CExt g _) (S.Succ n) = case lookupCtx g n of
+lookupCtx (CExt _ a) N.Zero     = Just (Found a Z)
+lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 ```
@@ -176,7 +176,7 @@ check g raw a = case infer g raw of
 
 -- | Example raw terms: `λ (x : Nat) -> x` and `2`.
 rawIdNat :: RawTerm
-rawIdNat = RLam TNat (RVar S.Zero)
+rawIdNat = RLam TNat (RVar N.Zero)
 
 rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
@@ -206,10 +206,10 @@ clean R03 ergonomic boundaries on GHC <code>d15cbd41fe</code>:
 </ol>
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Inference (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Inference/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Inference.lagda.md)).
+- Adapted from [Inference (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Inference/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Inference.lagda.md)).
 - Implements full certified type inference (`infer`) and type checking (`check`)
   for Church-annotated de Bruijn STLC terms (variables, lambdas, applications,
   `Zero`, `Suc`, `Case`, `Mu`), returning intrinsically-typed `Term g a` values

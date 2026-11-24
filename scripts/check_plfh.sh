@@ -112,6 +112,25 @@ for neg in "${NEGS[@]}"; do
   fi
 done
 
+if [[ -f "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" ]]; then
+  echo ""
+  echo "--- Runtime Smoke Test Execution ---"
+  SMOKE_BIN="$WORK/plfh-smoke"
+  if "$COMPILER" --make -v0 -O0 \
+    -fomit-interface-pragmas -fno-write-if-simplified-core \
+    -dcore-lint -dstg-lint -package-env - "${INCLUDES[@]}" \
+    -outputdir "$BUILD_DIR" -main-is PLFH.RuntimeSmokeTest.main \
+    -o "$SMOKE_BIN" "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" >"$WORK/smoke_build.log" 2>&1 \
+    && "$SMOKE_BIN" >"$WORK/smoke_run.log" 2>&1; then
+    cat "$WORK/smoke_run.log"
+    PASS=$((PASS + 1))
+  else
+    echo "  [FAIL] RuntimeSmokeTest build or execution failed"
+    cat "$WORK/smoke_build.log" "$WORK/smoke_run.log" 2>/dev/null || true
+    FAIL=$((FAIL + 1))
+  fi
+fi
+
 if [[ -d "$PLFH_ROOT/reproducers" ]]; then
   echo ""
   echo "--- Minimal Blocker Reproducers (tracking compiler gaps) ---"
@@ -132,7 +151,12 @@ if [[ -d "$PLFH_ROOT/reproducers" ]]; then
       echo "  [FIXED?!] $rel now PASSES — update chapter & PLFH-NOTES.md!"
     else
       first_err=$(rg -m1 'Core Lint errors|panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/$slug.log" || head -n 1 "$WORK/$slug.log")
-      echo "  [BLOCKED] $rel — $first_err"
+      if rg -q '\[GHC-76037\]|\[GHC-87110\]|\[GHC-61689\]' "$WORK/$slug.log"; then
+        echo "  [HARNESS-FAIL] $rel failed with import/scope error — $first_err"
+        FAIL=$((FAIL + 1))
+      else
+        echo "  [BLOCKED] $rel — $first_err"
+      fi
     fi
   done
 fi

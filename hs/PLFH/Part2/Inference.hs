@@ -21,14 +21,14 @@ module PLFH.Part2.Inference
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import qualified HaskLib.Size as S
+import qualified HaskLib.Nat as N
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 
 {-# LINE 55 "content/part2/Inference.md" #-}
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
 data RawTerm
-  = RVar S.Size
+  = RVar N.Nat
   | RLam Ty RawTerm
   | RApp RawTerm RawTerm
   | RZero
@@ -75,10 +75,10 @@ matchNat TNat       t = Just t
 matchNat (TArr _ _) _ = Nothing
 
 -- | Look up a runtime de Bruijn number in a runtime typing context `g`.
-lookupCtx :: foreach (g :: Ctx) -> S.Size -> Maybe (LookupRes g)
+lookupCtx :: foreach (g :: Ctx) -> N.Nat -> Maybe (LookupRes g)
 lookupCtx CEmpty     _          = Nothing
-lookupCtx (CExt _ a) S.Zero     = Just (Found a Z)
-lookupCtx (CExt g _) (S.Succ n) = case lookupCtx g n of
+lookupCtx (CExt _ a) N.Zero     = Just (Found a Z)
+lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 
@@ -135,7 +135,7 @@ check g raw a = case infer g raw of
 
 -- | Example raw terms: `λ (x : Nat) -> x` and `2`.
 rawIdNat :: RawTerm
-rawIdNat = RLam TNat (RVar S.Zero)
+rawIdNat = RLam TNat (RVar N.Zero)
 
 rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)

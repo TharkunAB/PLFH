@@ -21,7 +21,7 @@ module PLFH.Part1.Quantifiers
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Size (Size (..), congSucc, plus, plusSucc)
+import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
@@ -55,18 +55,18 @@ forallNotToNotExists fn (Witness px) = fn px
 
 {-# LINE 85 "content/part1/Quantifiers.md" #-}
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
-type EvenSigma (n :: Size) = some (k :: Size) | plus k k :~: n
+type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
-evenZeroSigma :: EvenSigma 'Zero
+evenZeroSigma :: EvenSigma 0
 evenZeroSigma = Pair Zero Refl
 
-evenTwoSigma :: EvenSigma ('Succ ('Succ 'Zero))
-evenTwoSigma = Pair (Succ Zero) Refl
+evenTwoSigma :: EvenSigma 2
+evenTwoSigma = Pair 1 Refl
 
 {-# LINE 100 "content/part1/Quantifiers.md" #-}
 -- | Retained existential witness that `n` is double some runtime `k`.
-data EvenWitness (n :: Size) where
-  MkEvenWitness :: foreach (k :: Size) -> plus k k :~: n -> EvenWitness n
+data EvenWitness (n :: Nat) where
+  MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n
 
 evenWitnessZero :: EvenWitness 'Zero
 evenWitnessZero = MkEvenWitness Zero Refl

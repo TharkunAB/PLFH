@@ -4,7 +4,7 @@ prev: /Isomorphism/
 next: /Negation/
 src: content/part1/Connectives.md
 module: PLFH.Part1.Connectives
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Connectives/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Connectives/
 ---
 
 ```haskell
@@ -131,10 +131,10 @@ waits on polymorphic retained function fields and higher-rank
 <a href="/Isomorphism/">Isomorphism</a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Connectives (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Connectives/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Connectives.lagda.md)).
+- Adapted from [Connectives (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Connectives/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Connectives.lagda.md)).
 - Used standard Haskell `(,)`, `Either`, `()`, and `Void`.
 - Proved all algebraic laws as constructive `Iff` equivalences; noted the
   upgrade to `Iso` with `[WIP NOTICE]`.

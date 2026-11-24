@@ -4,7 +4,7 @@ prev: /Connectives/
 next: /Quantifiers/
 src: content/part1/Negation.md
 module: PLFH.Part1.Negation
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Negation/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Negation/
 ---
 
 ```haskell
@@ -120,10 +120,10 @@ ltAsym :: LT' m n -> Not (LT' n m)
 ltAsym (SltS p) (SltS q) = ltAsym p q
 ```
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Negation (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Negation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part1/Negation.lagda.md)).
+- Adapted from [Negation (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Negation/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part1/Negation.lagda.md)).
 - Every intuitionistic negation law, classical equivalence (`emToDne`,
   `dneToPeirce`, `peirceToEm`), `irrefutableLEM`, and `ltIrrefl`/`ltAsym`
   ports directly and passes `-dcore-lint -dstg-lint`!

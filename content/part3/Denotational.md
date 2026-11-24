@@ -64,7 +64,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (absurd)
 import GHC.Exts (M)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ```
@@ -426,12 +426,12 @@ and the **denotational equivalence (`DenEq`, `_≃_`)** relation:
 
 ```haskell
 -- | Value environment of scope depth `n`.
-data ValEnv (n :: Size) where
+data ValEnv (n :: Nat) where
   VNil  :: ValEnv 'Zero
   VCons :: ValEnv n -> Value -> ValEnv ('Succ n)
 
 -- | Relational variable lookup in a value environment.
-type ValLookup :: forall (n :: Size). ValEnv n -> Fin n -> Value -> Type
+type ValLookup :: forall (n :: Nat). ValEnv n -> Fin n -> Value -> Type
 data ValLookup e x v where
   VLZ :: ValLookup ('VCons e v) 'FZ v
   VLS :: ValLookup e x v -> ValLookup ('VCons e w) ('FS x) v
@@ -453,7 +453,7 @@ envSubCons es _  (VLS lk) = case es lk of
   MkLookupSub lk2 lt -> MkLookupSub (VLS lk2) lt
 
 -- | Denotational semantics judgment: `e ⊢ m ↓ v`.
-type Denotes :: forall (n :: Size). ValEnv n -> UTerm n -> Value -> Type
+type Denotes :: forall (n :: Nat). ValEnv n -> UTerm n -> Value -> Type
 data Denotes e m v where
   DVar   :: ValLookup e x v -> Denotes e ('UVar x) v
   DElim  :: Denotes e l ('Arr v w) -> Denotes e m v -> Denotes e ('UApp l m) w
@@ -502,7 +502,7 @@ upEnv :: Denotes ('VCons e u1) m v -> Sub u1 u2 -> Denotes ('VCons e u2) m v
 upEnv d lt = envSubMono (envSubCons envSubRefl lt) d
 
 -- | A denotation in scope depth `n` relates environments to values (matchable arrows `%M`).
-type Denotation (n :: Size) = ValEnv n %M -> Value %M -> Type
+type Denotation (n :: Nat) = ValEnv n %M -> Value %M -> Type
 
 -- | Denotational equivalence (`D1 ≃ D2`).
 type DenEq (d1 :: Denotation n) (d2 :: Denotation n) =

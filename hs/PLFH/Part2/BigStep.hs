@@ -16,12 +16,12 @@ module PLFH.Part2.BigStep
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 45 "content/part2/BigStep.md" #-}
+{-# LINE 44 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
-data Env (n :: Size) where
+data Env (n :: Nat) where
   ENil  :: Env 'Zero
   ECons :: Clos -> Env n -> Env ('Succ n)
 
@@ -38,15 +38,15 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 79 "content/part2/BigStep.md" #-}
+{-# LINE 78 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
-type EnvLookup :: forall (n :: Size). Env n -> Fin n -> Clos -> Type
+type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
   ELZ :: EnvLookup ('ECons c e) 'FZ c
   ELS :: EnvLookup e x c -> EnvLookup ('ECons c' e) ('FS x) c
 
 -- | Call-by-name big-step evaluation: in environment `e`, term `t` evaluates to closure `v`.
-type EvalBig :: forall (n :: Size). Env n -> UTerm n -> Clos -> Type
+type EvalBig :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
 data EvalBig e t v where
   EVar :: EnvLookup e x ('MkClos m d) -> EvalBig d m v -> EvalBig e ('UVar x) v
   ELam :: EvalBig e ('ULam b) ('MkClos ('ULam b) e)

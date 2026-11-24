@@ -13,19 +13,19 @@ module PLFH.Part3.ContextualEquivalence
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 
 {-# LINE 45 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
-type Terminates :: forall (n :: Size). UTerm n -> Type
+type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
   MkTerminates :: BetaSteps m ('ULam b) -> Terminates m
 
 -- | Soundness property: multi-step β-reduction preserves and reflects denotations.
 type SoundnessProp =
-  forall (n :: Size) (t :: UTerm n) (t' :: UTerm n).
+  forall (n :: Nat) (t :: UTerm n) (t' :: UTerm n).
     BetaSteps t t' -> DenEq (Den t) (Den t')
 
 -- | Adequacy property: a closed term denotationally equal to a lambda terminates.

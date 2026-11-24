@@ -8,17 +8,17 @@
 module R13_LookupEnvOpenEq where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 
-data Fin (n :: Size) where
+data Fin (n :: Nat) where
   FZ :: Fin ('Succ n)
   FS :: Fin n -> Fin ('Succ n)
 
-data UTerm (n :: Size) where
+data UTerm (n :: Nat) where
   UVar :: Fin n -> UTerm n
   ULam :: UTerm ('Succ n) -> UTerm n
 
-data Env (n :: Size) where
+data Env (n :: Nat) where
   ENil  :: Env 'Zero
   ECons :: Clos -> Env n -> Env ('Succ n)
 
@@ -29,6 +29,6 @@ lookupEnv :: Env n -> Fin n -> Clos
 lookupEnv (ECons c _) FZ     = c
 lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 
-type EvalBig :: forall (n :: Size). Env n -> UTerm n -> Clos -> Type
+type EvalBig :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
 data EvalBig e t v where
   EVar :: EvalBig e ('UVar x) (lookupEnv e x)

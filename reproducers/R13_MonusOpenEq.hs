@@ -5,9 +5,9 @@
 module R13_MonusOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import ReproOps (monus)
 
-zeroMonus :: foreach (n :: Size) -> monus 'Zero n :~: 'Zero
+zeroMonus :: foreach (n :: Nat) -> monus 'Zero n :~: 'Zero
 zeroMonus Zero     = Refl
 zeroMonus (Succ _) = Refl

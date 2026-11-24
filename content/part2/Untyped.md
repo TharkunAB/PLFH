@@ -4,7 +4,7 @@ prev: /Inference/
 next: /More/
 src: content/part2/Untyped.md
 module: PLFH.Part2.Untyped
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Untyped/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Untyped/
 ---
 
 ```haskell
@@ -28,24 +28,24 @@ module PLFH.Part2.Untyped
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 ```
 
 In PLFA's **Untyped** chapter, the simply-typed calculus is stripped down to
 the pure untyped lambda calculus—where every term has the single universal
-type, contexts reduce to a natural number `n :: Size` counting variables in
+type, contexts reduce to a natural number `n :: Nat` counting variables in
 scope, and variables are well-scoped de Bruijn indices `Fin n`.
 
 ## Well-scoped de Bruijn indices (`Fin n`) and terms (`UTerm n`)
 
 ```haskell
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
-data Fin (n :: Size) where
+data Fin (n :: Nat) where
   FZ :: Fin ('Succ n)
   FS :: Fin n -> Fin ('Succ n)
 
 -- | Well-scoped untyped lambda terms with `n` free variables in scope.
-data UTerm (n :: Size) where
+data UTerm (n :: Nat) where
   UVar :: Fin n -> UTerm n
   ULam :: UTerm ('Succ n) -> UTerm n
   UApp :: UTerm n -> UTerm n -> UTerm n
@@ -100,19 +100,19 @@ Just as in [DeBruijn](/DeBruijn/), GHC accepts **promoting the indexed GADT
 
 ```haskell
 -- | Neutral terms: a variable applied to zero or more normal arguments.
-type Neutral :: forall (n :: Size). UTerm n -> Type
+type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
   NVar :: Neutral ('UVar x)
   NApp :: Neutral l -> Normal m -> Neutral ('UApp l m)
 
 -- | Normal forms under full β-reduction (no β-redexes anywhere).
-type Normal :: forall (n :: Size). UTerm n -> Type
+type Normal :: forall (n :: Nat). UTerm n -> Type
 data Normal t where
   NNeu :: Neutral t -> Normal t
   NLam :: Normal b  -> Normal ('ULam b)
 
 -- | Full β-reduction (including under lambdas and in neutral arguments).
-type BetaStep :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type BetaStep :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data BetaStep t t' where
   XiApp1 :: BetaStep l l' -> BetaStep ('UApp l m) ('UApp l' m)
   XiApp2 :: BetaStep m m' -> BetaStep ('UApp l m) ('UApp l m')
@@ -120,7 +120,7 @@ data BetaStep t t' where
   Beta   :: BetaStep ('UApp ('ULam b) w) (substSingleU b w)
 
 -- | Multi-step full β-reduction.
-type BetaSteps :: forall (n :: Size). UTerm n -> UTerm n -> Type
+type BetaSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
@@ -142,10 +142,10 @@ All well-scoped syntax, renaming, substitution, and promoted
 compile cleanly with <code>-dcore-lint -dstg-lint</code>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Untyped (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Untyped/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Untyped.lagda.md)).
+- Adapted from [Untyped (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Untyped/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Untyped.lagda.md)).
 - Checked direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`,
   `substU`, `substSingleU`, `Neutral`, `Normal`, `BetaStep`, `BetaSteps`,
   `idIsNormal`, and `omegaTerm`.

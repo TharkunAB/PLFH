@@ -4,7 +4,7 @@ prev: /Lists/
 next: /Properties/
 src: content/part2/Lambda.md
 module: PLFH.Part2.Lambda
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Lambda/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Lambda/
 ---
 
 ```haskell
@@ -26,7 +26,7 @@ module PLFH.Part2.Lambda
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Not)
 ```
 
@@ -45,13 +45,13 @@ In this chapter we define:
 ## Syntax of terms, types, and contexts
 
 PLFA uses `Id = String` for variable names. Here we use structural Peano
-identifiers `type Id = Size` (representing variable names `x0`, `x1`, `x2`, …)
+identifiers `type Id = Nat` (representing variable names `x0`, `x1`, `x2`, …)
 so identifier equality `eqId` is an ordinary structural Haskell function on
 a closed algebraic datatype:
 
 ```haskell
 -- | Variable identifiers represented structurally as Peano naturals.
-type Id = Size
+type Id = Nat
 
 -- | Structural equality on variable identifiers.
 eqId :: Id -> Id -> Bool
@@ -209,11 +209,11 @@ badApp :: HasType 'CEmpty ('App 'TZero 'TZero) 'TNat
 badApp = TApp TZeroT TZeroT
 ```
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Lambda (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Lambda/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Lambda.lagda.md)).
-- Replaced `Id = String` with structural `type Id = Size` so identifier
+- Adapted from [Lambda (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Lambda/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Lambda.lagda.md)).
+- Replaced `Id = String` with structural `type Id = Nat` so identifier
   equality does not depend on string-literal closed evaluation.
 - `Term`, `Ty`, `Ctx`, `Value`, `substTerm`, `Step`, `Steps`, `Lookup`, and
   `HasType` all port directly with the exact same inference rules and pass

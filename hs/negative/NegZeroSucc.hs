@@ -3,7 +3,7 @@
 module NegZeroSucc (zeroEqualsOne) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Size (Size (..))
+import HaskLib.Nat (Nat (..))
 
-zeroEqualsOne :: 'Zero :~: 'Succ 'Zero
+zeroEqualsOne :: (0 :: Nat) :~: 1
 zeroEqualsOne = Refl

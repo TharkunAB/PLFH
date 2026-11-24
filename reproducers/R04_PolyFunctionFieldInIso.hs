@@ -2,7 +2,7 @@
 -- | Minimal reproducer (Serokell R03/R04):
 -- Declaring a polymorphic isomorphism GADT `Iso a b` with retained function
 -- fields `foreach (to :: a -> b)` fails with GHC-83605 (unsupported function domain).
--- Monomorphic `Size -> Size` is accepted at the datatype declaration.
+-- Monomorphic `Nat -> Nat` is accepted at the datatype declaration.
 module R04_PolyFunctionFieldInIso where
 
 import Data.Type.Equality ((:~:))

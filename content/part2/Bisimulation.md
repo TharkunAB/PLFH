@@ -4,7 +4,7 @@ prev: /More/
 next: /BigStep/
 src: content/part2/Bisimulation.md
 module: PLFH.Part2.Bisimulation
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Bisimulation/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Bisimulation/
 ---
 
 ```haskell
@@ -64,10 +64,10 @@ for GADT pattern matching on promoted indexed GADTs! See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/R11_MixedKindCoercionCoreLint.hs</code></a>.
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Bisimulation (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Bisimulation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Bisimulation.lagda.md)).
+- Adapted from [Bisimulation (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Bisimulation/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Bisimulation.lagda.md)).
 - `SimRel`, `Leg`, and `simValueLam` compile with `-dcore-lint -dstg-lint`.
 - General `simValue` (and full `sim`) uncovered a real **R11 Core Lint error**
   in GHC's desugarer when matching two GADTs indexed by a promoted GADT (`Term g a`),
