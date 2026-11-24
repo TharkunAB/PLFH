@@ -10,7 +10,7 @@ the current experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
 - **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`8632606465`](https://github.com/Tritlo/ghc/commit/8632606465b9c50069fda938753ac75fe72c85f8) / `5ead8de5e4`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 28 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **7 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 113 `[RUN-OK]` checks), **30 fixed regressions**, and **10 open compiler-gap reproducers**.
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 28 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **7 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 114 `[RUN-OK]` checks), **30 fixed regressions**, and **11 open compiler-gap reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
 
@@ -35,7 +35,7 @@ the current experimental Dependent Haskell compiler
 | [DeBruijn](/DeBruijn/) | Intrinsically-typed `Term g a`, `rename`, `subst`, `substSingle`, promoted `Value`, **`IsVal`/`checkValue`**, **8-rule functional `Step` (`substSingle`)**, **`betaShiftUnderLam`**, **complete unconditional `progress`** | `PLFH.Part2.DeBruijn.*` + `PLFH.Part2.DeBruijnProgress.*` | <span class="badge badge-pass">Direct port</span> | Complete intrinsically-typed STLC: direct `checkValue`, all 8 `Step` rules with real `substSingle` (verified by `NegDeBruijnBadCapture`), and unconditional 7-constructor `progress` checked with zero `[WIP NOTICE]`! |
 | [Inference](/Inference/) | `decEqTy`, `lookupCtx`, **`infer`**, **`check`** | `PLFH.Part2.Inference.*` | <span class="badge badge-pass">Direct port</span> | Full certified STLC inference & checking with direct inline `case lTy of` refinement |
 | [Untyped](/Untyped/) | `Fin`, `UTerm`, `renameU`, `substU`, relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep`, `idAppStep`, `omegaStep` | `PLFH.Part2.Untyped.*` | <span class="badge badge-pass">Direct port</span> | Sound relational `SubstAtU` verified by `NegBadBetaStep`; functional `substSingleU` tracked in `R13_SubstSingleUOpenEq.hs` |
-| [More](/More/) | Extended STLC (`Let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value`, `TBool`/`ifThenElse`/`swapSum`/`appendList` | `PLFH.Part2.More.*` | <span class="badge badge-pass">Direct port</span> | Functional `Step` (`substSingle`/`substDouble`, `R13_SubstSingleUOpenEq.hs`) marked `[WIP NOTICE]` |
+| [More](/More/) | Extended STLC (`Let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value`, `TBool`/`ifThenElse`/`swapSum`/`appendList` | `PLFH.Part2.More.*` | <span class="badge badge-pass">Direct port</span> | Functional `Step` & `progress` blocked on double-binder source closures (`R13_DoubleBinderSubstClosure.hs`), marked `[WIP NOTICE]` |
 | [Bisimulation](/Bisimulation/) | `SimRel`, `Leg`, `simSym`, `simTrans`, `simValueLam`, `simValue` | `PLFH.Part2.Bisimulation.*` | <span class="badge badge-pass">Direct port</span> | Full `simValue` + `simSym`/`simTrans` across promoted GADT indices checked |
 | [BigStep](/BigStep/) | Call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`, `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `evalIdApp`, `evalConstOmega` | `PLFH.Part2.BigStep.*` | <span class="badge badge-pass">Direct port</span> | Full call-by-name determinism (`evalDeterm`) checked; functional `lookupEnv` in `EVar` remains `R13_LookupEnvOpenEq.hs` |
 | [Substitution](/Substitution/) | `Rename`, `Subst`, `ids`, `shift`, `ren`, `consSubst`, `seqSubst` | `PLFH.Part2.Substitution.*` | <span class="badge badge-pass">Direct port</span> | Equational σ-calculus proofs wait on R03/R13 |
@@ -58,12 +58,13 @@ the current experimental Dependent Haskell compiler
 | `hs/negative/NegDeBruijnBadCapture.hs` | `Step (App (Lam (Lam (Var (S Z)))) (Lam (Var (S Z)))) (Lam (Lam (Var (S Z))))` (forged capture) | `GHC-83865` |
 | `hs/negative/NegBadBetaStep.hs` | `BetaStep (UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
 
-## Open Minimal Compiler-Gap Reproducers (10 Tracked)
+## Open Minimal Compiler-Gap Reproducers (11 Tracked)
 
 Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers) and is mirrored to `docs/dependent-haskell/plfh/reproducers/` in `Tritlo/ghc`:
 
 | Reproducer (`reproducers/`) | Serokell Card | Diagnostic | Summary |
 | --- | --- | --- | --- |
+| `R13_DoubleBinderSubstClosure.hs` | R13 / R16 | `GHC-70565` | Double-binder lifts (`ext (ext r)` / `exts (exts s)`, as in `More`'s `CaseLst`) suppress `-fwrite-source-equations` `$closure:substSingle` publication, and `substDouble` (`Z`/`S Z`/`S (S x)`) is not published as a checked source closure |
 | `R03_NestedDatatypeForEach.hs` | R03 | `GHC-83865` & `GHC-83605` | Non-uniform nested datatype `UTerm n` (`ULam :: UTerm (Succ n) -> UTerm n`, uniform return `UTerm n`) fails both `case m of` (`GHC-83865`) and equation-style `foreach` (`GHC-83605`), unlike index-refining GADTs (`DeBruijn.Term`) |
 | `R04_ComposedIsoFields.hs` | R04 | `GHC-83865` | Defining `isoTrans` with opaque local aliases `to x = h (f x)` / `from y = g (k y)` fails to reduce in `MkIso` (whereas Prelude `(.)` succeeds directly in `Isomorphism`) |
 | `R03_ForEachGadtEqTypeFamily.hs` | R03 / Typechecker bug | `GHC-05617` | Given GADT equality (`u :~: v`, `u :~: Zero`) under retained `foreach` fails to rewrite closed type family `F u` (erased `forall` passes) |

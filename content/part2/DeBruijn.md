@@ -50,6 +50,8 @@ module PLFH.Part2.DeBruijn
   , subst
   , substSingle
   , termTwo
+  , plusTerm
+  , mulTerm
   , Value (..)
   , valZero
   , IsVal (..)
@@ -109,10 +111,31 @@ data Term (g :: Ctx) (a :: Ty) where
 -- | Closed intrinsically-typed numeral 2.
 termTwo :: Term g TNat
 termTwo = Suc (Suc Zero)
+
+-- | Intrinsically-typed recursive addition (`two+two`): Nat -> Nat -> Nat.
+-- μ "+". λ m. λ n. case m [ zero => n | suc m' => suc ("+" m' n) ]
+plusTerm :: Term g (TArr TNat (TArr TNat TNat))
+plusTerm =
+  Mu (Lam (Lam
+    (Case (Var (S Z))
+      (Var Z)
+      (Suc (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
+
+-- | Intrinsically-typed recursive multiplication (`mul`): Nat -> Nat -> Nat.
+-- μ "*". λ m. λ n. case m [ zero => zero | suc m' => plus n ("*" m' n) ]
+mulTerm :: Term g (TArr TNat (TArr TNat TNat))
+mulTerm =
+  Mu (Lam (Lam
+    (Case (Var (S Z))
+      Zero
+      (App (App plusTerm (Var (S Z)))
+           (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
 ```
 
-Because `termTwo` is polymorphic in `g`, it is valid in *any* context `g`
-(including `CEmpty`)!
+Because `termTwo`, `plusTerm`, and `mulTerm` are polymorphic in `g`, they are
+valid in *any* context `g` (including `CEmpty`)—notice how `mulTerm` embeds
+`plusTerm` directly inside its `Case` branch with zero manual weakening or
+separate typing proofs!
 
 ## Simultaneous renaming and substitution (type-preserving by construction!)
 

@@ -16,6 +16,8 @@ module PLFH.Part2.DeBruijn
   , subst
   , substSingle
   , termTwo
+  , plusTerm
+  , mulTerm
   , Value (..)
   , valZero
   , IsVal (..)
@@ -24,7 +26,7 @@ module PLFH.Part2.DeBruijn
 
 import Data.Kind (Type)
 
-{-# LINE 79 "content/part2/DeBruijn.md" #-}
+{-# LINE 81 "content/part2/DeBruijn.md" #-}
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
   deriving (Show)
@@ -37,7 +39,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
   Z :: Lookup (CExt g a) a
   S :: Lookup g a -> Lookup (CExt g b) a
 
-{-# LINE 99 "content/part2/DeBruijn.md" #-}
+{-# LINE 101 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
 data Term (g :: Ctx) (a :: Ty) where
   Var  :: Lookup g a -> Term g a
@@ -52,7 +54,26 @@ data Term (g :: Ctx) (a :: Ty) where
 termTwo :: Term g TNat
 termTwo = Suc (Suc Zero)
 
-{-# LINE 145 "content/part2/DeBruijn.md" #-}
+-- | Intrinsically-typed recursive addition (`two+two`): Nat -> Nat -> Nat.
+-- μ "+". λ m. λ n. case m [ zero => n | suc m' => suc ("+" m' n) ]
+plusTerm :: Term g (TArr TNat (TArr TNat TNat))
+plusTerm =
+  Mu (Lam (Lam
+    (Case (Var (S Z))
+      (Var Z)
+      (Suc (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
+
+-- | Intrinsically-typed recursive multiplication (`mul`): Nat -> Nat -> Nat.
+-- μ "*". λ m. λ n. case m [ zero => zero | suc m' => plus n ("*" m' n) ]
+mulTerm :: Term g (TArr TNat (TArr TNat TNat))
+mulTerm =
+  Mu (Lam (Lam
+    (Case (Var (S Z))
+      Zero
+      (App (App plusTerm (Var (S Z)))
+           (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
+
+{-# LINE 168 "content/part2/DeBruijn.md" #-}
 -- | Extend a variable renaming under a binder.
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
@@ -89,7 +110,7 @@ subst sigma (Mu n)       = Mu (subst (exts sigma) n)
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-{-# LINE 194 "content/part2/DeBruijn.md" #-}
+{-# LINE 217 "content/part2/DeBruijn.md" #-}
 -- | Values indexed by promoted intrinsically-typed terms!
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where

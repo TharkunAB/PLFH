@@ -306,6 +306,8 @@ main = do
       dbCaseS = DB.Case (DB.Suc DB.Zero) DB.Zero (DB.Var DB.Z)
       dbMuZ :: DB.Term DB.CEmpty DB.TNat
       dbMuZ = DB.Mu DB.Zero
+      dbPlus22 :: DB.Term DB.CEmpty DB.TNat
+      dbPlus22 = DB.App (DB.App DB.plusTerm DB.termTwo) DB.termTwo
   assertEq "DeBruijnProgress.progress (Lam (Var Z)) -> PDone VLam" True
     (case DBP.progress dbLam of { DBP.PDone DB.VLam -> True; _ -> False })
   assertEq "DeBruijnProgress.progress ((lam. 0) 0) -> BetaLam" True
@@ -318,6 +320,8 @@ main = do
     (case DBP.progress dbCaseS of { DBP.PStep (DBP.BetaSuc DB.VZero) -> True; _ -> False })
   assertEq "DeBruijnProgress.progress (Mu Zero) -> BetaMu" True
     (case DBP.progress dbMuZ of { DBP.PStep DBP.BetaMu -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress (plusTerm 2 2) -> XiApp1 (XiApp1 BetaMu)" True
+    (case DBP.progress dbPlus22 of { DBP.PStep (DBP.XiApp1 (DBP.XiApp1 DBP.BetaMu)) -> True; _ -> False })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)

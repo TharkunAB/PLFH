@@ -33,6 +33,7 @@ disjunction introduction and case analysis!
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -250,15 +251,17 @@ appendList =
 ## Extended call-by-value reduction (`Step`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>Step</code> blocked on GADT-indexed <code>substSingle</code> / <code>substDouble</code> (R13/R16)]</strong>
-As in <a href="/DeBruijn/">DeBruijn</a>, writing <code>substSingle</code>
-and <code>substDouble</code> inside the <code>BetaLam</code>, <code>BetaLet</code>,
-<code>BetaInl</code>, <code>BetaInr</code>, and <code>BetaCons</code> constructors
-of <code>Step</code> currently fails with <code>GHC-68947</code> /
-<code>GHC-70565</code> because both call higher-order GADT-indexed
-<code>subst</code>. Functional <code>Step</code> and intrinsically-typed
-<code>progress</code> remain tracked as <code>[WIP NOTICE]</code> (see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
+<strong>[WIP NOTICE — Double-binder source closures (<code>ext (ext r)</code> / <code>exts (exts s)</code> &amp; <code>substDouble</code>, R13/R16)]</strong>
+Whereas <a href="/DeBruijn/">DeBruijn</a>'s single-binder <code>substSingle</code>
+publishes checked closure equations under <code>-fwrite-source-equations</code>,
+<code>More</code>'s <code>CaseLst</code> binds <em>two</em> variables at once
+(lifting via <code>ext (ext r)</code> and <code>exts (exts s)</code>) and
+contracts via <code>substDouble</code>. On the current compiler, iterated binder
+lifts suppress source-closure synthesis for both <code>substSingle</code> and
+<code>substDouble</code> (<code>GHC-70565</code>). Functional <code>Step</code>
+and intrinsically-typed <code>progress</code> for <code>More</code> remain
+tracked in minimal reproducer
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_DoubleBinderSubstClosure.hs"><code>reproducers/R13_DoubleBinderSubstClosure.hs</code></a>.
 </div>
 
 ## Exercises
@@ -291,4 +294,4 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   and example programs compile cleanly with `-dcore-lint -dstg-lint` and zero
   promoted-constructor ticks.
 - Functional `Step` (`substSingle` / `substDouble`) and intrinsically-typed
-  `progress` are marked `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs`).
+  `progress` are marked `[WIP NOTICE]` (`R13_DoubleBinderSubstClosure.hs`).
