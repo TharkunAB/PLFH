@@ -42,7 +42,7 @@ Comments, bug reports, and pull requests are welcome on
 
 - [Lambda](/Lambda/): Simply-typed lambda calculus syntax, values, same-module `substTerm`, reduction (`Step`/`Steps`), and typing <span class="badge badge-pass">Checked</span>
 - [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, and **verified evaluator `eval`** <span class="badge badge-pass">Checked</span>
-- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **8-rule functional `Step` (`substSingle`)**, and **`appProgress`** <span class="badge badge-partial">Step &amp; App ✓ · Case/Mu WIP</span>
+- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **8-rule functional `Step` (`substSingle`)**, and **complete unconditional `progress`** <span class="badge badge-pass">Checked</span>
 - [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) with inline GADT refinement returning `Term g a` <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Beta ✓ · Eval WIP</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value` <span class="badge badge-partial">Syntax/Subst ✓ · Step WIP</span>

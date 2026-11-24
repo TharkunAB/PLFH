@@ -296,6 +296,28 @@ main = do
       betaMuZero = DBP.BetaMu
   assertEq "DeBruijnProgress.BetaMu (mu. 0 -> 0)" True
     (case betaMuZero of { DBP.BetaMu -> True })
+  let dbLam :: DB.Term DB.CEmpty (DB.TArr DB.TNat DB.TNat)
+      dbLam = DB.Lam (DB.Var DB.Z)
+      dbSucApp :: DB.Term DB.CEmpty DB.TNat
+      dbSucApp = DB.Suc dbApp
+      dbCaseZ :: DB.Term DB.CEmpty DB.TNat
+      dbCaseZ = DB.Case DB.Zero DB.Zero (DB.Var DB.Z)
+      dbCaseS :: DB.Term DB.CEmpty DB.TNat
+      dbCaseS = DB.Case (DB.Suc DB.Zero) DB.Zero (DB.Var DB.Z)
+      dbMuZ :: DB.Term DB.CEmpty DB.TNat
+      dbMuZ = DB.Mu DB.Zero
+  assertEq "DeBruijnProgress.progress (Lam (Var Z)) -> PDone VLam" True
+    (case DBP.progress dbLam of { DBP.PDone DB.VLam -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress ((lam. 0) 0) -> BetaLam" True
+    (case DBP.progress dbApp of { DBP.PStep (DBP.BetaLam DB.VZero) -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress (Suc ((lam. 0) 0)) -> XiSuc" True
+    (case DBP.progress dbSucApp of { DBP.PStep (DBP.XiSuc (DBP.BetaLam DB.VZero)) -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress (Case Zero Zero (Var Z)) -> BetaZero" True
+    (case DBP.progress dbCaseZ of { DBP.PStep DBP.BetaZero -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress (Case (Suc Zero) Zero (Var Z)) -> BetaSuc" True
+    (case DBP.progress dbCaseS of { DBP.PStep (DBP.BetaSuc DB.VZero) -> True; _ -> False })
+  assertEq "DeBruijnProgress.progress (Mu Zero) -> BetaMu" True
+    (case DBP.progress dbMuZ of { DBP.PStep DBP.BetaMu -> True; _ -> False })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)

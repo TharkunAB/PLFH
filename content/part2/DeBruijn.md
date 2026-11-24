@@ -221,7 +221,7 @@ checkValue (Case _ _ _) = NotVal
 checkValue (Mu _)       = NotVal
 ```
 
-## Intrinsically-typed Reduction (`Step`) and Progress (`appProgress`)
+## Intrinsically-typed Reduction (`Step`) and Complete Progress (`progress`)
 
 In the intrinsically-typed representation, `Step` has kind
 `forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type`—so **Preservation
@@ -236,7 +236,8 @@ reads that native interface and defines all eight intrinsically-typed reduction
 rules (`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
 `BetaMu`) using real functional `D.substSingle`, concrete capture-avoiding beta
 witnesses (`betaIdStep`, `betaCaptureAvoid`, `betaShiftUnderLam`), and the
-checked application progress dispatcher `appProgress`:
+**complete, unconditional `progress` theorem** covering every term constructor
+(`Var`, `Lam`, `App`, `Zero`, `Suc`, `Case`, `Mu`):
 
 ```{.haskell .ignore}
 -- Excerpt from checked client module PLFH.Part2.DeBruijnProgress:
@@ -255,6 +256,16 @@ data Step m n where
               D.Value v -> Step (D.Case (D.Suc v) m n) (D.substSingle n v)
   BetaMu   :: forall g a (n :: D.Term (D.CExt g a) a).
               Step (D.Mu n) (D.substSingle n (D.Mu n))
+
+progress :: forall (a :: D.Ty). foreach (m :: D.Term D.CEmpty a) -> Progress m
+progress t = case t of
+  D.Var x      -> case x of {}
+  D.Lam _      -> PDone D.VLam
+  D.App l m    -> case progress l of ...
+  D.Zero       -> PDone D.VZero
+  D.Suc n      -> case progress n of ...
+  D.Case l m n -> case progress l of ...
+  D.Mu n       -> muStep @a @n
 ```
 
 ### Negative control: forged variable capture is rejected
@@ -278,17 +289,6 @@ badCapture
           (D.Lam (D.Lam (D.Var (D.S D.Z))))
 badCapture = BetaLam D.VLam
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Full intrinsic <code>progress</code> over <code>Case</code> and <code>Mu</code>]</strong>
-All eight reduction rules using functional <code>substSingle</code> and the
-application progress branch (<code>appProgress</code>) check cleanly across the
-compiled interface in <code>PLFH.Part2.DeBruijnProgress</code>. Completing full
-recursive <code>progress</code> still awaits retained refinements for the outer
-<code>Case</code> and <code>Mu</code> branches (and untyped substitution in
-<code>Untyped</code> remains tracked separately in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>reproducers/R13_SubstSingleUOpenEq.hs</code></a>).
-</div>
 
 ## Exercises
 
@@ -324,5 +324,5 @@ in context `CExt CEmpty TNat`?
   `PLFH.Part2.DeBruijnProgress` defines all eight intrinsically-typed `Step`
   rules using real functional `substSingle`, concrete capture-avoiding beta
   witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
-  application progress dispatcher `appProgress`; full `Case`/`Mu` `progress`
-  remains marked `[WIP NOTICE]`.
+  **complete, unconditional `progress` theorem** across all 7 term constructors
+  with zero `[WIP NOTICE]` gaps!
