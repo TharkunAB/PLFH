@@ -42,16 +42,19 @@ And by symmetry, if `C[N]` terminates then `C[M]` terminates too!
 {-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
+  , terminatesLam
+  , terminatesStep
   , SoundnessProp
   , AdequacyProp
   , denotEqualTerminates
   , denotEqualCtxEquiv
   , denotEqualCtxEquivFromSoundness
+  , betaCtxEquiv
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
+import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 ```
@@ -69,6 +72,15 @@ by the small-step `AdequacyProp` bridge while big-step → small-step and
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
   MkTerminates :: BetaSteps m (ULam b) -> Terminates m
+
+-- | Every lambda abstraction terminates immediately in zero steps.
+terminatesLam :: forall (n :: Nat) (b :: UTerm (Succ n)). Terminates (ULam b)
+terminatesLam = MkTerminates BRefl
+
+-- | Termination is closed under backward β-reduction.
+terminatesStep :: forall (n :: Nat) (m :: UTerm n) (m' :: UTerm n).
+                  BetaStep m m' -> Terminates m' -> Terminates m
+terminatesStep s (MkTerminates steps) = MkTerminates (BCons s steps)
 
 -- | Soundness property: multi-step β-reduction preserves and reflects denotations.
 type SoundnessProp =
@@ -112,6 +124,16 @@ denotEqualCtxEquivFromSoundness
   -> DenEq (Den cm) (Den cn)
   -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
 denotEqualCtxEquivFromSoundness = denotEqualCtxEquiv denotEquivSteps
+
+-- | Corollary (`beta-ctx-equiv`): multi-step β-equivalent closed terms
+-- terminate identically under any `AdequacyProp`.
+betaCtxEquiv
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
+     AdequacyProp
+  -> BetaSteps cm cn
+  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
+betaCtxEquiv adequacy steps =
+  denotEqualCtxEquivFromSoundness adequacy (denotEquivSteps steps)
 ```
 
 <div class="wip-notice">

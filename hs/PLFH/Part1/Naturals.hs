@@ -18,12 +18,15 @@ module PLFH.Part1.Naturals
   , twoPlusThreeInfix
   , fiveAtRuntime
   , twoTimesThree
+  , threePowFour
+  , threeMonusTwo
+  , twoMonusThree
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..), plus, type (+))
 
-{-# LINE 387 "content/part1/Naturals.md" #-}
+{-# LINE 390 "content/part1/Naturals.md" #-}
 -- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus` and decimal numerals.
 twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
@@ -36,31 +39,44 @@ twoPlusThreeInfix = Refl
 fiveAtRuntime :: Nat
 fiveAtRuntime = 2 + 3
 
-{-# LINE 433 "content/part1/Naturals.md" #-}
+{-# LINE 436 "content/part1/Naturals.md" #-}
 -- | Multiply two natural numbers by recursion on the first argument.
 times :: Nat -> Nat -> Nat
 times Zero     n = Zero
 times (Succ m) n = plus n (times m n)
 
-{-# LINE 477 "content/part1/Naturals.md" #-}
+{-# LINE 480 "content/part1/Naturals.md" #-}
 -- | Evidence that 2 * 3 = 6 using ordinary `times` and decimal numerals.
 twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 
-{-# LINE 517 "content/part1/Naturals.md" #-}
+{-# LINE 520 "content/part1/Naturals.md" #-}
 -- | Exponentiation by recursion on the second argument.
 pow :: Nat -> Nat -> Nat
 pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
-{-# LINE 556 "content/part1/Naturals.md" #-}
+{-# LINE 527 "content/part1/Naturals.md" #-}
+-- | Concrete same-module exponentiation example: 3 ^ 4 = 81.
+threePowFour :: pow 3 4 :~: 81
+threePowFour = Refl
+
+{-# LINE 543 "content/part1/Naturals.md" #-}
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
 monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 727 "content/part1/Naturals.md" #-}
+{-# LINE 567 "content/part1/Naturals.md" #-}
+-- | Concrete same-module truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
+threeMonusTwo :: monus 3 2 :~: 1
+threeMonusTwo = Refl
+
+twoMonusThree :: monus 2 3 :~: 0
+twoMonusThree = Refl
+
+{-# LINE 704 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil
@@ -68,7 +84,7 @@ data Bin
   | X1 Bin
   deriving (Show)
 
-{-# LINE 746 "content/part1/Naturals.md" #-}
+{-# LINE 723 "content/part1/Naturals.md" #-}
 -- | Increment a binary bitstring by one.
 inc :: Bin -> Bin
 inc Nil    = X1 Nil

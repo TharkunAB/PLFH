@@ -1,8 +1,9 @@
 -- Generated from content/part2/Lambda.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll, GADTs, TypeOperators #-}
-{-# LINE 32 "content/part2/Lambda.md" #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll #-}
+{-# LANGUAGE GADTs, LambdaCase, TypeOperators #-}
+{-# LINE 33 "content/part2/Lambda.md" #-}
 module PLFH.Part2.Lambda
   ( Id
   , eqId
@@ -17,13 +18,18 @@ module PLFH.Part2.Lambda
   , HasType (..)
   , termTwo
   , twoTyped
+  , TwoChurch
+  , twoChurchTyped
+  , AddTerm
+  , addTyped
+  , stepExample
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Not)
 
-{-# LINE 118 "content/part2/Lambda.md" #-}
+{-# LINE 124 "content/part2/Lambda.md" #-}
 -- | Variable identifiers represented structurally as Peano naturals.
 type Id = Nat
 
@@ -57,14 +63,14 @@ data Ctx
   | CExt Ctx Id Ty
   deriving (Show)
 
-{-# LINE 167 "content/part2/Lambda.md" #-}
+{-# LINE 173 "content/part2/Lambda.md" #-}
 -- | Evidence that a term is a call-by-value value.
 data Value (t :: Term) where
   VLam  :: Value (Lam x n)
   VZero :: Value TZero
   VSuc  :: Value v -> Value (TSuc v)
 
-{-# LINE 192 "content/part2/Lambda.md" #-}
+{-# LINE 198 "content/part2/Lambda.md" #-}
 -- | Substitute a closed term `v` for free occurrences of `y` in `m`.
 substTerm :: Term -> Id -> Term -> Term
 substTerm (Var x) y v = case eqId x y of
@@ -83,7 +89,7 @@ substTerm (TMu x n) y v = case eqId x y of
   True  -> TMu x n
   False -> TMu x (substTerm n y v)
 
-{-# LINE 235 "content/part2/Lambda.md" #-}
+{-# LINE 241 "content/part2/Lambda.md" #-}
 -- | Call-by-value one-step reduction relation (M —→ N).
 data Step (m :: Term) (n :: Term) where
   XiApp1   :: Step l l' -> Step (App l m) (App l' m)
@@ -100,7 +106,7 @@ data Steps (m :: Term) (n :: Term) where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
 
-{-# LINE 280 "content/part2/Lambda.md" #-}
+{-# LINE 286 "content/part2/Lambda.md" #-}
 -- | Evidence that variable `x` has type `a` in context `g` (Γ ∋ x ⦂ A).
 data Lookup (g :: Ctx) (x :: Id) (a :: Ty) where
   LZ :: Lookup (CExt g x a) x a
@@ -117,7 +123,7 @@ data HasType (g :: Ctx) (m :: Term) (a :: Ty) where
          -> HasType g (TCase l m x n) a
   TMuT   :: HasType (CExt g x a) m a -> HasType g (TMu x m) a
 
-{-# LINE 300 "content/part2/Lambda.md" #-}
+{-# LINE 311 "content/part2/Lambda.md" #-}
 -- | The term representing natural number 2.
 termTwo :: Term
 termTwo = TSuc (TSuc TZero)
@@ -125,3 +131,34 @@ termTwo = TSuc (TSuc TZero)
 -- | Typing derivation showing ∅ ⊢ suc (suc zero) : Nat.
 twoTyped :: HasType CEmpty (TSuc (TSuc TZero)) TNat
 twoTyped = TSucT (TSucT TZeroT)
+
+-- | Church numeral 2c = λ 0 ⇒ λ 1 ⇒ 0 · (0 · 1) (`→-example`).
+type TwoChurch = Lam 0 (Lam 1 (App (Var 0) (App (Var 0) (Var 1))))
+
+-- | Typing derivation for Church numeral 2c at (Nat -> Nat) -> (Nat -> Nat).
+twoChurchTyped :: HasType CEmpty TwoChurch (TArr (TArr TNat TNat) (TArr TNat TNat))
+twoChurchTyped =
+  TLam (TLam (TApp (TVar (LS (\case {}) LZ))
+                   (TApp (TVar (LS (\case {}) LZ)) (TVar LZ))))
+
+-- | Recursive addition in STLC via `TMu`:
+--   μ 0 ⇒ λ 1 ⇒ λ 2 ⇒ case 1 [ zero ⇒ 2 | suc 3 ⇒ suc ((0 · 3) · 2) ].
+type AddTerm =
+  TMu 0 (Lam 1 (Lam 2
+    (TCase (Var 1) (Var 2) 3
+      (TSuc (App (App (Var 0) (Var 3)) (Var 2))))))
+
+-- | Typing derivation showing ∅ ⊢ AddTerm : Nat -> Nat -> Nat.
+addTyped :: HasType CEmpty AddTerm (TArr TNat (TArr TNat TNat))
+addTyped =
+  TMuT (TLam (TLam
+    (TCaseT
+      (TVar (LS (\case {}) LZ))
+      (TVar LZ)
+      (TSucT (TApp (TApp (TVar (LS (\case {}) (LS (\case {}) (LS (\case {}) LZ))))
+                         (TVar LZ))
+                   (TVar (LS (\case {}) LZ)))))))
+
+-- | Concrete β-reduction (`Step-example`): (λ 0 ⇒ suc 0) · (suc zero) —↠ suc (suc zero).
+stepExample :: Steps (App (Lam 0 (TSuc (Var 0))) (TSuc TZero)) (TSuc (TSuc TZero))
+stepExample = StepsCons (BetaLam (VSuc VZero)) StepsRefl

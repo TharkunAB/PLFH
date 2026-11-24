@@ -14,11 +14,12 @@ import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
-import PLFH.Part1.Lists (All (..), Any (..), In, allToIn, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, inToAll, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import PLFH.Part1.Lists (All (..), Any (..), In, allToIn, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import qualified PLFH.Part1.Naturals as N
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
-import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, toBinCan, toFromCan)
+import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp)
 import PLFH.Part2.Bisimulation (SimRel (..), simSym, simTrans, simValue)
 import PLFH.Part2.Confluence (Par (..), normalNoBetaSteps, omegaPar, parToBetas)
@@ -31,6 +32,7 @@ import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, 
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, idIsNormal, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
 import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
+import PLFH.Part3.ContextualEquivalence (Terminates (..), terminatesLam, terminatesStep)
 import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
@@ -68,6 +70,9 @@ main = do
 
   -- Part 1: Naturals (decimal literals!), Induction, Relations, Equality, Isomorphism, Quantifiers, Decidable, Lists
   assertEq "Naturals.fiveAtRuntime (2 + 3 :: Nat)" 5 (natToInt fiveAtRuntime)
+  assertEq "Naturals.threePowFour (same-module 3 ^ 4 = 81)" True (case N.threePowFour of Refl -> True)
+  assertEq "Naturals.threeMonusTwo (same-module 3 - 2 = 1)" True (case N.threeMonusTwo of Refl -> True)
+  assertEq "Naturals.twoMonusThree (same-module 2 - 3 = 0)" True (case N.twoMonusThree of Refl -> True)
   assertEq "InductionClient.plusZeroAtThree" True (case plusZeroAtThree of Refl -> True)
   assertEq "InductionClient.checkPlusAssoc 2 3 4" True (checkPlusAssoc 2 3 4)
   assertEq "Induction.plusAssoc 2 3 4" True (case plusAssoc 2 3 4 of Refl -> True)
@@ -152,6 +157,10 @@ main = do
   let diff25 = case leToDiff 2 5 (SleS (SleS ZleN)) of
         MkDiff k Refl -> natToInt k
   assertEq "Relations.leToDiff 2 5" 3 diff25
+  assertEq "Relations.timesMono (1<=2, 2<=3)" True
+    (case timesMono 1 2 2 3 (SleS ZleN) (SleS (SleS ZleN)) of { SleS (SleS ZleN) -> True })
+  assertEq "Relations.plusMonoLt (0<1, 1<2)" True
+    (case plusMonoLt 0 1 1 2 ZltS (SltS ZltS) of { SltS ZltS -> True })
 
   assertEq "Decidable.decEqSize 2 2" True  (case decEqSize 2 2 of { Yes Refl -> True; No _ -> False })
   assertEq "Decidable.decEqSize 2 3" False (case decEqSize 2 3 of { Yes Refl -> True; No _ -> False })
@@ -206,6 +215,12 @@ main = do
     (case foldrPlusSeed xs1 fourN of Refl -> True)
   assertEq "Lists.foldrPlusAppend [0,1] [2]" True
     (case foldrPlusAppend xs1 ys1 of Refl -> True)
+  let twoThree = [2, 3] :: [Nat]
+      fourList = [4] :: [Nat]
+  assertEq "Lists.foldrTimesSeed [2,3] 4" True
+    (case foldrTimesSeed twoThree fourN of Refl -> True)
+  assertEq "Lists.foldrTimesAppend [2,3] [4]" True
+    (case foldrTimesAppend twoThree fourList of Refl -> True)
   let odds = [1, 3] :: [Nat]
   assertEq "Lists.notAnyIffAllNot @Even [1,3]" True
     (case notAnyIffAllNot @Even odds of
@@ -246,6 +261,11 @@ main = do
     (case eval 5 (MkTermW (L.App (L.Lam Zero (L.Var Zero)) L.TZero)) idTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
   assertEq "Properties.eval (case (suc 0) ...) 5" True
     (case eval 5 (MkTermW (L.TCase (L.TSuc L.TZero) L.TZero Zero (L.Var Zero))) caseSucTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
+  assertEq "Lambda.stepExample" True
+    (case L.stepExample of { L.StepsCons (L.BetaLam (L.VSuc L.VZero)) L.StepsRefl -> True })
+  let add12Ty = L.TApp (L.TApp L.addTyped (L.TSucT L.TZeroT)) L.twoTyped
+  assertEq "Properties.eval (AddTerm 1 2 = 3!) 30" True
+    (case eval 30 (MkTermW (L.App (L.App (L.TMu 0 (L.Lam 1 (L.Lam 2 (L.TCase (L.Var 1) (L.Var 2) 3 (L.TSuc (L.App (L.App (L.Var 0) (L.Var 3)) (L.Var 2))))))) (L.TSuc L.TZero)) (L.TSuc (L.TSuc L.TZero)))) add12Ty of { Done _ (L.VSuc (L.VSuc (L.VSuc L.VZero))) -> True; _ -> False })
   let dbSuc :: DB.Term DB.CEmpty DB.TNat
       dbSuc = DB.Suc DB.Zero
       dbApp :: DB.Term DB.CEmpty DB.TNat
@@ -300,5 +320,7 @@ main = do
     (case adequacyIdApp of { MkHaltsBig (EApp _ _) -> True; _ -> False })
   assertEq "Adequacy.adequacyDelta (unconditional Delta halts!)" True
     (case adequacyDelta of { MkHaltsBig ELam -> True; _ -> False })
+  assertEq "ContextualEquivalence.terminatesStep idAppStep terminatesLam" True
+    (case terminatesStep idAppStep terminatesLam of { MkTerminates (BCons _ BRefl) -> True; _ -> False })
 
   putStrLn "All runtime smoke tests passed."

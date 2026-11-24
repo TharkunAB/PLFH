@@ -55,6 +55,8 @@ module PLFH.Part1.Lists
   , lengthZeros
   , foldrPlusSeed
   , foldrPlusAppend
+  , foldrTimesSeed
+  , foldrTimesAppend
   , All (..)
   , Any (..)
   , In
@@ -83,10 +85,11 @@ import qualified GHC.Internal.List as List
 import GHC.Tuple (Tuple2)
 import GHC.Types (List, Matchability)
 import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
-import HaskLib.Nat (Nat (..), plus)
+import HaskLib.Nat (Nat (..), plus, plusZero)
 import PLFH.Part1.Decidable (Dec (..), Not)
-import PLFH.Part1.Induction (cong, plusAssoc)
+import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
 import PLFH.Part1.Isomorphism (Iff (..))
+import PLFH.Part1.Naturals (times)
 ```
 
 ## Lists and Append (`++`)
@@ -269,11 +272,12 @@ lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
 ### Right folds and monoid homomorphisms (`foldr`)
 
-Using the standard library's own `GHC.Internal.List.foldr`, we prove both of
-PLFA's additive fold laws directly—moving the seed `z` outside a right fold
-(`foldrPlusSeed`) and proving that summing a concatenated list equals adding
-the individual sums (`foldrPlusAppend`, PLFA's `foldr-monoid-++` instantiated
-at `(Nat, plus, 0)`), using our visible `cong (plus x)` and `sym (plusAssoc ...)`
+Using the standard library's own `GHC.Internal.List.foldr`, we prove PLFA's
+monoid-homomorphism fold laws (`foldr-monoid-++`) for both `(Nat, plus, 0)`
+and `(Nat, times, 1)`—moving the seed outside a right fold (`foldrPlusSeed`,
+`foldrTimesSeed`) and proving that folding a concatenated list equals combining
+the individual folds (`foldrPlusAppend`, `foldrTimesAppend`), using our visible
+`cong (plus x)` / `cong (times x)` and `sym (plusAssoc ...)` / `sym (timesAssoc ...)`
 from [Induction](/Induction/):
 
 ```haskell
@@ -293,6 +297,23 @@ foldrPlusAppend []       _  = Refl
 foldrPlusAppend (x : xs) ys =
   trans (cong (plus x) (foldrPlusAppend xs ys))
         (sym (plusAssoc x (List.foldr plus Zero xs) (List.foldr plus Zero ys)))
+
+-- | Move the seed to the right of a multiplicative right fold.
+foldrTimesSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
+               -> List.foldr times z xs :~: times (List.foldr times 1 xs) z
+foldrTimesSeed []       z = sym (plusZero z)
+foldrTimesSeed (x : xs) z =
+  trans (cong (times x) (foldrTimesSeed xs z))
+        (sym (timesAssoc x (List.foldr times 1 xs) z))
+
+-- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
+foldrTimesAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+                 -> List.foldr times 1 (xs ++ ys)
+                :~: times (List.foldr times 1 xs) (List.foldr times 1 ys)
+foldrTimesAppend []       ys = sym (plusZero (List.foldr times 1 ys))
+foldrTimesAppend (x : xs) ys =
+  trans (cong (times x) (foldrTimesAppend xs ys))
+        (sym (timesAssoc x (List.foldr times 1 xs) (List.foldr times 1 ys)))
 ```
 
 <div class="wip-notice">
@@ -452,36 +473,33 @@ inToAll (x : xs) f = AllCons (f @x (Here Refl)) (inToAll xs (\r -> f (There r)))
 -- | Decidability of universal list quantification `All p xs` (`All?`).
 decAll :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
           (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (All p xs)
-decAll d xs = case xs of
-  []    -> Yes AllNil
-  x:xs' -> case d x of
-    No npx -> No (\case AllCons px _ -> npx px)
-    Yes px -> case decAll d xs' of
-      Yes axs -> Yes (AllCons px axs)
-      No naxs -> No (\case AllCons _ axs -> naxs axs)
+decAll _ []       = Yes AllNil
+decAll d (x : xs) = case d x of
+  No npx -> No (\case AllCons px _ -> npx px)
+  Yes px -> case decAll d xs of
+    Yes axs -> Yes (AllCons px axs)
+    No naxs -> No (\case AllCons _ axs -> naxs axs)
 
 -- | Decidability of existential list quantification `Any p xs` (`Any?`).
 decAny :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
           (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (Any p xs)
-decAny d xs = case xs of
-  []    -> No (\case {})
-  x:xs' -> case d x of
-    Yes px  -> Yes (Here px)
-    No  npx -> case decAny d xs' of
-      Yes axs -> Yes (There axs)
-      No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
+decAny _ []       = No (\case {})
+decAny d (x : xs) = case d x of
+  Yes px  -> Yes (Here px)
+  No  npx -> case decAny d xs of
+    Yes axs -> Yes (There axs)
+    No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
 
 -- | Decidability of list membership `In x xs` given decidable element equality (`∈?`).
 decIn :: forall {a}.
          (foreach (x :: a) -> foreach (y :: a) -> Dec (x :~: y))
       -> foreach (x :: a) -> foreach (xs :: List a) -> Dec (In x xs)
-decIn decEq x xs = case xs of
-  []    -> No (\case {})
-  y:ys  -> case decEq x y of
-    Yes Refl -> Yes (Here Refl)
-    No  neq  -> case decIn decEq x ys of
-      Yes iys -> Yes (There iys)
-      No niys -> No (\case { Here eq -> neq eq; There r -> niys r })
+decIn _     _ []       = No (\case {})
+decIn decEq x (y : ys) = case decEq x y of
+  Yes Refl -> Yes (Here Refl)
+  No  neq  -> case decIn decEq x ys of
+    Yes iys -> Yes (There iys)
+    No niys -> No (\case { Here eq -> neq eq; There r -> niys r })
 
 -- | Concrete membership proof: 0 ∈ [0, 1, 0] (zero ticks with NoListTuplePuns!).
 zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]

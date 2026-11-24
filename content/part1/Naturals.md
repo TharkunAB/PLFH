@@ -24,6 +24,9 @@ module PLFH.Part1.Naturals
   , twoPlusThreeInfix
   , fiveAtRuntime
   , twoTimesThree
+  , threePowFour
+  , threeMonusTwo
+  , twoMonusThree
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -520,27 +523,11 @@ pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 ```
 
-```{.haskell .wip}
--- Intended same-module example (currently checked cross-module in Induction!):
+```haskell
+-- | Concrete same-module exponentiation example: 3 ^ 4 = 81.
 threePowFour :: pow 3 4 :~: 81
 threePowFour = Refl
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Same-module type-level equations for right-first <code>pow</code> &amp; <code>monus</code> (R13)]</strong>
-While left-first <code>times</code> reduces in types inside its own defining
-module (<code>twoTimesThree</code> above), and both right-first <code>pow</code>
-and two-column <code>monus</code> reduce cleanly when imported into another
-module (so <code>threePowFour</code>, <code>threeMonusTwo</code>,
-<code>twoMonusThree</code>, <code>zeroMonus</code>, <code>monusPlusAssoc</code>,
-<code>powPlus</code>, <code>powMul</code>, and <code>powTimes</code> are all
-checked in <a href="/Induction/">Induction</a>!), using <code>pow</code> or
-<code>monus</code> in a type signature inside their <em>defining</em> module
-currently fails with <code>GHC-68947</code> (<em>No checked equations are
-available for <code>pow</code> / <code>monus</code> in a type</em>). See
-minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SameModuleRightFirstOpenEq.hs"><code>reproducers/R13_SameModuleRightFirstOpenEq.hs</code></a>.
-</div>
 
 ## Monus
 
@@ -576,24 +563,14 @@ For example, subtracting two from three uses only the third and first
 equations (`3 ∸ 2 = 2 ∸ 1 = 1 ∸ 0 = 1`), whereas subtracting three from two
 also invokes the second equation (`2 ∸ 3 = 1 ∸ 2 = 0 ∸ 1 = 0`):
 
-```{.haskell .wip}
--- Intended same-module examples (currently checked cross-module in Induction!):
+```haskell
+-- | Concrete same-module truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
 threeMonusTwo :: monus 3 2 :~: 1
 threeMonusTwo = Refl
 
 twoMonusThree :: monus 2 3 :~: 0
 twoMonusThree = Refl
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Same-module type-level equations for two-column <code>monus</code> (R13)]</strong>
-Just like <code>pow</code> above, two-column <code>monus</code> reduces cleanly
-when imported into another module (so <code>threeMonusTwo</code>,
-<code>twoMonusThree</code>, <code>zeroMonus</code>, and
-<code>monusPlusAssoc</code> are all checked in <a href="/Induction/">Induction</a>!),
-but fails with <code>GHC-68947</code> inside its own defining module. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SameModuleRightFirstOpenEq.hs"><code>reproducers/R13_SameModuleRightFirstOpenEq.hs</code></a>.
-</div>
 
 Notice we defined `monus` so that the patterns are disjoint—exactly one
 equation applies to any pair of inputs. If the second line were written
@@ -774,9 +751,9 @@ and `fromBin (toBin n) :~: n` directly by induction, and in
 - Reused `Nat` (`Zero`/`Succ`), `plus`, infix `type (+)`, and decimal
   numerals (`FromNatural`/`Num`) from `HaskLib.Nat`.
 - Implemented `times`, `pow`, `monus`, and `Bin`/`inc`/`toBin`/`fromBin` as
-  ordinary Haskell functions checked directly in types (`twoPlusThree`,
-  `twoTimesThree`; same-module `pow`/`monus` examples await
-  `R13_SameModuleRightFirstOpenEq.hs` and are checked cross-module in `Induction`).
+  ordinary Haskell functions checked directly in their defining module
+  (`twoPlusThree`, `twoTimesThree`, `threePowFour`, `threeMonusTwo`,
+  `twoMonusThree`).
 - Omitted Agda's Emacs `agda-mode` keybinding walkthrough, `BUILTIN`
   pragmas, and Unicode input table, adding a Haskell totality note and the
   R13 wildcard note (`R13_WildcardBreaksOpenEq.hs`) instead.

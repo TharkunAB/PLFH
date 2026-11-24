@@ -38,6 +38,9 @@ module PLFH.Part1.Relations
   , plusMonoR
   , plusMonoL
   , plusMono
+  , timesMonoR
+  , timesMonoL
+  , timesMono
   , LT' (..)
   , ltTrans
   , Trichotomy (..)
@@ -47,6 +50,9 @@ module PLFH.Part1.Relations
   , DiffWitness (..)
   , leToDiff
   , diffToLe
+  , plusMonoLtR
+  , plusMonoLtL
+  , plusMonoLt
   , Even (..)
   , Odd (..)
   , evenPlusEven
@@ -72,8 +78,8 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import HaskLib (rewrite)
 import HaskLib.Nat (Nat (..), plus, plusSucc, plusZero)
-import PLFH.Part1.Induction (cong)
-import PLFH.Part1.Naturals (Bin (..), fromBin, inc, toBin)
+import PLFH.Part1.Induction (cong, timesComm)
+import PLFH.Part1.Naturals (Bin (..), fromBin, inc, times, toBin)
 ```
 
 ## Defining relations
@@ -300,10 +306,34 @@ plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 ```
 
-#### Exercise `*-mono-≤` (recommended)
+### Multiplication monotonicity (`*-mono-≤`)
 
-Show that multiplication is monotonic with regard to inequality: if `m ≤ n`
-and `p ≤ q`, then `times m p ≤ times n q`.
+Multiplication is likewise monotonic with respect to `≤`: right monotonicity
+(`timesMonoR`) follows by induction on `n` using `plusMono`, left monotonicity
+(`timesMonoL`) follows in one line from `timesMonoR` and `timesComm` from
+[Induction](/Induction/), and `leTrans` combines them:
+
+```haskell
+-- | Right monotonicity of multiplication: if p <= q then n * p <= n * q.
+timesMonoR :: foreach (n :: Nat) -> foreach (p :: Nat) -> foreach (q :: Nat)
+           -> LE p q -> LE (times n p) (times n q)
+timesMonoR Zero     _ _ _  = ZleN
+timesMonoR (Succ n) p q pq = plusMono p q (times n p) (times n q) pq (timesMonoR n p q pq)
+
+-- | Left monotonicity of multiplication: if m <= n then m * p <= n * p.
+timesMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+           -> LE m n -> LE (times m p) (times n p)
+timesMonoL m n p mn =
+  rewrite (timesComm m p)
+    (rewrite (timesComm n p) (timesMonoR p m n mn))
+
+-- | Combined monotonicity of multiplication (`*-mono-≤`):
+-- if m <= n and p <= q then m * p <= n * q.
+timesMono :: foreach (m :: Nat) -> foreach (n :: Nat)
+          -> foreach (p :: Nat) -> foreach (q :: Nat)
+          -> LE m n -> LE p q -> LE (times m p) (times n q)
+timesMono m n p q mn pq = leTrans (timesMonoL m n p mn) (timesMonoR n p q pq)
+```
 
 ## Strict inequality
 
@@ -389,10 +419,32 @@ diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 ```
 
-#### Exercise `+-mono-<` (practice)
+### Monotonicity of strict inequality (`+-mono-<`)
 
-Show that addition is monotonic with respect to strict inequality:
-`m < n` and `p < q` imply `plus m p < plus n q`.
+Addition is also monotonic with respect to strict inequality: `m < n` and
+`p < q` imply `m + p < n + q`:
+
+```haskell
+-- | Right monotonicity of strict inequality: if p < q then n + p < n + q.
+plusMonoLtR :: foreach (n :: Nat) -> LT' p q -> LT' (plus n p) (plus n q)
+plusMonoLtR Zero     pq = pq
+plusMonoLtR (Succ n) pq = SltS (plusMonoLtR n pq)
+
+-- | Left monotonicity of strict inequality: if m < n then m + p < n + p.
+plusMonoLtL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+            -> LT' m n -> LT' (plus m p) (plus n p)
+plusMonoLtL m n Zero     mn = rewrite (plusZero m) (rewrite (plusZero n) mn)
+plusMonoLtL m n (Succ p) mn =
+  rewrite (plusSucc m p)
+    (rewrite (plusSucc n p) (SltS (plusMonoLtL m n p mn)))
+
+-- | Combined monotonicity of strict inequality (`+-mono-<`):
+-- if m < n and p < q then m + p < n + q.
+plusMonoLt :: foreach (m :: Nat) -> foreach (n :: Nat)
+           -> foreach (p :: Nat) -> foreach (q :: Nat)
+           -> LT' m n -> LT' p q -> LT' (plus m p) (plus n q)
+plusMonoLt m n p q mn pq = ltTrans (plusMonoLtL m n p mn) (plusMonoLtR n pq)
+```
 
 ## Even and odd
 

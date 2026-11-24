@@ -28,7 +28,8 @@ We import propositional equality `(:~:)`, Peano naturals `Nat` from
 [Decidable](/Decidable/) to express variable inequality during context lookup.
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll #-}
+{-# LANGUAGE GADTs, LambdaCase, TypeOperators #-}
 module PLFH.Part2.Lambda
   ( Id
   , eqId
@@ -43,6 +44,11 @@ module PLFH.Part2.Lambda
   , HasType (..)
   , termTwo
   , twoTyped
+  , TwoChurch
+  , twoChurchTyped
+  , AddTerm
+  , addTyped
+  , stepExample
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -294,7 +300,12 @@ data HasType (g :: Ctx) (m :: Term) (a :: Ty) where
   TMuT   :: HasType (CExt g x a) m a -> HasType g (TMu x m) a
 ```
 
-### Example: the numeral `2` and its typing derivation
+### Examples: `2`, Church numeral `2c`, recursive addition (`+`), and a concrete β-reduction
+
+Alongside the numeral `2`, we also check PLFA's flagship STLC examples:
+the **Church numeral `2c`** (`λ s ⇒ λ z ⇒ s · (s · z)`), **recursive addition**
+via `TMu` (`μ "+" ⇒ λ m ⇒ λ n ⇒ case m [ zero ⇒ n | suc m' ⇒ suc ("+" · m' · n) ]`),
+and a concrete multi-step reduction exercising `BetaLam` and `substTerm`:
 
 ```haskell
 -- | The term representing natural number 2.
@@ -304,6 +315,37 @@ termTwo = TSuc (TSuc TZero)
 -- | Typing derivation showing ∅ ⊢ suc (suc zero) : Nat.
 twoTyped :: HasType CEmpty (TSuc (TSuc TZero)) TNat
 twoTyped = TSucT (TSucT TZeroT)
+
+-- | Church numeral 2c = λ 0 ⇒ λ 1 ⇒ 0 · (0 · 1) (`→-example`).
+type TwoChurch = Lam 0 (Lam 1 (App (Var 0) (App (Var 0) (Var 1))))
+
+-- | Typing derivation for Church numeral 2c at (Nat -> Nat) -> (Nat -> Nat).
+twoChurchTyped :: HasType CEmpty TwoChurch (TArr (TArr TNat TNat) (TArr TNat TNat))
+twoChurchTyped =
+  TLam (TLam (TApp (TVar (LS (\case {}) LZ))
+                   (TApp (TVar (LS (\case {}) LZ)) (TVar LZ))))
+
+-- | Recursive addition in STLC via `TMu`:
+--   μ 0 ⇒ λ 1 ⇒ λ 2 ⇒ case 1 [ zero ⇒ 2 | suc 3 ⇒ suc ((0 · 3) · 2) ].
+type AddTerm =
+  TMu 0 (Lam 1 (Lam 2
+    (TCase (Var 1) (Var 2) 3
+      (TSuc (App (App (Var 0) (Var 3)) (Var 2))))))
+
+-- | Typing derivation showing ∅ ⊢ AddTerm : Nat -> Nat -> Nat.
+addTyped :: HasType CEmpty AddTerm (TArr TNat (TArr TNat TNat))
+addTyped =
+  TMuT (TLam (TLam
+    (TCaseT
+      (TVar (LS (\case {}) LZ))
+      (TVar LZ)
+      (TSucT (TApp (TApp (TVar (LS (\case {}) (LS (\case {}) (LS (\case {}) LZ))))
+                         (TVar LZ))
+                   (TVar (LS (\case {}) LZ)))))))
+
+-- | Concrete β-reduction (`Step-example`): (λ 0 ⇒ suc 0) · (suc zero) —↠ suc (suc zero).
+stepExample :: Steps (App (Lam 0 (TSuc (Var 0))) (TSuc TZero)) (TSuc (TSuc TZero))
+stepExample = StepsCons (BetaLam (VSuc VZero)) StepsRefl
 ```
 
 ### Negative control: ill-typed application is rejected
