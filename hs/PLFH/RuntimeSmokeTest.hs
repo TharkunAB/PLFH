@@ -22,7 +22,7 @@ import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
-import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp)
+import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp, evalKIdOmega)
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import PLFH.Part2.Confluence (Par (..), betaToPar, normalNoBetaSteps, omegaPar, parRefl, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
@@ -34,7 +34,7 @@ import qualified PLFH.Part2.More as M
 import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
 import qualified PLFH.Part2.Untyped as U
-import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, idIsNormal, omegaStep)
+import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
 import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
 import PLFH.Part3.ContextualEquivalence (Terminates (..), terminatesLam, terminatesStep)
@@ -450,6 +450,8 @@ main = do
 
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Untyped.cTwoIsNormal (Church 2)" True (case cTwoIsNormal of { NLam (NLam _) -> True })
+  assertEq "Untyped.kOmegaStep ((\\x y. y) Omega -> id)" True (case kOmegaStep of { Beta _ -> True; _ -> False })
   assertEq "Confluence.parRefl traverses both lambdas" True
     (checkParallel (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.betaToPar idAppStep" True
@@ -457,6 +459,7 @@ main = do
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
   assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
+  assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
 
   -- Part 3: Denotational Semantics, Compositionality, & Unconditional Adequacy!

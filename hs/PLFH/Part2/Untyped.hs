@@ -23,17 +23,24 @@ module PLFH.Part2.Untyped
   , IdTerm
   , SelfApp
   , OmegaTerm
+  , CZero
+  , COne
+  , CTwo
   , idTerm
   , idIsNormal
+  , cZeroIsNormal
+  , cOneIsNormal
+  , cTwoIsNormal
   , omegaTerm
   , idAppStep
   , omegaStep
+  , kOmegaStep
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 
-{-# LINE 78 "content/part2/Untyped.md" #-}
+{-# LINE 85 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
 data Fin (n :: Nat) where
   FZ :: Fin (Succ n)
@@ -56,7 +63,7 @@ omegaTerm = UApp selfApp selfApp
     selfApp :: UTerm Zero
     selfApp = ULam (UApp (UVar FZ) (UVar FZ))
 
-{-# LINE 115 "content/part2/Untyped.md" #-}
+{-# LINE 122 "content/part2/Untyped.md" #-}
 -- | Lift a variable renaming under a lambda binder.
 extU :: (Fin m -> Fin n) -> Fin (Succ m) -> Fin (Succ n)
 extU _   FZ     = FZ
@@ -83,7 +90,7 @@ substU sigma (UApp l m) = UApp (substU sigma l) (substU sigma m)
 substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 
-{-# LINE 172 "content/part2/Untyped.md" #-}
+{-# LINE 179 "content/part2/Untyped.md" #-}
 -- | Shift a variable `x :: Fin n` up by one slot at cutoff `c :: Fin (Succ n)`.
 type BumpFin :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Fin (Succ n) -> Type
 data BumpFin c x y where
@@ -113,7 +120,7 @@ data SubstAtU c w m m' where
   SULam :: ShiftU FZ w w' -> SubstAtU (FS c) w' b b' -> SubstAtU c w (ULam b) (ULam b')
   SUApp :: SubstAtU c w l l' -> SubstAtU c w m m' -> SubstAtU c w (UApp l m) (UApp l' m')
 
-{-# LINE 223 "content/part2/Untyped.md" #-}
+{-# LINE 230 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
 type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
@@ -141,7 +148,7 @@ data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
 
-{-# LINE 257 "content/part2/Untyped.md" #-}
+{-# LINE 264 "content/part2/Untyped.md" #-}
 -- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
 type IdTerm    = (ULam (UVar FZ) :: UTerm Zero)
 type SelfApp   = (ULam (UApp (UVar FZ) (UVar FZ)) :: UTerm Zero)
@@ -158,3 +165,28 @@ idAppStep = Beta SUEq
 -- | Concrete sound β-step: Ω —→ Ω!
 omegaStep :: BetaStep OmegaTerm OmegaTerm
 omegaStep = Beta (SUApp SUEq SUEq)
+
+-- | Church numerals 0, 1, 2 in the untyped λ-calculus (λ s. λ z. s^n z).
+type CZero = (ULam (ULam (UVar FZ)) :: UTerm Zero)
+type COne  = (ULam (ULam (UApp (UVar (FS FZ)) (UVar FZ))) :: UTerm Zero)
+type CTwo  = (ULam (ULam (UApp (UVar (FS FZ)) (UApp (UVar (FS FZ)) (UVar FZ)))) :: UTerm Zero)
+
+-- | Church numerals are in full normal form (`Church-numerals`).
+cZeroIsNormal :: Normal CZero
+cZeroIsNormal = NLam (NLam (NNeu NVar))
+
+cOneIsNormal :: Normal COne
+cOneIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu NVar))))
+
+cTwoIsNormal :: Normal CTwo
+cTwoIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu (NApp NVar (NNeu NVar))))))
+
+-- | Normal-order termination on a diverging argument (`K-omega`):
+-- `(λ x. λ y. y) Ω —→ λ y. y` in a single outermost β-step!
+kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
+kOmegaStep =
+  Beta (SULam
+    (ShiftApp
+      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ)))
+      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ))))
+    (SUNeq RemLt))

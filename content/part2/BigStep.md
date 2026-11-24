@@ -48,12 +48,13 @@ module PLFH.Part2.BigStep
   , idClos
   , evalIdApp
   , evalConstOmega
+  , evalKIdOmega
   ) where
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (Fin (..), UTerm (..))
+import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
 ```
 
 ## Environments, closures, and lookup
@@ -149,6 +150,14 @@ evalConstOmega :: EvalBig ENil
           (ECons (MkClos (UApp (ULam (UApp (UVar FZ) (UVar FZ)))
                                (ULam (UApp (UVar FZ) (UVar FZ)))) ENil) ENil))
 evalConstOmega = EApp ELam ELam
+
+-- | PLFA BigStep exercise `eval-K-id-omega`: `((λx y. x) (λz. z)) Ω ⇓ <λz. z, []>`,
+-- forcing only the first argument and leaving Ω completely untouched!
+evalKIdOmega
+  :: EvalBig ENil
+       (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
+       (MkClos IdTerm ENil)
+evalKIdOmega = EApp (EApp ELam ELam) (EVar (ELS ELZ) ELam)
 
 -- | Witness that a closure's term is a lambda abstraction (weak-head normal form).
 data IsLamClos (c :: Clos) where

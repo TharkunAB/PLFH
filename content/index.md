@@ -36,7 +36,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Negation](/Negation/): Intuitionistic negation, De Morgan, order-negation laws, and classical equivalences (EM ⇔ DNE ⇔ Peirce) <span class="badge badge-pass">Checked</span>
 - [Quantifiers](/Quantifiers/): Erased `Exists`, retained `Sigma` (`some`), and `Even`/`Odd` existential witnesses <span class="badge badge-pass">Checked</span>
 - [Decidable](/Decidable/): Negation, decidable equality/ordering/parity/`Bin`, `Reflects`, and inline `Sigma` (`plusExists`) <span class="badge badge-pass">Checked</span>
-- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses`, `downFrom`, **`foldrPlusSeed`/`foldrPlusAppend`** (`GHC.Internal.List.foldr`), matchability-poly `All`/`Any`/`In`, `notAnyIffAllNot`, `allToIn`/`inToAll`, `decAll`/`decAny`/`decIn` <span class="badge badge-pass">Checked</span>
+- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses`, `downFrom`, **`foldrPlusSeed`/`foldrPlusAppend`** (`GHC.Internal.List.foldr`), matchability-poly `All`/`Any`/`In`, `notAnyIffAllNot`, `allToIn`/`inToAll`, **`anyIsoWitness`** (`Iso (Any p xs) (AnyWitness p xs)`), `decAll`/`decAny`/`decIn` <span class="badge badge-pass">Checked</span>
 
 ## Part 2: Programming Language Foundations
 

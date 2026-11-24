@@ -52,11 +52,18 @@ module PLFH.Part2.Untyped
   , IdTerm
   , SelfApp
   , OmegaTerm
+  , CZero
+  , COne
+  , CTwo
   , idTerm
   , idIsNormal
+  , cZeroIsNormal
+  , cOneIsNormal
+  , cTwoIsNormal
   , omegaTerm
   , idAppStep
   , omegaStep
+  , kOmegaStep
   ) where
 
 import Data.Kind (Type)
@@ -270,6 +277,31 @@ idAppStep = Beta SUEq
 -- | Concrete sound β-step: Ω —→ Ω!
 omegaStep :: BetaStep OmegaTerm OmegaTerm
 omegaStep = Beta (SUApp SUEq SUEq)
+
+-- | Church numerals 0, 1, 2 in the untyped λ-calculus (λ s. λ z. s^n z).
+type CZero = (ULam (ULam (UVar FZ)) :: UTerm Zero)
+type COne  = (ULam (ULam (UApp (UVar (FS FZ)) (UVar FZ))) :: UTerm Zero)
+type CTwo  = (ULam (ULam (UApp (UVar (FS FZ)) (UApp (UVar (FS FZ)) (UVar FZ)))) :: UTerm Zero)
+
+-- | Church numerals are in full normal form (`Church-numerals`).
+cZeroIsNormal :: Normal CZero
+cZeroIsNormal = NLam (NLam (NNeu NVar))
+
+cOneIsNormal :: Normal COne
+cOneIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu NVar))))
+
+cTwoIsNormal :: Normal CTwo
+cTwoIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu (NApp NVar (NNeu NVar))))))
+
+-- | Normal-order termination on a diverging argument (`K-omega`):
+-- `(λ x. λ y. y) Ω —→ λ y. y` in a single outermost β-step!
+kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
+kOmegaStep =
+  Beta (SULam
+    (ShiftApp
+      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ)))
+      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ))))
+    (SUNeq RemLt))
 ```
 
 ### Negative control: bogus β-step endpoint is rejected

@@ -17,14 +17,15 @@ module PLFH.Part2.BigStep
   , idClos
   , evalIdApp
   , evalConstOmega
+  , evalKIdOmega
   ) where
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (Fin (..), UTerm (..))
+import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
 
-{-# LINE 72 "content/part2/BigStep.md" #-}
+{-# LINE 73 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env Zero
@@ -43,7 +44,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 109 "content/part2/BigStep.md" #-}
+{-# LINE 110 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -59,7 +60,7 @@ data EvalBig e t v where
        -> EvalBig (ECons (MkClos m e) d) b w
        -> EvalBig e (UApp l m) w
 
-{-# LINE 136 "content/part2/BigStep.md" #-}
+{-# LINE 137 "content/part2/BigStep.md" #-}
 -- | Concrete call-by-name derivation: (λx. x) (λy. y) ⇓ <λy. y, []>.
 evalIdApp :: EvalBig ENil
                      (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -77,6 +78,14 @@ evalConstOmega :: EvalBig ENil
                                (ULam (UApp (UVar FZ) (UVar FZ)))) ENil) ENil))
 evalConstOmega = EApp ELam ELam
 
+-- | PLFA BigStep exercise `eval-K-id-omega`: `((λx y. x) (λz. z)) Ω ⇓ <λz. z, []>`,
+-- forcing only the first argument and leaving Ω completely untouched!
+evalKIdOmega
+  :: EvalBig ENil
+       (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
+       (MkClos IdTerm ENil)
+evalKIdOmega = EApp (EApp ELam ELam) (EVar (ELS ELZ) ELam)
+
 -- | Witness that a closure's term is a lambda abstraction (weak-head normal form).
 data IsLamClos (c :: Clos) where
   MkIsLamClos :: IsLamClos (MkClos (ULam b) e)
@@ -87,7 +96,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 173 "content/part2/BigStep.md" #-}
+{-# LINE 182 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl
