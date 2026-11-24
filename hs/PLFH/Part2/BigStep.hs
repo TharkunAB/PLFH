@@ -26,6 +26,19 @@ module PLFH.Part2.BigStep
   , evalIdApp
   , evalConstOmega
   , evalKIdOmega
+  , SubEnv (..)
+  , CloseSub (..)
+  , AllLift (..)
+  , closeId
+  , ExtendSub (..)
+  , LiftedClose (..)
+  , CloseSubstRes (..)
+  , closeBetaSubst
+  , CbnRes (..)
+  , cbnSim
+  , CbnTerminates (..)
+  , cbnToReduceW
+  , cbnToReduce
   ) where
 
 import Data.Kind (Type)
@@ -33,9 +46,35 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
-import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, SelfApp, UTerm (..))
+import PLFH.Part2.Confluence
+  ( FinW (..)
+  , LeLift (..)
+  , ShiftEx (..)
+  , ShiftSubstRes (..)
+  , TermW (..)
+  , bsApp1
+  , bsTrans
+  , mkTermW
+  , shiftEx
+  , shiftSubstLe
+  , substShiftCancel
+  , substTargetW
+  )
+import PLFH.Part2.Untyped
+  ( BetaStep (..)
+  , BetaSteps (..)
+  , BumpFin (..)
+  , Fin (..)
+  , IdTerm
+  , OmegaTerm
+  , RemoveFin (..)
+  , SelfApp
+  , ShiftU (..)
+  , SubstAtU (..)
+  , UTerm (..)
+  )
 
-{-# LINE 83 "content/part2/BigStep.md" #-}
+{-# LINE 122 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env Zero
@@ -54,7 +93,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 120 "content/part2/BigStep.md" #-}
+{-# LINE 159 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -70,7 +109,7 @@ data EvalBig e t v where
        -> EvalBig (ECons (MkClos m e) d) b w
        -> EvalBig e (UApp l m) w
 
-{-# LINE 147 "content/part2/BigStep.md" #-}
+{-# LINE 186 "content/part2/BigStep.md" #-}
 -- | Concrete call-by-name derivation: (λx. x) (λy. y) ⇓ <λy. y, []>.
 evalIdApp :: EvalBig ENil
                      (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -106,7 +145,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 192 "content/part2/BigStep.md" #-}
+{-# LINE 231 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl
@@ -120,7 +159,7 @@ evalDeterm ELam ELam = Refl
 evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
 
-{-# LINE 217 "content/part2/BigStep.md" #-}
+{-# LINE 256 "content/part2/BigStep.md" #-}
 -- | Inductive invariant for closures that dereference to `<SelfApp, []>`:
 -- either `SelfApp = λx. x x` directly in `ENil`, or a variable pointing to one.
 type IsSelfApp :: forall (n :: Nat). Env n -> UTerm n -> Type
@@ -143,7 +182,7 @@ omegaLoopDiverges sa1 sa2 (EApp ev1 ev2) = case selfAppEval sa1 ev1 of
 omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
 omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 
-{-# LINE 250 "content/part2/BigStep.md" #-}
+{-# LINE 289 "content/part2/BigStep.md" #-}
 -- | Call-by-name big-step evaluation using ordinary `lookupEnv` in the same module!
 type EvalFun :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
 data EvalFun e t v where
@@ -178,3 +217,115 @@ evalFunKIdOmega
        (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
        (MkClos IdTerm ENil)
 evalFunKIdOmega = EFApp (EFApp EFLam EFLam) (EFVar EFLam)
+
+{-# LINE 376 "content/part2/BigStep.md" #-}
+-- | Substitution context: an outer closing `Env n` underneath `m` lambda binders.
+data SubEnv (n :: Nat) (m :: Nat) where
+  FromEnv :: Env n -> SubEnv n Zero
+  LiftEnv :: SubEnv n m -> SubEnv (Succ n) (Succ m)
+
+-- | Inductive closing substitution: closes outer variables via `Env` while
+-- preserving inner lambda-bound variables and shifting closed values cleanly.
+type CloseSub :: forall (n m :: Nat). SubEnv n m -> UTerm n -> UTerm m -> Type
+data CloseSub s t u where
+  CSVarEnv :: EnvLookup e x (MkClos a d)
+           -> CloseSub (FromEnv d) a u
+           -> CloseSub (FromEnv e) (UVar x) u
+  CSVarZ   :: CloseSub (LiftEnv s) (UVar FZ) (UVar FZ)
+  CSVarS   :: CloseSub s (UVar x) u
+           -> ShiftU FZ u u'
+           -> CloseSub (LiftEnv s) (UVar (FS x)) u'
+  CSLam    :: CloseSub (LiftEnv s) b b'
+           -> CloseSub s (ULam b) (ULam b')
+  CSApp    :: CloseSub s l l'
+           -> CloseSub s m m'
+           -> CloseSub s (UApp l m) (UApp l' m')
+
+-- | Identity closing context (`ENil` under `n` binders).
+type AllLift :: forall (n :: Nat). SubEnv n n -> Type
+data AllLift s where
+  ALNil  :: AllLift (FromEnv ENil)
+  ALLift :: AllLift s -> AllLift (LiftEnv s)
+
+-- | Under `ENil` (plus any local binders), every witnessed term closes to itself.
+closeId :: AllLift s -> TermW u -> CloseSub s u u
+closeId ALNil       (WVar fx)       = case fx of {}
+closeId (ALLift _)  (WVar WFZ)      = CSVarZ
+closeId (ALLift al) (WVar (WFS fx)) = CSVarS (closeId al (WVar fx)) (ShiftVar BumpZ)
+closeId al          (WLam wb)       = CSLam (closeId (ALLift al) wb)
+closeId al          (WApp wl wm)    = CSApp (closeId al wl) (closeId al wm)
+
+-- | `s1` extends `s2` with a newly bound closure `cl` at cutoff `c`.
+type ExtendSub :: forall (n m :: Nat). Clos -> Fin (Succ m) -> SubEnv (Succ n) (Succ m) -> SubEnv (Succ n) m -> Type
+data ExtendSub cl c s1 s2 where
+  ExtendZ :: ExtendSub cl FZ (LiftEnv (FromEnv d)) (FromEnv (ECons cl d))
+  ExtendS :: ExtendSub cl c s1 s2 -> ExtendSub cl (FS c) (LiftEnv s1) (LiftEnv s2)
+
+-- | Closed argument term lifted under `mOut` local binders, paired with its witness.
+type LiftedClose :: forall (mOut :: Nat). Clos -> UTerm mOut -> Type
+data LiftedClose cl m0 where
+  LCZero :: CloseSub (FromEnv e) m m0 -> TermW m0 -> LiftedClose (MkClos m e) m0
+  LCSucc :: LiftedClose cl mPrev -> ShiftU FZ mPrev m0 -> TermW m0 -> LiftedClose cl m0
+
+liftedTermW :: LiftedClose cl m0 -> TermW m0
+liftedTermW (LCZero _ wm0)   = wm0
+liftedTermW (LCSucc _ _ wm0) = wm0
+
+type CloseSubstRes :: forall (n m :: Nat). SubEnv (Succ n) m -> Fin (Succ m) -> UTerm m -> UTerm (Succ n) -> UTerm (Succ m) -> Type
+data CloseSubstRes s2 c m0 b b0 where
+  MkCloseSubst :: SubstAtU c m0 b0 r -> CloseSub s2 b r -> CloseSubstRes s2 c m0 b b0
+
+-- | Commuting β-substitution with environment closing (`closeBetaSubst`).
+closeBetaSubst :: ExtendSub cl c s1 s2 -> LiftedClose cl m0 -> CloseSub s1 b b0
+               -> CloseSubstRes s2 c m0 b b0
+closeBetaSubst ExtendZ        (LCZero csM _)    CSVarZ                         =
+  MkCloseSubst SUEq (CSVarEnv ELZ csM)
+closeBetaSubst (ExtendS _)    _                 CSVarZ                         =
+  MkCloseSubst (SUNeq RemLt) CSVarZ
+closeBetaSubst ExtendZ        (LCZero _ wm0)    (CSVarS (CSVarEnv lk csA) shU) =
+  MkCloseSubst (substShiftCancel wm0 shU) (CSVarEnv (ELS lk) csA)
+closeBetaSubst (ExtendS ext0) (LCSucc lc0 shM _) (CSVarS csX shU)              =
+  case closeBetaSubst ext0 lc0 csX of
+    MkCloseSubst sub0 csR0 -> case shiftSubstLe LLZ shU shM sub0 of
+      MkShiftSubst shR0 sub' -> MkCloseSubst sub' (CSVarS csR0 shR0)
+closeBetaSubst ext            lc                (CSLam csB)                    =
+  case shiftEx WFZ (liftedTermW lc) of
+    MkShiftEx shM wm0' -> case closeBetaSubst (ExtendS ext) (LCSucc lc shM wm0') csB of
+      MkCloseSubst subB csB' -> MkCloseSubst (SULam shM subB) (CSLam csB')
+closeBetaSubst ext            lc                (CSApp csL csR)                =
+  case (closeBetaSubst ext lc csL, closeBetaSubst ext lc csR) of
+    (MkCloseSubst subL csL', MkCloseSubst subR csR') ->
+      MkCloseSubst (SUApp subL subR) (CSApp csL' csR')
+
+-- | Simulation result: a closed lambda `ULam b'` matching `(ULam b, d)` via `BetaSteps`.
+type CbnRes :: forall (nd :: Nat). UTerm (Succ nd) -> Env nd -> UTerm Zero -> Type
+data CbnRes b d u where
+  MkCbnRes :: CloseSub (LiftEnv (FromEnv d)) b b'
+           -> TermW b'
+           -> BetaSteps u (ULam b')
+           -> CbnRes b d u
+
+-- | Big-step evaluation simulates into multi-step full β-reduction under closing.
+cbnSim :: EvalBig e t (MkClos (ULam b) d) -> CloseSub (FromEnv e) t u -> TermW u -> CbnRes b d u
+cbnSim ELam           (CSLam csB)        (WLam wb)    = MkCbnRes csB wb BRefl
+cbnSim (EVar lk ev)   (CSVarEnv lk' csA) wu           = case envLookupDeterm lk lk' of
+  Refl -> cbnSim ev csA wu
+cbnSim (EApp evL evB) (CSApp csL csM)    (WApp wl wm) =
+  case cbnSim evL csL wl of
+    MkCbnRes csB0 wb0 stepsL -> case closeBetaSubst ExtendZ (LCZero csM wm) csB0 of
+      MkCloseSubst sub csR -> case cbnSim evB csR (substTargetW sub wm wb0) of
+        MkCbnRes csRes wbRes stepsB ->
+          MkCbnRes csRes wbRes (bsTrans (bsApp1 stepsL) (BCons (Beta sub) stepsB))
+
+-- | Small-step termination witness: `u` β-reduces to some lambda abstraction.
+data CbnTerminates (u :: UTerm Zero) where
+  MkCbnTerminates :: BetaSteps u (ULam b) -> CbnTerminates u
+
+-- | Unconditional big-step → small-step bridge (`cbn→reduce`)!
+cbnToReduceW :: TermW u -> EvalBig ENil u (MkClos (ULam b) d) -> CbnTerminates u
+cbnToReduceW wu ev = case cbnSim ev (closeId ALNil wu) wu of
+  MkCbnRes _ _ steps -> MkCbnTerminates steps
+
+cbnToReduce :: forall (nd :: Nat) (b :: UTerm (Succ nd)) (d :: Env nd).
+               foreach (u :: UTerm Zero) -> EvalBig ENil u (MkClos (ULam b) d) -> CbnTerminates u
+cbnToReduce u ev = cbnToReduceW (mkTermW u) ev

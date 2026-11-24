@@ -21,7 +21,7 @@ import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, sumSigmaTwo, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
-import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), evalBigIsLam, evalConstOmega, evalDeterm, evalFunDeterm, evalFunKIdOmega, evalIdApp, evalKIdOmega, selfAppEval)
+import PLFH.Part2.BigStep (CbnTerminates (..), EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), cbnToReduce, evalBigIsLam, evalConstOmega, evalDeterm, evalFunDeterm, evalFunKIdOmega, evalIdApp, evalKIdOmega, selfAppEval)
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
@@ -38,10 +38,11 @@ import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, 
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun, reduceToCbn)
+import qualified PLFH.Part3.Adequacy as Adq
 import qualified PLFH.Part3.Compositional as C
 import PLFH.Part3.Compositional (AppDen (..), UCtx (..), congChain, denAppToAppDen, lamInversion)
 import PLFH.Part3.CompositionalPlug (checkCompositionality)
-import PLFH.Part3.ContextualEquivalence (Terminates (..), betaCtxBigStep, terminatesLam, terminatesStep)
+import PLFH.Part3.ContextualEquivalence (Terminates (..), betaCtxBigStep, betaCtxEquiv, terminatesLam, terminatesStep)
 import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denEqRefl, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
@@ -147,6 +148,35 @@ checkBetaCtxHole c =
 
 checkBetaCtxBigStep :: UCtx Zero Zero -> Bool
 checkBetaCtxBigStep c = checkBetaCtxHole c
+
+checkCbnToReduce :: U.UTerm Zero -> Bool
+checkCbnToReduce t = case eqIdApp t of
+  Just Refl -> case cbnToReduce t evalIdApp of
+    MkCbnTerminates (BCons (Beta _) BRefl) -> True
+    _                                      -> False
+  Nothing -> False
+
+checkAdequacyCbnToReduce :: U.UTerm Zero -> Bool
+checkAdequacyCbnToReduce t = case eqIdApp t of
+  Just Refl -> case Adq.cbnToReduce t adequacyIdApp of
+    MkCbnTerminates (BCons (Beta _) BRefl) -> True
+    _                                      -> False
+  Nothing -> False
+
+checkBetaCtxEquivHole :: foreach (m n :: U.UTerm Zero) -> foreach (c :: UCtx Zero Zero) -> Bool
+checkBetaCtxEquivHole m n c =
+  case (plugHole @m c, plugHole @n c) of
+    (Just Refl, Just Refl) ->
+      case (eqIdApp m, eqId n) of
+        (Just Refl, Just Refl) ->
+          case fst (betaCtxEquiv @Zero m n (BCons idAppStep BRefl) c) (terminatesStep idAppStep terminatesLam) of
+            MkTerminates BRefl -> True
+            _                  -> False
+        _ -> False
+    _ -> False
+
+checkBetaCtxEquiv :: U.UTerm Zero -> U.UTerm Zero -> UCtx Zero Zero -> Bool
+checkBetaCtxEquiv m n c = checkBetaCtxEquivHole m n c
 
 checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
 checkAllInRoundTrip xs x = case decAll decEven xs of
@@ -531,6 +561,8 @@ main = do
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
+  assertEq "BigStep.cbnToReduce evalIdApp (big-step -> small-step!)" True
+    (checkCbnToReduce (U.UApp U.idTerm U.idTerm))
   assertEq "BigStep.evalFunDeterm evalFunKIdOmega (same-module lookupEnv!)" True
     (case evalFunDeterm evalFunKIdOmega evalFunKIdOmega of Refl -> True)
   assertEq "BigStep.selfAppEval SelfAppDirect" True (case selfAppEval SelfAppDirect ELam of Refl -> True)
@@ -567,6 +599,10 @@ main = do
     (case adequacyDelta of { MkHaltsBig ELam -> True; _ -> False })
   assertEq "Adequacy.reduceToCbn idAppStep (small-step -> big-step!)" True
     (case reduceToCbn (BCons idAppStep BRefl) of { MkHaltsBig (EApp _ _) -> True; _ -> False })
+  assertEq "Adequacy.cbnToReduce adequacyIdApp (denotational -> big-step -> small-step!)" True
+    (checkAdequacyCbnToReduce (U.UApp U.idTerm U.idTerm))
+  assertEq "ContextualEquivalence.betaCtxEquiv (unconditional open-term CtxEquiv!)" True
+    (checkBetaCtxEquiv (U.UApp U.idTerm U.idTerm) U.idTerm CHole)
   assertEq "ContextualEquivalence.terminatesStep idAppStep terminatesLam" True
     (case terminatesStep idAppStep terminatesLam of { MkTerminates (BCons _ BRefl) -> True; _ -> False })
   assertEq "ContextualEquivalence.betaCtxBigStep CHole idAppStep (unconditional!)" True

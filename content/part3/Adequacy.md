@@ -79,6 +79,8 @@ module PLFH.Part3.Adequacy
   , adequacyBigStep
   , adequacy
   , reduceToCbn
+  , cbnToReduceW
+  , cbnToReduce
   , adequacyIdApp
   , adequacyDelta
   , omegaNotAboveFun
@@ -90,7 +92,9 @@ import Data.Void (Void, absurd)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
-import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
+import qualified PLFH.Part2.BigStep as B
+import PLFH.Part2.BigStep (CbnTerminates (..), Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
+import PLFH.Part2.Confluence (TermW)
 import PLFH.Part2.Untyped (BetaSteps (..), Fin (..), OmegaTerm, UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
@@ -372,6 +376,13 @@ adequacy eq = case snd (eq (MkValW (Arr Bot Bot))) (MkDen (DIntro DBot)) of
 reduceToCbn :: BetaSteps m (ULam b) -> HaltsBig ENil m
 reduceToCbn steps = adequacy (denotEquivSteps steps)
 
+-- | Big-step termination implies small-step reduction to a lambda (`cbn→reduce`)!
+cbnToReduceW :: TermW u -> HaltsBig ENil u -> CbnTerminates u
+cbnToReduceW wu (MkHaltsBig ev) = B.cbnToReduceW wu ev
+
+cbnToReduce :: foreach (u :: UTerm Zero) -> HaltsBig ENil u -> CbnTerminates u
+cbnToReduce u (MkHaltsBig ev) = B.cbnToReduce u ev
+
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!
 adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -393,16 +404,6 @@ omegaNotAboveFun :: ValW v -> Denotes VNil OmegaTerm v -> Not (AboveFun v)
 omegaNotAboveFun wv d af = case adequacyBigStep wv d af of
   MkHaltsBig ev -> omegaDiverges ev
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Big-Step → Small-Step Bridge (<code>cbn→reduce</code>)]</strong>
-The reverse bridge <code>reduceToCbn</code> (small-step β-reduction implies
-big-step termination) is already proved unconditionally above! Completing the
-forward bridge <code>cbn→reduce</code> (relating <code>HaltsBig</code> back to
-multi-step full β-reduction <code>BetaSteps m (ULam b)</code>) waits on the
-simultaneous σ-calculus substitution laws tracked in
-<a href="/Substitution/">Substitution</a> and <a href="/BigStep/">BigStep</a>.
-</div>
 
 ## Exercises
 
@@ -429,6 +430,8 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
   `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam`, `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
   (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
-  `BigStep.evalDeterm`), `adequacy`, `reduceToCbn`, `omegaNotAboveFun` (via
-  `BigStep.omegaDiverges`), `adequacyDelta`, and executable `adequacyIdApp`,
-  with zero promoted-constructor ticks.
+  `BigStep.evalDeterm`), `adequacy`, both directions of the small-step/big-step
+  bridge (`reduceToCbn` and `cbnToReduceW`/`cbnToReduce`), `omegaNotAboveFun`
+  (via `BigStep.omegaDiverges`), `adequacyDelta`, and executable
+  `adequacyIdApp`, with zero promoted-constructor ticks and zero `[WIP NOTICE]`
+  boxes.

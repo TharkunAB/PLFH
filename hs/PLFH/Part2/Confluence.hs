@@ -14,6 +14,14 @@ module PLFH.Part2.Confluence
   , TermW (..)
   , mkFinW
   , mkTermW
+  , ShiftEx (..)
+  , shiftEx
+  , shiftTargetW
+  , substTargetW
+  , LeLift (..)
+  , ShiftSubstRes (..)
+  , shiftSubstLe
+  , substShiftCancel
   , parRefl
   , betaToPar
   , ParSteps (..)
@@ -66,7 +74,7 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 136 "content/part2/Confluence.md" #-}
+{-# LINE 144 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -85,7 +93,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 170 "content/part2/Confluence.md" #-}
+{-# LINE 178 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -125,7 +133,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 220 "content/part2/Confluence.md" #-}
+{-# LINE 228 "content/part2/Confluence.md" #-}
 -- | Inductive singleton witness for a de Bruijn index `x :: Fin n`.
 type FinW :: forall (n :: Nat). Fin n -> Type
 data FinW x where
@@ -236,7 +244,7 @@ betasToPars :: forall (n :: Nat) (m2 :: UTerm n).
                foreach (m1 :: UTerm n) -> BetaSteps m1 m2 -> ParSteps m1 m2
 betasToPars m1 bs = betasToParsW (mkTermW m1) bs
 
-{-# LINE 351 "content/part2/Confluence.md" #-}
+{-# LINE 359 "content/part2/Confluence.md" #-}
 -- | Determinism of `BumpFin`, `RemoveFin`, `ShiftU`, and `SubstAtU`.
 bumpDeterm :: BumpFin c x y1 -> BumpFin c x y2 -> y1 :~: y2
 bumpDeterm BumpZ       BumpZ       = Refl
@@ -441,7 +449,7 @@ substSubst ll wv' shW subW (SUApp s1L s1M)   (SUApp s2L s2M)    =
     (MkSubstSubst o1L o2L, MkSubstSubst o1M o2M) ->
       MkSubstSubst (SUApp o1L o1M) (SUApp o2L o2M)
 
-{-# LINE 569 "content/part2/Confluence.md" #-}
+{-# LINE 577 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -523,7 +531,7 @@ parDiamond :: forall (n :: Nat) (n1 n2 :: UTerm n).
               foreach (m :: UTerm n) -> Par m n1 -> Par m n2 -> Joinable Par n1 n2
 parDiamond m = parDiamondW (mkTermW m)
 
-{-# LINE 667 "content/part2/Confluence.md" #-}
+{-# LINE 675 "content/part2/Confluence.md" #-}
 -- | Strip Lemma: one `Par` step commutes with any sequence of `ParSteps`.
 stripW :: TermW m -> Par m n1 -> ParSteps m n2 -> Joinable ParSteps n1 n2
 stripW _  p1 PSRefl         = Join PSRefl (PSCons p1 PSRefl)

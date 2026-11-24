@@ -74,6 +74,14 @@ module PLFH.Part2.Confluence
   , TermW (..)
   , mkFinW
   , mkTermW
+  , ShiftEx (..)
+  , shiftEx
+  , shiftTargetW
+  , substTargetW
+  , LeLift (..)
+  , ShiftSubstRes (..)
+  , shiftSubstLe
+  , substShiftCancel
   , parRefl
   , betaToPar
   , ParSteps (..)
