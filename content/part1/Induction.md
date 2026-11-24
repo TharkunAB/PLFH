@@ -25,6 +25,8 @@ module PLFH.Part1.Induction
   , timesZeroR
   , timesSuccR
   , timesComm
+  , zeroMonus
+  , monusPlusAssoc
   , fromInc
   , fromTo
   , twoTimesThree
@@ -34,7 +36,7 @@ import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import GHC.Exts (U)
 import HaskLib (rewrite)
 import HaskLib.Nat (Nat (..), congFirst, congSucc, plus, plusSucc, plusZero)
-import PLFH.Part1.Naturals (Bin (..), fromBin, inc, times, toBin)
+import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, times, toBin)
 ```
 
 > Induction makes you feel guilty for getting something out of nothing
@@ -283,24 +285,60 @@ timesComm (Succ m) n =
     (sym (timesSuccR n m))
 ```
 
-### Monus & Exponentiation exercises (`0∸n≡0`, `∸-+-assoc`, `+*^`)
+### Truncated subtraction (`0∸n≡0`, `∸-+-assoc`)
+
+The ordinary `monus` definition in [Naturals](/Naturals/) inspects its second
+argument first. At zero, subtraction returns the first argument. At a successor,
+it inspects the first argument too. Both possibilities give zero when we
+subtract from zero:
+
+```haskell
+-- | Subtracting any natural from zero gives zero (`0∸n≡0`).
+zeroMonus :: foreach (n :: Nat) -> monus 'Zero n :~: 'Zero
+zeroMonus Zero     = Refl
+zeroMonus (Succ _) = Refl
+```
+
+Subtracting `n` and then `p` gives the same result as subtracting their sum
+`n + p`. The proof splits on `n` first; when `n` and `m` are both successors,
+the checked subtraction equations cancel a successor on each side and the
+induction hypothesis applies to their predecessors:
+
+```haskell
+-- | Two successive subtractions subtract the sum of their operands (`∸-+-assoc`).
+monusPlusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+               -> monus (monus m n) p :~: monus m (plus n p)
+monusPlusAssoc m n p = subtractLeft n m p
+
+subtractLeft :: foreach (n :: Nat) -> foreach (m :: Nat) -> foreach (p :: Nat)
+             -> monus (monus m n) p :~: monus m (plus n p)
+subtractLeft Zero     _ _ = Refl
+subtractLeft (Succ n) m p = subtractSucc m n p
+
+subtractSucc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+             -> monus (monus m ('Succ n)) p :~: monus m (plus ('Succ n) p)
+subtractSucc Zero     _ p = zeroMonus p
+subtractSucc (Succ m) n p = monusPlusAssoc m n p
+```
+
+<div class="note-box">
+<strong>Fixed compiler gap (<code>63e2f0974b</code> / <code>76e67f4fdb</code>):</strong>
+Checked open equations for ordinary <code>monus</code> published on
+<code>dependent-haskell</code> at
+<a href="https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf"><code>63e2f0974b</code></a>
+(tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_MonusOpenEq.hs"><code>reproducers/fixed/R13_MonusOpenEq.hs</code></a>),
+unlocking both <code>zeroMonus</code> and <code>monusPlusAssoc</code> directly!
+</div>
+
+### Exponentiation exercises (`+*^`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Blocked on open source equations for <code>monus</code> and <code>pow</code> (R13/R16)]</strong>
-Because GHC <code>db2586fdc2</code> does not yet publish open source equations
-for <code>monus</code> or <code>pow</code>, the following PLFA Induction
-exercises cannot be stated directly over ordinary <code>monus</code> and
-<code>pow</code> without duplicating them as type families:
-<ul>
-  <li><code>zeroMonus :: foreach (n :: Nat) -&gt; monus 'Zero n :~: 'Zero</code></li>
-  <li><code>monusPlusAssoc :: foreach (m :: Nat) -&gt; foreach (n :: Nat) -&gt; foreach (p :: Nat) -&gt; monus (monus m n) p :~: monus m (plus n p)</code></li>
-  <li><code>powPlus</code>, <code>powMul</code>, <code>powTimes</code> (exponentiation laws <code>+*^</code>)</li>
-</ul>
-Following PLFH's yardstick policy, we leave these un-worked-around until R13/R16
-supports them. Minimal reproducers:
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_MonusOpenEq.hs"><code>R13_MonusOpenEq.hs</code></a>
-and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PowOpenEq.hs"><code>R13_PowOpenEq.hs</code></a>.
+<strong>[WIP NOTICE — Blocked on open source equations for <code>pow</code> (R13/R16)]</strong>
+PLFA's exponentiation laws (<code>powPlus</code>, <code>powMul</code>,
+<code>powTimes</code>) still await checked open equations for ordinary
+<code>pow</code> from <a href="/Naturals/">Naturals</a>. Minimal reproducer:
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PowOpenEq.hs"><code>reproducers/R13_PowOpenEq.hs</code></a>.
 </div>
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
@@ -332,11 +370,11 @@ fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 - Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
 - Checked direct ports of `plusAssoc`, `plusAssocRewrite`, `plusComm`,
   `plusRearrange`, `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`,
-  `timesSuccR`, `timesComm`, `fromInc`, and `fromTo`.
+  `timesSuccR`, `timesComm`, **`zeroMonus`**, **`monusPlusAssoc`**, `fromInc`,
+  and `fromTo`.
 - Uses `HaskLib.rewrite` (corresponding to Agda's `rewrite`, with `withEquality` retained in `HaskLib` as a compatibility alias).
 - Added an explicit negative control (`NegZeroSucc`) verifying GHC rejects
   `'Zero :~: 'Succ 'Zero` (`GHC-83865`).
-- Marked `monus` and `pow` exercises and second-column equation splitting
-  with `[WIP NOTICE]` callouts and minimal reproducers. (`cong @(plus m)` and
-  nested `rewrite` under `trans` were previously blocked and are now checked
-  directly on `692eae0778`/`9cc4065fab`.)
+- Marked `pow` exercises and second-column equation splitting with `[WIP NOTICE]`
+  callouts and minimal reproducers. (`cong @(plus m)`, nested `rewrite` under
+  `trans`, and ordinary `monus` laws are now checked directly on `63e2f0974b`.)

@@ -220,15 +220,17 @@ monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Multi-argument / bare-return recursion in open types (R13/R16)]</strong>
-<code>monus</code> compiles as an ordinary runtime function, but on GHC
-<code>db2586fdc2</code> GHC rejects open type-level applications such as
-<code>monus 'Zero n</code> with <code>GHC-70565</code>. Even reordering the
-clauses to inspect the first argument first (<code>monusFirst Zero n = Zero;
-monusFirst (Succ m) Zero = Succ m; monusFirst (Succ m) (Succ n) = monusFirst m n</code>)
-is currently rejected for open evaluation. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_MonusOpenEq.hs"><code>reproducers/R13_MonusOpenEq.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>63e2f0974b</code> / <code>76e67f4fdb</code>):</strong>
+On earlier GHC baselines (<code>db2586fdc2</code>–<code>9cc4065fab</code>),
+<code>monus</code> failed open type-level evaluation with <code>GHC-70565</code>.
+Checked right-first structural equations for ordinary <code>monus</code> are now
+published on <code>dependent-haskell</code>
+(<a href="https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf"><code>63e2f0974b</code></a>),
+tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_MonusOpenEq.hs"><code>reproducers/fixed/R13_MonusOpenEq.hs</code></a>,
+and used directly to prove <code>zeroMonus</code> and <code>monusPlusAssoc</code>
+in <a href="/Induction/">Induction</a>!
 </div>
 
 ## Binary natural numbers (`Bin`, stretch exercise) {#Bin}

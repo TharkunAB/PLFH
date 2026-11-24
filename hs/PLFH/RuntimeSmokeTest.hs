@@ -9,7 +9,7 @@ import System.Exit (exitFailure)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
 import PLFH.Part1.Equality (evenComm)
-import PLFH.Part1.Induction (fromTo, plusAssoc, plusRearrange, plusSwap, timesComm)
+import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, timesComm, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (IsoSize (..), isoSizeRefl, isoSizeSym)
 import PLFH.Part1.Lists (decAll, downFrom, lengthDownFrom, lengthZeros, shuntAppend)
@@ -53,6 +53,9 @@ main = do
   assertEq "Induction.plusRearrange 1 2 3 4" True (case plusRearrange 1 2 3 4 of Refl -> True)
   assertEq "Induction.plusSwap 2 3 4" True (case plusSwap 2 3 4 of Refl -> True)
   assertEq "Induction.timesComm 3 2" True (case timesComm 3 2 of Refl -> True)
+  assertEq "Induction.zeroMonus 5" True (case zeroMonus 5 of Refl -> True)
+  assertEq "Induction.monusPlusAssoc 5 2 2" True (case monusPlusAssoc 5 2 2 of Refl -> True)
+  assertEq "Induction.monusPlusAssoc 2 3 4" True (case monusPlusAssoc 2 3 4 of Refl -> True)
   assertEq "Induction.fromTo 5" True (case fromTo 5 of Refl -> True)
 
   assertEq "Equality.evenComm 2 2" True

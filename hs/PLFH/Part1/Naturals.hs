@@ -54,7 +54,7 @@ monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 240 "content/part1/Naturals.md" #-}
+{-# LINE 242 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil

@@ -18,21 +18,22 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
-# Prefer the full two-stage published 9cc4065fab compiler if present,
-# otherwise use the verified 9cc4065fab component binary (matching job 2394),
-# otherwise fall back to the 590 compiler.
-NORMAL_9CC="$GHC_REPO/_build/on-demand/plfh-public-unsplit-normal-20261124/source/_build/stage1/bin/ghc"
+# Prefer a full two-stage published compiler if present,
+# otherwise use the verified 63e2f0974b/76e67f4fdb component binary (job 2405/2414),
+# otherwise the 9cc4065fab component, otherwise fall back to 590.
+COMP_63E="$GHC_REPO/_build/on-demand/r13-monus-open-eq-20261124/forward-0043/relink.KarCex/component/ghc"
 COMP_9CC="$GHC_REPO/_build/on-demand/r03-nested-dep-case-20261124/audit-692/checked/component/ghc"
-COMP_9CC_LIB="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/lib"
+COMP_LIB="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/lib"
 LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/bin/ghc"
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$NORMAL_9CC" ]]; then
-  DEFAULT_COMPILER="$NORMAL_9CC"
+if [[ -x "$COMP_63E" ]]; then
+  DEFAULT_COMPILER="$COMP_63E"
+  DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$COMP_9CC" ]]; then
   DEFAULT_COMPILER="$COMP_9CC"
-  DEFAULT_LIBDIR="$COMP_9CC_LIB"
+  DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$LEGACY_590" ]]; then
   DEFAULT_COMPILER="$LEGACY_590"
 else
@@ -41,7 +42,7 @@ fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
@@ -76,7 +77,9 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ "$COMPILER" == "$COMP_63E" ]]; then
+  echo "Commit:   63e2f0974b174dc86bef79c3a84d1d76fea3dadf / 76e67f4fdb (verified component; base libdir seed: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_9CC" ]]; then
   echo "Commit:   9cc4065fab4f2f106859b39daa9bdad23f00f0fd (verified component; base libdir seed: $COMMIT)"
 else
   echo "Commit:   $COMMIT"
