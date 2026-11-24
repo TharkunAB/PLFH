@@ -80,7 +80,7 @@ import PLFH.Part2.Lambda
   )
 ```
 
-## Values do not reduce, and Canonical Forms
+## Canonical Forms
 
 Before proving Progress, we need to know what *shape* a closed value of a given
 type must have—this is the **Canonical Forms Lemma** (`canonical`):
@@ -152,8 +152,9 @@ Walk through the `TApp tl tm` case to see how cleanly `progress` works:
 The `TVar x` case is impossible (`case x of {}`) because the context is empty
 (`CEmpty`), so `Lookup CEmpty x a` has no constructors. Notice that `progress`
 has the **exact same statement, hypotheses, and proof structure** as PLFA—with
-no singletons, no type families, and no coercions—and passes GHC's Core Lint
-and STG Lint.
+no type families and no coercions—and passes GHC's Core Lint and STG Lint.
+(Later in the chapter, `preserve` and `eval` take a small structural witness
+`TermW m` so pattern matching can inspect the erased term index `m`.)
 
 ## Structural context lemmas (`extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`, `swapTyping`)
 
@@ -499,8 +500,8 @@ machine-checked proof `Steps m v` that the source term `m` reduces to a value
 
 Show that well-typedness is *not* necessary for progress: exhibit an ill-typed
 closed term `m` that nevertheless satisfies `Progress m` (for instance,
-`App (Lam Zero TZero) (App TZero TZero)` reduces via `XiApp2`? Wait—think
-carefully about call-by-value order and try `Lam Zero (App TZero TZero)`!).
+`Lam Zero (App TZero TZero)` is already a value `VLam`, even though its body is
+ill-typed!).
 
 #### Exercise `Preservation-¬` (practice)
 

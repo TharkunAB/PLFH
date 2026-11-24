@@ -291,6 +291,23 @@ progress t = case t of
   D.Mu n       -> muStep @a @n
 ```
 
+<div class="wip-notice">
+<strong>[WIP NOTICE — Intrinsically-typed gas-bounded evaluator <code>eval</code> (R04)]</strong>
+In PLFA, <code>progress</code> feeds directly into a gas-bounded evaluator
+<code>eval :: Gas -&gt; foreach (m :: Term CEmpty a) -&gt; Finished m</code>
+that steps a closed term repeatedly and returns a multi-step derivation
+<code>Steps m n</code>. Because stepping from <code>m</code> to the next
+term <code>n</code> requires binding the existentially quantified indexed
+GADT target <code>n :: Term CEmpty a</code> as a retained <code>foreach</code>
+field inside <code>Progress m</code> (so <code>eval</code> can recurse on
+<code>n</code>), intrinsic <code>eval</code> is currently blocked by
+<code>GHC-83605</code>; see minimal reproducer
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>reproducers/R04_IndexedForEachCtorField.hs</code></a>.
+(Our extrinsic chapter <a href="/Properties/">Properties</a> already proves and
+runs the full verified <code>eval</code> evaluator using a structural witness
+<code>TermW m</code>.)
+</div>
+
 ### Negative control: forged variable capture is rejected
 
 When substituting the open value `λ. Var (S Z)` under an inner binder,
@@ -347,5 +364,6 @@ in context `CExt CEmpty TNat`?
   `PLFH.Part2.DeBruijnProgress` defines all eight intrinsically-typed `Step`
   rules using real functional `substSingle`, concrete capture-avoiding beta
   witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
-  **complete, unconditional `progress` theorem** across all 7 term constructors
-  with zero `[WIP NOTICE]` gaps!
+  **complete, unconditional `progress` theorem** across all 7 term constructors;
+  intrinsic gas-bounded `eval` is tracked under `[WIP NOTICE]` via
+  `R04_IndexedForEachCtorField.hs`.

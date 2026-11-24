@@ -129,11 +129,11 @@ eqToLeibniz ReflP px = px
 leibnizToEq :: forall {a} (x :: a) (y :: a). Leibniz x y -> EqP x y
 leibnizToEq f = f @(EqP x) ReflP
 
-{-# LINE 286 "content/part1/Equality.md" #-}
+{-# LINE 290 "content/part1/Equality.md" #-}
 -- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
 type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 
--- | Symmetry of LeibnizU using an inline type-level lambda (R17).
+-- | Symmetry of LeibnizU using an inline type-level lambda `\z -> EqP z x`.
 leibnizUSym :: forall {a} (x :: a) (y :: a). LeibnizU x y -> LeibnizU y x
 leibnizUSym xy = case xy @(\z -> EqP z x) ReflP of
   ReflP -> \px -> px

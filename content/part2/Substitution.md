@@ -48,12 +48,10 @@ module PLFH.Part2.Substitution
   , seqSubst
   , subHead
   , subTail
-  , zShift
   , subIdL
   , subApp
   ) where
 
-import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( Fin (..)
@@ -114,25 +112,22 @@ seqSubst :: Subst m n -> Subst n p -> Subst m p
 seqSubst sigma tau x = substU tau (sigma x)
 ```
 
-## Definitional σ-calculus laws
+## Runtime σ-calculus combinator examples
 
-Several of the σ-calculus equations hold immediately by computation on
-variables and applications:
+Several σ-calculus operations compute directly at runtime on variables and
+applications (note that these are value-level computations, not yet
+propositional equality theorems `(:~:)`):
 
 ```haskell
--- | Head law: `(t • σ) 0 = t`.
+-- | Head lookup: `(t • σ) 0` computes to `t`.
 subHead :: UTerm n -> Subst m n -> UTerm n
 subHead t sigma = consSubst t sigma FZ
 
--- | Tail law: `(t • σ) (FS x) = σ x`.
+-- | Tail lookup: `(t • σ) (FS x)` computes to `σ x`.
 subTail :: UTerm n -> Subst m n -> Fin m -> UTerm n
 subTail t sigma x = consSubst t sigma (FS x)
 
--- | Shifting variable 0 after cons returns the original substitution on `x`.
-zShift :: UTerm n -> Subst m n -> Fin m -> UTerm n
-zShift t sigma x = consSubst t sigma (shift x)
-
--- | Left identity on variables: `substU sigma (UVar x) = sigma x`.
+-- | Left identity on variables: `substU sigma (UVar x)` computes to `sigma x`.
 subIdL :: Subst m n -> Fin m -> UTerm n
 subIdL sigma x = substU sigma (UVar x)
 
@@ -184,4 +179,5 @@ Verify on `FZ` and `FS x` that `extsU sigma` agrees pointwise with
   `consSubst`, `seqSubst`, and the computational σ-calculus combinators with
   zero promoted-constructor ticks.
 - Marked the equational substitution proofs (`sub-id`, `sub-sub`, `sub-dist`)
-  with `[WIP NOTICE]` pointing to our tracked R03 and R13/R16 reproducers.
+  with `[WIP NOTICE]` pointing to our tracked `R04_ComposedIsoFields.hs` and
+  `R16_AbstractRenamingInType.hs` reproducers.

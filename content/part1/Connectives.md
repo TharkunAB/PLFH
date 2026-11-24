@@ -23,7 +23,8 @@ to a total Haskell program:
 | Disjunction (or) | `A ⊎ B` | `Either a b` | Addition (`a + b`) |
 | Falsehood | `⊥` | `Void` | Zero (`0`) |
 | Implication | `A → B` | `a -> b` | Exponentiation (`bᵃ`) |
-| Bi-implication | `A ⇔ B` | `Iff a b` | Equality (`a = b`) |
+| Isomorphism | `A ≃ B` | `Iso a b` | Equality (`a = b`) |
+| Bi-implication | `A ⇔ B` | `Iff a b` | Mutual inhabitedness (`a > 0 ↔ b > 0`) |
 
 As Philip Wadler notes in *Propositions as Types* (2015), each connective is
 characterized by two dual kinds of rules:
@@ -49,7 +50,7 @@ We import propositional equality `(:~:)`, `Void` and `absurd` from `Data.Void`,
 and both `Iff` and polymorphic `Iso` from [Isomorphism](/Isomorphism/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
 module PLFH.Part1.Connectives
   ( swapProd
   , swapProdRT
@@ -151,11 +152,12 @@ A proof of the disjunction `a ∨ b` is either a proof of `a` tagged with
 (no introduction rule). Its elimination rule is *ex falso quodlibet*
 ("from falsehood, anything follows"): `absurd :: Void -> a`.
 
-As PLFA recounts, Bertrand Russell once gave a lecture explaining that from
-a false premise (`2 + 2 = 5`) you can prove anything. A heckler challenged
+As the classic anecdote about Bertrand Russell goes, after lecturing that from
+a false premise (`2 + 2 = 5`) you can prove anything, a heckler challenged
 him: *"Prove that you are the Pope!"* Russell replied at once: *"Subtract 3
 from both sides to get `1 = 2`. The Pope and I are two; therefore the Pope
-and I are one."*
+and I are one."* (PLFA illustrates the same rule with the English idiom:
+*"if pigs had wings, then I'd be the Queen of Sheba."*)
 
 Just like addition on the naturals, disjunction is commutative and
 associative, with falsehood `Void` as its left and right identity
@@ -312,8 +314,10 @@ neither Agda nor Dependent Haskell proves internally without an axiom.
 
 Compare `prodDistribSum`, `prodDistribSumL`, `expSum`, and `expProd` above
 with the distributive laws of arithmetic from [Induction](/Induction/): why
-does `Either` distribute over `(,)` only in one direction (unlike `×` over
-`+`), and why is there no general equivalence `Iff (a -> Either b c) (Either (a -> b) (a -> c))`?
+do `Either (a, b) c` and `(Either a c, Either b c)` admit maps in **both**
+directions (`Iff` and `Embed`) yet fail to form an `Iso` (try counting
+inhabitants!), and why is there no general equivalence
+`Iff (a -> Either b c) (Either (a -> b) (a -> c))`?
 
 #### Exercise `implication-from-⊤-and-⊥` (practice)
 

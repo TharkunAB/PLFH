@@ -34,7 +34,7 @@ helpers, unified `cong` from [Induction](/Induction/), `Not` from
 
 ```haskell
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, TypeApplications, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE RankNTypes, TypeOperators, UndecidableInstances #-}
 module PLFH.Part1.Quantifiers
   ( Exists (..)
   , SumPred (..)
@@ -117,7 +117,7 @@ directly:
 - **Existentials distribute over disjunction (`∃-distrib-⊎`):**
   `(∃ x. P x ∨ Q x) ⇔ (∃ x. P x) ∨ (∃ x. Q x)`.
 - **Existential currying (`∀∃-currying`):**
-  `(∃ x. P x -> C) ⇔ (∀ x. P x -> C)`—just like `((a, b) -> c) ⇔ (a -> b -> c)`.
+  `((∃ x. P x) -> C) ⇔ (∀ x. P x -> C)`—just like `((a, b) -> c) ⇔ (a -> b -> c)`.
 - **Universals distribute over conjunction (`∀-distrib-×`):**
   `(∀ x. P x ∧ Q x) ⇔ (∀ x. P x) ∧ (∀ x. Q x)`.
 - **Quantifier De Morgan:**
@@ -144,7 +144,7 @@ existsDistribSum = Iff toF fromF
     fromF (Left (Witness px))  = Witness (InL px)
     fromF (Right (Witness qx)) = Witness (InR qx)
 
--- | Currying for existentials (`∀∃-currying`): (∃ x. P x -> C) ⇔ (∀ x. P x -> C).
+-- | Currying for existentials (`∀∃-currying`): ((∃ x. P x) -> C) ⇔ (∀ x. P x -> C).
 existsCurryTo :: (Exists p -> c) -> (forall x. p x -> c)
 existsCurryTo f px = f (Witness px)
 
@@ -183,8 +183,8 @@ than twice some natural `k`:
 - `Odd n   ⇔  ∃ k. Succ (k + k) = n`
 
 With GHC's retained dependent sum (`some (k :: Nat) | plus k k :~: n`,
-Serokell R04, requiring `UndecidableInstances` because the desugared
-type-lambda family calls `plus k k`), we can write `EvenSigma` directly using
+requiring `UndecidableInstances` because the desugared type-lambda family
+calls `plus k k`), we can write `EvenSigma` directly using
 decimal numerals:
 
 ```haskell
@@ -263,9 +263,11 @@ Show constructively that:
 
 #### Exercise `∀-×` and `∃-⊎` on `Tri` (practice)
 
-Given a 3-element datatype `data Tri = AA | BB | CC` and a type family
-`b :: Tri -> Type`, explain why `foreach (x :: Tri) -> b x` behaves like the
-triple `(b AA, b BB, b CC)` while `Exists b` behaves like the 3-way sum
+Given a 3-element datatype `data Tri = AA | BB | CC` and an indexed predicate
+(GADT) `b :: Tri -> Type`, explain why `foreach (x :: Tri) -> b x` behaves like
+the triple `(b AA, b BB, b CC)` while a **retained** dependent sum
+`some (x :: Tri) | b x` (unlike erased `Exists b`, whose tag `x` cannot be
+inspected at runtime!) behaves like the 3-way sum
 `Either (b AA) (Either (b BB) (b CC))`.
 
 ## Changes from PLFA

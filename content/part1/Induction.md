@@ -76,7 +76,9 @@ further in [Equality](/Equality/)) together with `RequiredTypeArguments`
 works just like Agda's—with **no `@` sign needed**—for both promoted data
 constructors (`cong Succ`, matchable arrow `Nat -> Nat`) and partially applied
 promoted functions (`cong (plus m)`, `cong (times a)`, unmatchable arrow
-`Nat %U -> Nat`):
+`Nat %U -> Nat`). (To lift an equality into the *first* argument of a binary
+function—where Agda writes a right-section like `(_* p)`—`HaskLib.Nat`
+provides `congFirst`, or `HaskLib.rewrite` rewrites the position directly.)
 
 ```haskell
 -- | Unified matchability-polymorphic congruence (`cong`): works just like Agda

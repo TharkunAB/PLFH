@@ -699,7 +699,7 @@ data Bin
 
 For instance, the bitstring `1011` standing for the number eleven is
 encoded (reading from least-significant bit outward) as
-`X1 (X1 (X0 (X1 Nil)))` (written `⟨⟩ I O I I` in PLFA). Representations are
+`X1 (X1 (X0 (X1 Nil)))` (written `x1 x1 x0 x1 nil` in PLFA). Representations are
 not unique due to leading zeros: eleven is also represented by `001011`,
 encoded as `X1 (X1 (X0 (X1 (X0 (X0 Nil)))))`.
 
@@ -730,7 +730,9 @@ All three ordinary Haskell functions (`inc`, `toBin`, and `fromBin`)
 automatically receive checked open source equations—so in
 [Induction](/Induction/) we prove `fromBin (inc b) :~: Succ (fromBin b)`
 and `fromBin (toBin n) :~: n` directly by induction, and in
-[Relations](/Relations/) we complete the full bijection `Nat ≃ Can Bin`!
+[Relations](/Relations/) we complete the reverse round-trip equations on
+canonical bitstrings (`toBinCan` and `toFromCan`), showing that `Nat` and
+canonical `Bin` are in one-to-one correspondence!
 
 ## Changes from PLFA
 

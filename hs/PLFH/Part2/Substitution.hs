@@ -14,12 +14,10 @@ module PLFH.Part2.Substitution
   , seqSubst
   , subHead
   , subTail
-  , zShift
   , subIdL
   , subApp
   ) where
 
-import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( Fin (..)
@@ -30,7 +28,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 89 "content/part2/Substitution.md" #-}
+{-# LINE 87 "content/part2/Substitution.md" #-}
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
 type Rename (m :: Nat) (n :: Nat) = Fin m -> Fin n
 
@@ -58,20 +56,16 @@ consSubst _ sigma (FS x) = sigma x
 seqSubst :: Subst m n -> Subst n p -> Subst m p
 seqSubst sigma tau x = substU tau (sigma x)
 
-{-# LINE 123 "content/part2/Substitution.md" #-}
--- | Head law: `(t • σ) 0 = t`.
+{-# LINE 122 "content/part2/Substitution.md" #-}
+-- | Head lookup: `(t • σ) 0` computes to `t`.
 subHead :: UTerm n -> Subst m n -> UTerm n
 subHead t sigma = consSubst t sigma FZ
 
--- | Tail law: `(t • σ) (FS x) = σ x`.
+-- | Tail lookup: `(t • σ) (FS x)` computes to `σ x`.
 subTail :: UTerm n -> Subst m n -> Fin m -> UTerm n
 subTail t sigma x = consSubst t sigma (FS x)
 
--- | Shifting variable 0 after cons returns the original substitution on `x`.
-zShift :: UTerm n -> Subst m n -> Fin m -> UTerm n
-zShift t sigma x = consSubst t sigma (shift x)
-
--- | Left identity on variables: `substU sigma (UVar x) = sigma x`.
+-- | Left identity on variables: `substU sigma (UVar x)` computes to `sigma x`.
 subIdL :: Subst m n -> Fin m -> UTerm n
 subIdL sigma x = substU sigma (UVar x)
 

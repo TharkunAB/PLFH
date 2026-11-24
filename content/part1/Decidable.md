@@ -190,9 +190,11 @@ whenever we *do* wish to bridge a Boolean `b :: Bool` back to a proposition
 and `OfFalse :: Not p -> Reflects p False` (using tick-free promoted `True`
 and `False`), from which `reflectsToDec` immediately produces `Dec p`.
 
-Finally, we solve PLFA's **Bin-decidable** stretch exercise completely:
-propositional equality (`decEqBin`), positive canonical form (`decOne`), and
-canonical form (`decCan`) are all decidable on `Bin`!
+Finally, as a bonus extension beyond PLFA's `Decidable` chapter, we also prove
+decidability for the binary-numeral predicates introduced in
+[Naturals](/Naturals/) and [Relations](/Relations/): propositional equality
+(`decEqBin`), positive canonical form (`decOne`), and canonical form
+(`decCan`) are all decidable on `Bin`!
 
 ```haskell
 -- | Decidable evenness predicate on Nat.
@@ -270,17 +272,16 @@ decCan (X1 b) = case decOne (X1 b) of
   No  no -> No (\case CanOne o -> no o)
 ```
 
-## Proof by reflection and dependent pairs (`Sigma`)
+## Witness-carrying dependent pairs (`Sigma`)
 
-In PLFA, **proof by reflection** uses Agda's automatic filling of empty-record
-implicits (`⊤`) so that calling guarded subtraction `5 - 3` runs `3 ≤? 5` at
-type-checking time and silently fills in the proof of `3 ≤ 5`.
+In Agda, the `From-yes` / `T` combinator lets proof-carrying code turn a
+decidable test on closed values (such as `2 ≤? 4`) into an implicit proof
+discharged automatically during type checking.
 
 In Dependent Haskell, type-class / constraint solving plays the analogous role
 of automatically discharging statically known invariants, while at runtime
 we carry existential witnesses directly using retained dependent pairs
-`GHC.Sigma.Sigma` (`some (x :: a) | p x`, constructed with `Pair x px`,
-Serokell R04):
+`GHC.Sigma.Sigma` (`some (x :: a) | p x`, constructed with `Pair x px`):
 
 ```haskell
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.

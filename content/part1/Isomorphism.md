@@ -119,8 +119,9 @@ isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
 **Reflexivity** (`isoRefl :: Iso a a`) uses Prelude's polymorphic `id` in both
 directions at any lifted type `a`! GHC's checked equation for `id` reduces
-`id (id x)` directly to `x` (with `-fno-enable-rewrite-rules` enabled for the
-module):
+`id (id x)` directly to `x` (we pass `-fno-enable-rewrite-rules` for the
+module so GHC's `GHC.Base` rewrite rules on `id`/`(.)` do not inhibit checked
+open-equation reduction):
 
 ```haskell
 -- | Round-trip identity at any lifted type.
@@ -195,6 +196,16 @@ isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
 
 Exchanging the roles of `(f, g, gf)` and `(k, h, hk)` gives the reverse round
 trip by the exact same lemma `composeLeft`!
+
+<div class="wip-notice">
+<strong>[WIP NOTICE — Local let/where aliases in composed <code>Iso</code> fields (R04)]</strong>
+Composing maps directly with Prelude <code>(.)</code> in <code>isoTrans</code>
+and <code>embedTrans</code> above works cleanly. However, binding the composed
+maps through opaque local <code>where</code>-clauses (<code>to x = h (f x)</code>)
+before passing them to <code>MkIso</code> currently fails to reduce in the
+round-trip proof types (<code>GHC-83865</code>). See minimal reproducer
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>reproducers/R04_ComposedIsoFields.hs</code></a>.
+</div>
 
 ## Embedding (`_≲_`)
 

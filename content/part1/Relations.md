@@ -8,12 +8,13 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Relations/
 ---
 
 After defining operations on the naturals and proving properties of them
-by induction, we now turn to **inductive relations**: indexed families of
-types whose constructors represent inference rules.
+by induction, we now turn to **inductive relations**: **indexed datatypes**
+(GADTs) whose constructors represent inference rules.
 
 In Agda, indexed datatypes are written `data _≤_ : ℕ → ℕ → Set where ...`.
-In Dependent Haskell, the exact same concept is expressed with a GADT
-indexed by promoted values of kind `Nat`.
+In Dependent Haskell, the exact same concept is expressed with a `data` GADT
+indexed by promoted values of kind `Nat`—not a GHC `type family` (no
+`-XTypeFamilies` is needed!).
 
 ## Imports
 
@@ -24,7 +25,7 @@ numerals from [Naturals](/Naturals/).
 
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE TypeOperators #-}
 module PLFH.Part1.Relations
   ( LE (..)
   , twoLeFour
@@ -119,8 +120,10 @@ data LE (m :: Nat) (n :: Nat) where
 ```
 
 Notice the difference between `Nat` and `LE`: `Nat` is a single type, whereas
-`LE` is an **indexed family of types**—one type `LE m n` for each pair of
-natural numbers `m` and `n`. Some of these types are inhabited (`LE 2 4`),
+`LE` is an **indexed datatype (GADT)**—one type `LE m n` for each pair of
+natural numbers `m` and `n` (in type-theory texts this is often called an
+*"indexed family of types"*, which is a `data` GADT rather than a GHC
+`type family`). Some of these types are inhabited (`LE 2 4`),
 while others are empty (`LE 4 2` or `LE 1 0`). A value of type `LE m n` is
 **evidence** (a proof tree) that `m ≤ n`.
 
@@ -180,7 +183,7 @@ These properties combine into familiar families of orderings:
 - A **partial order** is a preorder that is also anti-symmetric.
 - A **total order** is a partial order that is also total.
 
-(As PLFA notes: *"If you ever bump into a mathematician at a party, you now
+(As PLFA notes: *"If you ever bump into a relation at a party, you now
 have a ready supply of small talk."*)
 
 ### Reflexivity
@@ -226,7 +229,7 @@ leAntisym ZleN     ZleN     = Refl
 leAntisym (SleS p) (SleS q) = cong Succ (leAntisym p q)
 ```
 
-#### Exercise `invZleN` and impossible cases (practice)
+#### Exercise `≤-antisym-cases` (`leAntisym` impossible cases, practice)
 
 Why did `leAntisym` omit the clauses `leAntisym ZleN (SleS q)` and
 `leAntisym (SleS p) ZleN`? Check that adding either clause would be rejected
@@ -282,8 +285,8 @@ plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 ```
 
 Left monotonicity inducts on `p`, using `plusZero`, `plusSucc`, and `rewrite`
-from `HaskLib` to move the constructors out from the right operand (just as
-PLFA proves `+-monoˡ-≤` either via commutativity or directly by induction):
+from `HaskLib` to move the constructors out from the right operand (whereas
+PLFA derives `+-monoˡ-≤` from `+-monoʳ-≤` via `+-comm`):
 
 ```haskell
 -- | Left monotonicity: if m <= n then m + p <= n + p.

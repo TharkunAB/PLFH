@@ -52,7 +52,7 @@ data Iso a b where
 isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
-{-# LINE 126 "content/part1/Isomorphism.md" #-}
+{-# LINE 127 "content/part1/Isomorphism.md" #-}
 -- | Round-trip identity at any lifted type.
 identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
 identityRoundTrip _ = Refl
@@ -61,7 +61,7 @@ identityRoundTrip _ = Refl
 isoRefl :: Iso a a
 isoRefl = MkIso id id identityRoundTrip identityRoundTrip
 
-{-# LINE 139 "content/part1/Isomorphism.md" #-}
+{-# LINE 140 "content/part1/Isomorphism.md" #-}
 -- | Identity function on Nat with explicit structural equations.
 idSize :: Nat -> Nat
 idSize Zero     = Zero
@@ -91,7 +91,7 @@ isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
 isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
-{-# LINE 180 "content/part1/Isomorphism.md" #-}
+{-# LINE 181 "content/part1/Isomorphism.md" #-}
 -- | Cancel the inner round trip, then use the outer left inverse.
 composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (h :: b -> c) -> foreach (k :: c -> b)
@@ -107,14 +107,14 @@ isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
 
-{-# LINE 207 "content/part1/Isomorphism.md" #-}
+{-# LINE 218 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 221 "content/part1/Isomorphism.md" #-}
+{-# LINE 232 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
@@ -132,12 +132,12 @@ embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 246 "content/part1/Isomorphism.md" #-}
+{-# LINE 257 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 280 "content/part1/Isomorphism.md" #-}
+{-# LINE 291 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b

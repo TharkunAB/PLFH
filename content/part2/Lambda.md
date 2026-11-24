@@ -107,7 +107,7 @@ On paper, we routinely identify terms up to renaming of bound variables
 assume bound variables are chosen distinct from free variables (the *Barendregt
 convention*). When formalizing in a proof assistant, however, names are concrete
 data! In this chapter we restrict substitution `substTerm m y v` to replacing
-`y` with a **closed** value `v`, which neatly avoids variable capture without
+`y` with a **closed** term `v`, which neatly avoids variable capture without
 needing α-renaming. (In [DeBruijn](/DeBruijn/) we eliminate variable names
 altogether using de Bruijn indices so that α-equivalent terms are syntactically
 identical.)

@@ -1,7 +1,8 @@
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds, TypeOperators #-}
--- | Minimal reproducer (Serokell R13/R16):
--- Naive quadratic `rev` (`rev (x:xs) = app (rev xs) [x]`, imported from ReproOps)
--- fails open evaluation in types with GHC-70565. Blocks PLFA Lists `shunt-reverse`.
+-- | Minimal reproducer (Serokell R13/R16 / -O2 list rewrite-rule guard):
+-- Passes `-O0` and `-O2 -fno-enable-rewrite-rules` (`rev`/`revAppend`/
+-- `revInvolutive`/`shuntRev`/`reverses` are all checked in `PLFH.Part1.Lists`),
+-- but fails at default `-O2` with `GHC-70565` due to list rewrite rules on `[x]`.
 module R13_RevOpenEq where
 
 import Data.Type.Equality ((:~:) (Refl))

@@ -76,9 +76,9 @@ Each new type constructor brings its own introduction and elimination forms:
 | *(any `b`)* | — | `Let` / `Mu` | `1` |
 
 Notice how `Let m n` can also be viewed as syntactic sugar for `App (Lam n) m`
-under call-by-value—and similarly `Fst`/`Snd` vs. pattern-matching
-`case p of (x, y) => n` are related by a simulation in
-[Bisimulation](/Bisimulation/)!
+under call-by-value—a correspondence we prove formally as a lock-step
+bisimulation in [Bisimulation](/Bisimulation/)! (Similarly, PLFA introduces
+pattern-matching `case p of (x, y) => n` as an exercise alongside `Fst`/`Snd`.)
 
 ```haskell
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.

@@ -85,7 +85,7 @@ progress (TCaseT tl _ _) = case progress tl of
     CSuc v _ -> PStep (BetaSuc v)
 progress (TMuT _) = PStep BetaMu
 
-{-# LINE 179 "content/part2/Properties.md" #-}
+{-# LINE 180 "content/part2/Properties.md" #-}
 -- | Extend a context inclusion under a newly bound variable `x : a`.
 extCtx :: (forall y b. Lookup g y b -> Lookup d y b)
        -> Lookup (CExt g x a) y b
@@ -133,7 +133,7 @@ swapTyping xNeqY = renameTyping swapLookup
     swapLookup (LS _ LZ)                  = LZ
     swapLookup (LS zNeqY (LS zNeqX rest)) = LS zNeqX (LS zNeqY rest)
 
-{-# LINE 246 "content/part2/Properties.md" #-}
+{-# LINE 247 "content/part2/Properties.md" #-}
 -- | Decidable identifier equality paired with the Boolean result of `eqId`.
 data NameDecision (x :: Id) (y :: Id) where
     Same :: x :~: y -> eqId x y :~: True -> NameDecision x y
@@ -180,7 +180,7 @@ substTyping y term replacement typed = case term of
         Same Refl Refl -> TMuT (dropTyping tt)
         Different neq Refl -> TMuT (substTyping y t replacement (swapTyping (\Refl -> neq Refl) tt))
 
-{-# LINE 306 "content/part2/Properties.md" #-}
+{-# LINE 307 "content/part2/Properties.md" #-}
 -- | Shape witness recording that a term is a lambda abstraction.
 data IsLam (m :: Term) where
     IsLam :: IsLam (Lam x body)
@@ -244,7 +244,7 @@ substSuc :: foreach (v :: Term) -> foreach (x :: Id) -> foreach (body :: Term)
          -> HasType CEmpty (substTerm body x v) a
 substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
 
-{-# LINE 379 "content/part2/Properties.md" #-}
+{-# LINE 380 "content/part2/Properties.md" #-}
 -- | Values do not reduce (`V-¬—→`).
 valueCannotStep :: Value m -> Not (Step m n)
 valueCannotStep VLam     s         = case s of {}
@@ -272,7 +272,7 @@ stepDeterm (BetaSuc v)  (XiCase s2)  = absurd (valueCannotStep (VSuc v) s2)
 stepDeterm (BetaSuc _)  (BetaSuc _)  = Refl
 stepDeterm BetaMu       BetaMu       = Refl
 
-{-# LINE 422 "content/part2/Properties.md" #-}
+{-# LINE 423 "content/part2/Properties.md" #-}
 -- | Retained runtime witness for a promoted `Term`.
 data TermW (t :: Term) where
   MkTermW :: foreach (t :: Term) -> TermW t

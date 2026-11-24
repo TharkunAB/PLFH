@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE RankNTypes, TypeOperators #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LINE 25 "content/part1/Negation.md" #-}
 module PLFH.Part1.Negation
   ( Not
@@ -18,13 +18,14 @@ module PLFH.Part1.Negation
   , DoubleNegElim
   , Peirce
   , ImpliesToOr
-  , DeMorganProd
+  , DeMorganNot
   , emToDne
   , dneToPeirce
   , peirceToEm
   , emToImpOr
   , impOrToEm
-  , emToDeMorganProd
+  , emToDeMorganNot
+  , deMorganNotToEm
   , ltIrrefl
   , ltAsym
   , notLtZero
@@ -39,11 +40,11 @@ import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))
 
-{-# LINE 68 "content/part1/Negation.md" #-}
+{-# LINE 69 "content/part1/Negation.md" #-}
 -- From PLFH.Part1.Decidable:
 -- type Not a = a -> Void
 
-{-# LINE 106 "content/part1/Negation.md" #-}
+{-# LINE 107 "content/part1/Negation.md" #-}
 -- | Double negation introduction: a -> ¬(¬a).
 doubleNegIntro :: a -> Not (Not a)
 doubleNegIntro x k = k x
@@ -78,17 +79,17 @@ deMorganProdPartial :: Either (Not a) (Not b) -> Not (a, b)
 deMorganProdPartial (Left na)  (x, _) = na x
 deMorganProdPartial (Right nb) (_, y) = nb y
 
-{-# LINE 170 "content/part1/Negation.md" #-}
+{-# LINE 171 "content/part1/Negation.md" #-}
 -- | Excluded Middle is intuitionistically irrefutable: ¬¬(a ∨ ¬a).
 irrefutableLEM :: Not (Not (Either a (Not a)))
 irrefutableLEM k = k (Right (\x -> k (Left x)))
 
-{-# LINE 211 "content/part1/Negation.md" #-}
+{-# LINE 212 "content/part1/Negation.md" #-}
 type ExcludedMiddle = forall a. Either a (Not a)
 type DoubleNegElim  = forall a. Not (Not a) -> a
 type Peirce         = forall a b. ((a -> b) -> a) -> a
 type ImpliesToOr    = forall a b. (a -> b) -> Either (Not a) b
-type DeMorganProd   = forall a b. Not (a, b) -> Either (Not a) (Not b)
+type DeMorganNot    = forall a b. Not (Not a, Not b) -> Either a b
 
 -- | Excluded Middle implies Double Negation Elimination.
 emToDne :: ExcludedMiddle -> DoubleNegElim
@@ -116,13 +117,19 @@ impOrToEm impOr = case impOr id of
   Left na -> Right na
   Right a -> Left a
 
--- | Excluded Middle implies classical De Morgan: ¬(a ∧ b) -> (¬a ∨ ¬b).
-emToDeMorganProd :: ExcludedMiddle -> DeMorganProd
-emToDeMorganProd em nab = case em of
-  Left a   -> Right (\b -> nab (a, b))
-  Right na -> Left na
+-- | Excluded Middle implies classical De Morgan: ¬(¬a ∧ ¬b) -> (a ∨ b).
+emToDeMorganNot :: ExcludedMiddle -> DeMorganNot
+emToDeMorganNot em nn = case em of
+  Left a   -> Left a
+  Right na -> case em of
+    Left b   -> Right b
+    Right nb -> absurd (nn (na, nb))
 
-{-# LINE 258 "content/part1/Negation.md" #-}
+-- | Classical De Morgan (`¬(¬a ∧ ¬b) -> a ∨ b`) implies Excluded Middle!
+deMorganNotToEm :: DeMorganNot -> ExcludedMiddle
+deMorganNotToEm dm = dm (\pair -> case pair of (na, nna) -> nna na)
+
+{-# LINE 265 "content/part1/Negation.md" #-}
 -- | No finite natural number is strictly less than itself: ¬(n < n).
 ltIrrefl :: LT' n n -> Void
 ltIrrefl (SltS p) = ltIrrefl p

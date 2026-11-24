@@ -16,7 +16,7 @@ properties (`sym`, `trans`, `cong`, `cong-app`, `subst`), explain equational
 reasoning chains and rewriting, and compare Martin-Löf's inductive definition
 of equality (1975) with **Leibniz equality** (1686)—which exercises two
 marquee Dependent Haskell features at once: **matchability arrows (`%U`)**
-(Serokell R23) and **type-level lambdas** (Serokell R17).
+and **type-level lambdas**.
 
 ## Imports
 
@@ -108,7 +108,7 @@ Equality also satisfies **substitution**: if `x` and `y` are equal, and a
 property `p` holds of `x`, then `p` also holds of `y`.
 
 In Dependent Haskell, type-level functions come in two flavors controlled by
-**matchability** (`-XModifiers`, Serokell R23):
+**matchability** (`-XModifiers`):
 
 - **Matchable arrows (`a -> b`)** classify generative, injective type
   constructors such as `Succ :: Nat -> Nat`, `Even :: Nat -> Type`, or
@@ -274,19 +274,23 @@ Look closely at `leibnizToEq`: we instantiate `p` with the matchable
 partially-applied constructor `EqP x` (whose kind is `a -> Type`), feed it
 `ReflP :: EqP x x`, and out pops `EqP x y`!
 
-What about **symmetry** of Leibniz equality (`Leibniz x y -> Leibniz y x`)?
-To invert `xy`, PLFA instantiates `p` with the lambda `λ z → z ≡ x` (putting
-the bound variable on the *left* of equality instead of the right), feeds it
-`ReflP :: EqP x x`, and gets `EqP y x`! Because `\z -> EqP z x` is a
-**type-level lambda** (unmatchable, `a %U -> Type`), we state symmetry over
-`LeibnizU` using Dependent Haskell's **type-level lambdas (R17)** and
-**unmatchable arrows (`%U`, R23)**:
+What about **symmetry** of Leibniz equality (`LeibnizU x y -> LeibnizU y x`)?
+In PLFA, `sym-≐` is proved purely inside Leibniz equality without touching
+Martin-Löf equality at all, by instantiating `xy` with the predicate
+`Q z = P z → P x` and feeding it `refl-≐ P`. In Dependent Haskell today,
+capturing an unmatchable predicate variable `p :: a %U -> Type` inside an
+inline type-level lambda triggers `GHC-27185`; instead, we prove `leibnizUSym`
+using the inline type-level lambda `\z -> EqP z x` (placing the bound variable
+on the *left* of `EqP`), feeding it `ReflP :: EqP x x` to obtain `EqP y x`,
+and matching on `ReflP`. Because `\z -> EqP z x` is a **type-level lambda**
+(unmatchable, `a %U -> Type`), we state symmetry over `LeibnizU` using
+Dependent Haskell's **type-level lambdas** and **unmatchable arrows (`%U`)**:
 
 ```haskell
 -- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
 type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 
--- | Symmetry of LeibnizU using an inline type-level lambda (R17).
+-- | Symmetry of LeibnizU using an inline type-level lambda `\z -> EqP z x`.
 leibnizUSym :: forall {a} (x :: a) (y :: a). LeibnizU x y -> LeibnizU y x
 leibnizUSym xy = case xy @(\z -> EqP z x) ReflP of
   ReflP -> \px -> px
@@ -317,7 +321,11 @@ universe-polymorphic equality `_≡′_` parameterized by a universe level `ℓ`
 In GHC Haskell with `-XPolyKinds`, the kind parameter `a` in
 `data EqP (x :: a) (y :: a)` is already kind-polymorphic by default, so a
 single definition of `EqP` works uniformly at `Nat`, `Bin`, `Type`, or any
-promoted user-defined datatype without explicit universe levels!
+promoted user-defined datatype without explicit universe levels! (Note the
+foundational trade-off: GHC uses `Type :: Type` rather than a stratified
+universe hierarchy—so unlike Agda, GHC's type system is not logically
+consistent on its own and relies on our proof discipline of structural
+termination and zero `undefined`/`unsafeCoerce`.)
 
 #### Exercise `cong₂` (practice)
 

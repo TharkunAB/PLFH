@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, TypeApplications, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE RankNTypes, TypeOperators, UndecidableInstances #-}
 {-# LINE 38 "content/part1/Quantifiers.md" #-}
 module PLFH.Part1.Quantifiers
   ( Exists (..)
@@ -62,7 +62,7 @@ existsDistribSum = Iff toF fromF
     fromF (Left (Witness px))  = Witness (InL px)
     fromF (Right (Witness qx)) = Witness (InR qx)
 
--- | Currying for existentials (`∀∃-currying`): (∃ x. P x -> C) ⇔ (∀ x. P x -> C).
+-- | Currying for existentials (`∀∃-currying`): ((∃ x. P x) -> C) ⇔ (∀ x. P x -> C).
 existsCurryTo :: (Exists p -> c) -> (forall x. p x -> c)
 existsCurryTo f px = f (Witness px)
 

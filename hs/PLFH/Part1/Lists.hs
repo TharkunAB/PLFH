@@ -388,8 +388,10 @@ decIn decEq x (y : ys) = case decEq x y of
 zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]
 zeroInList = Here Refl
 
--- | Concrete non-membership proof: 2 ∉ [0, 1].
-threeNotInList :: Not (In (2 :: Nat) [0 :: Nat, 1 :: Nat])
-threeNotInList (Here eq)          = case eq of {}
-threeNotInList (There (Here eq))  = case eq of {}
-threeNotInList (There (There p))  = case p of {}
+-- | Concrete non-membership proof: 3 ∉ [0, 1, 0, 2].
+threeNotInList :: Not (In (3 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat, 2 :: Nat])
+threeNotInList (Here eq)                          = case eq of {}
+threeNotInList (There (Here eq))                  = case eq of {}
+threeNotInList (There (There (Here eq)))          = case eq of {}
+threeNotInList (There (There (There (Here eq))))  = case eq of {}
+threeNotInList (There (There (There (There p))))  = case p of {}

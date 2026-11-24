@@ -1,8 +1,8 @@
 -- Generated from content/part1/Connectives.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
-{-# LINE 53 "content/part1/Connectives.md" #-}
+{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LINE 54 "content/part1/Connectives.md" #-}
 module PLFH.Part1.Connectives
   ( swapProd
   , swapProdRT
@@ -37,7 +37,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import PLFH.Part1.Isomorphism (Iff (..), Iso (..))
 
-{-# LINE 105 "content/part1/Connectives.md" #-}
+{-# LINE 106 "content/part1/Connectives.md" #-}
 -- | Swap the two components of a pair.
 swapProd :: (a, b) -> (b, a)
 swapProd (x, y) = (y, x)
@@ -74,7 +74,7 @@ prodZeroR = Iff snd absurd
 prodZeroL :: Iff (Void, a) Void
 prodZeroL = Iff fst absurd
 
-{-# LINE 165 "content/part1/Connectives.md" #-}
+{-# LINE 167 "content/part1/Connectives.md" #-}
 -- | Swap the two branches of a sum.
 swapSum :: Either a b -> Either b a
 swapSum (Left x)  = Right x
@@ -113,7 +113,7 @@ sumZeroR = Iff (either id absurd) Left
 sumZeroL :: Iff (Either Void a) a
 sumZeroL = Iff (either absurd id) Right
 
-{-# LINE 211 "content/part1/Connectives.md" #-}
+{-# LINE 213 "content/part1/Connectives.md" #-}
 -- | Right distributivity: (Either a b, c) ⇔ Either (a, c) (b, c).
 prodDistribSum :: Iff (Either a b, c) (Either (a, c) (b, c))
 prodDistribSum = Iff toF fromF
@@ -134,7 +134,7 @@ prodDistribSumL = Iff toF fromF
     fromF (Left (x, y))  = (x, Left y)
     fromF (Right (x, z)) = (x, Right z)
 
-{-# LINE 252 "content/part1/Connectives.md" #-}
+{-# LINE 254 "content/part1/Connectives.md" #-}
 -- | Currying: (a -> b -> c) ⇔ ((a, b) -> c).
 currying :: Iff (a -> b -> c) ((a, b) -> c)
 currying = Iff uncurry curry
@@ -159,7 +159,7 @@ expZero = Iff (const ()) (\() -> absurd)
 expToUnit :: Iff (a -> ()) ()
 expToUnit = Iff (const ()) (\() _ -> ())
 
-{-# LINE 286 "content/part1/Connectives.md" #-}
+{-# LINE 288 "content/part1/Connectives.md" #-}
 -- | Congruence of conjunction under `Iff`.
 prodCong :: Iff a a' -> Iff b b' -> Iff (a, b) (a', b')
 prodCong (Iff fa ga) (Iff fb gb) = Iff (\(x, y) -> (fa x, fb y)) (\(x, y) -> (ga x, gb y))

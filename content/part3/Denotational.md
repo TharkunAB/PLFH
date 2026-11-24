@@ -29,8 +29,9 @@ filter model—the elementary domain theory presented in PLFA Part 3—we solve
 this paradox by modeling a function not as a total set-theoretic map, but as
 the set of **finite input–output tables** (`Value`) that *approximate* it!
 
-- `Bot` (`⊥`) is the empty table (carrying no information—the only value
-  denoting a diverging program like `Ω`).
+- `Bot` (`⊥`) is the empty table (carrying no information—every value denoted
+  by a diverging program like `Ω` is equivalent to `⊥`, i.e. built only from
+  `⊥` and joins of `⊥`, never above any function row `v ↦ w`).
 - `Arr v w` (`v ↦ w`) is a single-row table: given an input carrying at least
   information `v`, the function produces at least output `w`.
 - `Join v w` (`v ⊔ w`) combines two finite tables into a larger table.
@@ -494,7 +495,9 @@ The **denotational semantics** `Denotes e m v` (`e ⊢ m ↓ v`) has six rules:
 
 Look at `denotDelta` and `denotOmega` below: our finite table model handles
 self-application (`Δ = λx. x x`) with complete mathematical precision, while
-`Ω = Δ · Δ` can only ever denote `Bot` (matching the fact that `Ω` diverges!).
+`Ω = Δ · Δ` can never denote any value above a function row (`AboveFun v`)—only
+`Bot` and joins of `Bot` (proved formally as `Adequacy.omegaNotAboveFun`,
+matching the fact that `Ω` diverges!).
 
 ```haskell
 -- | Value environment of scope depth `n`.

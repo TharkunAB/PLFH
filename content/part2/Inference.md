@@ -226,6 +226,21 @@ Notice what happens at runtime (tested in PLFH's executable smoke test):
 - `infer CEmpty (RApp RZero rawTwo)` returns `Nothing` (applying `0` to `2` is rejected)!
 - `check CEmpty rawTwo TNat` returns `Just (Suc (Suc Zero))`, while `check CEmpty rawTwo (TArr TNat TNat)` returns `Nothing`.
 
+<div class="wip-notice">
+<strong>[WIP NOTICE — Unidirectional <code>Maybe</code> inference vs. PLFA's bidirectional <code>Dec</code>]</strong>
+PLFA's <code>Inference</code> chapter presents a <em>bidirectional</em> type
+checker (splitting syntax into synthesizable terms <code>Raw⁺</code> and
+checkable terms <code>Raw⁻</code> so lambdas need no parameter annotations when
+checked against a known arrow type) and returns a <em>decidable</em> proof
+<code>Dec (∃ A. Γ ⊢ M ⦂ A)</code> certifying both soundness (well-typed terms
+produce a derivation) and completeness (rejected terms come with a proof that
+no derivation exists). Here we implement unidirectional Church-annotated
+<code>infer</code> / <code>check</code> returning <code>Maybe</code>: every
+accepted term carries a machine-checked intrinsic <code>Term g a</code>
+derivation, while completeness refutations and bidirectional unannotated lambdas
+are left open as an exercise/future upgrade.
+</div>
+
 ## Exercises
 
 #### Exercise `erase` and round-trip soundness (recommended)
@@ -239,7 +254,7 @@ a term equivalent to `t`.
 
 Notice that `RLam` always requires a type annotation even when it is checked
 against a known function type `TArr a b` via `check`. Following PLFA's
-bidirectional typing exercise, split `RawTerm` into *synthesizable* terms
+bidirectional typing system, split `RawTerm` into *synthesizable* terms
 (variables, applications, annotated expressions) and *checkable* terms (unannotated
 lambdas `λ. body`), mutually recursing between `infer` and `check`!
 
@@ -247,17 +262,20 @@ lambdas `λ. body`), mutually recursing between `infer` and `check`!
 
 Replace `Maybe` in `infer` with a rich `Either TypeError (Typed g)` carrying
 structured diagnostics (out-of-scope variable, expected function type, type
-mismatch with expected and actual `Ty`).
+mismatch with expected and actual `Ty`), or strengthen it further to `Dec`
+carrying formal refutations.
 
 ## Changes from PLFA
 
 - Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)),
   licensed under CC BY 4.0.
-- Implements full certified type inference (`infer`) and type checking (`check`)
+- Implements certified type inference (`infer`) and type checking (`check`)
   for Church-annotated de Bruijn STLC terms (variables, lambdas, applications,
   `Zero`, `Suc`, `Case`, `Mu`), returning intrinsically-typed `Term g a` values
   from [DeBruijn](/DeBruijn/).
-- Uses `Maybe` in place of PLFA's `Result`/`Error` sum for conciseness; all
-  dependent type refinement, decidable `Ty` equality, and runtime `Ctx` lookup
-  are checked directly by GHC with `-dcore-lint -dstg-lint`.
+- Uses unidirectional `Maybe` in place of PLFA's bidirectional `Dec`-based
+  `synthesize`/`inherit` (so soundness is checked intrinsically, while
+  completeness refutations are omitted); all dependent type refinement,
+  decidable `Ty` equality, and runtime `Ctx` lookup are checked directly by GHC
+  with `-dcore-lint -dstg-lint`.

@@ -21,7 +21,7 @@ and `LE` / `LT'` from [Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE RankNTypes, TypeOperators #-}
+{-# LANGUAGE RankNTypes #-}
 module PLFH.Part1.Negation
   ( Not
   , doubleNegIntro
@@ -36,13 +36,14 @@ module PLFH.Part1.Negation
   , DoubleNegElim
   , Peirce
   , ImpliesToOr
-  , DeMorganProd
+  , DeMorganNot
   , emToDne
   , dneToPeirce
   , peirceToEm
   , emToImpOr
   , impOrToEm
-  , emToDeMorganProd
+  , emToDeMorganNot
+  , deMorganNotToEm
   , ltIrrefl
   , ltAsym
   , notLtZero
@@ -204,15 +205,15 @@ man's own billion dollars!
 
 Even without assuming classical axioms, we can prove constructively that five
 famous classical principles—**Excluded Middle**, **Double Negation Elimination**,
-**Peirce's Law**, **Material Implication**, and **De Morgan's Law for Conjunction**—all
-imply one another:
+**Peirce's Law**, **Material Implication**, and **Classical De Morgan's Law**
+(`¬(¬a ∧ ¬b) → a ∨ b`)—all imply one another:
 
 ```haskell
 type ExcludedMiddle = forall a. Either a (Not a)
 type DoubleNegElim  = forall a. Not (Not a) -> a
 type Peirce         = forall a b. ((a -> b) -> a) -> a
 type ImpliesToOr    = forall a b. (a -> b) -> Either (Not a) b
-type DeMorganProd   = forall a b. Not (a, b) -> Either (Not a) (Not b)
+type DeMorganNot    = forall a b. Not (Not a, Not b) -> Either a b
 
 -- | Excluded Middle implies Double Negation Elimination.
 emToDne :: ExcludedMiddle -> DoubleNegElim
@@ -240,11 +241,17 @@ impOrToEm impOr = case impOr id of
   Left na -> Right na
   Right a -> Left a
 
--- | Excluded Middle implies classical De Morgan: ¬(a ∧ b) -> (¬a ∨ ¬b).
-emToDeMorganProd :: ExcludedMiddle -> DeMorganProd
-emToDeMorganProd em nab = case em of
-  Left a   -> Right (\b -> nab (a, b))
-  Right na -> Left na
+-- | Excluded Middle implies classical De Morgan: ¬(¬a ∧ ¬b) -> (a ∨ b).
+emToDeMorganNot :: ExcludedMiddle -> DeMorganNot
+emToDeMorganNot em nn = case em of
+  Left a   -> Left a
+  Right na -> case em of
+    Left b   -> Right b
+    Right nb -> absurd (nn (na, nb))
+
+-- | Classical De Morgan (`¬(¬a ∧ ¬b) -> a ∨ b`) implies Excluded Middle!
+deMorganNotToEm :: DeMorganNot -> ExcludedMiddle
+deMorganNotToEm dm = dm (\pair -> case pair of (na, nna) -> nna na)
 ```
 
 ## Application: negation and order relations (`<`, `≤`)
@@ -305,7 +312,7 @@ pair `(m, n)` can satisfy more than one of `LT' m n`, `m :~: n`, and `LT' n m`.
   licensed under CC BY 4.0.
 - Every intuitionistic negation law, double-negation monad operation,
   classical equivalence (`emToDne`, `dneToPeirce`, `peirceToEm`, `emToImpOr`,
-  `impOrToEm`, `emToDeMorganProd`), `irrefutableLEM`, and order-negation lemma
+  `impOrToEm`, `emToDeMorganNot`, `deMorganNotToEm`), `irrefutableLEM`, and order-negation lemma
   (`ltIrrefl`, `ltAsym`, `notLtZero`, `ltToNotGe`, `leToNotGt`, `notLeToGt`)
   ports directly and passes `-dcore-lint -dstg-lint`.
 - All promoted constructors (`Zero`) are written without leading `'` ticks.
