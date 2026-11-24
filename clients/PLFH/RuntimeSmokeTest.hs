@@ -15,6 +15,7 @@ import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, p
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
 import PLFH.Part1.Lists (All (..), Any (..), AnyWitness (..), In, allToIn, anyIffWitness, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, memberValue, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import PLFH.Part1.ListsProof (decodeHeadEven, decodeSecondEven, sampleTailMem, witnessToAnyEvenThere)
 import qualified PLFH.Part1.Naturals as N
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
@@ -55,7 +56,7 @@ checkAllInEv allEv inEv = isEvenNonZero (allToIn allEv inEv)
 checkAnyWitness :: foreach (xs :: [Nat]) -> Any Even xs -> (Int, Bool)
 checkAnyWitness xs proof = case anyIffWitness @Even @xs of
   Iff toWitness fromWitness -> case toWitness proof of
-    witness@(AnyWitness member@(There (There (There (Here Refl)))) _) ->
+    witness@(MkAnyWitness member@(There (There (There (Here Refl)))) _) ->
       (natToInt (memberValue xs member), case fromWitness witness of
         There (There (There (Here (EvenS (OddS EvenZ))))) -> True
         _ -> False)
@@ -236,6 +237,15 @@ main = do
     (case foldrTimesAppend twoThree fourList of Refl -> True)
   assertEq "Lists.anyIffWitness preserves fourth occurrence" (2, True)
     (checkAnyWitness [1, 2, 1, 2] (There (There (There (Here (EvenS (OddS EvenZ)))))))
+  let memTwo = sampleTailMem
+      evTwo :: Even 2
+      evTwo = EvenS (OddS EvenZ)
+  assertEq "ListsProof.decodeHeadEven [0]" True
+    (case decodeHeadEven of Refl -> True)
+  assertEq "ListsProof.witnessToAnyEvenThere (symbolic tail)" True
+    (case witnessToAnyEvenThere @_ @1 memTwo evTwo of Refl -> True)
+  assertEq "ListsProof.decodeSecondEven [1,2,1,2]" True
+    (case decodeSecondEven @(EvenS (OddS EvenZ)) of Refl -> True)
   let odds = [1, 3] :: [Nat]
   assertEq "Lists.notAnyIffAllNot @Even [1,3]" True
     (case notAnyIffAllNot @Even odds of

@@ -32,7 +32,7 @@ from `GHC.Types`, `HaskLib`'s length laws (`lengthAppend`, `lengthMap`,
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeOperators #-}
-{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules -fwrite-source-equations #-}
 module PLFH.Part1.Lists
   ( appendAssoc
   , appendNilR
@@ -72,6 +72,8 @@ module PLFH.Part1.Lists
   , allToIn
   , inToAll
   , AnyWitness (..)
+  , anyToWitness
+  , witnessToAny
   , anyIffWitness
   , memberValue
   , decAll
@@ -466,20 +468,20 @@ recovers that element from the list without comparing elements:
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
-  AnyWitness :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
-                In x xs -> p x -> AnyWitness p xs
+  MkAnyWitness :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
+                  In x xs -> p x -> AnyWitness p xs
 
 anyToWitness :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs}.
                 Any p xs -> AnyWitness p xs
-anyToWitness (Here px) = AnyWitness (Here Refl) px
+anyToWitness (Here px) = MkAnyWitness (Here Refl) px
 anyToWitness (There r) = case anyToWitness r of
-  AnyWitness member px -> AnyWitness (There member) px
+  MkAnyWitness member px -> MkAnyWitness (There member) px
 
 witnessToAny :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs}.
                 AnyWitness p xs -> Any p xs
-witnessToAny (AnyWitness (Here Refl) px) = Here px
-witnessToAny (AnyWitness (There member) px) =
-  There (witnessToAny (AnyWitness member px))
+witnessToAny (MkAnyWitness (Here Refl) px) = Here px
+witnessToAny (MkAnyWitness (There member) px) =
+  There (witnessToAny (MkAnyWitness member px))
 
 -- | `Any` holds exactly when a list member satisfies the predicate (`Any-∃`).
 anyIffWitness :: forall {a} {m :: Matchability} (p :: a %m -> Type) (xs :: List a).
@@ -492,6 +494,14 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 ```
+
+Because `PLFH.Part1.Lists` compiles with `-fwrite-source-equations`, GHC
+publishes checked equations for `witnessToAny` into `Lists.hi`! Downstream
+proofs in `PLFH.Part1.ListsProof` (`clients/PLFH/Part1/ListsProof.hs`) verify
+both polymorphic head/tail decoding (`witnessToAnyHere`, `witnessToAnyThere`)
+and retained-`foreach` tail preservation (`witnessToAnyEvenThere`) when the
+membership tail is symbolic—confirming `witnessToAny` preserves the exact
+selected occurrence and predicate evidence without needing any leading `'` ticks!
 
 ### Decidability of `All` and `Any` (`All?`, `Any?`), and concrete examples
 
