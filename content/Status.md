@@ -9,7 +9,7 @@ This page tracks every PLFA declaration, theorem, and exercise in PLFH against
 the current experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`8632606465`](https://github.com/Tritlo/ghc/commit/8632606465b9c50069fda938753ac75fe72c85f8) / `5ead8de5e4`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
+- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`4570cbe2f8`](https://github.com/Tritlo/ghc/commit/4570cbe2f8b2e57190e8b36c4aca603bb65256f7) / `f0d893681e`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
 - **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 28 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **7 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 114 `[RUN-OK]` checks), **30 fixed regressions**, and **11 open compiler-gap reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).

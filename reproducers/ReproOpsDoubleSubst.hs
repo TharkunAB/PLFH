@@ -5,7 +5,7 @@
 -- via `ext (ext r)` / `exts (exts s)` and contracts via `substDouble`.
 module ReproOpsDoubleSubst where
 
-data Ty = TNat | TList Ty
+data Ty = TNat | TArr Ty Ty | TList Ty
 data Ctx = CEmpty | CExt Ctx Ty
 
 data Lookup (g :: Ctx) (a :: Ty) where
@@ -14,7 +14,8 @@ data Lookup (g :: Ctx) (a :: Ty) where
 
 data Term (g :: Ctx) (a :: Ty) where
   Var     :: Lookup g a -> Term g a
-  Lam     :: Term (CExt g a) b -> Term g a
+  Lam     :: Term (CExt g a) b -> Term g (TArr a b)
+  App     :: Term g (TArr a b) -> Term g a -> Term g b
   Zero    :: Term g TNat
   CaseLst :: Term g (TList a) -> Term g b
           -> Term (CExt (CExt g a) (TList a)) b -> Term g b
@@ -27,6 +28,7 @@ ext r (S x) = S (r x)
 rename :: (forall a. Lookup g a -> Lookup d a) -> Term g b -> Term d b
 rename r (Var x)          = Var (r x)
 rename r (Lam n)          = Lam (rename (ext r) n)
+rename r (App l m)        = App (rename r l) (rename r m)
 rename _ Zero             = Zero
 rename r (CaseLst xs n c) = CaseLst (rename r xs) (rename r n) (rename (ext (ext r)) c)
 
@@ -38,6 +40,7 @@ exts s (S x) = rename S (s x)
 subst :: (forall a. Lookup g a -> Term d a) -> Term g b -> Term d b
 subst s (Var x)          = s x
 subst s (Lam n)          = Lam (subst (exts s) n)
+subst s (App l m)        = App (subst s l) (subst s m)
 subst _ Zero             = Zero
 subst s (CaseLst xs n c) = CaseLst (subst s xs) (subst s n) (subst (exts (exts s)) c)
 
