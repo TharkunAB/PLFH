@@ -32,7 +32,8 @@ the foundation for [BigStep](/BigStep/), [Substitution](/Substitution/),
 
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 module PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
@@ -64,6 +65,19 @@ module PLFH.Part2.Untyped
   , idAppStep
   , omegaStep
   , kOmegaStep
+  , BumpRes (..)
+  , bumpProof
+  , ShiftRes (..)
+  , shiftProof
+  , CmpFin (..)
+  , cmpFin
+  , SubstRes (..)
+  , substProof
+  , StepRes (..)
+  , stepNormal
+  , EvalRes (..)
+  , evalNormal
+  , evalNormalTerm
   ) where
 
 import Data.Kind (Type)
@@ -174,7 +188,7 @@ Each of the four inductive relations below is completely deterministic:
 type BumpFin :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Fin (Succ n) -> Type
 data BumpFin c x y where
   BumpZ  :: BumpFin FZ x (FS x)
-  BumpSZ :: BumpFin (FS c) FZ FZ
+  BumpSZ :: forall {n} (c :: Fin (Succ n)). BumpFin (FS c) FZ FZ
   BumpSS :: BumpFin c x y -> BumpFin (FS c) (FS x) (FS y)
 
 -- | Capture-avoiding weakening: shift all free variables >= `c` up by one.
@@ -187,8 +201,8 @@ data ShiftU c m m' where
 -- | Remove slot `c` from any distinct variable `x /= c` in `Fin (Succ n)`.
 type RemoveFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Fin n -> Type
 data RemoveFin c x y where
-  RemGt :: RemoveFin FZ (FS y) y
-  RemLt :: RemoveFin (FS c) FZ FZ
+  RemGt :: forall {n} (y :: Fin n). RemoveFin FZ (FS y) y
+  RemLt :: forall {n} (c :: Fin (Succ n)). RemoveFin (FS c) FZ FZ
   RemSS :: RemoveFin c x y -> RemoveFin (FS c) (FS x) (FS y)
 
 -- | Deterministic relational single-variable substitution `m [ c := w ] ↦ m'`.
@@ -324,18 +338,172 @@ forever reducing `Ω` inside the argument!
 By the Standardization Theorem, **normal-order** (leftmost-outermost) reduction
 is guaranteed to reach a normal form whenever one exists.
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R04)]</strong>
-Writing PLFA's constructive normal-order β-normalizer
-<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> currently
-blocks on packing a retained reduct <code>t' :: UTerm n</code> inside a data
-constructor or <code>Sigma</code> <code>Pair</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>,
-<code>GHC-83605</code>).
-All well-scoped syntax, renaming, substitution, relational <code>SubstAtU</code>,
-and promoted <code>Neutral</code>/<code>Normal</code>/<code>BetaStep</code>
-relations compile cleanly with <code>-dcore-lint -dstg-lint</code>.
-</div>
+Because GHC supports binding indexed GADTs (`Fin n`, `UTerm n`) as retained
+`foreach` fields inside data constructors, we can write PLFA's **constructive
+normal-order evaluator** (`stepNormal` and `evalNormal`) directly in Haskell!
+Each helper (`bumpProof`, `shiftProof`, `cmpFin`, `substProof`) computes the
+shifted or substituted term *together with* its checked `ShiftU` / `SubstAtU`
+derivation, so `evalNormal` returns a certified multi-step `BetaSteps` trace
+plus a `Normal` proof whenever it finishes within the gas budget:
+
+```haskell
+-- | Constructive witness for `BumpFin c x y`.
+type BumpRes :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Type
+data BumpRes c x where
+  MkBump :: foreach (y :: Fin (Succ n)) -> BumpFin c x y -> BumpRes c x
+
+-- | Lift a `BumpRes` witness under one `FS` constructor.
+liftBumpFS :: forall (k :: Nat) (c :: Fin (Succ k)) (x :: Fin k).
+              BumpRes c x -> BumpRes (FS c) (FS x)
+liftBumpFS (MkBump y b) = MkBump (FS y) (BumpSS b)
+
+-- | Compute the bumped variable `y` together with its `BumpFin` proof.
+bumpProof :: forall (n :: Nat).
+             foreach (c :: Fin (Succ n)) -> foreach (x :: Fin n) -> BumpRes c x
+bumpProof c x = case c of
+  FZ    -> MkBump (FS x) BumpZ
+  FS c' -> case x of
+    FZ    -> MkBump FZ (BumpSZ @c')
+    FS x' -> liftBumpFS (bumpProof c' x')
+
+-- | Constructive witness for `ShiftU c m m'`.
+type ShiftRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> Type
+data ShiftRes c m where
+  MkShift :: foreach (m' :: UTerm (Succ n)) -> ShiftU c m m' -> ShiftRes c m
+
+-- | Compute capture-avoiding weakening together with its `ShiftU` proof.
+shiftProof :: forall (n :: Nat).
+              foreach (c :: Fin (Succ n)) -> foreach (m :: UTerm n) -> ShiftRes c m
+shiftProof c m = case m of
+  UVar x -> case bumpProof c x of
+    MkBump y b -> MkShift (UVar y) (ShiftVar b)
+  ULam b -> case shiftProof (FS c) b of
+    MkShift b' sb -> MkShift (ULam b') (ShiftLam sb)
+  UApp l r -> case shiftProof c l of
+    MkShift l' sl -> case shiftProof c r of
+      MkShift r' sr -> MkShift (UApp l' r') (ShiftApp sl sr)
+
+-- | Compare two indices in `Fin (Succ n)`: either equal or separated by `RemoveFin`.
+type CmpFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Type
+data CmpFin c x where
+  CmpEq  :: CmpFin c c
+  CmpNeq :: foreach (y :: Fin n) -> RemoveFin c x y -> CmpFin c x
+
+-- | Lift a `CmpFin` witness under one `FS` constructor.
+liftCmpFS :: forall (k :: Nat) (c :: Fin (Succ k)) (x :: Fin (Succ k)).
+             CmpFin c x -> CmpFin (FS c) (FS x)
+liftCmpFS CmpEq        = CmpEq
+liftCmpFS (CmpNeq y r) = CmpNeq (FS y) (RemSS r)
+
+-- | Helper for comparing `FZ` against any `x :: Fin (Succ m)`.
+cmpFinZ :: forall (m :: Nat).
+           foreach (x :: Fin (Succ m)) -> CmpFin (FZ @m) x
+cmpFinZ x = case x of
+  FZ   -> CmpEq
+  FS y -> CmpNeq y (RemGt @y)
+
+-- | Helper for the `FS FZ` branch where the outer scope index is manifestly `Succ m`.
+cmpFinFZ :: forall (m :: Nat).
+            foreach (x :: Fin (Succ (Succ m))) -> CmpFin (FS (FZ @m)) x
+cmpFinFZ x = case x of
+  FZ    -> CmpNeq FZ (RemLt @FZ)
+  FS x' -> liftCmpFS (cmpFinZ x')
+
+-- | Helper for the `FS (FS c'')` branch where the outer scope index is manifestly `Succ m`.
+cmpFinFSS :: forall (m :: Nat).
+             foreach (c'' :: Fin m) -> foreach (x :: Fin (Succ (Succ m)))
+          -> CmpFin (FS (FS c'')) x
+cmpFinFSS c'' x = case x of
+  FZ    -> CmpNeq FZ (RemLt @(FS c''))
+  FS x' -> case c'' of
+    FZ      -> liftCmpFS (cmpFinFZ x')
+    FS c''' -> liftCmpFS (cmpFinFSS c''' x')
+
+-- | Decidable comparison with `RemoveFin` evidence.
+cmpFin :: forall (n :: Nat).
+          foreach (c :: Fin (Succ n)) -> foreach (x :: Fin (Succ n)) -> CmpFin c x
+cmpFin c x = case c of
+  FZ    -> cmpFinZ x
+  FS c' -> case c' of
+    FZ     -> cmpFinFZ x
+    FS c'' -> cmpFinFSS c'' x
+
+-- | Constructive witness for `SubstAtU c w m r`.
+type SubstRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
+data SubstRes c w m where
+  MkSubst :: foreach (r :: UTerm n) -> SubstAtU c w m r -> SubstRes c w m
+
+-- | Compute single-variable substitution `m [ c := w ]` with its `SubstAtU` proof.
+substProof :: forall (n :: Nat).
+              foreach (c :: Fin (Succ n))
+           -> foreach (w :: UTerm n)
+           -> foreach (m :: UTerm (Succ n))
+           -> SubstRes c w m
+substProof c w m = case m of
+  UVar x -> case cmpFin c x of
+    CmpEq      -> MkSubst w SUEq
+    CmpNeq y r -> MkSubst (UVar y) (SUNeq r)
+  ULam b -> case shiftProof FZ w of
+    MkShift w' sw -> case substProof (FS c) w' b of
+      MkSubst b' sb -> MkSubst (ULam b') (SULam sw sb)
+  UApp l r -> case substProof c w l of
+    MkSubst l' sl -> case substProof c w r of
+      MkSubst r' sr -> MkSubst (UApp l' r') (SUApp sl sr)
+
+-- | Outcome of one leftmost-outermost (normal-order) reduction step.
+type StepRes :: forall (n :: Nat). UTerm n -> Type
+data StepRes t where
+  Reduct :: foreach (t' :: UTerm n) -> BetaStep t t' -> StepRes t
+  IsNorm :: Normal t -> StepRes t
+
+-- | Normal-order step for an application `UApp l m`.
+stepApp :: forall (n :: Nat).
+           foreach (l :: UTerm n) -> foreach (m :: UTerm n) -> StepRes (UApp l m)
+stepApp l m = case l of
+  ULam b -> case substProof FZ m b of
+    MkSubst r sr -> Reduct r (Beta sr)
+  UVar x -> case stepNormal m of
+    Reduct m' sm -> Reduct (UApp (UVar x) m') (XiApp2 sm)
+    IsNorm nm    -> IsNorm (NNeu (NApp NVar nm))
+  UApp l1 l2 -> case stepApp l1 l2 of
+    Reduct l' sl -> Reduct (UApp l' m) (XiApp1 sl)
+    IsNorm nl    -> case nl of
+      NNeu neuL -> case stepNormal m of
+        Reduct m' sm -> Reduct (UApp (UApp l1 l2) m') (XiApp2 sm)
+        IsNorm nm    -> IsNorm (NNeu (NApp neuL nm))
+
+-- | Constructive normal-order single-step reducer (`stepNormal`).
+stepNormal :: forall (n :: Nat). foreach (t :: UTerm n) -> StepRes t
+stepNormal t = case t of
+  UVar _   -> IsNorm (NNeu NVar)
+  ULam b   -> case stepNormal b of
+    Reduct b' sb -> Reduct (ULam b') (XiLam sb)
+    IsNorm nb    -> IsNorm (NLam nb)
+  UApp l m -> stepApp l m
+
+-- | Outcome of gas-bounded normal-order evaluation (`Finished` in PLFA).
+type EvalRes :: forall (n :: Nat). UTerm n -> Type
+data EvalRes t where
+  EvalDone     :: foreach (nf :: UTerm n) -> BetaSteps t nf -> Normal nf -> EvalRes t
+  EvalOutOfGas :: foreach (t' :: UTerm n) -> BetaSteps t t' -> EvalRes t
+
+-- | Gas-bounded normal-order evaluator returning a certified `BetaSteps` trace
+-- and `Normal` proof!
+evalNormal :: forall (n :: Nat). Nat -> foreach (t :: UTerm n) -> EvalRes t
+evalNormal gas t = case gas of
+  Zero   -> EvalOutOfGas t BRefl
+  Succ g -> case stepNormal t of
+    IsNorm nt    -> EvalDone t BRefl nt
+    Reduct t' st -> case evalNormal g t' of
+      EvalDone nf bs nnf -> EvalDone nf (BCons st bs) nnf
+      EvalOutOfGas u bs  -> EvalOutOfGas u (BCons st bs)
+
+-- | Plain wrapper for running `evalNormal` on arbitrary runtime `UTerm n` values.
+evalNormalTerm :: forall (n :: Nat). Nat -> UTerm n -> Maybe (UTerm n)
+evalNormalTerm gas t = case evalNormal gas t of
+  EvalDone nf _ _  -> Just nf
+  EvalOutOfGas _ _ -> Nothing
+```
 
 ## Exercises
 
@@ -358,8 +526,10 @@ normal-order reduction terminates on terms where call-by-value diverges!
   licensed under CC BY 4.0.
 - Checked direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`,
   `substU`, `substSingleU`, `Neutral`, `Normal`, `BetaStep`, `BetaSteps`,
-  `idIsNormal`, `idAppStep`, `omegaTerm`, and `omegaStep`.
+  `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`, `cZeroIsNormal`/
+  `cOneIsNormal`/`cTwoIsNormal`, `kOmegaStep`, and the complete constructive
+  normal-order evaluator (`bumpProof`, `shiftProof`, `cmpFin`, `substProof`,
+  `stepNormal`, `evalNormal`, `evalNormalTerm`), reducing `(λx y. y) Ω —↠ id`
+  with a certified `BetaSteps` + `Normal` derivation!
 - Uses deterministic relational `SubstAtU` in `Beta` (verified by negative
   control `NegBadBetaStep`) for structural induction in downstream chapters.
-- Marks gas-bounded normalization over `foreach (t :: UTerm n)` with
-  `[WIP NOTICE]` (`R04_IndexedForEachCtorField.hs`).

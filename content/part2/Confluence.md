@@ -339,16 +339,13 @@ betaToPar (UApp l m) =
 ## Remaining Church–Rosser ingredient (`par-diamond`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — One-Step Diamond of Parallel Reduction &amp; Bridging Retained <code>betaToPar</code> (R04/R16)]</strong>
+<strong>[WIP NOTICE — One-Step Diamond of Parallel Reduction (<code>parDiamond</code>)]</strong>
 With <code>parRefl</code>, <code>betaToPar</code>, <code>strip</code>,
 <code>parConfluence</code>, <code>churchRosser</code>, and
-<code>uniqueNormalForm</code> all verified, two pieces remain to discharge
-<code>churchRosser</code> unconditionally:
-(1) proving parallel-substitution commutation and <code>parDiamond</code>, and
-(2) bridging retained <code>betaToPar</code> (<code>foreach (l :: UTerm n)</code>)
-into erased <code>BetaSteps</code> (which cannot yet store retained
-<code>UTerm n</code> indices:
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>).
+<code>uniqueNormalForm</code> all verified, the main remaining ingredient to
+discharge <code>churchRosser</code> unconditionally is proving
+parallel-substitution commutation and <code>parDiamond</code> (and wiring
+retained <code>betaToPar</code> across multi-step <code>BetaSteps</code>).
 </div>
 
 ## Exercises
@@ -377,5 +374,5 @@ for any binary relation `rel`.
 - Uses deterministic relational `SubstAtU` in `PBeta` (matching
   `Untyped.BetaStep.Beta`) so no unconstrained `substSingleU` type variable is
   introduced in `Confluence.hi`.
-- Marked `parDiamond` and bridging retained `betaToPar` to erased `BetaSteps`
-  with `[WIP NOTICE]` (`R04_IndexedForEachCtorField.hs`).
+- Marked `parDiamond` (and wiring retained `betaToPar` into erased `BetaSteps`)
+  with `[WIP NOTICE]`.

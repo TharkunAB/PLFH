@@ -478,6 +478,16 @@ main = do
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.cTwoIsNormal (Church 2)" True (case cTwoIsNormal of { NLam (NLam _) -> True })
   assertEq "Untyped.kOmegaStep ((\\x y. y) Omega -> id)" True (case kOmegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Untyped.evalNormal 10 (id id) -> id" True
+    (case U.evalNormalTerm 10 (U.UApp U.idTerm U.idTerm) of
+      Just (U.ULam (U.UVar U.FZ)) -> True
+      _                           -> False)
+  assertEq "Untyped.evalNormal 10 ((\\x y. y) Omega) -> id (normal-order!)" True
+    (case U.evalNormalTerm 10 (U.UApp (U.ULam (U.ULam (U.UVar U.FZ))) U.omegaTerm) of
+      Just (U.ULam (U.UVar U.FZ)) -> True
+      _                           -> False)
+  assertEq "Untyped.evalNormal 3 Omega -> Nothing (out of gas)" True
+    (case U.evalNormalTerm 3 U.omegaTerm of { Nothing -> True; Just _ -> False })
   assertEq "Confluence.parRefl traverses both lambdas" True
     (checkParallel (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.betaToPar idAppStep" True

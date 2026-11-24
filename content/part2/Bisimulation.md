@@ -428,18 +428,16 @@ data SubstCompat where
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Connecting retained <code>simSubst</code> to erased <code>SubstCompat</code> (R04/R16)]</strong>
+<strong>[WIP NOTICE — Connecting retained <code>simSubst</code> to erased <code>SubstCompat</code> (R03/R16)]</strong>
 Both 20-constructor <strong><code>simRename</code></strong> and 20-constructor
 <strong><code>simExt</code> / <code>simSubst</code></strong> now check directly
 above over ordinary <code>M.weakenLookup</code>, <code>M.exts</code>, and
 <code>M.subst</code> (with zero type families and <code>-Werror=incomplete-patterns</code>).
 Because <code>simSubst</code> takes a retained term <code>foreach (m :: M.Term g a)</code>
 while <code>SubstCompat</code> quantifies over erased <code>forall</code> terms inside
-<code>MP.Step</code>, bridging <code>simSubst</code> directly into
-<code>SubstCompat</code> without passing runtime terms waits on
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>;
-the default-arrow (<code>-&gt;</code> vs. <code>%U -&gt;</code>) spelling of
-abstract renaming also remains tracked in
+<code>MP.Step</code>, <code>sim</code> and <code>simInv</code> remain
+parameterized by <code>SubstCompat</code>; the default-arrow (<code>-&gt;</code>
+vs. <code>%U -&gt;</code>) spelling of abstract renaming also remains tracked in
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>.
 </div>
 

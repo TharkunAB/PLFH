@@ -296,13 +296,13 @@ progress t = case t of
 In PLFA, <code>progress</code> feeds directly into a gas-bounded evaluator
 <code>eval :: Gas -&gt; foreach (m :: Term CEmpty a) -&gt; Finished m</code>
 that steps a closed term repeatedly and returns a multi-step derivation
-<code>Steps m n</code>. Because stepping from <code>m</code> to the next
-term <code>n</code> requires binding the existentially quantified indexed
-GADT target <code>n :: Term CEmpty a</code> as a retained <code>foreach</code>
-field inside <code>Progress m</code> (so <code>eval</code> can recurse on
-<code>n</code>), intrinsic <code>eval</code> is currently blocked by
-<code>GHC-83605</code>; see minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>reproducers/R04_IndexedForEachCtorField.hs</code></a>.
+<code>Steps m n</code>. Packing a retained <code>foreach (n :: Term CEmpty a)</code>
+field inside <code>Progress m</code> now works for vanilla indexed GADTs
+(as in <a href="/Untyped/">Untyped</a>'s constructive <code>evalNormal</code>!),
+but passing a GADT constructor with an <em>existential</em> type variable
+(<code>App :: Term g (TArr a b) -&gt; Term g a -&gt; Term g b</code>) as a
+retained operand still fails with <code>GHC-83605</code>; see minimal reproducer
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ExistentialGadtRetainedArg.hs"><code>reproducers/R04_ExistentialGadtRetainedArg.hs</code></a>.
 (Our extrinsic chapter <a href="/Properties/">Properties</a> already proves and
 runs the full verified <code>eval</code> evaluator using a structural witness
 <code>TermW m</code>.)
@@ -366,4 +366,4 @@ in context `CExt CEmpty TNat`?
   witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
   **complete, unconditional `progress` theorem** across all 7 term constructors;
   intrinsic gas-bounded `eval` is tracked under `[WIP NOTICE]` via
-  `R04_IndexedForEachCtorField.hs`.
+  `R04_ExistentialGadtRetainedArg.hs`.
