@@ -11,7 +11,7 @@ import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, dec
 import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
-import PLFH.Part1.Isomorphism (IsoSize (..), isoSizeRefl, isoSizeSym)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, isoImpliesEmbed, isoSizeRefl, isoSizeSym, isoSym, natIsoRefl)
 import PLFH.Part1.Lists (decAll, downFrom, lengthDownFrom, lengthZeros, shuntAppend)
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
@@ -72,6 +72,23 @@ main = do
   let isoRoundTrip = case isoSizeSym isoSizeRefl of
         MkIsoSize to _ _ _ -> natToInt (to 4)
   assertEq "Isomorphism.isoSizeSym isoSizeRefl 4" 4 isoRoundTrip
+  let polyIsoRoundTrip = case isoSym natIsoRefl of
+        MkIso to _ _ _ -> natToInt (to 4)
+  assertEq "Isomorphism.isoSym natIsoRefl 4" 4 polyIsoRoundTrip
+  let polyIsoEmbed = case isoImpliesEmbed natIsoRefl of
+        MkEmbed _ from left ->
+          let n :: Nat
+              n = 3
+          in case left n of Refl -> natToInt (from n)
+  assertEq "Isomorphism.isoImpliesEmbed natIsoRefl 3" 3 polyIsoEmbed
+  let binEmbedRT = case binEmbedding of
+        MkEmbed to from left ->
+          let n :: Nat
+              n = 5
+          in case left n of Refl -> natToInt (from (to n))
+  assertEq "Isomorphism.binEmbedding round-trip 5" 5 binEmbedRT
+  assertEq "Isomorphism.embedImpliesIff binEmbedding 5" 5
+    (let Iff to from = embedImpliesIff binEmbedding in natToInt (from (to 5)))
 
   let sum23 = case plusExists 2 3 of
         Pair k Refl -> natToInt k

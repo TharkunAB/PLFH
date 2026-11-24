@@ -9,8 +9,8 @@ This page tracks every PLFA declaration, theorem, and exercise in PLFH against
 the current experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`c97f70ecdc`](https://github.com/Tritlo/ghc/commit/c97f70ecdcbded27a1d705c2e9b4d42a5ddeb028)) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 27 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **5 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 69 `[RUN-OK]` checks), and **15 open compiler-gap reproducers**.
+- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`5a7d9d7de8`](https://github.com/Tritlo/ghc/commit/5a7d9d7de8) / `e7a798a060`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 27 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **6 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 73 `[RUN-OK]` checks), and **17 open compiler-gap reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
 
@@ -23,9 +23,8 @@ the current experimental Dependent Haskell compiler
 | [Induction](/Induction/) | `+-assoc`, `+-assoc′` (`HaskLib.rewrite`), `+-identityʳ`, `+-suc`, `+-comm`, **`cong @Succ`/`cong @(plus m)` + `+-rearrange`**, **`+-swap`**, `*-distrib-+`, `*-assoc`, `*-comm`, **`3∸2≡1`/`2∸3≡0`/`0∸n≡0`/`∸-+-assoc`**, **`3^4≡81` + `+*^` (`powPlus`, `powMul`, `powTimes`)**, `Bin-laws` | `PLFH.Part1.Induction.*` + `HaskLib.Nat.{plusZero,plusSucc}` | <span class="badge badge-pass">Direct port</span> | 100% of PLFA Induction theorems and exercises checked with unified matchability-poly `cong`; Agda-style `RequiredTypeArguments` `cong Succ` without `@` tracked in `R23_MatchabilityPolyCong.hs` |
 | [Relations](/Relations/) | `_≤_`, `inv-*`, `≤-refl/trans/antisym`, `Total`, `+-mono-*`, `_<_`, `<-trans`, `Trichotomy`, `ltToLe`/`leToLt`, `DiffWitness`, `Even`/`Odd` + sums + `evenOrOdd`/`notBothEvenOdd`, canonical `One`/`Can` + `incOne`/`incCan` + **`toBinCan`** + **`toFromCan`** | `PLFH.Part1.Relations.*` | <span class="badge badge-pass">Direct port</span> | Full `Nat ≃ Can Bin` bijection (`fromTo` + `toBinCan` + `toFromCan`) checked |
 | [Equality](/Equality/) | `_≡_`, `sym`, `trans`, `cong`, `cong-app`, `subst`, `RequiredTypeArguments` chains (`beginEq`/`stepEq`/`qedEq`), **`evenComm` (`substP @Even`)**, `Leibniz`, `LeibnizU`, `leibnizUSym` | `PLFH.Part1.Equality.*` | <span class="badge badge-pass">Direct port</span> | Direct `substP @Even` and inline type lambdas `@(\z -> EqP z x)` (R17) checked |
-| [Isomorphism](/Isomorphism/) | `_⇔_` (`Iff`, refl/sym/trans), monomorphic **`IsoSize` (`isoSizeRefl`, `isoSizeSym`)** | `PLFH.Part1.Isomorphism.*` | <span class="badge badge-pass">Direct port</span> | Higher-rank `foreach` proof fields construct & eliminate cleanly |
-| [Isomorphism](/Isomorphism/) | Polymorphic `_≃_`, `_≲_` | — | <span class="badge badge-wip">Blocker</span> | Polymorphic retained function domain `foreach (to :: a -> b)` (`R04_PolyFunctionFieldInIso.hs`) |
-| [Connectives](/Connectives/) | `×`, `⊎`, `⊤`, `⊥`, comm/assoc/zero/distrib/currying/exp/cong | `PLFH.Part1.Connectives.*` | <span class="badge badge-pass">Direct port</span> | All semiring, exponential & `Iff` congruence laws checked over `(,)`, `Either`, `()`, `Void` |
+| [Isomorphism](/Isomorphism/) | `_≃_` (`Iso`, `isoSym`, `natIsoRefl`), `_≲_` (`Embed`, `isoImpliesEmbed`, `embedImpliesIff`, **`binEmbedding`**), `_⇔_` (`Iff`, refl/sym/trans), `IsoSize` | `PLFH.Part1.Isomorphism.*` | <span class="badge badge-pass">Direct port</span> | Polymorphic `Iso a b` and `Embed a b` checked (`NegBinReverseRoundTrip` verified); generic `isoRefl`/`isoTrans` tracked in `R13_PolymorphicIsoIdentity.hs` & `R04_ComposedIsoFields.hs` |
+| [Connectives](/Connectives/) | `×`, `⊎`, `⊤`, `⊥`, comm/assoc/zero/distrib/currying/exp/cong | `PLFH.Part1.Connectives.*` | <span class="badge badge-pass">Direct port</span> | All semiring, exponential & `Iff` congruence laws checked over `(,)`, `Either`, `()`, `Void`; polymorphic `Iso` upgrades await `R13_PolymorphicSwapOpenEq.hs` |
 | [Negation](/Negation/) | `¬`, double/triple neg, `¬¬` monad, De Morgan, `EM ⇔ DNE ⇔ Peirce ⇔ ImpOr`, `emToDeMorganProd`, `ltIrrefl`/`ltAsym`/`notLtZero`/`ltToNotGe`/`leToNotGt`/`notLeToGt` | `PLFH.Part1.Negation.*` | <span class="badge badge-pass">Direct port</span> | All intuitionistic, classical & order-negation laws checked |
 | [Quantifiers](/Quantifiers/) | `Exists`, `existsDistribSum`, `existsCurry`, `forallDistribProd`, quantifier De Morgan, `EvenSigma`, **`evenIffWitness`**, **`oddIffWitness`** | `PLFH.Part1.Quantifiers.*` | <span class="badge badge-pass">Direct port</span> | Retained `EvenSigma` (`some`) + both directions of parity witnesses checked |
 | [Decidable](/Decidable/) | `¬`, `Dec` + `decNot`/`And`/`Or`/`Imp`/`Iff`, `_≟_`, `_≤?_`, `_<?_`, `decEven`/`decOdd`, `decEqBin`/`decOne`/`decCan`, `Reflects`, `reflectsToDec`, `SizeWitness`, **`plusExists`** | `PLFH.Part1.Decidable.*` | <span class="badge badge-pass">Direct port</span> | Inline `foreach ... -> some ...` (`plusExists`) checked |
@@ -47,17 +46,18 @@ the current experimental Dependent Haskell compiler
 | [Adequacy](/Adequacy/) | `AboveFun`, **`notAboveFunBot`**, **`aboveFunJoin`**, **`decAboveFun`**, `WHNF`, `HaltsV`, **`LogE`/`LogVLam`**, `notAboveFunLogV`, **`haltsVJoin`**, **`subLogVLam`**, **`subLogE`**, **`fundamental`**, **unconditional `adequacyBigStep`**, **`adequacyIdApp`** | `PLFH.Part3.Adequacy.*` | <span class="badge badge-pass">Direct port</span> | 100% unconditional Big-Step Adequacy (`adequacyBigStep`) via `BigStep.evalDeterm`, executing at runtime on `id · id` |
 | [ContextualEquivalence](/ContextualEquivalence/) | `Terminates`, `denotEqualTerminates`, `denotEqualCtxEquiv`, **`denotEqualCtxEquivFromSoundness`** | `PLFH.Part3.ContextualEquivalence.*` | <span class="badge badge-pass">Direct port</span> | Instantiates `SoundnessProp` unconditionally via `Soundness.denotEquivSteps` (parameterized only by small-step `AdequacyProp`) |
 
-## Negative Controls (5 Verified Rejections)
+## Negative Controls (6 Verified Rejections)
 
 | Control File | Claimed Falsehood | Expected Diagnostic |
 | --- | --- | --- |
-| `hs/negative/NegZeroSucc.hs` | `'Zero :~: 'Succ 'Zero` | `GHC-83865` |
-| `hs/negative/NegOneLeZero.hs` | `LE ('Succ 'Zero) 'Zero` | `GHC-83865` |
-| `hs/negative/NegIllTypedApp.hs` | `HasType 'CEmpty ('App 'TZero 'TZero) 'TNat` | `GHC-83865` |
-| `hs/negative/NegBetaMuTarget.hs` | `Step ('TMu 'Zero 'TZero) ('TCase ...)` (bogus β-target) | `GHC-83865` |
-| `hs/negative/NegBadBetaStep.hs` | `BetaStep ('UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
+| `hs/negative/NegZeroSucc.hs` | `Zero :~: Succ Zero` | `GHC-83865` |
+| `hs/negative/NegOneLeZero.hs` | `LE 1 0` | `GHC-83865` |
+| `hs/negative/NegBinReverseRoundTrip.hs` | `toBin (fromBin Nil) :~: Nil` | `GHC-83865` |
+| `hs/negative/NegIllTypedApp.hs` | `HasType CEmpty (App TZero TZero) TNat` | `GHC-83865` |
+| `hs/negative/NegBetaMuTarget.hs` | `Step (TMu Zero TZero) (TCase ...)` (bogus β-target) | `GHC-83865` |
+| `hs/negative/NegBadBetaStep.hs` | `BetaStep (UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
 
-## Open Minimal Compiler-Gap Reproducers (15 Tracked)
+## Open Minimal Compiler-Gap Reproducers (17 Tracked)
 
 Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers) and is mirrored to `docs/dependent-haskell/plfh/reproducers/` in `Tritlo/ghc`:
 
@@ -65,9 +65,12 @@ Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLF
 | --- | --- | --- | --- |
 | `R11_ExistentialNestedGadtCoreLint.hs` | R11 / Core Lint bug | **Core Lint error!** (Desugar) | Inline `MkBox (IES ie)` inside `SLam`/`DIntro` branch hits `R11 mixed-kind coercion binder: 'VCons ... ~# 'VCons ...` (top-level helper `unboxCtrl` passes) |
 | `R13_SameModuleRightFirstOpenEq.hs` | R13 / R16 | `GHC-68947` | Right-first `pow` and two-column `monus` work cross-module (`reproducers/fixed/R13_{Pow,Monus}OpenEq.hs`) yet fail with `No checked equations are available` inside their defining module (while left-first `times` passes in-module) |
-| `R03_NestedDatatypeForEach.hs` | R03 | `GHC-83865` & `GHC-83605` | Non-uniform nested datatype `UTerm n` (`ULam :: UTerm ('Succ n) -> UTerm n`, uniform return `UTerm n`) fails both `case m of` (`GHC-83865`) and equation-style `foreach` (`GHC-83605`), unlike index-refining GADTs (`DeBruijn.Term`) |
+| `R03_NestedDatatypeForEach.hs` | R03 | `GHC-83865` & `GHC-83605` | Non-uniform nested datatype `UTerm n` (`ULam :: UTerm (Succ n) -> UTerm n`, uniform return `UTerm n`) fails both `case m of` (`GHC-83865`) and equation-style `foreach` (`GHC-83605`), unlike index-refining GADTs (`DeBruijn.Term`) |
 | `R23_MatchabilityPolyCong.hs` | R23 / R03 / `RequiredTypeArguments` | `GHC-83865` & `GHC-70565` | Invisible `cong @Succ`/`cong @(plus m)` passes with `{m :: Matchability}`, while visible `RequiredTypeArguments` `cong Succ (plusAssoc m n p)` fails with untouchable `y0` under retained application (`GHC-83865`) and `cong (plus m)` fails `GHC-70565` |
-| `R03_ForEachGadtEqTypeFamily.hs` | R03 / Typechecker bug | `GHC-05617` | Given GADT equality (`u :~: v`, `u :~: 'Zero`) under retained `foreach` fails to rewrite closed type family `F u` (erased `forall` passes) |
+| `R13_PolymorphicIsoIdentity.hs` | R13 / R16 | `GHC-70565` | Generic `isoRefl :: Iso a a` requires reducing `id (id x) :~: x`, which fails because polymorphic `id` has no checked open equation |
+| `R04_ComposedIsoFields.hs` | R04 | `GHC-83865` | Generic `isoTrans :: Iso a b -> Iso b c -> Iso a c` needs local composite functions `to x = h (f x)` / `from y = g (k y)` in `MkIso`, but nested-call proofs do not reduce to opaque local names |
+| `R13_PolymorphicSwapOpenEq.hs` | R13 / R16 | `GHC-68947` | Simple non-recursive swap functions on parameterized datatypes (`Either`, `(,)`, `Pair a b`) have no checked type-level open equations (even monomorphized), blocking polymorphic `Iso` laws in `Connectives` |
+| `R03_ForEachGadtEqTypeFamily.hs` | R03 / Typechecker bug | `GHC-05617` | Given GADT equality (`u :~: v`, `u :~: Zero`) under retained `foreach` fails to rewrite closed type family `F u` (erased `forall` passes) |
 | `R13_ShuntAccumOpenEq.hs` | R13 / R16 | `GHC-83605` (`-O2` only) | Passes `-O0` and `-O2 -fno-enable-rewrite-rules` (checked in `Lists`), blocked at default `-O2` by Prelude `(++)` rewrite-rule guard |
 | `R13_WildcardBreaksOpenEq.hs` | R13 / R16 | `GHC-70565` | `timesWild Zero _ = Zero` fails open evaluation while `timesNamed Zero n = Zero` succeeds |
 | `R13_RevOpenEq.hs` | R13 / R16 | `GHC-70565` | Naive quadratic `rev (x:xs) = app (rev xs) [x]` fails open evaluation |
@@ -76,5 +79,4 @@ Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLF
 | `R03_SecondColumnPattern.hs` | R03 | `GHC-83605` | Constructor equations cannot split a non-leading retained argument |
 | `R03_FunctionColumnSplit.hs` | R03 | `GHC-83605` | Multi-equation constructor split after a retained function binder rejected |
 | `R03_FoldrRetainedIndex.hs` | R03 | `GHC-83605` | `foldrL plus Zero xs` rejected as a retained runtime argument |
-| `R04_PolyFunctionFieldInIso.hs` | R03 / R04 | `GHC-83605` | Polymorphic `foreach (to :: a -> b)` rejected in `Iso` constructor |
 | `R23_MatchabilityInLeibniz.hs` | R23 | `GHC-83865` | Matchable `EqP x :: a -> Type` cannot instantiate `a %U -> Type` directly |

@@ -1,8 +1,9 @@
 -- Generated from content/part1/Relations.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
-{-# LINE 12 "content/part1/Relations.md" #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LINE 28 "content/part1/Relations.md" #-}
 module PLFH.Part1.Relations
   ( LE (..)
   , twoLeFour
@@ -49,50 +50,55 @@ module PLFH.Part1.Relations
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import HaskLib (rewrite)
-import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc, plusZero)
+import HaskLib.Nat (Nat (..), plus, plusSucc, plusZero)
+import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, toBin)
 
-{-# LINE 86 "content/part1/Relations.md" #-}
+{-# LINE 109 "content/part1/Relations.md" #-}
 -- | Evidence that one natural number is less than or equal to another.
 data LE (m :: Nat) (n :: Nat) where
-  ZleN :: LE 'Zero n
-  SleS :: LE m n -> LE ('Succ m) ('Succ n)
+  ZleN :: LE Zero n
+  SleS :: LE m n -> LE (Succ m) (Succ n)
 
--- | Concrete evidence that 2 <= 4 (using decimal literals for fixed numbers!).
+{-# LINE 126 "content/part1/Relations.md" #-}
+-- | Concrete evidence that 2 <= 4 (using decimal literals for fixed numbers).
 twoLeFour :: LE 2 4
 twoLeFour = SleS (SleS ZleN)
 
-{-# LINE 102 "content/part1/Relations.md" #-}
+{-# LINE 148 "content/part1/Relations.md" #-}
 -- | Inversion on successor inequality: if Succ m <= Succ n then m <= n.
-invSleS :: LE ('Succ m) ('Succ n) -> LE m n
+invSleS :: LE (Succ m) (Succ n) -> LE m n
 invSleS (SleS p) = p
 
 -- | Inversion on zero upper bound: if m <= Zero then m = Zero.
-invZleN :: LE m 'Zero -> m :~: 'Zero
+invZleN :: LE m Zero -> m :~: Zero
 invZleN ZleN = Refl
 
-{-# LINE 121 "content/part1/Relations.md" #-}
+{-# LINE 187 "content/part1/Relations.md" #-}
 -- | Reflexivity: n <= n for every finite n.
 leRefl :: foreach (n :: Nat) -> LE n n
 leRefl Zero     = ZleN
 leRefl (Succ n) = SleS (leRefl n)
 
+{-# LINE 200 "content/part1/Relations.md" #-}
 -- | Transitivity: if m <= n and n <= p then m <= p.
 leTrans :: LE m n -> LE n p -> LE m p
 leTrans ZleN     _        = ZleN
 leTrans (SleS p) (SleS q) = SleS (leTrans p q)
 
+{-# LINE 217 "content/part1/Relations.md" #-}
 -- | Antisymmetry: if m <= n and n <= m then m = n.
 leAntisym :: LE m n -> LE n m -> m :~: n
 leAntisym ZleN     ZleN     = Refl
-leAntisym (SleS p) (SleS q) = congSucc (leAntisym p q)
+leAntisym (SleS p) (SleS q) = cong @Succ (leAntisym p q)
 
-{-# LINE 142 "content/part1/Relations.md" #-}
+{-# LINE 235 "content/part1/Relations.md" #-}
 -- | Evidence that either m <= n or n <= m.
 data Total (m :: Nat) (n :: Nat) where
   Forward :: LE m n -> Total m n
   Flipped :: LE n m -> Total m n
 
+{-# LINE 247 "content/part1/Relations.md" #-}
 -- | Ordering on naturals is total.
 leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
 leTotal Zero     _ = Forward ZleN
@@ -102,12 +108,13 @@ leTotal (Succ m) n = case n of
     Forward p -> Forward (SleS p)
     Flipped p -> Flipped (SleS p)
 
-{-# LINE 164 "content/part1/Relations.md" #-}
+{-# LINE 273 "content/part1/Relations.md" #-}
 -- | Right monotonicity: if p <= q then n + p <= n + q.
 plusMonoR :: foreach (n :: Nat) -> LE p q -> LE (plus n p) (plus n q)
 plusMonoR Zero     pq = pq
 plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 
+{-# LINE 284 "content/part1/Relations.md" #-}
 -- | Left monotonicity: if m <= n then m + p <= n + p.
 plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
@@ -116,23 +123,26 @@ plusMonoL m n p mn = case p of
   Succ p' -> rewrite (plusSucc m p')
                (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
 
+{-# LINE 297 "content/part1/Relations.md" #-}
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
 plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> foreach (p :: Nat) -> foreach (q :: Nat)
          -> LE m n -> LE p q -> LE (plus m p) (plus n q)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 
-{-# LINE 190 "content/part1/Relations.md" #-}
+{-# LINE 319 "content/part1/Relations.md" #-}
 -- | Strict inequality on natural numbers.
 data LT' (m :: Nat) (n :: Nat) where
-  ZltS :: LT' 'Zero ('Succ n)
-  SltS :: LT' m n -> LT' ('Succ m) ('Succ n)
+  ZltS :: LT' Zero (Succ n)
+  SltS :: LT' m n -> LT' (Succ m) (Succ n)
 
+{-# LINE 329 "content/part1/Relations.md" #-}
 -- | Strict inequality is transitive.
 ltTrans :: LT' m n -> LT' n p -> LT' m p
 ltTrans ZltS     (SltS _) = ZltS
 ltTrans (SltS p) (SltS q) = SltS (ltTrans p q)
 
+{-# LINE 339 "content/part1/Relations.md" #-}
 -- | Trichotomy witness: m < n, m = n, or n < m.
 data Trichotomy (m :: Nat) (n :: Nat) where
   TriLT :: LT' m n -> Trichotomy m n
@@ -148,55 +158,17 @@ ltTrichotomy (Succ m) n = case n of
   Zero    -> TriGT ZltS
   Succ n' -> case ltTrichotomy m n' of
     TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (congSucc eq)
+    TriEQ eq -> TriEQ (cong @Succ eq)
     TriGT p  -> TriGT (SltS p)
 
-{-# LINE 225 "content/part1/Relations.md" #-}
--- | Mutually inductive parity predicates on Nat.
-data Even (n :: Nat) where
-  EvenZ :: Even 'Zero
-  EvenS :: Odd n -> Even ('Succ n)
-
-data Odd (n :: Nat) where
-  OddS :: Even n -> Odd ('Succ n)
-
--- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`!).
-evenPlusEven :: Even m -> Even n -> Even (plus m n)
-evenPlusEven EvenZ      en = en
-evenPlusEven (EvenS om) en = EvenS (oddPlusEven om en)
-
--- | Odd + Even = Odd.
-oddPlusEven :: Odd m -> Even n -> Odd (plus m n)
-oddPlusEven (OddS em) en = OddS (evenPlusEven em en)
-
--- | Even + Odd = Odd.
-evenPlusOdd :: Even m -> Odd n -> Odd (plus m n)
-evenPlusOdd EvenZ      on = on
-evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
-
--- | Odd + Odd = Even.
-oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
-oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
-
--- | Every natural number is either even or odd.
-evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
-evenOrOdd Zero     = Left EvenZ
-evenOrOdd (Succ n) = case evenOrOdd n of
-  Left  ev -> Right (OddS ev)
-  Right od -> Left  (EvenS od)
-
--- | No natural number is both even and odd.
-notBothEvenOdd :: Even n -> Odd n -> Void
-notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
-
-{-# LINE 270 "content/part1/Relations.md" #-}
+{-# LINE 365 "content/part1/Relations.md" #-}
 -- | Strict inequality implies shifted non-strict inequality: m < n -> Succ m <= n.
-ltToLe :: LT' m n -> LE ('Succ m) n
+ltToLe :: LT' m n -> LE (Succ m) n
 ltToLe ZltS     = SleS ZleN
 ltToLe (SltS p) = SleS (ltToLe p)
 
 -- | Shifted non-strict inequality implies strict inequality: Succ m <= n -> m < n.
-leToLt :: LE ('Succ m) n -> LT' m n
+leToLt :: LE (Succ m) n -> LT' m n
 leToLt (SleS ZleN)     = ZltS
 leToLt (SleS (SleS p)) = SltS (leToLt (SleS p))
 
@@ -219,18 +191,59 @@ diffToLe :: foreach (m :: Nat) -> foreach (k :: Nat) -> LE m (plus m k)
 diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 
-{-# LINE 308 "content/part1/Relations.md" #-}
+{-# LINE 411 "content/part1/Relations.md" #-}
+-- | Mutually inductive parity predicates on Nat.
+data Even (n :: Nat) where
+  EvenZ :: Even Zero
+  EvenS :: Odd n -> Even (Succ n)
+
+data Odd (n :: Nat) where
+  OddS :: Even n -> Odd (Succ n)
+
+{-# LINE 427 "content/part1/Relations.md" #-}
+-- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`).
+evenPlusEven :: Even m -> Even n -> Even (plus m n)
+evenPlusEven EvenZ      en = en
+evenPlusEven (EvenS om) en = EvenS (oddPlusEven om en)
+
+-- | Odd + Even = Odd.
+oddPlusEven :: Odd m -> Even n -> Odd (plus m n)
+oddPlusEven (OddS em) en = OddS (evenPlusEven em en)
+
+-- | Even + Odd = Odd.
+evenPlusOdd :: Even m -> Odd n -> Odd (plus m n)
+evenPlusOdd EvenZ      on = on
+evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
+
+-- | Odd + Odd = Even.
+oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
+oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
+
+{-# LINE 450 "content/part1/Relations.md" #-}
+-- | Every natural number is either even or odd.
+evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
+evenOrOdd Zero     = Left EvenZ
+evenOrOdd (Succ n) = case evenOrOdd n of
+  Left  ev -> Right (OddS ev)
+  Right od -> Left  (EvenS od)
+
+-- | No natural number is both even and odd.
+notBothEvenOdd :: Even n -> Odd n -> Void
+notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
+
+{-# LINE 481 "content/part1/Relations.md" #-}
 -- | Evidence that a binary number is positive and has no leading zero bits.
 data One (b :: Bin) where
-  OneX1  :: One ('X1 'Nil)
-  OneX0  :: One b -> One ('X0 b)
-  OneX1' :: One b -> One ('X1 b)
+  OneX1  :: One (X1 Nil)
+  OneX0  :: One b -> One (X0 b)
+  OneX1' :: One b -> One (X1 b)
 
 -- | Evidence that a binary number is in canonical form (unique per natural).
 data Can (b :: Bin) where
-  CanZ   :: Can ('X0 'Nil)
+  CanZ   :: Can (X0 Nil)
   CanOne :: One b -> Can b
 
+{-# LINE 497 "content/part1/Relations.md" #-}
 -- | Incrementing a positive canonical binary number stays positive canonical.
 incOne :: foreach (b :: Bin) -> One b -> One (inc b)
 incOne Nil    p = case p of {}
@@ -259,9 +272,10 @@ toBinCan :: foreach (n :: Nat) -> Can (toBin n)
 toBinCan Zero     = CanZ
 toBinCan (Succ n) = incCan (toBin n) (toBinCan n)
 
+{-# LINE 533 "content/part1/Relations.md" #-}
 -- | Witness that a natural number is strictly positive (`n = Succ k`).
 data PosNat (n :: Nat) where
-  MkPos :: foreach (k :: Nat) -> n :~: 'Succ k -> PosNat n
+  MkPos :: foreach (k :: Nat) -> n :~: Succ k -> PosNat n
 
 -- | Every `One` bitstring represents a strictly positive natural number.
 onePos :: foreach (b :: Bin) -> One b -> PosNat (fromBin b)
@@ -275,22 +289,22 @@ onePos (X1 b) _ = case b of
   X1 b' -> MkPos (plus (fromBin (X1 b')) (fromBin (X1 b'))) Refl
 
 -- | Doubling a positive natural shifts its binary representation left by one zero bit.
-toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus ('Succ n) ('Succ n)) :~: 'X0 (toBin ('Succ n))
+toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus (Succ n) (Succ n)) :~: X0 (toBin (Succ n))
 toBinDoubleSucc Zero     = Refl
 toBinDoubleSucc (Succ k) =
   rewrite (plusSucc (Succ k) (Succ k))
     (rewrite (toBinDoubleSucc k) Refl)
 
-toFromDoubleOne :: foreach (b :: Bin) -> One b -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+toFromDoubleOne :: foreach (b :: Bin) -> One b -> toBin (plus (fromBin b) (fromBin b)) :~: X0 b
 toFromDoubleOne b o =
   let ih = toFromOne b o
   in case onePos b o of
     MkPos k eq -> go (toBinDoubleSucc k) eq ih
   where
-    go :: toBin (plus ('Succ k) ('Succ k)) :~: 'X0 (toBin ('Succ k))
-       -> fromBin b :~: 'Succ k
+    go :: toBin (plus (Succ k) (Succ k)) :~: X0 (toBin (Succ k))
+       -> fromBin b :~: Succ k
        -> toBin (fromBin b) :~: b
-       -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+       -> toBin (plus (fromBin b) (fromBin b)) :~: X0 b
     go dbl Refl Refl = dbl
 
 -- | Round-trip law for positive canonical bitstrings: `toBin (fromBin b) = b`.
@@ -303,15 +317,12 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> congInc (toFromDoubleOne (X0 b') o')
+    OneX1' o' -> cong @inc (toFromDoubleOne (X0 b') o')
   X1 b' -> case o of
-    OneX1' o' -> congInc (toFromDoubleOne (X1 b') o')
-  where
-    congInc :: x :~: y -> inc x :~: inc y
-    congInc Refl = Refl
+    OneX1' o' -> cong @inc (toFromDoubleOne (X1 b') o')
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
--- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection!
+-- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
 toFromCan :: foreach (b :: Bin) -> Can b -> toBin (fromBin b) :~: b
 toFromCan Nil    c = case c of
   CanOne o -> case o of {}

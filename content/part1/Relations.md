@@ -7,8 +7,24 @@ module: PLFH.Part1.Relations
 plfaChapter: https://plfa.inf.ed.ac.uk/Relations/
 ---
 
+After defining operations on the naturals and proving properties of them
+by induction, we now turn to **inductive relations**: indexed families of
+types whose constructors represent inference rules.
+
+In Agda, indexed datatypes are written `data _≤_ : ℕ → ℕ → Set where ...`.
+In Dependent Haskell, the exact same concept is expressed with a GADT
+indexed by promoted values of kind `Nat`.
+
+## Imports
+
+We import propositional equality, `Void` (for negation in `notBothEvenOdd`),
+`rewrite` from `HaskLib`, `Nat` and addition lemmas from `HaskLib.Nat`,
+matchability-polymorphic `cong` from [Induction](/Induction/), and binary
+numerals from [Naturals](/Naturals/).
+
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 module PLFH.Part1.Relations
   ( LE (..)
   , twoLeFour
@@ -55,95 +71,179 @@ module PLFH.Part1.Relations
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import HaskLib (rewrite)
-import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc, plusZero)
+import HaskLib.Nat (Nat (..), plus, plusSucc, plusZero)
+import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, toBin)
 ```
 
-After defining operations on the naturals and proving properties of them
-by induction, we now turn to **inductive relations**: indexed families of
-types whose constructors represent inference rules.
+## Defining relations
 
-In Agda, indexed datatypes are written `data _≤_ : ℕ → ℕ → Set where ...`.
-In Dependent Haskell, the exact same concept is expressed with a GADT
-indexed by promoted values of kind `Nat`.
+The relation we define first is comparison between natural numbers: `m ≤ n`.
+Just as `Nat` was defined inductively by a base case and an inductive step,
+an inductive relation is defined by **inference rules**:
 
-## Defining less-than-or-equal (`_≤_`)
+- **Base case:** for all naturals `n`, zero is less than or equal to `n`.
+- **Inductive case:** for all naturals `m` and `n`, if `m` is less than or
+  equal to `n`, then `Succ m` is less than or equal to `Succ n`.
 
-We specify the relation `m ≤ n` with two inference rules:
+We can write these two rules in natural-deduction notation:
 
 <div class="inference-rule">
   <div class="premises">&nbsp;</div>
-  <div class="conclusion">ZleN :: LE 'Zero n</div>
+  <div class="conclusion">ZleN :: LE Zero n</div>
 </div>
 <div class="inference-rule">
   <div class="premises">LE m n</div>
-  <div class="conclusion">SleS :: LE ('Succ m) ('Succ n)</div>
+  <div class="conclusion">SleS :: LE (Succ m) (Succ n)</div>
 </div>
 
-In Dependent Haskell:
+The base case has no premises above the horizontal line, so it is an axiom;
+the inductive case takes a derivation of `LE m n` above the line and
+produces a derivation of `LE (Succ m) (Succ n)` below it.
+
+These rules correspond directly to a GADT in Dependent Haskell. Under
+`-XDataKinds`, the constructors `Zero` and `Succ` can be written directly at
+the type level without any leading tick:
 
 ```haskell
 -- | Evidence that one natural number is less than or equal to another.
 data LE (m :: Nat) (n :: Nat) where
-  ZleN :: LE 'Zero n
-  SleS :: LE m n -> LE ('Succ m) ('Succ n)
+  ZleN :: LE Zero n
+  SleS :: LE m n -> LE (Succ m) (Succ n)
+```
 
--- | Concrete evidence that 2 <= 4 (using decimal literals for fixed numbers!).
+Notice the difference between `Nat` and `LE`: `Nat` is a single type, whereas
+`LE` is an **indexed family of types**—one type `LE m n` for each pair of
+natural numbers `m` and `n`. Some of these types are inhabited (`LE 2 4`),
+while others are empty (`LE 4 2` or `LE 1 0`). A value of type `LE m n` is
+**evidence** (a proof tree) that `m ≤ n`.
+
+For example, here is a proof that `2 ≤ 4`. Reading from the inside out, we
+start with `ZleN :: LE 0 2`, apply `SleS` to obtain `LE 1 3`, and apply
+`SleS` once more to obtain `LE 2 4`:
+
+```haskell
+-- | Concrete evidence that 2 <= 4 (using decimal literals for fixed numbers).
 twoLeFour :: LE 2 4
 twoLeFour = SleS (SleS ZleN)
 ```
 
+### Implicit arguments
+
+In `ZleN :: LE Zero n` and `SleS :: LE m n -> LE (Succ m) (Succ n)`, the
+type variables `m` and `n` are implicitly universally quantified and inferred
+automatically by GHC—matching Agda's curly-brace implicit arguments `{m n : ℕ}`.
+Whenever GHC cannot infer an index on its own, or when we wish to spell out
+the instantiation explicitly, we can pass it with `@` using `-XTypeApplications`.
+
 ## Inversion
 
-Because `SleS` is the only constructor that can produce `LE ('Succ m) ('Succ n)`,
-pattern matching inverts the rule cleanly:
+In our definition of `LE`, the only way to prove `Succ m ≤ Succ n` is to
+apply `SleS` to a proof of `m ≤ n`. Therefore, given evidence of
+`LE (Succ m) (Succ n)`, we can **invert** the rule by pattern matching to
+recover evidence of `LE m n`. Likewise, the only constructor capable of
+producing `LE m Zero` is `ZleN`, which forces `m` to be `Zero`:
 
 ```haskell
 -- | Inversion on successor inequality: if Succ m <= Succ n then m <= n.
-invSleS :: LE ('Succ m) ('Succ n) -> LE m n
+invSleS :: LE (Succ m) (Succ n) -> LE m n
 invSleS (SleS p) = p
 
 -- | Inversion on zero upper bound: if m <= Zero then m = Zero.
-invZleN :: LE m 'Zero -> m :~: 'Zero
+invZleN :: LE m Zero -> m :~: Zero
 invZleN ZleN = Refl
 ```
 
+Because `ZleN` cannot have type `LE (Succ m) (Succ n)` and `SleS` cannot have
+type `LE m Zero`, GHC knows that both one-clause definitions are completely
+exhaustive without needing an absurd branch.
+
 ## Properties of ordering relations
 
-### Reflexivity, transitivity, and antisymmetry
+What properties do we expect a relation like `≤` to satisfy? Mathematicians
+classify binary relations using standard structural properties:
 
-Reflexivity needs the runtime natural `n` to construct `n` layers of `SleS`,
-so its signature uses `foreach (n :: Nat) -> LE n n`. Transitivity and
-antisymmetry recurse directly on the `LE` derivations and do not even need
-retained `Nat` arguments!
+- **Reflexive:** for all `n`, `n ≤ n`.
+- **Transitive:** for all `m`, `n`, and `p`, if `m ≤ n` and `n ≤ p`, then `m ≤ p`.
+- **Anti-symmetric:** for all `m` and `n`, if `m ≤ n` and `n ≤ m`, then `m = n`.
+- **Total:** for all `m` and `n`, either `m ≤ n` or `n ≤ m`.
+
+These properties combine into familiar families of orderings:
+
+- A **preorder** is reflexive and transitive.
+- A **partial order** is a preorder that is also anti-symmetric.
+- A **total order** is a partial order that is also total.
+
+(As PLFA notes: *"If you ever bump into a mathematician at a party, you now
+have a ready supply of small talk."*)
+
+### Reflexivity
+
+Reflexivity must build `n` layers of `SleS` wrapped around `ZleN`. Because
+the proof structure depends on the runtime value of `n`, the argument `n` is
+retained with `foreach (n :: Nat) ->`:
 
 ```haskell
 -- | Reflexivity: n <= n for every finite n.
 leRefl :: foreach (n :: Nat) -> LE n n
 leRefl Zero     = ZleN
 leRefl (Succ n) = SleS (leRefl n)
+```
 
+### Transitivity
+
+Transitivity does *not* need retained `Nat` arguments at all: we induct
+directly on the proof `LE m n` (and in the inductive step, simultaneously on
+`LE n p`):
+
+```haskell
 -- | Transitivity: if m <= n and n <= p then m <= p.
 leTrans :: LE m n -> LE n p -> LE m p
 leTrans ZleN     _        = ZleN
 leTrans (SleS p) (SleS q) = SleS (leTrans p q)
+```
 
+Why is there no clause for `leTrans (SleS p) ZleN`? The first argument
+`SleS p` refines the middle index `n` to `Succ n'`, while `ZleN` requires
+that same index `n` to be `Zero`. Since `Succ n'` and `Zero` cannot unify,
+GHC statically rules out that case as impossible.
+
+### Anti-symmetry
+
+Anti-symmetry likewise inducts directly on the two inequality derivations,
+using unified `cong @Succ` from [Induction](/Induction/) in the inductive step:
+
+```haskell
 -- | Antisymmetry: if m <= n and n <= m then m = n.
 leAntisym :: LE m n -> LE n m -> m :~: n
 leAntisym ZleN     ZleN     = Refl
-leAntisym (SleS p) (SleS q) = congSucc (leAntisym p q)
+leAntisym (SleS p) (SleS q) = cong @Succ (leAntisym p q)
 ```
+
+#### Exercise `invZleN` and impossible cases (practice)
+
+Why did `leAntisym` omit the clauses `leAntisym ZleN (SleS q)` and
+`leAntisym (SleS p) ZleN`? Check that adding either clause would be rejected
+as unreachable because `Zero` and `Succ k` are distinct constructors.
 
 ### Totality
 
-For any two finite natural numbers `m` and `n`, either `m ≤ n` or `n ≤ m`:
+To state that `≤` is **total**, we define a datatype `Total m n` holding
+either evidence that `m ≤ n` (`Forward`) or evidence that `n ≤ m` (`Flipped`):
 
 ```haskell
 -- | Evidence that either m <= n or n <= m.
 data Total (m :: Nat) (n :: Nat) where
   Forward :: LE m n -> Total m n
   Flipped :: LE n m -> Total m n
+```
 
+In PLFA, the recursive call inside `≤-total (suc m) (suc n)` uses Agda's
+`with` abstraction to inspect the result of `≤-total m n`. In Haskell,
+ordinary `case ... of` expressions perform the exact same inspection (and we
+likewise inspect the second retained argument `n` with `case n of`):
+
+```haskell
 -- | Ordering on naturals is total.
 leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
 leTotal Zero     _ = Forward ZleN
@@ -154,18 +254,33 @@ leTotal (Succ m) n = case n of
     Flipped p -> Flipped (SleS p)
 ```
 
-## Monotonicity of addition (`+-mono-≤`)
+Notice that when `m = n = 0`, both `Forward ZleN` and `Flipped ZleN` are
+valid values of `Total 0 0`; our first clause picks `Forward ZleN`.
 
-Addition is monotonic with respect to `LE` on both sides—notice how `plusMonoR`
-and `plusMonoL` use `HaskLib`'s ordinary `plus`, `plusZero`, `plusSucc`, and
-`rewrite` with the exact same hypotheses as PLFA!
+## Monotonicity
+
+If one operation preserves an ordering relation, we say it is **monotonic**
+with respect to that ordering. For addition on natural numbers:
+
+- If `p ≤ q`, then `n + p ≤ n + q` (right monotonicity, `plusMonoR`).
+- If `m ≤ n`, then `m + p ≤ n + p` (left monotonicity, `plusMonoL`).
+- If `m ≤ n` and `p ≤ q`, then `m + p ≤ n + q` (combined monotonicity, `plusMono`).
+
+Right monotonicity is a direct induction on `n` because `plus` recurses on
+its first argument:
 
 ```haskell
 -- | Right monotonicity: if p <= q then n + p <= n + q.
 plusMonoR :: foreach (n :: Nat) -> LE p q -> LE (plus n p) (plus n q)
 plusMonoR Zero     pq = pq
 plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
+```
 
+Left monotonicity inducts on `p`, using `plusZero`, `plusSucc`, and `rewrite`
+from `HaskLib` to move the constructors out from the right operand (just as
+PLFA proves `+-monoˡ-≤` either via commutativity or directly by induction):
+
+```haskell
 -- | Left monotonicity: if m <= n then m + p <= n + p.
 plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
@@ -173,7 +288,12 @@ plusMonoL m n p mn = case p of
   Zero    -> rewrite (plusZero m) (rewrite (plusZero n) mn)
   Succ p' -> rewrite (plusSucc m p')
                (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
+```
 
+Combining left and right monotonicity with `leTrans` yields full monotonicity
+of addition in one line:
+
+```haskell
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
 plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> foreach (p :: Nat) -> foreach (q :: Nat)
@@ -181,22 +301,41 @@ plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 ```
 
-## Strict inequality (`_<_`) and Trichotomy
+#### Exercise `*-mono-≤` (recommended)
 
-PLFA defines strict inequality `_<_` as an exercise and asks for transitivity
-and trichotomy (`m < n`, `m ≡ n`, or `n < m`):
+Show that multiplication is monotonic with regard to inequality: if `m ≤ n`
+and `p ≤ q`, then `times m p ≤ times n q`.
+
+## Strict inequality
+
+Just as we defined non-strict inequality `LE`, we can define **strict
+inequality** `LT' m n` (`m < n`) inductively (named `LT'` so it does not clash
+with `Prelude.LT`):
+
+- **Base case:** `Zero < Succ n` for every `n`.
+- **Inductive case:** if `m < n`, then `Succ m < Succ n`.
 
 ```haskell
 -- | Strict inequality on natural numbers.
 data LT' (m :: Nat) (n :: Nat) where
-  ZltS :: LT' 'Zero ('Succ n)
-  SltS :: LT' m n -> LT' ('Succ m) ('Succ n)
+  ZltS :: LT' Zero (Succ n)
+  SltS :: LT' m n -> LT' (Succ m) (Succ n)
+```
 
+Strict inequality is **transitive** (a *strict partial order*, since it is
+also irreflexive—which we prove in [Negation](/Negation/)):
+
+```haskell
 -- | Strict inequality is transitive.
 ltTrans :: LT' m n -> LT' n p -> LT' m p
 ltTrans ZltS     (SltS _) = ZltS
 ltTrans (SltS p) (SltS q) = SltS (ltTrans p q)
+```
 
+And every pair of natural numbers satisfies **trichotomy**: either `m < n`,
+or `m = n`, or `n < m`:
+
+```haskell
 -- | Trichotomy witness: m < n, m = n, or n < m.
 data Trichotomy (m :: Nat) (n :: Nat) where
   TriLT :: LT' m n -> Trichotomy m n
@@ -212,68 +351,24 @@ ltTrichotomy (Succ m) n = case n of
   Zero    -> TriGT ZltS
   Succ n' -> case ltTrichotomy m n' of
     TriLT p  -> TriLT (SltS p)
-    TriEQ eq -> TriEQ (congSucc eq)
+    TriEQ eq -> TriEQ (cong @Succ eq)
     TriGT p  -> TriGT (SltS p)
 ```
 
-## Even and Odd (mutually inductive relations)
+### Relating `<`, `≤`, and addition
 
-PLFA illustrates mutually recursive inductive relations with `even` and `odd`,
-and proves that the sum of two even numbers is even (mutually with odd + even):
-
-```haskell
--- | Mutually inductive parity predicates on Nat.
-data Even (n :: Nat) where
-  EvenZ :: Even 'Zero
-  EvenS :: Odd n -> Even ('Succ n)
-
-data Odd (n :: Nat) where
-  OddS :: Even n -> Odd ('Succ n)
-
--- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`!).
-evenPlusEven :: Even m -> Even n -> Even (plus m n)
-evenPlusEven EvenZ      en = en
-evenPlusEven (EvenS om) en = EvenS (oddPlusEven om en)
-
--- | Odd + Even = Odd.
-oddPlusEven :: Odd m -> Even n -> Odd (plus m n)
-oddPlusEven (OddS em) en = OddS (evenPlusEven em en)
-
--- | Even + Odd = Odd.
-evenPlusOdd :: Even m -> Odd n -> Odd (plus m n)
-evenPlusOdd EvenZ      on = on
-evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
-
--- | Odd + Odd = Even.
-oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
-oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
-
--- | Every natural number is either even or odd.
-evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
-evenOrOdd Zero     = Left EvenZ
-evenOrOdd (Succ n) = case evenOrOdd n of
-  Left  ev -> Right (OddS ev)
-  Right od -> Left  (EvenS od)
-
--- | No natural number is both even and odd.
-notBothEvenOdd :: Even n -> Odd n -> Void
-notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
-```
-
-## Relating `<`, `≤`, and addition
-
-We can convert directly between strict inequality (`LT' m n`) and shifted
-non-strict inequality (`LE ('Succ m) n`), and show that `m ≤ n` holds if and
-only if there exists a difference `k` with `m + k = n`:
+Strict inequality `m < n` is equivalent to `Succ m ≤ n`, and non-strict
+inequality `m ≤ n` holds if and only if there exists a natural number `k`
+such that `m + k = n`:
 
 ```haskell
 -- | Strict inequality implies shifted non-strict inequality: m < n -> Succ m <= n.
-ltToLe :: LT' m n -> LE ('Succ m) n
+ltToLe :: LT' m n -> LE (Succ m) n
 ltToLe ZltS     = SleS ZleN
 ltToLe (SltS p) = SleS (ltToLe p)
 
 -- | Shifted non-strict inequality implies strict inequality: Succ m <= n -> m < n.
-leToLt :: LE ('Succ m) n -> LT' m n
+leToLt :: LE (Succ m) n -> LT' m n
 leToLt (SleS ZleN)     = ZltS
 leToLt (SleS (SleS p)) = SltS (leToLt (SleS p))
 
@@ -297,25 +392,108 @@ diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 ```
 
-## Canonical binary representations (`One` and `Can`)
+#### Exercise `+-mono-<` (practice)
 
-In PLFA's **Relations** stretch exercise, a binary string `Bin` has no leading
-zeros (after the most significant bit) if it satisfies `Can`: either it is
-canonical zero (`X0 Nil`) or it contains a most-significant `1`-bit (`One`).
-Increment preserves both `One` and `Can`:
+Show that addition is monotonic with respect to strict inequality:
+`m < n` and `p < q` imply `plus m p < plus n q`.
+
+## Even and odd
+
+Inductive relations can also be defined **mutually**. A number is **even** if
+it is zero, or the successor of an **odd** number; a number is **odd** if it
+is the successor of an **even** number.
+
+In Agda, mutually recursive datatypes require forward type signatures before
+their definitions. In Haskell, top-level definitions in a module are mutually
+recursive automatically, so we write `Even` and `Odd` directly:
+
+```haskell
+-- | Mutually inductive parity predicates on Nat.
+data Even (n :: Nat) where
+  EvenZ :: Even Zero
+  EvenS :: Odd n -> Even (Succ n)
+
+data Odd (n :: Nat) where
+  OddS :: Even n -> Odd (Succ n)
+```
+
+Now we prove that the sum of two even numbers is even, mutually with the fact
+that the sum of an odd number and an even number is odd—and similarly for the
+other two combinations of parity. Notice that none of these four theorems
+even need `foreach` binders: pattern matching on the GADT proof `Even m` or
+`Odd m` refines `m` enough for GHC to reduce `plus m n` directly!
+
+```haskell
+-- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`).
+evenPlusEven :: Even m -> Even n -> Even (plus m n)
+evenPlusEven EvenZ      en = en
+evenPlusEven (EvenS om) en = EvenS (oddPlusEven om en)
+
+-- | Odd + Even = Odd.
+oddPlusEven :: Odd m -> Even n -> Odd (plus m n)
+oddPlusEven (OddS em) en = OddS (evenPlusEven em en)
+
+-- | Even + Odd = Odd.
+evenPlusOdd :: Even m -> Odd n -> Odd (plus m n)
+evenPlusOdd EvenZ      on = on
+evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
+
+-- | Odd + Odd = Even.
+oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
+oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
+```
+
+Furthermore, every natural number is either even or odd, and no natural
+number is both:
+
+```haskell
+-- | Every natural number is either even or odd.
+evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
+evenOrOdd Zero     = Left EvenZ
+evenOrOdd (Succ n) = case evenOrOdd n of
+  Left  ev -> Right (OddS ev)
+  Right od -> Left  (EvenS od)
+
+-- | No natural number is both even and odd.
+notBothEvenOdd :: Even n -> Odd n -> Void
+notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
+```
+
+## Bin-predicates (canonical binary representations)
+
+Recall the `Bin` representation of binary numbers from [Naturals](/Naturals/)
+and the round-trip proof `fromTo` from [Induction](/Induction/). Why didn't
+we prove the opposite round trip `toBin (fromBin b) :~: b` for *all* `b :: Bin`?
+Because `Bin` allows non-canonical bitstrings with leading zeros, such as
+`Nil` (value `0`) and `X0 (X0 Nil)` (also value `0`), whereas `toBin 0` is
+`X0 Nil`.
+
+Following PLFA's **Bin-predicates** stretch exercise, we define two unary
+predicates on `Bin`:
+
+- `One b` holds when `b` has at least one `1` bit and no leading zeros
+  (i.e. its most significant bit is `1`, representing a strictly positive
+  number).
+- `Can b` holds when `b` is a **canonical** binary numeral: either canonical
+  zero (`X0 Nil`), or a positive canonical numeral (`One b`).
 
 ```haskell
 -- | Evidence that a binary number is positive and has no leading zero bits.
 data One (b :: Bin) where
-  OneX1  :: One ('X1 'Nil)
-  OneX0  :: One b -> One ('X0 b)
-  OneX1' :: One b -> One ('X1 b)
+  OneX1  :: One (X1 Nil)
+  OneX0  :: One b -> One (X0 b)
+  OneX1' :: One b -> One (X1 b)
 
 -- | Evidence that a binary number is in canonical form (unique per natural).
 data Can (b :: Bin) where
-  CanZ   :: Can ('X0 'Nil)
+  CanZ   :: Can (X0 Nil)
   CanOne :: One b -> Can b
+```
 
+First, incrementing preserves both `One` and `Can`, so converting any natural
+number to binary produces a canonical bitstring (`toBinCan`, PLFA's `to-Can`):
+
+```haskell
 -- | Incrementing a positive canonical binary number stays positive canonical.
 incOne :: foreach (b :: Bin) -> One b -> One (inc b)
 incOne Nil    p = case p of {}
@@ -343,10 +521,18 @@ incCan (X1 b) p = case p of
 toBinCan :: foreach (n :: Nat) -> Can (toBin n)
 toBinCan Zero     = CanZ
 toBinCan (Succ n) = incCan (toBin n) (toBinCan n)
+```
 
+Second, we prove the converse round-trip law `toFromCan`: for every canonical
+bitstring `b` (witnessed by `Can b`), `toBin (fromBin b) :~: b`. We establish
+that every `One` bitstring denotes a strictly positive natural (`onePos`),
+and that doubling a positive natural shifts its binary representation left by
+a zero bit (`toBinDoubleSucc`):
+
+```haskell
 -- | Witness that a natural number is strictly positive (`n = Succ k`).
 data PosNat (n :: Nat) where
-  MkPos :: foreach (k :: Nat) -> n :~: 'Succ k -> PosNat n
+  MkPos :: foreach (k :: Nat) -> n :~: Succ k -> PosNat n
 
 -- | Every `One` bitstring represents a strictly positive natural number.
 onePos :: foreach (b :: Bin) -> One b -> PosNat (fromBin b)
@@ -360,22 +546,22 @@ onePos (X1 b) _ = case b of
   X1 b' -> MkPos (plus (fromBin (X1 b')) (fromBin (X1 b'))) Refl
 
 -- | Doubling a positive natural shifts its binary representation left by one zero bit.
-toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus ('Succ n) ('Succ n)) :~: 'X0 (toBin ('Succ n))
+toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus (Succ n) (Succ n)) :~: X0 (toBin (Succ n))
 toBinDoubleSucc Zero     = Refl
 toBinDoubleSucc (Succ k) =
   rewrite (plusSucc (Succ k) (Succ k))
     (rewrite (toBinDoubleSucc k) Refl)
 
-toFromDoubleOne :: foreach (b :: Bin) -> One b -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+toFromDoubleOne :: foreach (b :: Bin) -> One b -> toBin (plus (fromBin b) (fromBin b)) :~: X0 b
 toFromDoubleOne b o =
   let ih = toFromOne b o
   in case onePos b o of
     MkPos k eq -> go (toBinDoubleSucc k) eq ih
   where
-    go :: toBin (plus ('Succ k) ('Succ k)) :~: 'X0 (toBin ('Succ k))
-       -> fromBin b :~: 'Succ k
+    go :: toBin (plus (Succ k) (Succ k)) :~: X0 (toBin (Succ k))
+       -> fromBin b :~: Succ k
        -> toBin (fromBin b) :~: b
-       -> toBin (plus (fromBin b) (fromBin b)) :~: 'X0 b
+       -> toBin (plus (fromBin b) (fromBin b)) :~: X0 b
     go dbl Refl Refl = dbl
 
 -- | Round-trip law for positive canonical bitstrings: `toBin (fromBin b) = b`.
@@ -388,15 +574,12 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> congInc (toFromDoubleOne (X0 b') o')
+    OneX1' o' -> cong @inc (toFromDoubleOne (X0 b') o')
   X1 b' -> case o of
-    OneX1' o' -> congInc (toFromDoubleOne (X1 b') o')
-  where
-    congInc :: x :~: y -> inc x :~: inc y
-    congInc Refl = Refl
+    OneX1' o' -> cong @inc (toFromDoubleOne (X1 b') o')
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
--- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection!
+-- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
 toFromCan :: foreach (b :: Bin) -> Can b -> toBin (fromBin b) :~: b
 toFromCan Nil    c = case c of
   CanOne o -> case o of {}
@@ -412,10 +595,12 @@ toFromCan (X1 b) c = case c of
   CanOne o -> toFromOne (X1 b) o
 ```
 
-### Negative control: `Succ Zero <= Zero` is uninhabited
+Together with `fromTo` in [Induction](/Induction/), `toBinCan` and `toFromCan`
+establish a full constructive bijection between `Nat` and canonical `Bin`!
 
-We verify that GHC rejects an attempt to construct `LE ('Succ 'Zero) 'Zero`
-using `ZleN`:
+### Negative control: `1 <= 0` is uninhabited
+
+We verify that GHC rejects an attempt to construct `LE 1 0` using `ZleN`:
 
 ```{.haskell .fail name="NegOneLeZero" expect="GHC-83865"}
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
@@ -431,13 +616,20 @@ oneLeZero = ZleN
 ## Changes from PLFA
 
 - Adapted from [Relations](https://plfa.inf.ed.ac.uk/Relations/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Relations.lagda.md)).
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Relations.lagda.md)),
+  licensed under CC BY 4.0.
 - Every core theorem (`LE`, `invSleS`, `invZleN`, `leRefl`, `leTrans`,
   `leAntisym`, `Total`, `leTotal`, `plusMonoR`, `plusMonoL`, `plusMono`,
-  `LT'`, `ltTrans`, `Trichotomy`, `ltTrichotomy`, `Even`/`Odd`, and all four
-  parity addition theorems) ports directly with the same hypotheses and passes
-  `-dcore-lint -dstg-lint`!
-- In `leTotal`, `plusMonoL`, and `ltTrichotomy`, splitting on the second
+  `LT'`, `ltTrans`, `Trichotomy`, `ltTrichotomy`, `ltToLe`, `leToLt`,
+  `DiffWitness`, `leToDiff`, `diffToLe`, `Even`/`Odd` with all four parity
+  sums plus `evenOrOdd`/`notBothEvenOdd`, and the complete `One`/`Can`
+  canonical binary bijection `toBinCan` & `toFromCan`) ports directly and
+  passes `-dcore-lint -dstg-lint`.
+- All promoted constructors (`Zero`, `Succ`, `Nil`, `X0`, `X1`) are written
+  without leading `'` ticks under `-XDataKinds`, and congruence uses the
+  unified matchability-polymorphic `cong` (`cong @Succ`, `cong @inc`) from
+  [Induction](/Induction/).
+- In `leTotal`, `plusMonoL`, and `ltTrichotomy`, inspecting the second
   retained argument uses `case ... of` on the RHS due to the R03 leading-column
   restriction noted in [Induction](/Induction/).
 - `evenPlusEven`, `oddPlusEven`, `evenPlusOdd`, and `oddPlusOdd` need no

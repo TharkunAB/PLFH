@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LINE 12 "content/part1/Connectives.md" #-}
+{-# LINE 53 "content/part1/Connectives.md" #-}
 module PLFH.Part1.Connectives
   ( prodComm
   , prodAssoc
@@ -30,7 +30,7 @@ module PLFH.Part1.Connectives
 import Data.Void (Void, absurd)
 import PLFH.Part1.Isomorphism (Iff (..))
 
-{-# LINE 58 "content/part1/Connectives.md" #-}
+{-# LINE 98 "content/part1/Connectives.md" #-}
 -- | Commutativity of conjunction: (a, b) ⇔ (b, a).
 prodComm :: Iff (a, b) (b, a)
 prodComm = Iff (\(x, y) -> (y, x)) (\(y, x) -> (x, y))
@@ -55,7 +55,7 @@ prodZeroR = Iff snd absurd
 prodZeroL :: Iff (Void, a) Void
 prodZeroL = Iff fst absurd
 
-{-# LINE 88 "content/part1/Connectives.md" #-}
+{-# LINE 146 "content/part1/Connectives.md" #-}
 -- | Commutativity of disjunction: Either a b ⇔ Either b a.
 sumComm :: Iff (Either a b) (Either b a)
 sumComm = Iff (either Right Left) (either Right Left)
@@ -80,7 +80,7 @@ sumZeroR = Iff (either id absurd) Left
 sumZeroL :: Iff (Either Void a) a
 sumZeroL = Iff (either absurd id) Right
 
-{-# LINE 119 "content/part1/Connectives.md" #-}
+{-# LINE 178 "content/part1/Connectives.md" #-}
 -- | Right distributivity: (Either a b, c) ⇔ Either (a, c) (b, c).
 prodDistribSum :: Iff (Either a b, c) (Either (a, c) (b, c))
 prodDistribSum = Iff toF fromF
@@ -101,6 +101,7 @@ prodDistribSumL = Iff toF fromF
     fromF (Left (x, y))  = (x, Left y)
     fromF (Right (x, z)) = (x, Right z)
 
+{-# LINE 219 "content/part1/Connectives.md" #-}
 -- | Currying: (a -> b -> c) ⇔ ((a, b) -> c).
 currying :: Iff (a -> b -> c) ((a, b) -> c)
 currying = Iff uncurry curry
@@ -125,12 +126,15 @@ expZero = Iff (const ()) (\() -> absurd)
 expToUnit :: Iff (a -> ()) ()
 expToUnit = Iff (const ()) (\() _ -> ())
 
--- | Congruence of conjunction, disjunction, and implication under `Iff`.
+{-# LINE 253 "content/part1/Connectives.md" #-}
+-- | Congruence of conjunction under `Iff`.
 prodCong :: Iff a a' -> Iff b b' -> Iff (a, b) (a', b')
 prodCong (Iff fa ga) (Iff fb gb) = Iff (\(x, y) -> (fa x, fb y)) (\(x, y) -> (ga x, gb y))
 
+-- | Congruence of disjunction under `Iff`.
 sumCong :: Iff a a' -> Iff b b' -> Iff (Either a b) (Either a' b')
 sumCong (Iff fa ga) (Iff fb gb) = Iff (either (Left . fa) (Right . fb)) (either (Left . ga) (Right . gb))
 
+-- | Congruence of implication under `Iff` (contravariant in the domain).
 arrCong :: Iff a a' -> Iff b b' -> Iff (a -> b) (a' -> b')
 arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
