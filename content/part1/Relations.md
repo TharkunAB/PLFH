@@ -623,9 +623,9 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> rewrite (toFromDoubleOne (X0 b') o') Refl
+    OneX1' o' -> cong inc (toFromDoubleOne (X0 b') o')
   X1 b' -> case o of
-    OneX1' o' -> rewrite (toFromDoubleOne (X1 b') o') Refl
+    OneX1' o' -> cong inc (toFromDoubleOne (X1 b') o')
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
 -- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
@@ -669,18 +669,18 @@ oneLeZero = ZleN
   licensed under CC BY 4.0.
 - Every core theorem (`LE`, `invSleS`, `invZleN`, `leRefl`, `leTrans`,
   `leAntisym`, `Total`, `leTotal`, `plusMonoR`, `plusMonoL`, `plusMono`,
-  `LT'`, `ltTrans`, `Trichotomy`, `ltTrichotomy`, `ltToLe`, `leToLt`,
-  `DiffWitness`, `leToDiff`, `diffToLe`, `Even`/`Odd` with all four parity
+  `timesMonoR`, `timesMonoL`, `timesMono`, `LT'`, `ltTrans`, `Trichotomy`,
+  `ltTrichotomy`, `ltToLe`, `leToLt`, `DiffWitness`, `leToDiff`, `diffToLe`,
+  `plusMonoLtR`, `plusMonoLtL`, `plusMonoLt`, `Even`/`Odd` with all four parity
   sums plus `evenOrOdd`/`notBothEvenOdd`, and the complete `One`/`Can`
   canonical binary bijection `toBinCan` & `toFromCan`) ports directly and
   passes `-dcore-lint -dstg-lint`.
 - All promoted constructors (`Zero`, `Succ`, `Nil`, `X0`, `X1`) are written
-  without leading `'` ticks under `-XDataKinds`, and congruence uses Agda-style
-  visible `cong Succ` from [Induction](/Induction/) (passing bare unary `inc`
-  to visible `cong` is tracked in `R23_CongBareUnaryFunction.hs`).
-- In `leTotal`, `plusMonoL`, and `ltTrichotomy`, inspecting the second
-  retained argument uses `case ... of` on the RHS due to the R03 leading-column
-  restriction noted in [Induction](/Induction/).
+  without leading `'` ticks under `-XDataKinds`, and visible `cong` from
+  [Induction](/Induction/) handles both the constructor `Succ` and the ordinary
+  unary function `inc`.
+- `leTotal`, `plusMonoL`, `plusMonoLtL`, and `ltTrichotomy` split their
+  retained arguments directly in function equations.
 - `evenPlusEven`, `oddPlusEven`, `evenPlusOdd`, and `oddPlusOdd` need no
   `foreach` binders at all: matching on the GADT proof refines `m` enough for
   GHC to reduce ordinary `plus m n` directly.

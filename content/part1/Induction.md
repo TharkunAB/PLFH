@@ -558,11 +558,15 @@ powMul m n (Succ k) =
 -- (m ^ n) ^ p = m ^ (n * p).
 powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> pow (pow m n) p :~: pow m (times n p)
-powTimes _ n Zero     = rewrite (timesZeroR n) Refl
+powTimes m n Zero     = sym (cong (pow m) (timesZeroR n))
 powTimes m n (Succ k) =
   rewrite (powTimes m n k)
     (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
 ```
+
+In the zero-exponent case, `timesZeroR n` gives `times n Zero :~: Zero`;
+`cong (pow m)` lifts that equality through exponentiation with base `m`,
+and `sym` flips it to the direction required by `powTimes`.
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
 
@@ -594,10 +598,9 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
 - Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
 - Uses a single Agda-style matchability-polymorphic `cong` (`{m :: Matchability}`
-  + `RequiredTypeArguments`) for both constructors (`cong Succ`) and promoted
-  functions (`cong (plus m)`, `cong (times a)`), with no `@` needed (partial
-  application of right-first `pow m` under visible `cong` is tracked in
-  `R23_CongRightFirstPartialApp.hs`).
+  + `RequiredTypeArguments`) for constructors (`cong Succ`), left-first
+  functions (`cong (plus m)`, `cong (times a)`), and right-first functions
+  (`cong (pow m)`), with no `@` needed.
 - Checked direct ports of every theorem and exercise in PLFA Induction:
   `assocExample`, `plusAssoc`, `plusAssoc0`/`1`/`2`, `plusAssocRewrite`,
   `plusIdentityR`, `plusSuc`, `plusComm`, `plusCommRewrite`, `plusRearrange`,

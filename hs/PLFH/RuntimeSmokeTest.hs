@@ -14,7 +14,7 @@ import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
-import PLFH.Part1.Lists (All (..), Any (..), In, allToIn, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import PLFH.Part1.Lists (All (..), Any (..), AnyWitness (..), In, allToIn, anyIffWitness, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, memberValue, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
 import qualified PLFH.Part1.Naturals as N
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
@@ -49,6 +49,15 @@ allToInEven allEv i = allToIn allEv i
 
 checkAllInEv :: forall xs x. All Even xs -> In x xs -> Bool
 checkAllInEv allEv inEv = isEvenNonZero (allToIn allEv inEv)
+
+checkAnyWitness :: foreach (xs :: [Nat]) -> Any Even xs -> (Int, Bool)
+checkAnyWitness xs proof = case anyIffWitness @Even @xs of
+  Iff toWitness fromWitness -> case toWitness proof of
+    witness@(AnyWitness member@(There (There (There (Here Refl)))) _) ->
+      (natToInt (memberValue xs member), case fromWitness witness of
+        There (There (There (Here (EvenS (OddS EvenZ))))) -> True
+        _ -> False)
+    _ -> (0, False)
 
 checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
 checkAllInRoundTrip xs x = case decAll decEven xs of
@@ -221,6 +230,8 @@ main = do
     (case foldrTimesSeed twoThree fourN of Refl -> True)
   assertEq "Lists.foldrTimesAppend [2,3] [4]" True
     (case foldrTimesAppend twoThree fourList of Refl -> True)
+  assertEq "Lists.anyIffWitness preserves fourth occurrence" (2, True)
+    (checkAnyWitness [1, 2, 1, 2] (There (There (There (Here (EvenS (OddS EvenZ)))))))
   let odds = [1, 3] :: [Nat]
   assertEq "Lists.notAnyIffAllNot @Even [1,3]" True
     (case notAnyIffAllNot @Even odds of

@@ -71,6 +71,9 @@ module PLFH.Part1.Lists
   , notAnyIffAllNot
   , allToIn
   , inToAll
+  , AnyWitness (..)
+  , anyIffWitness
+  , memberValue
   , decAll
   , decAny
   , decIn
@@ -451,6 +454,45 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 ```
 
+### An explicit witness for `Any` (`Any-∃`)
+
+An `Any p xs` proof marks a position in `xs` and carries evidence for the
+element at that position. We can unpack this proof into an existential index
+`x`, a proof that `x` occurs in `xs`, and a proof of `p x`. Because the
+membership proof remembers *which* occurrence we selected, `memberValue`
+recovers that element from the list without comparing elements:
+
+```haskell
+-- | Evidence that a member of the list satisfies the predicate.
+type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
+data AnyWitness p xs where
+  AnyWitness :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
+                In x xs -> p x -> AnyWitness p xs
+
+anyToWitness :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs}.
+                Any p xs -> AnyWitness p xs
+anyToWitness (Here px) = AnyWitness (Here Refl) px
+anyToWitness (There r) = case anyToWitness r of
+  AnyWitness member px -> AnyWitness (There member) px
+
+witnessToAny :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs}.
+                AnyWitness p xs -> Any p xs
+witnessToAny (AnyWitness (Here Refl) px) = Here px
+witnessToAny (AnyWitness (There member) px) =
+  There (witnessToAny (AnyWitness member px))
+
+-- | `Any` holds exactly when a list member satisfies the predicate (`Any-∃`).
+anyIffWitness :: forall {a} {m :: Matchability} (p :: a %m -> Type) (xs :: List a).
+                 Iff (Any p xs) (AnyWitness p xs)
+anyIffWitness = Iff anyToWitness witnessToAny
+
+-- | Read the element at the position selected by a membership proof.
+memberValue :: forall a (x :: a). foreach (xs :: List a) -> In x xs -> a
+memberValue []       r           = case r of {}
+memberValue (x : _)  (Here Refl) = x
+memberValue (_ : xs) (There r)   = memberValue xs r
+```
+
 ### Decidability of `All` and `Any` (`All?`, `Any?`), and concrete examples
 
 If a predicate `p` is decidable (`foreach (x :: a) -> Dec (p x)`), then both
@@ -522,9 +564,10 @@ and write `mapTree :: (a -> c) -> (b -> d) -> Tree a b -> Tree c d` and
 
 #### Exercise `All-∀` and `Any-∃` (practice)
 
-Show constructively that `All p xs` is logically equivalent to
-`forall x. In x xs -> p x`, and that `Any p xs` is logically equivalent to
-there existing `x` with both `In x xs` and `p x`.
+The two directions of `All-∀` are checked above as `allToIn` and `inToAll`,
+and `anyIffWitness` packages both directions of `Any-∃`. Trace `anyIffWitness`
+on a list with repeated elements such as `[1, 2, 1, 2]`: which occurrence does
+the membership proof identify?
 
 #### Exercise `split` (stretch)
 

@@ -235,12 +235,12 @@ powMul m n (Succ k) =
 -- (m ^ n) ^ p = m ^ (n * p).
 powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> pow (pow m n) p :~: pow m (times n p)
-powTimes _ n Zero     = rewrite (timesZeroR n) Refl
+powTimes m n Zero     = sym (cong (pow m) (timesZeroR n))
 powTimes m n (Succ k) =
   rewrite (powTimes m n k)
     (rewrite (timesSuccR n k) (sym (powPlus m n (times n k))))
 
-{-# LINE 577 "content/part1/Induction.md" #-}
+{-# LINE 581 "content/part1/Induction.md" #-}
 -- | Incrementing a bitstring adds one to its unary value.
 fromInc :: foreach (b :: Bin) -> fromBin (inc b) :~: Succ (fromBin b)
 fromInc Nil    = Refl

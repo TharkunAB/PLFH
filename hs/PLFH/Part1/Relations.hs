@@ -362,9 +362,9 @@ toFromOne (X1 b) o = case b of
     OneX1    -> Refl
     OneX1' x -> case x of {}
   X0 b' -> case o of
-    OneX1' o' -> rewrite (toFromDoubleOne (X0 b') o') Refl
+    OneX1' o' -> cong inc (toFromDoubleOne (X0 b') o')
   X1 b' -> case o of
-    OneX1' o' -> rewrite (toFromDoubleOne (X1 b') o') Refl
+    OneX1' o' -> cong inc (toFromDoubleOne (X1 b') o')
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
 -- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
