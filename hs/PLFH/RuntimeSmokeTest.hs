@@ -22,7 +22,7 @@ import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
-import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp, evalKIdOmega)
+import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp, evalKIdOmega, selfAppEval)
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
@@ -466,6 +466,9 @@ main = do
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
+  assertEq "BigStep.selfAppEval SelfAppDirect" True (case selfAppEval SelfAppDirect ELam of Refl -> True)
+  assertEq "BigStep.selfAppEval SelfAppVar (indirection)" True
+    (case selfAppEval (SelfAppVar ELZ SelfAppDirect) (EVar ELZ ELam) of Refl -> True)
   assertEq "BigStepFunctional.observeIdApp (FZ)" (True, True) BigStepFunctional.observeIdApp
   assertEq "BigStepFunctional.observeKIdOmega (FS FZ)" (True, True) BigStepFunctional.observeKIdOmega
   assertEq "BigStepFunctional.evalDeterm" True

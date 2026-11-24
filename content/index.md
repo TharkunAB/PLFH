@@ -47,7 +47,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Beta ✓ · Eval WIP</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, **27-rule functional `Step`**, and **complete 19-branch `progress`** <span class="badge badge-pass">Checked</span>
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` (`SimRel`, `simRefl`/`simTrans`, bidirectional `simValue`/`simValueInv`, `valNoStep`, **20-constructor `simRename`**, **27-rule `sim` & `simInv`**, `simSteps`/`simStepsInv`) <span class="badge badge-partial">simRename + 27-rule Bisim ✓ · simSubst WIP</span>
-- [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, `(λx y. x) Ω`, **functional `lookupEnv` in `BigStepFunctional`**) <span class="badge badge-pass">Checked</span>
+- [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, **`omegaDiverges`**, `(λx y. x) Ω`, **functional `lookupEnv` in `BigStepFunctional`**) <span class="badge badge-pass">Checked</span>
 - [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>
 - [Confluence](/Confluence/): Parallel reduction, **`parRefl`**, **`betaToPar`**, `parToBetas`, **Strip Lemma**, **Par Confluence**, **Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-partial">parRefl/betaToPar/CR ✓ · Diamond WIP</span>
 
@@ -56,7 +56,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Denotational](/Denotational/): Filter model (GADT `Value`, `Sub`, `dom`/`cod`, nested `subInvDist`, **`subInv`**, **`arrSubArrInv`**, `Denotes`, `envSubMono`) <span class="badge badge-pass">Checked</span>
 - [Compositional](/Compositional/): Semantic curry & application (**`lamEquiv`/`lamCong`**, **`appEquiv`/`appCong`**), `UCtx`/`plug` <span class="badge badge-partial">Lam &amp; App ✓ · Plug WIP</span>
 - [Soundness](/Soundness/): **100% unconditional** weakening, strengthening, substitution, forward preservation, subject expansion, and **`denotEquivSteps`** <span class="badge badge-pass">Checked</span>
-- [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, and **unconditional `adequacyBigStep`** <span class="badge badge-pass">Big-Step ✓</span>
+- [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Big-Step ✓</span>
 - [ContextualEquivalence](/ContextualEquivalence/): Deriving contextual equivalence (`Terminates`, `denotEqualCtxEquivFromSoundness`) <span class="badge badge-partial">Reduction ✓ · Premises WIP</span>
 
 ## Yardstick & Backmatter

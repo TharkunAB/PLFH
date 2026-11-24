@@ -37,6 +37,7 @@ module PLFH.Part3.Adequacy
   , adequacyBigStep
   , adequacyIdApp
   , adequacyDelta
+  , omegaNotAboveFun
   ) where
 
 import Data.Kind (Type)
@@ -45,8 +46,8 @@ import Data.Void (Void, absurd)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
-import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm)
-import PLFH.Part2.Untyped (Fin (..), UTerm (..))
+import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
+import PLFH.Part2.Untyped (Fin (..), OmegaTerm, UTerm (..))
 import PLFH.Part3.Denotational
   ( Denotes (..)
   , Factor (..)
@@ -66,7 +67,7 @@ import PLFH.Part3.Denotational
   , unJoinW
   )
 
-{-# LINE 128 "content/part3/Adequacy.md" #-}
+{-# LINE 129 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
   MkAboveFun :: Sub (Arr v w) u -> AboveFun u
@@ -122,7 +123,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 198 "content/part3/Adequacy.md" #-}
+{-# LINE 199 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
@@ -227,7 +228,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 313 "content/part3/Adequacy.md" #-}
+{-# LINE 314 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
@@ -290,3 +291,10 @@ adequacyDelta =
     (MkValW (Arr (Join (Arr Bot Bot) Bot) Bot))
     (denotDelta (MkValW Bot) (MkValW Bot))
     aboveFunArr
+
+-- | Exercise `omega-not-above-fun`: combining `adequacyBigStep` with
+-- `BigStep.omegaDiverges` proves in one line that `Ω` cannot denote any
+-- value above a function—so `Bot` (and joins of `Bot`) are its only denotations!
+omegaNotAboveFun :: ValW v -> Denotes VNil OmegaTerm v -> Not (AboveFun v)
+omegaNotAboveFun wv d af = case adequacyBigStep wv d af of
+  MkHaltsBig ev -> omegaDiverges ev

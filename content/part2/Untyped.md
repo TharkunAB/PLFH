@@ -331,11 +331,16 @@ By the Standardization Theorem, **normal-order** (leftmost-outermost) reduction
 is guaranteed to reach a normal form whenever one exists.
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R13/R16)]</strong>
-Writing PLFA's functional normal-order β-normalizer
-<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> still
-depends on open source equations for <code>substSingleU</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
+<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R04/R13/R16)]</strong>
+Writing PLFA's constructive normal-order β-normalizer
+<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> currently hits
+two tracked compiler gaps:
+(1) open source equations for functional <code>substSingleU</code>
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>),
+and (2) packing a retained reduct <code>t' :: UTerm n</code> inside a data
+constructor or <code>Sigma</code> <code>Pair</code>
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>,
+<code>GHC-83605</code>).
 All well-scoped syntax, renaming, substitution, relational <code>SubstAtU</code>,
 and promoted <code>Neutral</code>/<code>Normal</code>/<code>BetaStep</code>
 relations compile cleanly with <code>-dcore-lint -dstg-lint</code>.

@@ -82,6 +82,7 @@ module PLFH.Part3.Adequacy
   , adequacyBigStep
   , adequacyIdApp
   , adequacyDelta
+  , omegaNotAboveFun
   ) where
 
 import Data.Kind (Type)
@@ -90,8 +91,8 @@ import Data.Void (Void, absurd)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
-import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm)
-import PLFH.Part2.Untyped (Fin (..), UTerm (..))
+import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
+import PLFH.Part2.Untyped (Fin (..), OmegaTerm, UTerm (..))
 import PLFH.Part3.Denotational
   ( Denotes (..)
   , Factor (..)
@@ -372,6 +373,13 @@ adequacyDelta =
     (MkValW (Arr (Join (Arr Bot Bot) Bot) Bot))
     (denotDelta (MkValW Bot) (MkValW Bot))
     aboveFunArr
+
+-- | Exercise `omega-not-above-fun`: combining `adequacyBigStep` with
+-- `BigStep.omegaDiverges` proves in one line that `Ω` cannot denote any
+-- value above a function—so `Bot` (and joins of `Bot`) are its only denotations!
+omegaNotAboveFun :: ValW v -> Denotes VNil OmegaTerm v -> Not (AboveFun v)
+omegaNotAboveFun wv d af = case adequacyBigStep wv d af of
+  MkHaltsBig ev -> omegaDiverges ev
 ```
 
 <div class="wip-notice">
@@ -418,7 +426,8 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
   `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam`, `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
   (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
-  `BigStep.evalDeterm`), and executable `adequacyIdApp`, with zero
+  `BigStep.evalDeterm`), `omegaNotAboveFun` (via `BigStep.omegaDiverges`),
+  `adequacyDelta`, and executable `adequacyIdApp`, with zero
   promoted-constructor ticks.
 - Uncovered and reported minimal R03 compiler bug
   `reproducers/R03_ForEachGadtEqTypeFamily.hs`.

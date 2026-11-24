@@ -15,6 +15,10 @@ module PLFH.Part2.BigStep
   , evalBigIsLam
   , envLookupDeterm
   , evalDeterm
+  , IsSelfApp (..)
+  , selfAppEval
+  , omegaLoopDiverges
+  , omegaDiverges
   , idClos
   , evalIdApp
   , evalConstOmega
@@ -23,10 +27,12 @@ module PLFH.Part2.BigStep
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Void (Void)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
+import PLFH.Part1.Negation (Not)
+import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, SelfApp, UTerm (..))
 
-{-# LINE 74 "content/part2/BigStep.md" #-}
+{-# LINE 80 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env Zero
@@ -45,7 +51,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 111 "content/part2/BigStep.md" #-}
+{-# LINE 117 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -61,7 +67,7 @@ data EvalBig e t v where
        -> EvalBig (ECons (MkClos m e) d) b w
        -> EvalBig e (UApp l m) w
 
-{-# LINE 138 "content/part2/BigStep.md" #-}
+{-# LINE 144 "content/part2/BigStep.md" #-}
 -- | Concrete call-by-name derivation: (λx. x) (λy. y) ⇓ <λy. y, []>.
 evalIdApp :: EvalBig ENil
                      (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -97,7 +103,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 183 "content/part2/BigStep.md" #-}
+{-# LINE 189 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl
@@ -110,3 +116,26 @@ evalDeterm (EVar lk1 ev1) (EVar lk2 ev2) = case envLookupDeterm lk1 lk2 of
 evalDeterm ELam ELam = Refl
 evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
+
+{-# LINE 214 "content/part2/BigStep.md" #-}
+-- | Inductive invariant for closures that dereference to `<SelfApp, []>`:
+-- either `SelfApp = λx. x x` directly in `ENil`, or a variable pointing to one.
+type IsSelfApp :: forall (n :: Nat). Env n -> UTerm n -> Type
+data IsSelfApp e m where
+  SelfAppDirect :: IsSelfApp ENil SelfApp
+  SelfAppVar    :: EnvLookup e x (MkClos m d) -> IsSelfApp d m -> IsSelfApp e (UVar x)
+
+-- | Any `IsSelfApp` closure that evaluates must produce `<SelfApp, []>`.
+selfAppEval :: IsSelfApp e m -> EvalBig e m c -> c :~: MkClos SelfApp ENil
+selfAppEval SelfAppDirect       ELam          = Refl
+selfAppEval (SelfAppVar lk1 sa) (EVar lk2 ev) = case envLookupDeterm lk1 lk2 of
+  Refl -> selfAppEval sa ev
+
+-- | Applying any two `IsSelfApp` closures cannot terminate under `EvalBig`.
+omegaLoopDiverges :: IsSelfApp e m1 -> IsSelfApp e m2 -> EvalBig e (UApp m1 m2) c -> Void
+omegaLoopDiverges sa1 sa2 (EApp ev1 ev2) = case selfAppEval sa1 ev1 of
+  Refl -> omegaLoopDiverges (SelfAppVar ELZ sa2) (SelfAppVar ELZ sa2) ev2
+
+-- | Exercise `omega-diverges`: `Ω = (λx. x x) (λx. x x)` has no big-step derivation!
+omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
+omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect

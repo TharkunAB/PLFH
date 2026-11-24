@@ -46,6 +46,10 @@ module PLFH.Part2.BigStep
   , evalBigIsLam
   , envLookupDeterm
   , evalDeterm
+  , IsSelfApp (..)
+  , selfAppEval
+  , omegaLoopDiverges
+  , omegaDiverges
   , idClos
   , evalIdApp
   , evalConstOmega
@@ -54,8 +58,10 @@ module PLFH.Part2.BigStep
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Void (Void)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
+import PLFH.Part1.Negation (Not)
+import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, SelfApp, UTerm (..))
 ```
 
 ## Environments, closures, and lookup
@@ -194,6 +200,40 @@ evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
 ```
 
+## Proving divergence: `Ω` has no big-step derivation (`omega-diverges`)
+
+In big-step semantics, a diverging program is simply one with **no finite
+derivation** `EvalBig ENil m c`. To prove `Not (EvalBig ENil OmegaTerm c)` by
+structural induction on `EvalBig`, notice that each application step wraps `SelfApp`
+inside another environment indirection `(UVar FZ, ECons ...)`. Capturing that
+chain with the inductive invariant `IsSelfApp e m` yields a 6-line proof of
+**`omegaDiverges`**—which in [Adequacy](/Adequacy/) immediately proves that `Ω`
+cannot denote any non-trivial function value!
+
+```haskell
+-- | Inductive invariant for closures that dereference to `<SelfApp, []>`:
+-- either `SelfApp = λx. x x` directly in `ENil`, or a variable pointing to one.
+type IsSelfApp :: forall (n :: Nat). Env n -> UTerm n -> Type
+data IsSelfApp e m where
+  SelfAppDirect :: IsSelfApp ENil SelfApp
+  SelfAppVar    :: EnvLookup e x (MkClos m d) -> IsSelfApp d m -> IsSelfApp e (UVar x)
+
+-- | Any `IsSelfApp` closure that evaluates must produce `<SelfApp, []>`.
+selfAppEval :: IsSelfApp e m -> EvalBig e m c -> c :~: MkClos SelfApp ENil
+selfAppEval SelfAppDirect       ELam          = Refl
+selfAppEval (SelfAppVar lk1 sa) (EVar lk2 ev) = case envLookupDeterm lk1 lk2 of
+  Refl -> selfAppEval sa ev
+
+-- | Applying any two `IsSelfApp` closures cannot terminate under `EvalBig`.
+omegaLoopDiverges :: IsSelfApp e m1 -> IsSelfApp e m2 -> EvalBig e (UApp m1 m2) c -> Void
+omegaLoopDiverges sa1 sa2 (EApp ev1 ev2) = case selfAppEval sa1 ev1 of
+  Refl -> omegaLoopDiverges (SelfAppVar ELZ sa2) (SelfAppVar ELZ sa2) ev2
+
+-- | Exercise `omega-diverges`: `Ω = (λx. x x) (λx. x x)` has no big-step derivation!
+omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
+omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
+```
+
 ## Functional lookup across a module boundary
 
 The variable rule above carries an `EnvLookup` derivation (`ELZ` selects the
@@ -268,9 +308,10 @@ problem—contradicting well-founded induction on `EvalBig`!
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
-  `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `evalIdApp`,
-  `evalConstOmega`, and `evalKIdOmega`, plus functional `B.lookupEnv` across
-  the module boundary in `PLFH.Part2.BigStepFunctional` (verified by negative
-  control `NegBigStepBadLookup`), with zero promoted-constructor ticks.
+  `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `omegaDiverges`,
+  `evalIdApp`, `evalConstOmega`, and `evalKIdOmega`, plus functional
+  `B.lookupEnv` across the module boundary in `PLFH.Part2.BigStepFunctional`
+  (verified by negative control `NegBigStepBadLookup`), with zero
+  promoted-constructor ticks.
 - Same-module functional `lookupEnv e x` in `EVar` remains tracked in
   `R13_LookupEnvOpenEq.hs`.
