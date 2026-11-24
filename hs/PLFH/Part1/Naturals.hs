@@ -42,7 +42,7 @@ fiveAtRuntime = 2 + 3
 {-# LINE 436 "content/part1/Naturals.md" #-}
 -- | Multiply two natural numbers by recursion on the first argument.
 times :: Nat -> Nat -> Nat
-times Zero     n = Zero
+times Zero     _ = Zero
 times (Succ m) n = plus n (times m n)
 
 {-# LINE 480 "content/part1/Naturals.md" #-}
@@ -50,25 +50,25 @@ times (Succ m) n = plus n (times m n)
 twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 
-{-# LINE 520 "content/part1/Naturals.md" #-}
+{-# LINE 508 "content/part1/Naturals.md" #-}
 -- | Exponentiation by recursion on the second argument.
 pow :: Nat -> Nat -> Nat
-pow m Zero     = Succ Zero
+pow _ Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
-{-# LINE 527 "content/part1/Naturals.md" #-}
+{-# LINE 515 "content/part1/Naturals.md" #-}
 -- | Concrete same-module exponentiation example: 3 ^ 4 = 81.
 threePowFour :: pow 3 4 :~: 81
 threePowFour = Refl
 
-{-# LINE 543 "content/part1/Naturals.md" #-}
+{-# LINE 531 "content/part1/Naturals.md" #-}
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
 monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 567 "content/part1/Naturals.md" #-}
+{-# LINE 555 "content/part1/Naturals.md" #-}
 -- | Concrete same-module truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
 threeMonusTwo :: monus 3 2 :~: 1
 threeMonusTwo = Refl
@@ -76,7 +76,7 @@ threeMonusTwo = Refl
 twoMonusThree :: monus 2 3 :~: 0
 twoMonusThree = Refl
 
-{-# LINE 704 "content/part1/Naturals.md" #-}
+{-# LINE 692 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil
@@ -84,7 +84,7 @@ data Bin
   | X1 Bin
   deriving (Show)
 
-{-# LINE 723 "content/part1/Naturals.md" #-}
+{-# LINE 711 "content/part1/Naturals.md" #-}
 -- | Increment a binary bitstring by one.
 inc :: Bin -> Bin
 inc Nil    = X1 Nil

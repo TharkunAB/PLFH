@@ -435,7 +435,7 @@ addition:
 ```haskell
 -- | Multiply two natural numbers by recursion on the first argument.
 times :: Nat -> Nat -> Nat
-times Zero     n = Zero
+times Zero     _ = Zero
 times (Succ m) n = plus n (times m n)
 ```
 
@@ -482,18 +482,6 @@ twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Wildcard patterns break open source equations (R13/R16)]</strong>
-Notice that we wrote <code>times Zero n = Zero</code> with a <em>named</em>
-variable <code>n</code> rather than <code>times Zero _ = Zero</code>.
-Currently, writing a wildcard <code>_</code> in
-the base case silently prevents GHC from registering open source equations
-for <code>times</code>, causing downstream proofs over unknown variables to
-fail with <code>GHC-70565</code> (<em>Cannot evaluate 'times' in a type</em>).
-See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_WildcardBreaksOpenEq.hs"><code>reproducers/R13_WildcardBreaksOpenEq.hs</code></a>.
-</div>
-
 #### Exercise `*-example` (practice) {#times-example}
 
 Compute `3 * 4`, writing out the reduction steps using the equations for
@@ -519,7 +507,7 @@ argument:
 ```haskell
 -- | Exponentiation by recursion on the second argument.
 pow :: Nat -> Nat -> Nat
-pow m Zero     = Succ Zero
+pow _ Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 ```
 
@@ -755,5 +743,4 @@ and `fromBin (toBin n) :~: n` directly by induction, and in
   (`twoPlusThree`, `twoTimesThree`, `threePowFour`, `threeMonusTwo`,
   `twoMonusThree`).
 - Omitted Agda's Emacs `agda-mode` keybinding walkthrough, `BUILTIN`
-  pragmas, and Unicode input table, adding a Haskell totality note and the
-  R13 wildcard note (`R13_WildcardBreaksOpenEq.hs`) instead.
+  pragmas, and Unicode input table, adding a Haskell totality note instead.

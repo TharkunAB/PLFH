@@ -21,7 +21,7 @@ import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp)
-import PLFH.Part2.Bisimulation (SimRel (..), simSym, simTrans, simValue)
+import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import PLFH.Part2.Confluence (Par (..), normalNoBetaSteps, omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
@@ -81,6 +81,8 @@ main = do
 
   -- Part 1: Naturals (decimal literals!), Induction, Relations, Equality, Isomorphism, Quantifiers, Decidable, Lists
   assertEq "Naturals.fiveAtRuntime (2 + 3 :: Nat)" 5 (natToInt fiveAtRuntime)
+  assertEq "Naturals.times 0 5 (wildcard base)" 0 (natToInt (N.times 0 5))
+  assertEq "Naturals.pow 5 0 (wildcard base)" 1 (natToInt (N.pow 5 0))
   assertEq "Naturals.threePowFour (same-module 3 ^ 4 = 81)" True (case N.threePowFour of Refl -> True)
   assertEq "Naturals.threeMonusTwo (same-module 3 - 2 = 1)" True (case N.threeMonusTwo of Refl -> True)
   assertEq "Naturals.twoMonusThree (same-module 2 - 3 = 0)" True (case N.twoMonusThree of Refl -> True)
@@ -337,10 +339,21 @@ main = do
   assertEq "Inference.check 2 TNat" True  (case check CEmpty rawTwo TNat of { Just _ -> True; Nothing -> False })
   assertEq "Inference.check 2 (Nat->Nat)" False (case check CEmpty rawTwo (TArr TNat TNat) of { Just _ -> True; Nothing -> False })
 
+  let bisimPairTerm :: M.Term M.CEmpty (M.TProd (M.TArr M.TNat M.TNat) (M.TArr M.TNat M.TNat))
+      bisimPairTerm = M.Pair (M.Lam (M.Var M.Z)) (M.Lam (M.Var M.Z))
+      bisimPairRel = SimPair (SimLam SimVar) (SimLam SimVar)
+  assertEq "Bisimulation.simRefl (Pair id id)" True
+    (case simRefl bisimPairTerm of { SimPair (SimLam SimVar) (SimLam SimVar) -> True; _ -> False })
   assertEq "Bisimulation.simValue (Pair VLam VLam)" True
-    (case simValue (SimPair SimRefl SimRefl) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
-  assertEq "Bisimulation.simTrans / simSym" True
-    (case simValue (simTrans (simSym (SimPair SimRefl SimRefl)) (SimPair SimRefl SimRefl)) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
+    (case simValue bisimPairRel (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
+  assertEq "Bisimulation.simValueInv / simTrans" True
+    (case simValueInv (simTrans bisimPairRel bisimPairRel) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
+  assertEq "Bisimulation.letDesugarSim (SimLetApp)" True
+    (case letDesugarSim of { SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc SimVar) -> True })
+  assertEq "Bisimulation.letDesugarSteps (XiApp2 + BetaLam)" True
+    (case letDesugarSteps of { MkLeg (MP.StepsCons (MP.XiApp2 M.VLam (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLam M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
+  assertEq "Bisimulation.letDesugarStepsInv (XiLet + BetaLet)" True
+    (case letDesugarStepsInv of { MkLegInv (MP.StepsCons (MP.XiLet (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLet M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
 
   let moreLet :: M.Term M.CEmpty M.TNat
       moreLet = M.Let M.Zero (M.Var M.Z)
