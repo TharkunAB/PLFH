@@ -33,9 +33,7 @@ Part 3 ([Denotational Semantics](/Denotational/) and [Adequacy](/Adequacy/)):
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.BigStep
   ( Env (..)
   , Clos (..)
@@ -242,9 +240,9 @@ omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 ## Same-module functional lookup (`EvalFun`)
 
 The variable rule `EVar` above uses the inductive relation `EnvLookup`, which
-we use directly in [Adequacy](/Adequacy/). With `-fwrite-source-equations`, GHC
-also makes checked equations for the ordinary `lookupEnv` function available in
-**both the same module and downstream modules** (`PLFH.Part2.BigStepFunctional`),
+we use directly in [Adequacy](/Adequacy/). Under `-XDependentTypes`, GHC
+automatically publishes checked equations for the ordinary `lookupEnv` function
+in **both the same module and downstream modules** (`PLFH.Part2.BigStepFunctional`),
 so we can state PLFA's functional variable rule directly right here in `BigStep`
 with zero promoted-constructor ticks:
 
@@ -296,7 +294,7 @@ Attempting to claim that `((λx y. x) id) Ω` evaluates to a different closure
 `BigStepFunctional.Eval` is rejected by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegBigStepBadLookup" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 module NegBigStepBadLookup (badLookup) where
 
 import qualified PLFH.Part2.BigStep as B

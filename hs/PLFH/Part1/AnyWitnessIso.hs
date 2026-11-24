@@ -1,6 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE NoListTuplePuns, PolyKinds, RequiredTypeArguments, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeFamilies, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 -- | Full polymorphic membership isomorphism `Iso (Any p xs) (AnyWitness p xs)`
 -- (`Any-∃`), proving both inverse laws (`witnessToAny (anyToWitness r) :~: r`
 -- and `anyToWitness (witnessToAny w) :~: w`) directly over the ordinary

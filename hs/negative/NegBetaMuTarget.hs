@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 -- EXPECT-ERROR: GHC-83865
 module NegBetaMuTarget (wrong) where
 

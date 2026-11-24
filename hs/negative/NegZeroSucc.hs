@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 -- EXPECT-ERROR: GHC-83865
 module NegZeroSucc (zeroEqualsOne) where
 

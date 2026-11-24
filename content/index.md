@@ -4,7 +4,7 @@ src: content/index.md
 ---
 
 This book is an introduction to programming language theory using
-**Dependent Haskell** (`-XExperimentalDependentTypes` in
+**Dependent Haskell** (`-XDependentTypes` in
 [`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)),
 adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)

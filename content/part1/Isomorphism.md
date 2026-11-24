@@ -30,8 +30,7 @@ congruence `cong`, `Nat` from `HaskLib.Nat`, binary numerals `Bin`, `fromBin`,
 [Induction](/Induction/).
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
@@ -153,7 +152,7 @@ natIsoRefl = MkIso idSize idSize idSizeId idSizeId
 
 -- | Monomorphic isomorphism witness on Nat.
 data IsoSize where
-  MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
+  MkIsoSize :: foreach (to from :: Nat -> Nat)
             -> (foreach (x :: Nat) -> from (to x) :~: x)
             -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize
@@ -261,7 +260,7 @@ canonical form! For instance, `fromBin Nil` is `0`, and `toBin 0` is
 false equality `toBin (fromBin Nil) :~: Nil`:
 
 ```{.haskell .fail name="NegBinReverseRoundTrip" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module NegBinReverseRoundTrip where
 
 import Data.Type.Equality ((:~:) (Refl))

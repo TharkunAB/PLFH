@@ -1,11 +1,8 @@
 -- Generated from content/part3/Adequacy.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeFamilies #-}
-{-# LANGUAGE TypeOperators, UndecidableInstances #-}
-{-# LINE 54 "content/part3/Adequacy.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+{-# LINE 51 "content/part3/Adequacy.md" #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -72,7 +69,7 @@ import PLFH.Part3.Denotational
   )
 import PLFH.Part3.Soundness (denotEquivSteps)
 
-{-# LINE 134 "content/part3/Adequacy.md" #-}
+{-# LINE 131 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
   MkAboveFun :: Sub (Arr v w) u -> AboveFun u
@@ -128,7 +125,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 204 "content/part3/Adequacy.md" #-}
+{-# LINE 201 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
@@ -173,7 +170,7 @@ notAboveFunLogV (Join a c) na =
 -- | Join introduction for the expression logical relation (`𝔼-⊔`), using
 -- `decAboveFun` and our unconditional `BigStep.evalDeterm`!
 haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
-              foreach (w1 :: Value) -> foreach (w2 :: Value)
+              foreach (w1 w2 :: Value)
            -> LogE w1 e m
            -> LogE w2 e m
            -> LogE (Join w1 w2) e m
@@ -233,7 +230,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 319 "content/part3/Adequacy.md" #-}
+{-# LINE 316 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v

@@ -31,9 +31,7 @@ disjunction introduction and case analysis!
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -255,7 +253,7 @@ appendList =
 
 ## Extended call-by-value reduction (`Step`) and Complete Progress (`progress`)
 
-Compiling `PLFH.Part2.More` with `{-# OPTIONS_GHC -fwrite-source-equations #-}`
+Compiling `PLFH.Part2.More` with `-XDependentTypes` automatically
 publishes checked source-closure equations for **both** single-variable
 `substSingle` and two-variable `substDouble` (lifting through double binders
 `ext (ext r)` and `exts (exts s)` for `CaseLst`!) into `More.hi`.
@@ -298,7 +296,7 @@ substitutes `Suc Zero` for `S Z` and `Cons Zero Nil` for `Z`. Claiming the head
 became `Zero` instead of `Suc Zero` is rejected by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegMoreConsTarget" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 module NegMoreConsTarget (wrongHead) where
 
 import qualified PLFH.Part2.More as M
@@ -341,8 +339,9 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   renaming, substitution (`substSingle`, `substDouble`), GADT-promoted `Value`,
   and example programs compile cleanly with `-dcore-lint -dstg-lint` and zero
   promoted-constructor ticks.
-- With `-fwrite-source-equations`, our checked client module
-  `PLFH.Part2.MoreProgress` checks all 27 intrinsically-typed `Step` rules
+- With `-XDependentTypes` publishing checked source equations automatically,
+  our checked client module `PLFH.Part2.MoreProgress` checks all 27
+  intrinsically-typed `Step` rules
   (using real `substSingle` and `substDouble`), complete unconditional 19-branch
   `progress` (`-Werror=incomplete-patterns`), and concrete `listCaseBoth`
   (guarded by negative control `NegMoreConsTarget`) with zero `[WIP NOTICE]` gaps!

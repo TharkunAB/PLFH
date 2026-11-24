@@ -1,10 +1,8 @@
 -- Generated from content/part2/More.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
-{-# LINE 37 "content/part2/More.md" #-}
+{-# LANGUAGE DependentTypes #-}
+{-# LINE 35 "content/part2/More.md" #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -30,7 +28,7 @@ module PLFH.Part2.More
 
 import Data.Kind (Type)
 
-{-# LINE 84 "content/part2/More.md" #-}
+{-# LINE 82 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -70,7 +68,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 138 "content/part2/More.md" #-}
+{-# LINE 136 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -133,7 +131,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 209 "content/part2/More.md" #-}
+{-# LINE 207 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where

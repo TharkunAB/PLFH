@@ -1,7 +1,7 @@
 -- Generated from content/part1/Naturals.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, ExplicitNamespaces, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 {-# LINE 12 "content/part1/Naturals.md" #-}
 module PLFH.Part1.Naturals
   ( Nat (..)
@@ -26,7 +26,7 @@ module PLFH.Part1.Naturals
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..), plus, type (+))
 
-{-# LINE 390 "content/part1/Naturals.md" #-}
+{-# LINE 391 "content/part1/Naturals.md" #-}
 -- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus` and decimal numerals.
 twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
@@ -39,36 +39,36 @@ twoPlusThreeInfix = Refl
 fiveAtRuntime :: Nat
 fiveAtRuntime = 2 + 3
 
-{-# LINE 436 "content/part1/Naturals.md" #-}
+{-# LINE 437 "content/part1/Naturals.md" #-}
 -- | Multiply two natural numbers by recursion on the first argument.
 times :: Nat -> Nat -> Nat
 times Zero     _ = Zero
 times (Succ m) n = plus n (times m n)
 
-{-# LINE 480 "content/part1/Naturals.md" #-}
+{-# LINE 481 "content/part1/Naturals.md" #-}
 -- | Evidence that 2 * 3 = 6 using ordinary `times` and decimal numerals.
 twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 
-{-# LINE 508 "content/part1/Naturals.md" #-}
+{-# LINE 509 "content/part1/Naturals.md" #-}
 -- | Exponentiation by recursion on the second argument.
 pow :: Nat -> Nat -> Nat
 pow _ Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
-{-# LINE 515 "content/part1/Naturals.md" #-}
+{-# LINE 516 "content/part1/Naturals.md" #-}
 -- | Concrete same-module exponentiation example: 3 ^ 4 = 81.
 threePowFour :: pow 3 4 :~: 81
 threePowFour = Refl
 
-{-# LINE 531 "content/part1/Naturals.md" #-}
+{-# LINE 532 "content/part1/Naturals.md" #-}
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
 monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 555 "content/part1/Naturals.md" #-}
+{-# LINE 556 "content/part1/Naturals.md" #-}
 -- | Concrete same-module truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
 threeMonusTwo :: monus 3 2 :~: 1
 threeMonusTwo = Refl
@@ -76,7 +76,7 @@ threeMonusTwo = Refl
 twoMonusThree :: monus 2 3 :~: 0
 twoMonusThree = Refl
 
-{-# LINE 692 "content/part1/Naturals.md" #-}
+{-# LINE 693 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil
@@ -84,7 +84,7 @@ data Bin
   | X1 Bin
   deriving (Show)
 
-{-# LINE 711 "content/part1/Naturals.md" #-}
+{-# LINE 712 "content/part1/Naturals.md" #-}
 -- | Increment a binary bitstring by one.
 inc :: Bin -> Bin
 inc Nil    = X1 Nil

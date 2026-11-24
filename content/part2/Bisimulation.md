@@ -48,9 +48,7 @@ and prove with `-Werror=incomplete-patterns`:
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
@@ -689,7 +687,7 @@ To verify that GHC genuinely checks `M.substSingle` inside `MP.BetaLam` and
 `Suc Zero`) must be rejected with `GHC-83865`:
 
 ```{.haskell .fail name="NegBisimBadTarget" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 module NegBisimBadTarget where
 
 import qualified PLFH.Part2.More as M

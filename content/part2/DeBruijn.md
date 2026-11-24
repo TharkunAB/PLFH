@@ -36,9 +36,7 @@ to a kind**!
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.DeBruijn
   ( Ty (..)
   , Ctx (..)
@@ -251,7 +249,7 @@ In the intrinsically-typed representation, `Step` has kind
 holds automatically** by the very type of `Step`! Every reduction step connects
 two terms of the *exact same* type `a` in the *exact same* context `g`.
 
-Compiling this syntax module with `{-# OPTIONS_GHC -fwrite-source-equations #-}`
+Compiling this syntax module with `-XDependentTypes` automatically
 publishes the checked equations for `rename`, `subst`, and `substSingle` into
 its compiled interface (`DeBruijn.hi`). Our companion checked module
 [`PLFH.Part2.DeBruijnProgress`](https://github.com/Tritlo/PLFH/blob/main/clients/PLFH/Part2/DeBruijnProgress.hs)
@@ -316,7 +314,7 @@ Claiming the unshifted (capturing) result `Lam (Lam (Var (S Z)))` is rejected
 by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegDeBruijnBadCapture" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, GADTs, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 module NegDeBruijnBadCapture (badCapture) where
 
 import qualified PLFH.Part2.DeBruijn as D
@@ -360,8 +358,9 @@ in context `CExt CEmpty TNat`?
   `IsVal`/`checkValue` over retained `foreach (m :: Term CEmpty a)` all
   compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
   soundness audit.
-- With `-fwrite-source-equations`, our checked client module
-  `PLFH.Part2.DeBruijnProgress` defines all eight intrinsically-typed `Step`
+- With `-XDependentTypes` publishing checked source equations automatically,
+  our checked client module `PLFH.Part2.DeBruijnProgress` defines all eight
+  intrinsically-typed `Step`
   rules using real functional `substSingle`, concrete capture-avoiding beta
   witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
   **complete, unconditional `progress` theorem** across all 7 term constructors;

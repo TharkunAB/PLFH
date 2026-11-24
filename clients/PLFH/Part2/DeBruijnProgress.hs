@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 -- | Complete intrinsically-typed de Bruijn STLC reduction (`Step`, `Steps`) with
 -- real functional `PLFH.Part2.DeBruijn.substSingle`, capture-avoiding beta
 -- witnesses, and unconditional full `progress` across all 7 term constructors!

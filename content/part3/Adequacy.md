@@ -47,10 +47,7 @@ theorem**—`decAboveFun`, `LogVLam`/`LogE`, **full subsumption across all 8
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeFamilies #-}
-{-# LANGUAGE TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -245,7 +242,7 @@ notAboveFunLogV (Join a c) na =
 -- | Join introduction for the expression logical relation (`𝔼-⊔`), using
 -- `decAboveFun` and our unconditional `BigStep.evalDeterm`!
 haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
-              foreach (w1 :: Value) -> foreach (w2 :: Value)
+              foreach (w1 w2 :: Value)
            -> LogE w1 e m
            -> LogE w2 e m
            -> LogE (Join w1 w2) e m

@@ -62,9 +62,7 @@ copies of `(λ y. y) z` at once:
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1

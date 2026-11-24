@@ -8,8 +8,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Induction/
 ---
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RequiredTypeArguments, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 module PLFH.Part1.Induction
   ( cong
   , assocExample
@@ -214,12 +213,15 @@ natural numbers, so if we show the equation holds for all `m` it holds for
 all `n` and `p`.
 
 In Dependent Haskell, a universal quantifier over runtime natural numbers
-is written `foreach (m :: Nat) -> ...`. Each retained argument is an
-ordinary runtime `Nat` value that can also appear in the result type:
+is written `foreach (m :: Nat) -> ...`, and multiple parameters of the same
+type can be grouped in a shared-type telescope `foreach (m n p :: Nat) -> ...`
+(just like Agda's `∀ (m n p : ℕ) → ...`; with `-XUnicodeSyntax`, `∏` may also
+be written in place of `foreach`). Each retained argument is an ordinary
+runtime `Nat` value that can also appear in the result type:
 
 ```haskell
 -- | Associativity of addition: (m + n) + p = m + (n + p).
-plusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+plusAssoc :: foreach (m n p :: Nat)
           -> plus (plus m n) p :~: plus m (plus n p)
 plusAssoc Zero     _ _ = Refl
 plusAssoc (Succ m) n p = cong Succ (plusAssoc m n p)
@@ -260,15 +262,15 @@ the proof of associativity:
 
 ```haskell
 -- | Unrolling `plusAssoc` at m = 0, 1, and 2.
-plusAssoc0 :: foreach (n :: Nat) -> foreach (p :: Nat)
+plusAssoc0 :: foreach (n p :: Nat)
            -> plus (plus 0 n) p :~: plus 0 (plus n p)
 plusAssoc0 _ _ = Refl
 
-plusAssoc1 :: foreach (n :: Nat) -> foreach (p :: Nat)
+plusAssoc1 :: foreach (n p :: Nat)
            -> plus (plus 1 n) p :~: plus 1 (plus n p)
 plusAssoc1 n p = cong Succ (plusAssoc0 n p)
 
-plusAssoc2 :: foreach (n :: Nat) -> foreach (p :: Nat)
+plusAssoc2 :: foreach (n p :: Nat)
            -> plus (plus 2 n) p :~: plus 2 (plus n p)
 plusAssoc2 n p = cong Succ (plusAssoc1 n p)
 ```
@@ -311,7 +313,7 @@ plusIdentityR :: foreach (m :: Nat) -> plus m Zero :~: m
 plusIdentityR = plusZero
 
 -- | Second lemma: move a successor from the second addend outside (`+-suc`).
-plusSuc :: foreach (m :: Nat) -> foreach (n :: Nat)
+plusSuc :: foreach (m n :: Nat)
         -> plus m (Succ n) :~: Succ (plus m n)
 plusSuc = plusSucc
 ```
@@ -321,7 +323,7 @@ Finally, here is our proposition's statement and proof by induction on the
 
 ```haskell
 -- | Commutativity of addition: m + n = n + m (`+-comm`).
-plusComm :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
+plusComm :: foreach (m n :: Nat) -> plus m n :~: plus n m
 plusComm m Zero     = plusZero m
 plusComm m (Succ k) = plusSucc m k `trans` cong Succ (plusComm m k)
 ```
@@ -343,8 +345,7 @@ without needing induction at all—simply applying `plusAssoc`, `sym`, and
 
 ```haskell
 -- | Rearranging parentheses in a four-way sum: (m + n) + (p + q) = (m + (n + p)) + q.
-plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
-              -> foreach (p :: Nat) -> foreach (q :: Nat)
+plusRearrange :: foreach (m n p q :: Nat)
               -> plus (plus m n) (plus p q) :~: plus (plus m (plus n p)) q
 plusRearrange m n p q =
   plusAssoc m n (plus p q)
@@ -384,13 +385,13 @@ equality constraint for its body—avoiding explicit `cong` and `trans`:
 
 ```haskell
 -- | Associativity proved via `HaskLib.rewrite` (`+-assoc′`).
-plusAssocRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+plusAssocRewrite :: foreach (m n p :: Nat)
                  -> plus (plus m n) p :~: plus m (plus n p)
 plusAssocRewrite Zero     _ _ = Refl
 plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 
 -- | Commutativity proved via nested `HaskLib.rewrite` (`+-comm′`).
-plusCommRewrite :: foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m
+plusCommRewrite :: foreach (m n :: Nat) -> plus m n :~: plus n m
 plusCommRewrite m Zero     = rewrite (plusZero m) Refl
 plusCommRewrite m (Succ k) = rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
 ```
@@ -401,7 +402,7 @@ As a sanity check, we verify that GHC rejects a false equality between `0`
 and `1` directly with `GHC-83865`:
 
 ```{.haskell .fail name="NegZeroSucc" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module NegZeroSucc (zeroEqualsOne) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -420,7 +421,7 @@ associativity and commutativity:
 
 ```haskell
 -- | Swap the first two addends: m + (n + p) = n + (m + p).
-plusSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+plusSwap :: foreach (m n p :: Nat)
          -> plus m (plus n p) :~: plus n (plus m p)
 plusSwap m n p =
   sym (plusAssoc m n p)
@@ -436,7 +437,7 @@ Haskell `times` function:
 ```haskell
 -- | Right distributivity of multiplication over addition (`*-distrib-+`):
 -- (m + n) * p = m * p + n * p.
-timesDistribPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+timesDistribPlus :: foreach (m n p :: Nat)
                  -> times (plus m n) p :~: plus (times m p) (times n p)
 timesDistribPlus Zero     _ _ = Refl
 timesDistribPlus (Succ m) n p =
@@ -444,7 +445,7 @@ timesDistribPlus (Succ m) n p =
     (sym (plusAssoc p (times m p) (times n p)))
 
 -- | Associativity of multiplication (`*-assoc`): (m * n) * p = m * (n * p).
-timesAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+timesAssoc :: foreach (m n p :: Nat)
            -> times (times m n) p :~: times m (times n p)
 timesAssoc Zero     _ _ = Refl
 timesAssoc (Succ m) n p =
@@ -457,7 +458,7 @@ timesZeroR Zero     = Refl
 timesZeroR (Succ m) = timesZeroR m
 
 -- | Right successor for multiplication: m * (Succ n) = m + m * n.
-timesSuccR :: foreach (m :: Nat) -> foreach (n :: Nat)
+timesSuccR :: foreach (m n :: Nat)
            -> times m (Succ n) :~: plus m (times m n)
 timesSuccR Zero     _ = Refl
 timesSuccR (Succ m) n =
@@ -465,7 +466,7 @@ timesSuccR (Succ m) n =
     (cong Succ (plusSwap n m (times m n)))
 
 -- | Commutativity of multiplication (`*-comm`): m * n = n * m.
-timesComm :: foreach (m :: Nat) -> foreach (n :: Nat)
+timesComm :: foreach (m n :: Nat)
           -> times m n :~: times n m
 timesComm Zero     n = sym (timesZeroR n)
 timesComm (Succ m) n =
@@ -502,7 +503,7 @@ side and the induction hypothesis applies to their predecessors:
 
 ```haskell
 -- | Two successive subtractions subtract the sum of their operands (`∸-+-assoc`).
-monusPlusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+monusPlusAssoc :: foreach (m n p :: Nat)
                -> monus (monus m n) p :~: monus m (plus n p)
 monusPlusAssoc Zero     Zero     _ = Refl
 monusPlusAssoc Zero     (Succ _) p = zeroMonus p
@@ -518,7 +519,7 @@ and `^-*-assoc`) prove directly over ordinary `pow` from
 
 ```haskell
 -- | Swap the first two factors: m * (n * p) = n * (m * p).
-timesSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+timesSwap :: foreach (m n p :: Nat)
           -> times m (times n p) :~: times n (times m p)
 timesSwap m n p =
   sym (timesAssoc m n p)
@@ -526,8 +527,7 @@ timesSwap m n p =
     `trans` timesAssoc n m p
 
 -- | Interchange law for multiplication: (a * b) * (c * d) = (a * c) * (b * d).
-timesInterchange :: foreach (a :: Nat) -> foreach (b :: Nat)
-                 -> foreach (c :: Nat) -> foreach (d :: Nat)
+timesInterchange :: foreach (a b c d :: Nat)
                  -> times (times a b) (times c d) :~: times (times a c) (times b d)
 timesInterchange a b c d =
   timesAssoc a b (times c d)
@@ -540,7 +540,7 @@ threePowFour = Refl
 
 -- | Distributivity of exponentiation over addition (`^-distribˡ-+-*`):
 -- m ^ (n + p) = (m ^ n) * (m ^ p).
-powPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+powPlus :: foreach (m n p :: Nat)
         -> pow m (plus n p) :~: times (pow m n) (pow m p)
 powPlus m Zero     p = sym (plusZero (pow m p))
 powPlus m (Succ k) p =
@@ -549,7 +549,7 @@ powPlus m (Succ k) p =
 
 -- | Distributivity of exponentiation over multiplication (`^-distribʳ-*`):
 -- (m * n) ^ p = (m ^ p) * (n ^ p).
-powMul :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+powMul :: foreach (m n p :: Nat)
        -> pow (times m n) p :~: times (pow m p) (pow n p)
 powMul _ _ Zero     = Refl
 powMul m n (Succ k) =
@@ -558,7 +558,7 @@ powMul m n (Succ k) =
 
 -- | Associativity of iterated exponentiation (`^-*-assoc`):
 -- (m ^ n) ^ p = m ^ (n * p).
-powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+powTimes :: foreach (m n p :: Nat)
          -> pow (pow m n) p :~: pow m (times n p)
 powTimes m n Zero     = sym (cong (pow m) (timesZeroR n))
 powTimes m n (Succ k) =

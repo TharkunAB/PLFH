@@ -1,11 +1,8 @@
 -- Generated from content/part3/Compositional.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
-{-# LINE 43 "content/part3/Compositional.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
+{-# LINE 40 "content/part3/Compositional.md" #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -48,7 +45,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 98 "content/part3/Compositional.md" #-}
+{-# LINE 95 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -113,7 +110,7 @@ lamCong :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n)).
            DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 174 "content/part3/Compositional.md" #-}
+{-# LINE 171 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
@@ -190,7 +187,7 @@ congChain :: DenEq (Den m) (Den m')
           -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
 congChain eq = lamCong (appCong denEqRefl eq)
 
-{-# LINE 258 "content/part3/Compositional.md" #-}
+{-# LINE 255 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n

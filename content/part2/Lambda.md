@@ -28,8 +28,7 @@ We import propositional equality `(:~:)`, Peano naturals `Nat` from
 [Decidable](/Decidable/) to express variable inequality during context lookup.
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll #-}
-{-# LANGUAGE GADTs, LambdaCase, TypeOperators #-}
+{-# LANGUAGE DependentTypes, LambdaCase #-}
 module PLFH.Part2.Lambda
   ( Id
   , eqId
@@ -354,7 +353,7 @@ Trying to apply `TZero` (which has type `TNat`) as a function fails to unify
 `TNat` with `TArr a b`, so GHC rejects it with `GHC-83865`:
 
 ```{.haskell .fail name="NegIllTypedApp" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 module NegIllTypedApp (badApp) where
 
 import PLFH.Part2.Lambda (Ctx (..), HasType (..), Term (..), Ty (..))
@@ -370,7 +369,7 @@ to `TZero`. Attempting to give `BetaMu` a different target term is rejected by
 GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegBetaMuTarget" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 module NegBetaMuTarget (wrong) where
 
 import HaskLib.Nat (Nat (Zero))

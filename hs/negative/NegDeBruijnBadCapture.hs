@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, GADTs, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 -- EXPECT-ERROR: GHC-83865
 module NegDeBruijnBadCapture (badCapture) where
 

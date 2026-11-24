@@ -1,10 +1,8 @@
 -- Generated from content/part3/ContextualEquivalence.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
-{-# LINE 44 "content/part3/ContextualEquivalence.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
+{-# LINE 42 "content/part3/ContextualEquivalence.md" #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , terminatesLam
@@ -28,7 +26,7 @@ import PLFH.Part3.CompositionalPlug (compositionality)
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 
-{-# LINE 79 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 77 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where

@@ -1,10 +1,8 @@
 -- Generated from content/part2/Confluence.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 68 "content/part2/Confluence.md" #-}
+{-# LANGUAGE DependentTypes #-}
+{-# LINE 66 "content/part2/Confluence.md" #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1
@@ -49,7 +47,7 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 119 "content/part2/Confluence.md" #-}
+{-# LINE 117 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -68,7 +66,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 153 "content/part2/Confluence.md" #-}
+{-# LINE 151 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -108,7 +106,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 209 "content/part2/Confluence.md" #-}
+{-# LINE 207 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -205,7 +203,7 @@ uniqueNormalForm b2p diamond bs1 bs2 nm1 nm2 =
     Join r1 r2 -> case (normalNoBetaSteps nm1 r1, normalNoBetaSteps nm2 r2) of
       (Refl, Refl) -> Refl
 
-{-# LINE 314 "content/part2/Confluence.md" #-}
+{-# LINE 312 "content/part2/Confluence.md" #-}
 -- | Parallel reduction is reflexive across the non-uniform scope index `n`.
 parRefl :: forall (n :: Nat). foreach (m :: UTerm n) -> Par m m
 parRefl (UVar _)   = PVar

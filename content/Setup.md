@@ -8,7 +8,7 @@ src: content/Setup.md
 PLFH requires the experimental Dependent Haskell fork of GHC
 ([`Tritlo/ghc`](https://github.com/Tritlo/ghc/tree/dependent-haskell),
 branch `dependent-haskell`, compiler version `10.1.20261115.1` and up),
-which adds the `-XExperimentalDependentTypes` language extension and
+which adds the Proposal `#378` `-XDependentTypes` umbrella extension and
 native dependent Core support.
 
 ## Quick start with Nix (`shell.nix`)
@@ -63,12 +63,13 @@ and GHCi work end to end:
 bash docs/dependent-haskell/check-showcase.sh _build/stage1/bin/ghc _build/stage1/lib --ghci
 ```
 
-## Essential flags for `-XExperimentalDependentTypes`
+## Essential flags for `-XDependentTypes`
 
-Every Dependent Haskell proof module in PLFH enables:
+Every Dependent Haskell proof module in PLFH begins with a single umbrella
+pragma (following GHC Proposals `#378` and `#102`):
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 ```
 
 When compiling modules containing native retained functions (`foreach`)
@@ -79,14 +80,17 @@ ghc -O0 -fomit-interface-pragmas -fno-write-if-simplified-core \
     -dcore-lint -dstg-lint
 ```
 
-- **`-XExperimentalDependentTypes`** enables `foreach (x :: T) -> ...`
-  retained dependent binders, open/closed evaluation of ordinary Haskell
-  functions in types, type-level `let`/`case`/lambdas, and `exists`/`some`
-  syntax. (It implies `RequiredTypeArguments`.)
-- **`-fwrite-source-equations`** (optional when compiling an ordinary
-  non-dependent module) records a function's defining equations in its
-  interface so downstream Dependent Haskell modules can reduce calls to it
-  on unknown inputs.
+- **`-XDependentTypes`** enables retained dependent binders (`foreach (m n p :: T) -> ...`,
+  or `∏ (m n p :: T) -> ...` with `-XUnicodeSyntax`), open and closed
+  evaluation of ordinary Haskell functions in types, automatic source-equation
+  publication in `.hi` interfaces, type-level `let`/`case`/lambdas, and
+  multi-binder `exists`/`some` syntax. It implies `GADTs`, `DataKinds`,
+  `PolyKinds`, `TypeOperators`, `RankNTypes`, `ScopedTypeVariables`,
+  `TypeApplications`, `TypeAbstractions`, `StandaloneKindSignatures`,
+  `EmptyCase`, `Modifiers`, `RequiredTypeArguments`, `ExplicitNamespaces`,
+  and **`NoListTuplePuns`** (per Proposal `#475`, so `[]`, `:`, and `[0, 1, 0]`
+  work at the type level without leading `'` ticks; modules that write `(a, b)`
+  or `()` in types simply add `ListTuplePuns` after `DependentTypes`).
 - **`-O0 -fomit-interface-pragmas -fno-write-if-simplified-core`** selects
   the checked native dependent Core pipeline.
 
@@ -106,7 +110,7 @@ _build/stage1/bin/ghc --interactive \
 At the prompt:
 
 ```text
-ghci> :seti -XExperimentalDependentTypes -XDataKinds -XTypeOperators
+ghci> :seti -XDependentTypes
 ghci> :load PLFH.Part1.Induction
 ghci> :t plusAssoc
 ```

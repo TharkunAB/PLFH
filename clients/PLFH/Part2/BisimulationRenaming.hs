@@ -1,6 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 -- | Cross-module client exercising `PLFH.Part2.Bisimulation.simRename` under
 -- both binders of `CaseLst` and `simSubst` across `SimLetApp`.
 module PLFH.Part2.BisimulationRenaming

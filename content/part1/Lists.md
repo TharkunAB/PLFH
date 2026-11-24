@@ -16,10 +16,10 @@ monoids, and the list quantifiers `All`, `Any`, and membership `In`).
 On this Dependent Haskell fork, **ordinary Prelude lists**, **Prelude `(++)`**,
 **Prelude `map`**, and **Prelude `reverse`** already have checked open source
 equations—so we prove classic list laws directly over standard Haskell lists
-with no shadow `List` datatype! Moreover, enabling `-XNoListTuplePuns` and
-importing `List` from `GHC.Types` lets us write the promoted empty list `[]`,
-cons `x : xs`, and list literals `[0, 1, 0]` at the type level **without a
-single leading `'` tick**!
+with no shadow `List` datatype! Moreover, `-XDependentTypes` enables
+`-XNoListTuplePuns` automatically, so importing `List` from `GHC.Types` lets us
+write the promoted empty list `[]`, cons `x : xs`, and list literals `[0, 1, 0]`
+at the type level **without a single leading `'` tick**!
 
 ## Imports
 
@@ -29,10 +29,8 @@ from `GHC.Types`, `HaskLib`'s length laws (`lengthAppend`, `lengthMap`,
 [Decidable](/Decidable/), and `Iff` from [Isomorphism](/Isomorphism/).
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeOperators #-}
-{-# OPTIONS_GHC -fno-enable-rewrite-rules -fwrite-source-equations #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Lists
   ( appendAssoc
   , appendNilR
@@ -121,7 +119,7 @@ Together, `(++)` and `[]` form a **monoid** over lists:
 
 ```haskell
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
-appendAssoc :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
+appendAssoc :: forall a. foreach (xs ys zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
 appendAssoc []       _  _  = Refl
 appendAssoc (_ : xs) ys zs = rewrite (appendAssoc xs ys zs) Refl
@@ -142,7 +140,7 @@ them directly by eta-reduced equality:
 
 ```haskell
 -- | Length of append (reused directly from HaskLib.lengthAppend).
-lengthAppendLaw :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+lengthAppendLaw :: forall a. foreach (xs ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppendLaw = lengthAppend
 
@@ -212,7 +210,7 @@ shunt []     ys = ys
 shunt (x:xs) ys = shunt xs (x : ys)
 
 -- | Distributivity of `shunt` over append (`shunt-++`).
-shuntAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
+shuntAppend :: forall a. foreach (xs ys zs :: List a)
             -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
 shuntAppend []     _  _  = Refl
 shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
@@ -223,7 +221,7 @@ rev []     = []
 rev (x:xs) = rev xs ++ [x]
 
 -- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
-revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+revAppend :: forall a. foreach (xs ys :: List a)
           -> rev (xs ++ ys) :~: (rev ys ++ rev xs)
 revAppend []     ys = sym (appendNilR @a (rev ys))
 revAppend (x:xs) ys =
@@ -240,7 +238,7 @@ revInvolutive (x:xs) =
       Refl -> Refl
 
 -- | Relating `shunt` to naive `rev` (`shunt-reverse`): `shunt xs ys = rev xs ++ ys`.
-shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+shuntRev :: forall a. foreach (xs ys :: List a)
          -> shunt xs ys :~: (rev xs ++ ys)
 shuntRev []     _  = Refl
 shuntRev (x:xs) ys =
@@ -295,7 +293,7 @@ foldrPlusSeed (x : xs) z =
         (sym (plusAssoc x (List.foldr plus Zero xs) z))
 
 -- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
-foldrPlusAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+foldrPlusAppend :: foreach (xs ys :: List Nat)
                 -> List.foldr plus Zero (xs ++ ys)
                :~: plus (List.foldr plus Zero xs) (List.foldr plus Zero ys)
 foldrPlusAppend []       _  = Refl
@@ -312,7 +310,7 @@ foldrTimesSeed (x : xs) z =
         (sym (timesAssoc x (List.foldr times 1 xs) z))
 
 -- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
-foldrTimesAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+foldrTimesAppend :: foreach (xs ys :: List Nat)
                  -> List.foldr times 1 (xs ++ ys)
                 :~: times (List.foldr times 1 xs) (List.foldr times 1 ys)
 foldrTimesAppend []       ys = sym (plusZero (List.foldr times 1 ys))
@@ -494,7 +492,7 @@ memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 ```
 
-Because `PLFH.Part1.Lists` compiles with `-fwrite-source-equations`, GHC
+Because `PLFH.Part1.Lists` compiles with `-XDependentTypes`, GHC automatically
 publishes checked equations for `witnessToAny` and `anyToWitness` into
 `Lists.hi`! Downstream clients prove both:
 
@@ -549,7 +547,7 @@ decAny d (x : xs) = case d x of
 
 -- | Decidability of list membership `In x xs` given decidable element equality (`∈?`).
 decIn :: forall {a}.
-         (foreach (x :: a) -> foreach (y :: a) -> Dec (x :~: y))
+         (foreach (x y :: a) -> Dec (x :~: y))
       -> foreach (x :: a) -> foreach (xs :: List a) -> Dec (In x xs)
 decIn _     _ []       = No (\case {})
 decIn decEq x (y : ys) = case decEq x y of

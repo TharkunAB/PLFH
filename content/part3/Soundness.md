@@ -37,8 +37,7 @@ Every single theorem in this chapter checks **100% unconditionally** with
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 module PLFH.Part3.Soundness
   ( InsertEnv (..)
   , denotShift

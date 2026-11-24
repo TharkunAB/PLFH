@@ -27,8 +27,7 @@ We import `Type`, `(:~:)`, `Void`, `GHC.Sigma`, `Nat` and `plus`, unified
 [Relations](/Relations/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module PLFH.Part1.Decidable
   ( Not
   , Dec (..)
@@ -155,7 +154,7 @@ structural recursions:
 
 ```haskell
 -- | Decidable propositional equality on Nat (`_≡ℕ?_`).
-decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
+decEqSize :: foreach (m n :: Nat) -> Dec (m :~: n)
 decEqSize Zero     Zero     = Yes Refl
 decEqSize Zero     (Succ _) = No (\case {})
 decEqSize (Succ _) Zero     = No (\case {})
@@ -164,7 +163,7 @@ decEqSize (Succ m) (Succ n) = case decEqSize m n of
   No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
-decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
+decLeSize :: foreach (m n :: Nat) -> Dec (LE m n)
 decLeSize Zero     _        = Yes ZleN
 decLeSize (Succ _) Zero     = No (\case {})
 decLeSize (Succ m) (Succ n) = case decLeSize m n of
@@ -172,7 +171,7 @@ decLeSize (Succ m) (Succ n) = case decLeSize m n of
   No np -> No (\p -> np (invSleS p))
 
 -- | Decidable strict less-than relation on Nat (`_<?_`).
-decLtSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LT' m n)
+decLtSize :: foreach (m n :: Nat) -> Dec (LT' m n)
 decLtSize Zero     Zero     = No (\case {})
 decLtSize Zero     (Succ _) = Yes ZltS
 decLtSize (Succ _) Zero     = No (\case {})
@@ -226,7 +225,7 @@ reflectsToDec True  (OfTrue p)   = Yes p
 reflectsToDec False (OfFalse np) = No np
 
 -- | Decidable equality on binary numbers (`Bin`).
-decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
+decEqBin :: foreach (a b :: Bin) -> Dec (a :~: b)
 decEqBin Nil    Nil    = Yes Refl
 decEqBin Nil    (X0 _) = No (\case {})
 decEqBin Nil    (X1 _) = No (\case {})
@@ -292,7 +291,7 @@ mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
 
 -- | Inline retained dependent sum returned directly from a `foreach` function.
-plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
+plusExists :: foreach (m n :: Nat)
            -> some (k :: Nat) | k :~: plus m n
 plusExists m n = Pair (plus m n) Refl
 ```

@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 -- | Complete call-by-value reduction (`Step`, `Steps`) with real functional
 -- `M.substSingle` and `M.substDouble`, plus unconditional full `progress`

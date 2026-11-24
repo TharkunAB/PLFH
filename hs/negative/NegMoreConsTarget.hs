@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 -- EXPECT-ERROR: GHC-83865
 module NegMoreConsTarget (wrongHead) where
 

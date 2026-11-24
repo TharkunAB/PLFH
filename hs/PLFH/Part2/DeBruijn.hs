@@ -1,10 +1,8 @@
 -- Generated from content/part2/DeBruijn.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
-{-# LINE 42 "content/part2/DeBruijn.md" #-}
+{-# LANGUAGE DependentTypes #-}
+{-# LINE 40 "content/part2/DeBruijn.md" #-}
 module PLFH.Part2.DeBruijn
   ( Ty (..)
   , Ctx (..)
@@ -26,7 +24,7 @@ module PLFH.Part2.DeBruijn
 
 import Data.Kind (Type)
 
-{-# LINE 81 "content/part2/DeBruijn.md" #-}
+{-# LINE 79 "content/part2/DeBruijn.md" #-}
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
   deriving (Show)
@@ -39,7 +37,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
   Z :: Lookup (CExt g a) a
   S :: Lookup g a -> Lookup (CExt g b) a
 
-{-# LINE 101 "content/part2/DeBruijn.md" #-}
+{-# LINE 99 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
 data Term (g :: Ctx) (a :: Ty) where
   Var  :: Lookup g a -> Term g a
@@ -73,7 +71,7 @@ mulTerm =
       (App (App plusTerm (Var (S Z)))
            (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
 
-{-# LINE 168 "content/part2/DeBruijn.md" #-}
+{-# LINE 166 "content/part2/DeBruijn.md" #-}
 -- | Extend a variable renaming under a binder.
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
@@ -110,7 +108,7 @@ subst sigma (Mu n)       = Mu (subst (exts sigma) n)
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-{-# LINE 217 "content/part2/DeBruijn.md" #-}
+{-# LINE 215 "content/part2/DeBruijn.md" #-}
 -- | Values indexed by promoted intrinsically-typed terms!
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where

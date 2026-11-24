@@ -1,9 +1,8 @@
 -- Generated from content/part1/Quantifiers.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, TypeOperators, UndecidableInstances #-}
-{-# LINE 38 "content/part1/Quantifiers.md" #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
+{-# LINE 37 "content/part1/Quantifiers.md" #-}
 module PLFH.Part1.Quantifiers
   ( Exists (..)
   , SumPred (..)
@@ -18,6 +17,8 @@ module PLFH.Part1.Quantifiers
   , EvenSigma
   , evenZeroSigma
   , evenTwoSigma
+  , SumSigma
+  , sumSigmaTwo
   , EvenWitness (..)
   , evenWitnessZero
   , evenWitnessSuc2
@@ -41,7 +42,7 @@ import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
 
-{-# LINE 127 "content/part1/Quantifiers.md" #-}
+{-# LINE 128 "content/part1/Quantifiers.md" #-}
 -- | Erased existential: there exists some type-level `x :: a` satisfying `p x`.
 data Exists (p :: a -> Type) where
   Witness :: p x -> Exists p
@@ -89,7 +90,7 @@ notExistsToForallNot ne px = ne (Witness px)
 forallNotToNotExists :: (forall x. Not (p x)) -> Not (Exists p)
 forallNotToNotExists fn (Witness px) = fn px
 
-{-# LINE 191 "content/part1/Quantifiers.md" #-}
+{-# LINE 193 "content/part1/Quantifiers.md" #-}
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -99,7 +100,13 @@ evenZeroSigma = Pair Zero Refl
 evenTwoSigma :: EvenSigma 2
 evenTwoSigma = Pair 1 Refl
 
-{-# LINE 207 "content/part1/Quantifiers.md" #-}
+-- | Multi-binder retained sum: there exist runtime `m` and `k` with `m + k = n`.
+type SumSigma (n :: Nat) = some (m k :: Nat) | plus m k :~: n
+
+sumSigmaTwo :: SumSigma 2
+sumSigmaTwo = Pair 1 (Pair 1 Refl)
+
+{-# LINE 215 "content/part1/Quantifiers.md" #-}
 -- | Retained existential witness that `n` is double some runtime `k`.
 data EvenWitness (n :: Nat) where
   MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n

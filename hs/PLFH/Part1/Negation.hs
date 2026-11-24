@@ -1,9 +1,8 @@
 -- Generated from content/part1/Negation.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LINE 25 "content/part1/Negation.md" #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# LINE 24 "content/part1/Negation.md" #-}
 module PLFH.Part1.Negation
   ( Not
   , doubleNegIntro
@@ -40,11 +39,11 @@ import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))
 
-{-# LINE 69 "content/part1/Negation.md" #-}
+{-# LINE 68 "content/part1/Negation.md" #-}
 -- From PLFH.Part1.Decidable:
 -- type Not a = a -> Void
 
-{-# LINE 107 "content/part1/Negation.md" #-}
+{-# LINE 106 "content/part1/Negation.md" #-}
 -- | Double negation introduction: a -> ¬(¬a).
 doubleNegIntro :: a -> Not (Not a)
 doubleNegIntro x k = k x
@@ -79,12 +78,12 @@ deMorganProdPartial :: Either (Not a) (Not b) -> Not (a, b)
 deMorganProdPartial (Left na)  (x, _) = na x
 deMorganProdPartial (Right nb) (_, y) = nb y
 
-{-# LINE 171 "content/part1/Negation.md" #-}
+{-# LINE 170 "content/part1/Negation.md" #-}
 -- | Excluded Middle is intuitionistically irrefutable: ¬¬(a ∨ ¬a).
 irrefutableLEM :: Not (Not (Either a (Not a)))
 irrefutableLEM k = k (Right (\x -> k (Left x)))
 
-{-# LINE 212 "content/part1/Negation.md" #-}
+{-# LINE 211 "content/part1/Negation.md" #-}
 type ExcludedMiddle = forall a. Either a (Not a)
 type DoubleNegElim  = forall a. Not (Not a) -> a
 type Peirce         = forall a b. ((a -> b) -> a) -> a
@@ -129,7 +128,7 @@ emToDeMorganNot em nn = case em of
 deMorganNotToEm :: DeMorganNot -> ExcludedMiddle
 deMorganNotToEm dm = dm (\pair -> case pair of (na, nna) -> nna na)
 
-{-# LINE 265 "content/part1/Negation.md" #-}
+{-# LINE 264 "content/part1/Negation.md" #-}
 -- | No finite natural number is strictly less than itself: ¬(n < n).
 ltIrrefl :: LT' n n -> Void
 ltIrrefl (SltS p) = ltIrrefl p
@@ -151,7 +150,7 @@ leToNotGt :: LE m n -> Not (LT' n m)
 leToNotGt le lt = ltToNotGe lt le
 
 -- | Negated weak inequality yields strict inequality (`¬≤-to->`): ¬(m ≤ n) -> n < m.
-notLeToGt :: foreach (m :: Nat) -> foreach (n :: Nat) -> Not (LE m n) -> LT' n m
+notLeToGt :: foreach (m n :: Nat) -> Not (LE m n) -> LT' n m
 notLeToGt Zero     _        nle = absurd (nle ZleN)
 notLeToGt (Succ _) Zero     _   = ZltS
 notLeToGt (Succ m) (Succ n) nle = SltS (notLeToGt m n (\le -> nle (SleS le)))

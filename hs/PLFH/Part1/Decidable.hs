@@ -1,9 +1,8 @@
 -- Generated from content/part1/Decidable.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
-{-# LINE 32 "content/part1/Decidable.md" #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# LINE 31 "content/part1/Decidable.md" #-}
 module PLFH.Part1.Decidable
   ( Not
   , Dec (..)
@@ -39,7 +38,7 @@ import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 
-{-# LINE 87 "content/part1/Decidable.md" #-}
+{-# LINE 86 "content/part1/Decidable.md" #-}
 -- | Logical negation: evidence that a proposition implies falsehood (Void).
 type Not a = a -> Void
 
@@ -47,13 +46,13 @@ type Not a = a -> Void
 zeroNeqSucc :: Not (Zero :~: Succ n)
 zeroNeqSucc eq = case eq of {}
 
-{-# LINE 101 "content/part1/Decidable.md" #-}
+{-# LINE 100 "content/part1/Decidable.md" #-}
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
 
-{-# LINE 118 "content/part1/Decidable.md" #-}
+{-# LINE 117 "content/part1/Decidable.md" #-}
 -- | Decidable propositions are closed under negation, conjunction, disjunction,
 -- implication, and bi-implication.
 decNot :: Dec p -> Dec (Not p)
@@ -80,9 +79,9 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
   Yes (f, g) -> Yes (Iff f g)
   No nfg     -> No (\(Iff f g) -> nfg (f, g))
 
-{-# LINE 157 "content/part1/Decidable.md" #-}
+{-# LINE 156 "content/part1/Decidable.md" #-}
 -- | Decidable propositional equality on Nat (`_≡ℕ?_`).
-decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
+decEqSize :: foreach (m n :: Nat) -> Dec (m :~: n)
 decEqSize Zero     Zero     = Yes Refl
 decEqSize Zero     (Succ _) = No (\case {})
 decEqSize (Succ _) Zero     = No (\case {})
@@ -91,7 +90,7 @@ decEqSize (Succ m) (Succ n) = case decEqSize m n of
   No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
-decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
+decLeSize :: foreach (m n :: Nat) -> Dec (LE m n)
 decLeSize Zero     _        = Yes ZleN
 decLeSize (Succ _) Zero     = No (\case {})
 decLeSize (Succ m) (Succ n) = case decLeSize m n of
@@ -99,7 +98,7 @@ decLeSize (Succ m) (Succ n) = case decLeSize m n of
   No np -> No (\p -> np (invSleS p))
 
 -- | Decidable strict less-than relation on Nat (`_<?_`).
-decLtSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LT' m n)
+decLtSize :: foreach (m n :: Nat) -> Dec (LT' m n)
 decLtSize Zero     Zero     = No (\case {})
 decLtSize Zero     (Succ _) = Yes ZltS
 decLtSize (Succ _) Zero     = No (\case {})
@@ -107,7 +106,7 @@ decLtSize (Succ m) (Succ n) = case decLtSize m n of
   Yes p -> Yes (SltS p)
   No np -> No (\case SltS q -> np q)
 
-{-# LINE 200 "content/part1/Decidable.md" #-}
+{-# LINE 199 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
@@ -137,7 +136,7 @@ reflectsToDec True  (OfTrue p)   = Yes p
 reflectsToDec False (OfFalse np) = No np
 
 -- | Decidable equality on binary numbers (`Bin`).
-decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
+decEqBin :: foreach (a b :: Bin) -> Dec (a :~: b)
 decEqBin Nil    Nil    = Yes Refl
 decEqBin Nil    (X0 _) = No (\case {})
 decEqBin Nil    (X1 _) = No (\case {})
@@ -182,7 +181,7 @@ decCan (X1 b) = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 287 "content/part1/Decidable.md" #-}
+{-# LINE 286 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
 type SizeWitness = some (k :: Nat) | LE Zero k
 
@@ -191,6 +190,6 @@ mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
 
 -- | Inline retained dependent sum returned directly from a `foreach` function.
-plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
+plusExists :: foreach (m n :: Nat)
            -> some (k :: Nat) | k :~: plus m n
 plusExists m n = Pair (plus m n) Refl

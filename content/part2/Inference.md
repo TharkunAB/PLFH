@@ -37,9 +37,7 @@ raw de Bruijn numbers), `Not` from [Decidable](/Decidable/), and our
 intrinsically typed STLC definitions from [DeBruijn](/DeBruijn/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.Inference
   ( RawTerm (..)
   , decEqTy
@@ -100,7 +98,7 @@ Because `Ty` is a simple inductive datatype, structural recursion on retained
 
 ```haskell
 -- | Decidable equality on simple types `Ty`.
-decEqTy :: foreach (a :: Ty) -> foreach (b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
+decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
 decEqTy TNat b = case b of
   TNat     -> Right Refl
   TArr _ _ -> Left (\case {})

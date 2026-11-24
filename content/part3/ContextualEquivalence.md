@@ -38,9 +38,7 @@ And by symmetry, if `C[N]` terminates then `C[M]` terminates too!
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , terminatesLam

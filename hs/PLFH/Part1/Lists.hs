@@ -1,11 +1,9 @@
 -- Generated from content/part1/Lists.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeOperators #-}
-{-# OPTIONS_GHC -fno-enable-rewrite-rules -fwrite-source-equations #-}
-{-# LINE 36 "content/part1/Lists.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+{-# LINE 34 "content/part1/Lists.md" #-}
 module PLFH.Part1.Lists
   ( appendAssoc
   , appendNilR
@@ -69,9 +67,9 @@ import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (times)
 
-{-# LINE 123 "content/part1/Lists.md" #-}
+{-# LINE 121 "content/part1/Lists.md" #-}
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
-appendAssoc :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
+appendAssoc :: forall a. foreach (xs ys zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
 appendAssoc []       _  _  = Refl
 appendAssoc (_ : xs) ys zs = rewrite (appendAssoc xs ys zs) Refl
@@ -81,9 +79,9 @@ appendNilR :: forall a. foreach (xs :: List a) -> (xs ++ []) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 144 "content/part1/Lists.md" #-}
+{-# LINE 142 "content/part1/Lists.md" #-}
 -- | Length of append (reused directly from HaskLib.lengthAppend).
-lengthAppendLaw :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+lengthAppendLaw :: forall a. foreach (xs ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppendLaw = lengthAppend
 
@@ -97,7 +95,7 @@ lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 176 "content/part1/Lists.md" #-}
+{-# LINE 174 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -115,14 +113,14 @@ mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 209 "content/part1/Lists.md" #-}
+{-# LINE 207 "content/part1/Lists.md" #-}
 -- | Accumulating linear-time list reversal helper `shunt`.
 shunt :: List a -> List a -> List a
 shunt []     ys = ys
 shunt (x:xs) ys = shunt xs (x : ys)
 
 -- | Distributivity of `shunt` over append (`shunt-++`).
-shuntAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
+shuntAppend :: forall a. foreach (xs ys zs :: List a)
             -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
 shuntAppend []     _  _  = Refl
 shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
@@ -133,7 +131,7 @@ rev []     = []
 rev (x:xs) = rev xs ++ [x]
 
 -- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
-revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+revAppend :: forall a. foreach (xs ys :: List a)
           -> rev (xs ++ ys) :~: (rev ys ++ rev xs)
 revAppend []     ys = sym (appendNilR @a (rev ys))
 revAppend (x:xs) ys =
@@ -150,7 +148,7 @@ revInvolutive (x:xs) =
       Refl -> Refl
 
 -- | Relating `shunt` to naive `rev` (`shunt-reverse`): `shunt xs ys = rev xs ++ ys`.
-shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+shuntRev :: forall a. foreach (xs ys :: List a)
          -> shunt xs ys :~: (rev xs ++ ys)
 shuntRev []     _  = Refl
 shuntRev (x:xs) ys =
@@ -184,7 +182,7 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 289 "content/part1/Lists.md" #-}
+{-# LINE 287 "content/part1/Lists.md" #-}
 -- | Move the seed to the right of the zero-seeded fold.
 foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
               -> List.foldr plus z xs :~: plus (List.foldr plus Zero xs) z
@@ -194,7 +192,7 @@ foldrPlusSeed (x : xs) z =
         (sym (plusAssoc x (List.foldr plus Zero xs) z))
 
 -- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
-foldrPlusAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+foldrPlusAppend :: foreach (xs ys :: List Nat)
                 -> List.foldr plus Zero (xs ++ ys)
                :~: plus (List.foldr plus Zero xs) (List.foldr plus Zero ys)
 foldrPlusAppend []       _  = Refl
@@ -211,7 +209,7 @@ foldrTimesSeed (x : xs) z =
         (sym (timesAssoc x (List.foldr times 1 xs) z))
 
 -- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
-foldrTimesAppend :: foreach (xs :: List Nat) -> foreach (ys :: List Nat)
+foldrTimesAppend :: foreach (xs ys :: List Nat)
                  -> List.foldr times 1 (xs ++ ys)
                 :~: times (List.foldr times 1 xs) (List.foldr times 1 ys)
 foldrTimesAppend []       ys = sym (plusZero (List.foldr times 1 ys))
@@ -219,7 +217,7 @@ foldrTimesAppend (x : xs) ys =
   trans (cong (times x) (foldrTimesAppend xs ys))
         (sym (timesAssoc x (List.foldr times 1 xs) (List.foldr times 1 ys)))
 
-{-# LINE 352 "content/part1/Lists.md" #-}
+{-# LINE 350 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -238,7 +236,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 380 "content/part1/Lists.md" #-}
+{-# LINE 378 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -282,7 +280,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 431 "content/part1/Lists.md" #-}
+{-# LINE 429 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -309,7 +307,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 467 "content/part1/Lists.md" #-}
+{-# LINE 465 "content/part1/Lists.md" #-}
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
@@ -339,7 +337,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 517 "content/part1/Lists.md" #-}
+{-# LINE 515 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
@@ -375,7 +373,7 @@ decAny d (x : xs) = case d x of
 
 -- | Decidability of list membership `In x xs` given decidable element equality (`∈?`).
 decIn :: forall {a}.
-         (foreach (x :: a) -> foreach (y :: a) -> Dec (x :~: y))
+         (foreach (x y :: a) -> Dec (x :~: y))
       -> foreach (x :: a) -> foreach (xs :: List a) -> Dec (In x xs)
 decIn _     _ []       = No (\case {})
 decIn decEq x (y : ys) = case decEq x y of

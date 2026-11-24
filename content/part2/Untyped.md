@@ -31,9 +31,7 @@ the foundation for [BigStep](/BigStep/), [Substitution](/Substitution/),
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
@@ -319,7 +317,7 @@ unconstrained function type variables!), attempting to reduce `(λx. x) (λx. x)
 to `Ω` is rejected by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegBadBetaStep" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 module NegBadBetaStep (badBeta) where
 
 import PLFH.Part2.Untyped (BetaStep (..), IdTerm, OmegaTerm, SubstAtU (..), UTerm (..))
@@ -454,7 +452,7 @@ data StepRes t where
 
 -- | Normal-order step for an application `UApp l m`.
 stepApp :: forall (n :: Nat).
-           foreach (l :: UTerm n) -> foreach (m :: UTerm n) -> StepRes (UApp l m)
+           foreach (l m :: UTerm n) -> StepRes (UApp l m)
 stepApp l m = case l of
   ULam b -> case substProof FZ m b of
     MkSubst r sr -> Reduct r (Beta sr)

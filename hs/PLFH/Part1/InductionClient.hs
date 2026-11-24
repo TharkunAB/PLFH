@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 -- | Client module importing `plusAssoc` from PLFH.Part1.Induction
 -- and exercising it at unknown runtime inputs and retained decimal literals.
 module PLFH.Part1.InductionClient
@@ -14,7 +14,7 @@ import PLFH.Part1.Induction (plusAssoc, timesComm)
 import PLFH.Part1.Naturals (times)
 
 -- | Dependent client using `plusAssoc` at unknown runtime inputs.
-usePlusAssoc :: foreach (a :: Nat) -> foreach (b :: Nat) -> foreach (c :: Nat)
+usePlusAssoc :: foreach (a b c :: Nat)
              -> plus (plus a b) c :~: plus a (plus b c)
 usePlusAssoc a b c = plusAssoc a b c
 
@@ -24,7 +24,7 @@ checkPlusAssoc a b c = case plusAssoc a b c of
   Refl -> True
 
 -- | Dependent client using `timesComm` at unknown inputs.
-useTimesComm :: foreach (a :: Nat) -> foreach (b :: Nat)
+useTimesComm :: foreach (a b :: Nat)
              -> times a b :~: times b a
 useTimesComm a b = timesComm a b
 

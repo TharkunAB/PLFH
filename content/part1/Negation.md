@@ -20,8 +20,7 @@ We import `Void` and `absurd` from `Data.Void`, `Nat` from `HaskLib.Nat`,
 and `LE` / `LT'` from [Relations](/Relations/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module PLFH.Part1.Negation
   ( Not
   , doubleNegIntro
@@ -283,7 +282,7 @@ leToNotGt :: LE m n -> Not (LT' n m)
 leToNotGt le lt = ltToNotGe lt le
 
 -- | Negated weak inequality yields strict inequality (`¬≤-to->`): ¬(m ≤ n) -> n < m.
-notLeToGt :: foreach (m :: Nat) -> foreach (n :: Nat) -> Not (LE m n) -> LT' n m
+notLeToGt :: foreach (m n :: Nat) -> Not (LE m n) -> LT' n m
 notLeToGt Zero     _        nle = absurd (nle ZleN)
 notLeToGt (Succ _) Zero     _   = ZltS
 notLeToGt (Succ m) (Succ n) nle = SltS (notLeToGt m n (\le -> nle (SleS le)))

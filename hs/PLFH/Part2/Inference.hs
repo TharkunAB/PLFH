@@ -1,10 +1,8 @@
 -- Generated from content/part2/Inference.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, TypeApplications #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LINE 43 "content/part2/Inference.md" #-}
+{-# LANGUAGE DependentTypes #-}
+{-# LINE 41 "content/part2/Inference.md" #-}
 module PLFH.Part2.Inference
   ( RawTerm (..)
   , decEqTy
@@ -22,7 +20,7 @@ import qualified HaskLib.Nat as N
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 
-{-# LINE 74 "content/part2/Inference.md" #-}
+{-# LINE 72 "content/part2/Inference.md" #-}
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
 data RawTerm
   = RVar N.Nat
@@ -34,9 +32,9 @@ data RawTerm
   | RMu Ty RawTerm
   deriving (Show)
 
-{-# LINE 102 "content/part2/Inference.md" #-}
+{-# LINE 100 "content/part2/Inference.md" #-}
 -- | Decidable equality on simple types `Ty`.
-decEqTy :: foreach (a :: Ty) -> foreach (b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
+decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
 decEqTy TNat b = case b of
   TNat     -> Right Refl
   TArr _ _ -> Left (\case {})
@@ -48,7 +46,7 @@ decEqTy (TArr a1 a2) b = case b of
       Left neq   -> Left (\Refl -> neq Refl)
       Right Refl -> Right Refl
 
-{-# LINE 129 "content/part2/Inference.md" #-}
+{-# LINE 127 "content/part2/Inference.md" #-}
 -- | An inferred runtime type paired with its intrinsically typed term.
 data Typed (g :: Ctx) where
   MkTyped :: foreach (a :: Ty) -> Term g a -> Typed g
@@ -65,7 +63,7 @@ lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 
-{-# LINE 166 "content/part2/Inference.md" #-}
+{-# LINE 164 "content/part2/Inference.md" #-}
 -- | Certified type inference: given a runtime context `g` and raw term,
 -- infer a runtime type `a` and construct an intrinsically-typed `Term g a`.
 infer :: foreach (g :: Ctx) -> RawTerm -> Maybe (Typed g)

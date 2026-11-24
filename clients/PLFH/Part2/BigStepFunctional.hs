@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 -- | Call-by-name big-step evaluation using the ordinary Haskell function
 -- `PLFH.Part2.BigStep.lookupEnv` directly inside the `Var` rule, together with
 -- conversion from relational `EvalBig`, determinism (`evalDeterm`), and

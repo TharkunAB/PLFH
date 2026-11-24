@@ -1,5 +1,4 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE LambdaCase, ScopedTypeVariables, TypeApplications, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, LambdaCase, ListTuplePuns #-}
 -- | Executable runtime smoke test exercising checked Dependent Haskell proofs
 -- across Part 1, Part 2, and Part 3 at real runtime inputs (including decimal Nat literals)!
 module PLFH.RuntimeSmokeTest (main) where
@@ -20,7 +19,7 @@ import PLFH.Part1.ListsProof (decodeHeadEven, decodeSecondEven, sampleTailMem, w
 import qualified PLFH.Part1.Naturals as N
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
-import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
+import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, sumSigmaTwo, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), evalBigIsLam, evalConstOmega, evalDeterm, evalFunDeterm, evalFunKIdOmega, evalIdApp, evalKIdOmega, selfAppEval)
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
@@ -262,6 +261,9 @@ main = do
   let halfOdd5 = case oddToWitness (OddS (EvenS (OddS (EvenS (OddS EvenZ))))) of
         MkOddWitness k Refl -> natToInt k
   assertEq "Quantifiers.oddToWitness 5" 2 halfOdd5
+  let sum2Pair = case sumSigmaTwo of
+        Pair m (Pair k Refl) -> (natToInt m, natToInt k)
+  assertEq "Quantifiers.sumSigmaTwo (multi-binder some)" (1, 1) sum2Pair
   assertEq "Negation.notLeToGt 2 1" True
     (case notLeToGt 2 1 (\le -> case le of { SleS (SleS p) -> case p of {} }) of
       SltS ZltS -> True)

@@ -26,9 +26,7 @@ We import `Type` from `Data.Kind`, `Matchability` from `GHC.Types`, `U` from
 `Even` from [Relations](/Relations/).
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, RequiredTypeArguments #-}
-{-# LANGUAGE ScopedTypeVariables, TypeApplications, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 module PLFH.Part1.Equality
   ( EqP (..)
   , toEqP
@@ -160,7 +158,7 @@ toEqP :: x :~: y -> EqP x y
 toEqP Refl = ReflP
 
 -- | If m + n is even, then n + m is even (PLFA's direct `subst even (+-comm m n)`).
-evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
+evenComm :: foreach (m n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 ```

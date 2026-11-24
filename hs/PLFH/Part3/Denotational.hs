@@ -1,10 +1,8 @@
 -- Generated from content/part3/Denotational.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving, StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
-{-# LINE 69 "content/part3/Denotational.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, StandaloneDeriving #-}
+{-# LINE 67 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -65,7 +63,7 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 137 "content/part3/Denotational.md" #-}
+{-# LINE 135 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values),
 -- declared directly in GADT syntax!
 data Value where
@@ -100,7 +98,7 @@ unArrW (MkValW v) = go v Refl
     go (Join _ _) eq = case eq of {}
     go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
 
-{-# LINE 188 "content/part3/Denotational.md" #-}
+{-# LINE 186 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
   SubBot    :: Sub Bot v
@@ -147,7 +145,7 @@ joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 249 "content/part3/Denotational.md" #-}
+{-# LINE 247 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
   MemBot   :: ValMem Bot Bot
@@ -182,7 +180,7 @@ notFunBot :: Not (Fun Bot)
 notFunBot = \case {}
 
 data SomeArrMem (u :: Value) where
-  MkSomeArrMem :: foreach (v :: Value) -> foreach (w :: Value)
+  MkSomeArrMem :: foreach (v w :: Value)
                -> ValMem (Arr v w) u -> SomeArrMem u
 
 -- | Every non-empty collection of functions contains at least one function entry.
@@ -221,7 +219,7 @@ subArrToCodSub (Arr a b)  s x            = case s @(Arr a b) MemArr of { MemArr 
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 334 "content/part3/Denotational.md" #-}
+{-# LINE 332 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -251,16 +249,16 @@ mkJoinFactor (MkFactor u31 f1 s1 d1 c1) (MkFactor u32 f2 s2 d2 c2) =
     (joinSubJoin d1 d2)
     (joinSubJoin c1 c2)
 
-mkArrFactor :: foreach (a :: Value) -> foreach (b :: Value) -> Factor (Arr a b) a b
+mkArrFactor :: foreach (a b :: Value) -> Factor (Arr a b) a b
 mkArrFactor a b = MkFactor @(Arr a b) @a @b (Arr a b) allFunsArr (\z -> z) SubRefl SubRefl
 
 mkArrSubFactor :: forall (v :: Value) (w :: Value).
-                  foreach (u21 :: Value) -> foreach (u22 :: Value)
+                  foreach (u21 u22 :: Value)
                -> Sub u21 v -> Sub w u22 -> Factor (Arr u21 u22) v w
 mkArrSubFactor u21 u22 lt1 lt2 =
   MkFactor @(Arr u21 u22) @v @w (Arr u21 u22) allFunsArr (\z -> z) lt1 lt2
 
-mkDistFactor :: foreach (a :: Value) -> foreach (b :: Value) -> foreach (c :: Value)
+mkDistFactor :: foreach (a b c :: Value)
              -> Factor (Join (Arr a b) (Arr a c)) a (Join b c)
 mkDistFactor a b c =
   MkFactor @(Join (Arr a b) (Arr a c)) @a @(Join b c) (Join (Arr a b) (Arr a c))
@@ -365,7 +363,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub (Arr v w) (Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 503 "content/part3/Denotational.md" #-}
+{-# LINE 501 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv Zero
@@ -464,7 +462,7 @@ envSubMono es (DSub wv d lt)    = DSub wv (envSubMono es d) lt
 upEnv :: ValW u2 -> Denotes (VCons e u1) m v -> Sub u1 u2 -> Denotes (VCons e u2) m v
 upEnv wu2 d lt = envSubMono (envSubCons wu2 envSubRefl lt) d
 
-{-# LINE 611 "content/part3/Denotational.md" #-}
+{-# LINE 609 "content/part3/Denotational.md" #-}
 -- | A denotation in scope depth `n` relates environments to values (matchable arrows `%M`).
 type Denotation (n :: Nat) = ValEnv n %M -> Value %M -> Type
 

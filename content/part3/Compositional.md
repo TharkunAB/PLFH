@@ -36,10 +36,7 @@ program!
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -270,9 +267,10 @@ plug (CAppL c r) t = UApp (plug c t) r
 plug (CAppR l c) t = UApp l (plug c t)
 ```
 
-Because `PLFH.Part3.Compositional` compiles with `-fwrite-source-equations`,
-GHC publishes checked equations for `plug` across all four constructors of the
-two-index GADT `UCtx m n` into `Compositional.hi`. In the companion client
+Because `PLFH.Part3.Compositional` compiles with `-XDependentTypes`,
+GHC automatically publishes checked equations for `plug` across all four
+constructors of the two-index GADT `UCtx m n` into `Compositional.hi`. In the
+companion client
 module `PLFH.Part3.CompositionalPlug` (`clients/PLFH/Part3/CompositionalPlug.hs`),
 **full compositionality** proves in **four lines** by structural induction on
 `foreach (c :: UCtx m n)`:

@@ -1,8 +1,7 @@
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 -- | Cross-module client proving PLFA's full `compositionality` theorem by
--- structural induction on `UCtx m n` over `Compositional.plug` (published via
--- `-fwrite-source-equations` in `PLFH.Part3.Compositional`).
+-- structural induction on `UCtx m n` over `Compositional.plug` (published
+-- automatically under `-XDependentTypes` in `PLFH.Part3.Compositional`).
 module PLFH.Part3.CompositionalPlug
   ( compositionality
   , checkCompositionality

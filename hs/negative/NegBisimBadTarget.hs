@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeApplications #-}
+{-# LANGUAGE DependentTypes #-}
 -- EXPECT-ERROR: GHC-83865
 module NegBisimBadTarget where
 

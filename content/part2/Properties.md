@@ -36,8 +36,7 @@ variable identifiers), `Not`, and all of the syntax, reduction, and typing
 relations from [Lambda](/Lambda/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE RankNTypes, ScopedTypeVariables, TypeAbstractions, TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part2.Properties
   ( Canonical (..)
   , canonical
@@ -250,7 +249,7 @@ data NameDecision (x :: Id) (y :: Id) where
     Different :: (x :~: y -> Void) -> eqId x y :~: False -> NameDecision x y
 
 -- | Decide whether two variable identifiers are equal, reflecting `eqId`.
-decide :: foreach (x :: Id) -> foreach (y :: Id) -> NameDecision x y
+decide :: foreach (x y :: Id) -> NameDecision x y
 decide Zero Zero = Same Refl Refl
 decide Zero (Succ _) = Different (\case {}) Refl
 decide (Succ _) Zero = Different (\case {}) Refl

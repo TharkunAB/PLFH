@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE NoListTuplePuns, PolyKinds, RequiredTypeArguments, TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 -- | Cross-module checked-equation proofs for `PLFH.Part1.Lists.witnessToAny`.
 -- Verifies that decoding an `AnyWitness` preserves both the selected list
 -- position and the original predicate proof, even when the membership tail

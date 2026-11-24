@@ -48,9 +48,13 @@ is therefore a theorem of propositional logic!
 
 We import propositional equality `(:~:)`, `Void` and `absurd` from `Data.Void`,
 and both `Iff` and polymorphic `Iso` from [Isomorphism](/Isomorphism/).
+Because `-XDependentTypes` enables `-XNoListTuplePuns` by default (so list
+constructors `[]` and `[0, 1]` need no leading `'` tick in types), we also
+enable `ListTuplePuns` here to keep familiar Haskell `(a, b)` and `()` tuple
+notation in types.
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module PLFH.Part1.Connectives
   ( swapProd
   , swapProdRT

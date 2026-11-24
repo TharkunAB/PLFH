@@ -33,8 +33,7 @@ helpers, unified `cong` from [Induction](/Induction/), `Not` from
 `Even`/`Odd` from [Relations](/Relations/).
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
 module PLFH.Part1.Quantifiers
   ( Exists (..)
   , SumPred (..)
@@ -49,6 +48,8 @@ module PLFH.Part1.Quantifiers
   , EvenSigma
   , evenZeroSigma
   , evenTwoSigma
+  , SumSigma
+  , sumSigmaTwo
   , EvenWitness (..)
   , evenWitnessZero
   , evenWitnessSuc2
@@ -184,8 +185,9 @@ than twice some natural `k`:
 
 With GHC's retained dependent sum (`some (k :: Nat) | plus k k :~: n`,
 requiring `UndecidableInstances` because the desugared type-lambda family
-calls `plus k k`), we can write `EvenSigma` directly using
-decimal numerals:
+calls `plus k k`), we can write `EvenSigma`—as well as multi-binder sums like
+`SumSigma` (`some (m k :: Nat) | plus m k :~: n`, desugaring right-associatively
+to nested `Sigma` pairs)—directly using decimal numerals:
 
 ```haskell
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
@@ -196,6 +198,12 @@ evenZeroSigma = Pair Zero Refl
 
 evenTwoSigma :: EvenSigma 2
 evenTwoSigma = Pair 1 Refl
+
+-- | Multi-binder retained sum: there exist runtime `m` and `k` with `m + k = n`.
+type SumSigma (n :: Nat) = some (m k :: Nat) | plus m k :~: n
+
+sumSigmaTwo :: SumSigma 2
+sumSigmaTwo = Pair 1 (Pair 1 Refl)
 ```
 
 Packaging the exact same retained witness as `EvenWitness n` and `OddWitness n`

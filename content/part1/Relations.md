@@ -24,8 +24,7 @@ matchability-polymorphic `cong` from [Induction](/Induction/), and binary
 numerals from [Naturals](/Naturals/).
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part1.Relations
   ( LE (..)
   , twoLeFour
@@ -254,7 +253,7 @@ splitting both `m` and `n` directly in the function equations:
 
 ```haskell
 -- | Ordering on naturals is total.
-leTotal :: foreach (m :: Nat) -> foreach (n :: Nat) -> Total m n
+leTotal :: foreach (m n :: Nat) -> Total m n
 leTotal Zero     _        = Forward ZleN
 leTotal (Succ _) Zero     = Flipped ZleN
 leTotal (Succ m) (Succ n) = case leTotal m n of
@@ -290,7 +289,7 @@ PLFA derives `+-monoˡ-≤` from `+-monoʳ-≤` via `+-comm`):
 
 ```haskell
 -- | Left monotonicity: if m <= n then m + p <= n + p.
-plusMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+plusMonoL :: foreach (m n p :: Nat)
           -> LE m n -> LE (plus m p) (plus n p)
 plusMonoL m n Zero     mn = rewrite (plusZero m) (rewrite (plusZero n) mn)
 plusMonoL m n (Succ p) mn =
@@ -303,8 +302,7 @@ of addition in one line:
 
 ```haskell
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
-plusMono :: foreach (m :: Nat) -> foreach (n :: Nat)
-         -> foreach (p :: Nat) -> foreach (q :: Nat)
+plusMono :: foreach (m n p q :: Nat)
          -> LE m n -> LE p q -> LE (plus m p) (plus n q)
 plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 ```
@@ -318,13 +316,13 @@ Multiplication is likewise monotonic with respect to `≤`: right monotonicity
 
 ```haskell
 -- | Right monotonicity of multiplication: if p <= q then n * p <= n * q.
-timesMonoR :: foreach (n :: Nat) -> foreach (p :: Nat) -> foreach (q :: Nat)
+timesMonoR :: foreach (n p q :: Nat)
            -> LE p q -> LE (times n p) (times n q)
 timesMonoR Zero     _ _ _  = ZleN
 timesMonoR (Succ n) p q pq = plusMono p q (times n p) (times n q) pq (timesMonoR n p q pq)
 
 -- | Left monotonicity of multiplication: if m <= n then m * p <= n * p.
-timesMonoL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+timesMonoL :: foreach (m n p :: Nat)
            -> LE m n -> LE (times m p) (times n p)
 timesMonoL m n p mn =
   rewrite (timesComm m p)
@@ -332,8 +330,7 @@ timesMonoL m n p mn =
 
 -- | Combined monotonicity of multiplication (`*-mono-≤`):
 -- if m <= n and p <= q then m * p <= n * q.
-timesMono :: foreach (m :: Nat) -> foreach (n :: Nat)
-          -> foreach (p :: Nat) -> foreach (q :: Nat)
+timesMono :: foreach (m n p q :: Nat)
           -> LE m n -> LE p q -> LE (times m p) (times n q)
 timesMono m n p q mn pq = leTrans (timesMonoL m n p mn) (timesMonoR n p q pq)
 ```
@@ -375,7 +372,7 @@ data Trichotomy (m :: Nat) (n :: Nat) where
   TriGT :: LT' n m -> Trichotomy m n
 
 -- | Every pair of finite naturals satisfies trichotomy.
-ltTrichotomy :: foreach (m :: Nat) -> foreach (n :: Nat) -> Trichotomy m n
+ltTrichotomy :: foreach (m n :: Nat) -> Trichotomy m n
 ltTrichotomy Zero     Zero     = TriEQ Refl
 ltTrichotomy Zero     (Succ _) = TriLT ZltS
 ltTrichotomy (Succ _) Zero     = TriGT ZltS
@@ -407,7 +404,7 @@ data DiffWitness (m :: Nat) (n :: Nat) where
   MkDiff :: foreach (k :: Nat) -> plus m k :~: n -> DiffWitness m n
 
 -- | From m <= n we can compute a difference witness k with m + k = n.
-leToDiff :: foreach (m :: Nat) -> foreach (n :: Nat) -> LE m n -> DiffWitness m n
+leToDiff :: foreach (m n :: Nat) -> LE m n -> DiffWitness m n
 leToDiff Zero     n p = case p of
   ZleN -> MkDiff n Refl
 leToDiff (Succ m) n p = case n of
@@ -417,7 +414,7 @@ leToDiff (Succ m) n p = case n of
       MkDiff k eq -> MkDiff k (rewrite eq Refl)
 
 -- | Conversely, m <= m + k for any finite m and k.
-diffToLe :: foreach (m :: Nat) -> foreach (k :: Nat) -> LE m (plus m k)
+diffToLe :: foreach (m k :: Nat) -> LE m (plus m k)
 diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 ```
@@ -434,7 +431,7 @@ plusMonoLtR Zero     pq = pq
 plusMonoLtR (Succ n) pq = SltS (plusMonoLtR n pq)
 
 -- | Left monotonicity of strict inequality: if m < n then m + p < n + p.
-plusMonoLtL :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+plusMonoLtL :: foreach (m n p :: Nat)
             -> LT' m n -> LT' (plus m p) (plus n p)
 plusMonoLtL m n Zero     mn = rewrite (plusZero m) (rewrite (plusZero n) mn)
 plusMonoLtL m n (Succ p) mn =
@@ -443,8 +440,7 @@ plusMonoLtL m n (Succ p) mn =
 
 -- | Combined monotonicity of strict inequality (`+-mono-<`):
 -- if m < n and p < q then m + p < n + q.
-plusMonoLt :: foreach (m :: Nat) -> foreach (n :: Nat)
-           -> foreach (p :: Nat) -> foreach (q :: Nat)
+plusMonoLt :: foreach (m n p q :: Nat)
            -> LT' m n -> LT' p q -> LT' (plus m p) (plus n q)
 plusMonoLt m n p q mn pq = ltTrans (plusMonoLtL m n p mn) (plusMonoLtR n pq)
 ```
@@ -655,7 +651,7 @@ establish a full constructive bijection between `Nat` and canonical `Bin`!
 We verify that GHC rejects an attempt to construct `LE 1 0` using `ZleN`:
 
 ```{.haskell .fail name="NegOneLeZero" expect="GHC-83865"}
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE DependentTypes #-}
 module NegOneLeZero (oneLeZero) where
 
 import HaskLib.Nat (Nat (..))

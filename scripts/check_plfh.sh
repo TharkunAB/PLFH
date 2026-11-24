@@ -19,13 +19,14 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# once it advances past baseline 844f309834 and Wave 1 (186670b0b9/63c429de51),
-# otherwise use the verified Wave 2 consolidated 4-lane component (`bce571b213`)
-# while Wave 2 two-stage qualification promotes `_build/current`.
+# once it supports Proposal #378 `-XDependentTypes` (Wave 4 Track A+),
+# otherwise use the verified Wave 4 Track A preview component (`c5dbff62fb`,
+# merged atop Wave 2 consolidated `bce571b213`) until `_build/current` advances.
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
-CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
+WAVE4_GHC="$GHC_REPO/_build/on-demand/wave4-preview/component/ghc"
+WAVE4_LIB="$GHC_REPO/_build/on-demand/wave4-preview/component/lib"
 WAVE2C_GHC="$GHC_REPO/_build/on-demand/wave2-consolidated/component/ghc"
 WAVE2C_LIB="$GHC_REPO/_build/on-demand/wave2-consolidated/component/lib"
 WAVE2_GHC="$GHC_REPO/_build/on-demand/wave2-preview/component/ghc"
@@ -33,19 +34,15 @@ WAVE2_LIB="$GHC_REPO/_build/on-demand/wave2-preview/component/lib"
 WAVE1_GHC="$GHC_REPO/_build/on-demand/wave1-consolidated/component/ghc"
 WAVE1_LIB="$GHC_REPO/_build/on-demand/wave1-consolidated/component/lib"
 
-CURRENT_REV=""
-if [[ -f "$CURRENT_SRC" ]]; then
-  CURRENT_REV=$(cat "$CURRENT_SRC" 2>/dev/null || true)
-fi
-
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" \
-   && "$CURRENT_REV" != "844f309834979a6f604f032ebf27259bc6caa683" \
-   && "$CURRENT_REV" != "186670b0b9"* \
-   && "$CURRENT_REV" != "63c429de51"* ]]; then
+if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]] \
+   && "$CURRENT_GHC" --supported-extensions 2>/dev/null | grep -qx "DependentTypes"; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
+elif [[ -x "$WAVE4_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE4_GHC"
+  DEFAULT_LIBDIR="$WAVE4_LIB"
 elif [[ -x "$WAVE2C_GHC" ]]; then
   DEFAULT_COMPILER="$WAVE2C_GHC"
   DEFAULT_LIBDIR="$WAVE2C_LIB"

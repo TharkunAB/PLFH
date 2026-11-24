@@ -1,9 +1,8 @@
 -- Generated from content/part3/Soundness.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 42 "content/part3/Soundness.md" #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
+{-# LINE 41 "content/part3/Soundness.md" #-}
 module PLFH.Part3.Soundness
   ( InsertEnv (..)
   , denotShift
@@ -51,7 +50,7 @@ import PLFH.Part3.Denotational
   , unArrW
   )
 
-{-# LINE 104 "content/part3/Soundness.md" #-}
+{-# LINE 103 "content/part3/Soundness.md" #-}
 -- | Inserting a single value `u` at de Bruijn index `c` into `e` yields `e'`.
 type InsertEnv :: forall (n :: Nat). Fin (Succ n) -> ValEnv n -> Value -> ValEnv (Succ n) -> Type
 data InsertEnv c e u e' where
@@ -104,7 +103,7 @@ denotUnshift _                  _  DBot               = DBot
 denotUnshift sh                 ie (DJoin w1 w2 d1 d2) = DJoin w1 w2 (denotUnshift sh ie d1) (denotUnshift sh ie d2)
 denotUnshift sh                 ie (DSub wv d lt)     = DSub wv (denotUnshift sh ie d) lt
 
-{-# LINE 171 "content/part3/Soundness.md" #-}
+{-# LINE 170 "content/part3/Soundness.md" #-}
 -- | Forward single-variable substitution lemma (`subst-pres`).
 denotSubst :: SubstAtU c w m m'
            -> InsertEnv c e u e'
@@ -208,7 +207,7 @@ betaReflect :: ValW v -> SubstAtU FZ w b r -> Denotes e r v -> Denotes e (UApp (
 betaReflect wv sub dr = case denotSubstReflect wv sub IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 
-{-# LINE 282 "content/part3/Soundness.md" #-}
+{-# LINE 281 "content/part3/Soundness.md" #-}
 -- | Unconditional forward preservation under a single β-step (`preserve`).
 denotPreserve :: ValW v -> Denotes e m v -> BetaStep m m' -> Denotes e m' v
 denotPreserve _ (DVar _) step = case step of {}

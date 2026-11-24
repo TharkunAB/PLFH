@@ -63,9 +63,7 @@ Over the five chapters of Part 3, we build the complete semantic theory:
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving, StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, StandaloneDeriving #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -280,7 +278,7 @@ notFunBot :: Not (Fun Bot)
 notFunBot = \case {}
 
 data SomeArrMem (u :: Value) where
-  MkSomeArrMem :: foreach (v :: Value) -> foreach (w :: Value)
+  MkSomeArrMem :: foreach (v w :: Value)
                -> ValMem (Arr v w) u -> SomeArrMem u
 
 -- | Every non-empty collection of functions contains at least one function entry.
@@ -360,16 +358,16 @@ mkJoinFactor (MkFactor u31 f1 s1 d1 c1) (MkFactor u32 f2 s2 d2 c2) =
     (joinSubJoin d1 d2)
     (joinSubJoin c1 c2)
 
-mkArrFactor :: foreach (a :: Value) -> foreach (b :: Value) -> Factor (Arr a b) a b
+mkArrFactor :: foreach (a b :: Value) -> Factor (Arr a b) a b
 mkArrFactor a b = MkFactor @(Arr a b) @a @b (Arr a b) allFunsArr (\z -> z) SubRefl SubRefl
 
 mkArrSubFactor :: forall (v :: Value) (w :: Value).
-                  foreach (u21 :: Value) -> foreach (u22 :: Value)
+                  foreach (u21 u22 :: Value)
                -> Sub u21 v -> Sub w u22 -> Factor (Arr u21 u22) v w
 mkArrSubFactor u21 u22 lt1 lt2 =
   MkFactor @(Arr u21 u22) @v @w (Arr u21 u22) allFunsArr (\z -> z) lt1 lt2
 
-mkDistFactor :: foreach (a :: Value) -> foreach (b :: Value) -> foreach (c :: Value)
+mkDistFactor :: foreach (a b c :: Value)
              -> Factor (Join (Arr a b) (Arr a c)) a (Join b c)
 mkDistFactor a b c =
   MkFactor @(Join (Arr a b) (Arr a c)) @a @(Join b c) (Join (Arr a b) (Arr a c))

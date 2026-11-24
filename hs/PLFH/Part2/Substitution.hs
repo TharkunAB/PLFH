@@ -1,9 +1,8 @@
 -- Generated from content/part2/Substitution.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 41 "content/part2/Substitution.md" #-}
+{-# LANGUAGE DependentTypes #-}
+{-# LINE 40 "content/part2/Substitution.md" #-}
 module PLFH.Part2.Substitution
   ( Rename
   , Subst
@@ -28,7 +27,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 87 "content/part2/Substitution.md" #-}
+{-# LINE 86 "content/part2/Substitution.md" #-}
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
 type Rename (m :: Nat) (n :: Nat) = Fin m -> Fin n
 
@@ -56,7 +55,7 @@ consSubst _ sigma (FS x) = sigma x
 seqSubst :: Subst m n -> Subst n p -> Subst m p
 seqSubst sigma tau x = substU tau (sigma x)
 
-{-# LINE 122 "content/part2/Substitution.md" #-}
+{-# LINE 121 "content/part2/Substitution.md" #-}
 -- | Head lookup: `(t • σ) 0` computes to `t`.
 subHead :: UTerm n -> Subst m n -> UTerm n
 subHead t sigma = consSubst t sigma FZ

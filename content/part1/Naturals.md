@@ -8,7 +8,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Naturals/
 ---
 
 ```haskell
-{-# LANGUAGE DataKinds, ExplicitNamespaces, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part1.Naturals
   ( Nat (..)
   , plus
@@ -105,7 +105,7 @@ successor of zero, that is, the natural that comes after zero; `2` is
 shorthand for `Succ (Succ Zero)`, which is the same as `Succ 1`, the
 successor of one; `3` is shorthand for the successor of two; and so on.
 
-With `-XDataKinds` and `-XExperimentalDependentTypes`, `Nat` is simultaneously
+With `-XDependentTypes`, `Nat` is simultaneously
 an ordinary runtime algebraic datatype **and** a type-level kind whose promoted
 constructors are `Zero` and `Succ`. Because neither `Zero` nor `Succ` collides
 with any type constructor in scope, GHC lets us write `Zero` and `Succ` in
@@ -271,8 +271,9 @@ following year.
 In Haskell, as in Agda, any text following `--` or enclosed between `{-`
 and `-}` is considered a *comment*, with one special kind of comment called
 a *pragma*, enclosed between `{-#` and `#-}`. At the top of each chapter we
-use a `LANGUAGE` pragma to enable Dependent Haskell extensions such as
-`DataKinds`, `ExperimentalDependentTypes`, `GADTs`, and `TypeOperators`.
+use the single umbrella `LANGUAGE` pragma `{-# LANGUAGE DependentTypes #-}`,
+which enables Dependent Haskell together with `GADTs`, `DataKinds`,
+`TypeOperators`, and `NoListTuplePuns`.
 
 In PLFA, a `{-# BUILTIN NATURAL ℕ #-}` pragma enables typing `0`, `1`, `2`,
 ... as shorthand for `zero`, `suc zero`, `suc (suc zero)`, and so on. In
@@ -380,7 +381,7 @@ Or more compactly, expanding shorthand only as needed:
 = 5
 ```
 
-Because `plus` is compiled with `-XExperimentalDependentTypes`, GHC records
+Because `plus` is compiled with `-XDependentTypes`, GHC automatically records
 its defining equations so we can compute with `plus` directly in **both**
 type-level propositions and ordinary runtime code—without duplicating it as
 a separate `type family`! GHC reduces `plus 2 3` directly to `5`, so `Refl`

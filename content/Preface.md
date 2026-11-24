@@ -33,7 +33,7 @@ It serves a dual purpose:
    ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
    For every definition and theorem in PLFA (Parts 1, 2, and 3), we ask whether
    a Haskell programmer can state and prove it directly with the same hypotheses
-   using `-XExperimentalDependentTypes`.
+   using `-XDependentTypes`.
 
 ## How this book differs from PLFA
 

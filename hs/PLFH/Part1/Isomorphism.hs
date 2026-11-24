@@ -1,10 +1,9 @@
 -- Generated from content/part1/Isomorphism.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE DependentTypes #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
-{-# LINE 36 "content/part1/Isomorphism.md" #-}
+{-# LINE 35 "content/part1/Isomorphism.md" #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
   , iffRefl
@@ -35,12 +34,12 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (cong, fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
-{-# LINE 73 "content/part1/Isomorphism.md" #-}
+{-# LINE 72 "content/part1/Isomorphism.md" #-}
 -- From Prelude:
 -- (.) :: (b -> c) -> (a -> b) -> (a -> c)
 -- (g . f) x = g (f x)
 
-{-# LINE 108 "content/part1/Isomorphism.md" #-}
+{-# LINE 107 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic isomorphism witness between `a` and `b`.
 data Iso a b where
   MkIso :: foreach (to :: a -> b) -> foreach (from :: b -> a)
@@ -52,7 +51,7 @@ data Iso a b where
 isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
-{-# LINE 127 "content/part1/Isomorphism.md" #-}
+{-# LINE 126 "content/part1/Isomorphism.md" #-}
 -- | Round-trip identity at any lifted type.
 identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
 identityRoundTrip _ = Refl
@@ -61,7 +60,7 @@ identityRoundTrip _ = Refl
 isoRefl :: Iso a a
 isoRefl = MkIso id id identityRoundTrip identityRoundTrip
 
-{-# LINE 140 "content/part1/Isomorphism.md" #-}
+{-# LINE 139 "content/part1/Isomorphism.md" #-}
 -- | Identity function on Nat with explicit structural equations.
 idSize :: Nat -> Nat
 idSize Zero     = Zero
@@ -78,7 +77,7 @@ natIsoRefl = MkIso idSize idSize idSizeId idSizeId
 
 -- | Monomorphic isomorphism witness on Nat.
 data IsoSize where
-  MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
+  MkIsoSize :: foreach (to from :: Nat -> Nat)
             -> (foreach (x :: Nat) -> from (to x) :~: x)
             -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize
@@ -91,7 +90,7 @@ isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
 isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
-{-# LINE 182 "content/part1/Isomorphism.md" #-}
+{-# LINE 181 "content/part1/Isomorphism.md" #-}
 -- | Cancel the inner round trip, then use the outer left inverse.
 composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (h :: b -> c) -> foreach (k :: c -> b)
@@ -111,14 +110,14 @@ isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
     to x   = h (f x)
     from z = g (k z)
 
-{-# LINE 213 "content/part1/Isomorphism.md" #-}
+{-# LINE 212 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 227 "content/part1/Isomorphism.md" #-}
+{-# LINE 226 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
@@ -136,12 +135,12 @@ embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 252 "content/part1/Isomorphism.md" #-}
+{-# LINE 251 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 286 "content/part1/Isomorphism.md" #-}
+{-# LINE 285 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b
