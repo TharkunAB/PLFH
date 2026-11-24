@@ -15,6 +15,10 @@ module PLFH.Part1.Decidable
   , zeroNeqSucc
   , decEqSize
   , decLeSize
+  , decEven
+  , decOdd
+  , Reflects (..)
+  , reflectsToDec
   , Sigma (..)
   , SizeWitness
   , mkSizeWitness
@@ -25,7 +29,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import GHC.Sigma (Sigma (Pair))
 import HaskLib.Size (Size (..), congSucc, plus)
-import PLFH.Part1.Relations (LE (..), invSleS)
+import PLFH.Part1.Relations (Even (..), LE (..), Odd (..), invSleS)
 ```
 
 Before moving on to lists and lambda calculus, we assemble the core logical
@@ -102,6 +106,43 @@ decLeSize (Succ m) n = case n of
     No np  -> No (\p -> np (invSleS p))
 ```
 
+### Decidable parity (`decEven`, `decOdd`) and Boolean reflection (`Reflects`)
+
+Parity is also decidable by two-step structural recursion on `Size`. Notice
+that GHC's R03 pattern-matching rules currently reject nested constructor
+patterns like `decEven (Succ Zero)` directly in a retained column, so we match
+the inner `n` in a `case` expression on the right-hand side:
+
+```haskell
+-- | Decidable evenness predicate on Size.
+decEven :: foreach (n :: Size) -> Dec (Even n)
+decEven Zero     = Yes EvenZ
+decEven (Succ n) = case n of
+  Zero    -> No (\case EvenS o -> case o of {})
+  Succ n' -> case decEven n' of
+    Yes ev  -> Yes (EvenS (OddS ev))
+    No  nev -> No (\case EvenS (OddS ev) -> nev ev)
+
+-- | Decidable oddness predicate on Size.
+decOdd :: foreach (n :: Size) -> Dec (Odd n)
+decOdd Zero     = No (\case {})
+decOdd (Succ n) = case n of
+  Zero    -> Yes (OddS EvenZ)
+  Succ n' -> case decOdd n' of
+    Yes od  -> Yes (OddS (EvenS od))
+    No  nod -> No (\case OddS (EvenS od) -> nod od)
+
+-- | Boolean reflection: ties a proposition `p` to a promoted `Bool` `b`.
+data Reflects (p :: Type) (b :: Bool) where
+  OfTrue  :: p -> Reflects p 'True
+  OfFalse :: Not p -> Reflects p 'False
+
+-- | Reflecting a Boolean yields a decision procedure.
+reflectsToDec :: foreach (b :: Bool) -> Reflects p b -> Dec p
+reflectsToDec True  (OfTrue p)   = Yes p
+reflectsToDec False (OfFalse np) = No np
+```
+
 ## Dependent pairs (existentials, `Σ`)
 
 This GHC fork provides retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`,
@@ -136,7 +177,10 @@ See minimal reproducer
   [Negation](https://plfa.inf.ed.ac.uk/19.08/Negation/),
   [Quantifiers](https://plfa.inf.ed.ac.uk/19.08/Quantifiers/), and
   [Decidable](https://plfa.inf.ed.ac.uk/19.08/Decidable/) (v19.08).
-- `Not`, `zeroNeqSucc`, `Dec`, `decEqSize`, `decLeSize`, and `Sigma`/`some`
-  (`plusExists`) all port directly and pass `-dcore-lint -dstg-lint`!
+- `Not`, `zeroNeqSucc`, `Dec`, `decEqSize`, `decLeSize`, `decEven`, `decOdd`,
+  `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`/`mkSizeWitness`)
+  all port directly and pass `-dcore-lint -dstg-lint`!
+- Inline `some` returned from a `foreach` function (`plusExists`) is marked
+  with `[WIP NOTICE]` (`R04_SigmaUnderForEach.hs`).
 - Uses `Data.Void.Void` and `EmptyCase` (`\case {}`) in place of Agda's `⊥`
   and absurd pattern `()`.

@@ -39,7 +39,7 @@ main = do
       , "content/Setup.md"
       , "content/Status.md"
       , "content/Citing.md"
-      ] .||. "content/part1/*.md" .||. "content/part2/*.md") $ do
+      ] .||. "content/part1/*.md" .||. "content/part2/*.md" .||. "content/part3/*.md") $ do
       route prettyPageRoute
       compile $
         plfhPandocCompiler
@@ -95,7 +95,14 @@ pageCtx baseUrl =
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
     <> field "srcUrl" mkSrcUrl
+    <> field "plfaEditionLabel" (mkDefaultMeta "plfaEdition" "PLFA v19.08")
+    <> field "plfaAuthorsLabel" (mkDefaultMeta "plfaAuthors" "Philip Wadler and Wen Kokke")
     <> defaultContext
+
+mkDefaultMeta :: String -> String -> Item a -> Compiler String
+mkDefaultMeta key fallback item = do
+  mVal <- getMetadataField (itemIdentifier item) key
+  pure (fromMaybe fallback mVal)
 
 mkNavUrl :: String -> Item a -> Compiler String
 mkNavUrl key item = do

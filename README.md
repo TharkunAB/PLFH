@@ -1,14 +1,15 @@
 # Programming Language Foundations in Haskell (PLFH)
 
 *Programming Language Foundations in Haskell* (PLFH) is an adaptation of
-Philip Wadler and Wen Kokke's
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/19.08/)
-(edition `19.08`, commit `63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`)
+Philip Wadler, Wen Kokke, and Jeremy G. Siek's
+[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
+(editions [`19.08`](https://plfa.inf.ed.ac.uk/19.08/), commit `63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`,
+and [`22.08`](https://plfa.inf.ed.ac.uk/22.08/), commit `e2d545f3df0db4d4206c5448735665abde02d81f`)
 serving as both a readable textbook and a practical yardstick for the
 experimental Dependent Haskell fork of GHC
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Live book (GitHub Pages):** <https://tritlo.github.io/PLFH/>
+- **Live book (GitHub Pages):** <https://github.mpg.is/PLFH/>
 - **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
 
 ## Repository layout
@@ -42,8 +43,10 @@ cabal run plfh-site -- watch
 
 ## Attribution
 
-Adapted from Philip Wadler and Wen Kokke,
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/19.08/)
-(`v19.08`, commit `63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`),
+Adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek,
+[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
+(`v19.08`, commit `63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`, and
+`v22.08`, commit `e2d545f3df0db4d4206c5448735665abde02d81f`),
 licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-Every chapter notes all changes made in translation for Dependent Haskell.
+Every chapter notes its source edition and all changes made in translation for
+Dependent Haskell.

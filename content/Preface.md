@@ -20,9 +20,12 @@ parsed as "(Programming Language) Foundations in Haskell" or "Programming
 Dependent Haskell both describe programming languages and are
 themselves Haskell programs compiled by GHC.
 
-This book is an adaptation of Philip Wadler and Wen Kokke's
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/19.08/)
-(edition `19.08`, commit `63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`,
+This book is an adaptation of Philip Wadler, Wen Kokke, and Jeremy G. Siek's
+[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
+(editions [`19.08`](https://plfa.inf.ed.ac.uk/19.08/), commit
+`63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3`, and
+[`22.08`](https://plfa.inf.ed.ac.uk/22.08/), commit
+`e2d545f3df0db4d4206c5448735665abde02d81f`,
 licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 It serves a dual purpose:
 
@@ -30,8 +33,8 @@ It serves a dual purpose:
    proofs in Dependent Haskell, following PLFA's structure and prose closely.
 2. **A live yardstick** for the experimental Dependent Haskell branch of GHC
    ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
-   For every definition and theorem in PLFA `v19.08`, we ask whether a
-   Haskell programmer can state and prove it directly with the same hypotheses
+   For every definition and theorem in PLFA (Parts 1, 2, and 3), we ask whether
+   a Haskell programmer can state and prove it directly with the same hypotheses
    using `-XExperimentalDependentTypes`.
 
 ## How this book differs from PLFA

@@ -8,8 +8,8 @@ plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Lists/
 ---
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
+{-# LANGUAGE GADTs, PolyKinds, ScopedTypeVariables, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Lists
   ( appendAssoc
@@ -24,7 +24,13 @@ module PLFH.Part1.Lists
   , Any (..)
   , In
   , allAppend
+  , allAppendInv
   , allMap
+  , anyAppendL
+  , anyAppendR
+  , anyAppendInv
+  , decAll
+  , decAny
   , zeroInList
   , threeNotInList
   ) where
@@ -32,9 +38,9 @@ module PLFH.Part1.Lists
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
 import Data.Void (Void)
-import HaskLib (lengthAppend, lengthMap, lengthReverse, size, withEquality)
+import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Size (Size (..), plus)
-import PLFH.Part1.Decidable (Not)
+import PLFH.Part1.Decidable (Dec (..), Not)
 ```
 
 In PLFA, the **Lists** chapter introduces polymorphic lists, append (`++`),
@@ -55,12 +61,12 @@ Using Prelude `(++)` directly in both types and terms:
 appendAssoc :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
 appendAssoc []       _  _  = Refl
-appendAssoc (_ : xs) ys zs = withEquality (appendAssoc xs ys zs) Refl
+appendAssoc (_ : xs) ys zs = rewrite (appendAssoc xs ys zs) Refl
 
 -- | Right identity of Prelude list append: xs ++ [] = xs.
 appendNilR :: forall a. foreach (xs :: [a]) -> (xs ++ '[]) :~: xs
 appendNilR []       = Refl
-appendNilR (_ : xs) = withEquality (appendNilR xs) Refl
+appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 ```
 
 ## Length laws (reused from `HaskLib`)
@@ -195,6 +201,53 @@ allMap :: (forall x. p x -> q x) -> All p xs -> All q xs
 allMap _ AllNil           = AllNil
 allMap f (AllCons px pxs) = AllCons (f px) (allMap f pxs)
 
+-- | Inversion of `All` over append: `All p (xs ++ ys)` splits into `All p xs` and `All p ys`.
+allAppendInv :: foreach (xs :: [a]) -> All p (xs ++ ys) -> (All p xs, All p ys)
+allAppendInv []     ays            = (AllNil, ays)
+allAppendInv (_:xs) (AllCons px r) =
+  case allAppendInv xs r of
+    (axs, ays) -> (AllCons px axs, ays)
+
+-- | Left introduction for `Any` over append.
+anyAppendL :: forall a (p :: a -> Type) (xs :: [a]) (ys :: [a]). Any p xs -> Any p (xs ++ ys)
+anyAppendL (Here px) = Here px
+anyAppendL (There r) = There (anyAppendL @a @p @_ @ys r)
+
+-- | Right introduction for `Any` over append.
+anyAppendR :: forall a (p :: a -> Type) (ys :: [a]).
+              foreach (xs :: [a]) -> Any p ys -> Any p (xs ++ ys)
+anyAppendR []     ays = ays
+anyAppendR (x:xs) ays = There @p @(xs ++ ys) @x (anyAppendR @a @p @ys xs ays)
+
+-- | Inversion of `Any` over append: `Any p (xs ++ ys)` comes from `xs` or `ys`.
+anyAppendInv :: foreach (xs :: [a]) -> Any p (xs ++ ys) -> Either (Any p xs) (Any p ys)
+anyAppendInv []     ays       = Right ays
+anyAppendInv (_:_)  (Here px) = Left (Here px)
+anyAppendInv (_:xs) (There r) =
+  case anyAppendInv xs r of
+    Left  axs -> Left (There axs)
+    Right ays -> Right ays
+
+-- | Decidability of universal list quantification `All p xs`.
+decAll :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (All p xs)
+decAll d xs = case xs of
+  []    -> Yes AllNil
+  x:xs' -> case d x of
+    No npx -> No (\case AllCons px _ -> npx px)
+    Yes px -> case decAll d xs' of
+      Yes axs -> Yes (AllCons px axs)
+      No naxs -> No (\case AllCons _ axs -> naxs axs)
+
+-- | Decidability of existential list quantification `Any p xs`.
+decAny :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (Any p xs)
+decAny d xs = case xs of
+  []    -> No (\case {})
+  x:xs' -> case d x of
+    Yes px  -> Yes (Here px)
+    No  npx -> case decAny d xs' of
+      Yes axs -> Yes (There axs)
+      No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
+
 -- | Concrete membership proof: 0 ∈ [0, 1, 0].
 zeroInList :: In 'Zero '[ 'Zero, 'Succ 'Zero, 'Zero ]
 zeroInList = Here Refl
@@ -205,6 +258,31 @@ threeNotInList (Here eq)          = case eq of {}
 threeNotInList (There (Here eq))  = case eq of {}
 threeNotInList (There (There p))  = case p of {}
 ```
+
+<div class="wip-notice">
+<strong>[WIP NOTICE — Accumulating <code>shunt</code>, <code>downFrom</code>, and <code>All (\x -&gt; Not (p x))</code> (R13/R23)]</strong>
+Three further PLFA <strong>Lists</strong> items hit distinct compiler boundaries
+on GHC <code>d15cbd41fe</code>:
+<ol>
+  <li><strong>Accumulating tail recursion (<code>shunt</code>, R13):</strong>
+      Defining <code>shunt (x:xs) ys = shunt xs (x : ys)</code> changes its
+      second argument in the recursive call and fails <code>GHC-68947</code>
+      when used in <code>shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)</code>.
+      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>.</li>
+  <li><strong><code>Size -&gt; [Size]</code> recursion (<code>downFrom</code>, R13):</strong>
+      Structural recursion matching <code>Size</code> and returning a Prelude
+      list (<code>downFrom (Succ n) = n : downFrom n</code>) fails
+      <code>GHC-68947</code>. See
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_DownFromOpenEq.hs"><code>reproducers/R13_DownFromOpenEq.hs</code></a>.</li>
+  <li><strong>De Morgan between <code>All</code> and <code>Any</code> with an inline type lambda (R23):</strong>
+      Writing <code>Not (Any p xs) -&gt; All (\x -&gt; Not (p x)) xs</code>
+      hits the same Matchable-vs-Unmatchable arrow kind clash as Leibniz
+      equality, because <code>All</code> expects a matchable predicate
+      <code>a -&gt; Type</code> while the inline type lambda has unmatchable
+      kind <code>a %U -&gt; Type</code> (see
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>).</li>
+</ol>
+</div>
 
 ## Changes from PLFA `v19.08`
 

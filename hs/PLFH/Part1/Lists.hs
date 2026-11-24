@@ -1,8 +1,8 @@
 -- Generated from content/part1/Lists.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
+{-# LANGUAGE GADTs, PolyKinds, ScopedTypeVariables, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 {-# LINE 14 "content/part1/Lists.md" #-}
 module PLFH.Part1.Lists
@@ -18,7 +18,13 @@ module PLFH.Part1.Lists
   , Any (..)
   , In
   , allAppend
+  , allAppendInv
   , allMap
+  , anyAppendL
+  , anyAppendR
+  , anyAppendInv
+  , decAll
+  , decAny
   , zeroInList
   , threeNotInList
   ) where
@@ -26,23 +32,23 @@ module PLFH.Part1.Lists
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
 import Data.Void (Void)
-import HaskLib (lengthAppend, lengthMap, lengthReverse, size, withEquality)
+import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Size (Size (..), plus)
-import PLFH.Part1.Decidable (Not)
+import PLFH.Part1.Decidable (Dec (..), Not)
 
-{-# LINE 54 "content/part1/Lists.md" #-}
+{-# LINE 60 "content/part1/Lists.md" #-}
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
 appendAssoc :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
 appendAssoc []       _  _  = Refl
-appendAssoc (_ : xs) ys zs = withEquality (appendAssoc xs ys zs) Refl
+appendAssoc (_ : xs) ys zs = rewrite (appendAssoc xs ys zs) Refl
 
 -- | Right identity of Prelude list append: xs ++ [] = xs.
 appendNilR :: forall a. foreach (xs :: [a]) -> (xs ++ '[]) :~: xs
 appendNilR []       = Refl
-appendNilR (_ : xs) = withEquality (appendNilR xs) Refl
+appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 73 "content/part1/Lists.md" #-}
+{-# LINE 79 "content/part1/Lists.md" #-}
 -- | Length of append (reused from HaskLib.lengthAppend).
 lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
@@ -58,7 +64,7 @@ lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw xs = lengthReverse xs
 
-{-# LINE 116 "content/part1/Lists.md" #-}
+{-# LINE 122 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a]) -> foreach (ys :: [a])
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -78,7 +84,7 @@ mapId :: forall a. foreach (xs :: [a]) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 175 "content/part1/Lists.md" #-}
+{-# LINE 181 "content/part1/Lists.md" #-}
 -- | Evidence that predicate `p` holds for every element of `xs`.
 data All (p :: a -> Type) (xs :: [a]) where
   AllNil  :: All p '[]
@@ -101,6 +107,53 @@ allAppend (AllCons px pxs) pys = AllCons px (allAppend pxs pys)
 allMap :: (forall x. p x -> q x) -> All p xs -> All q xs
 allMap _ AllNil           = AllNil
 allMap f (AllCons px pxs) = AllCons (f px) (allMap f pxs)
+
+-- | Inversion of `All` over append: `All p (xs ++ ys)` splits into `All p xs` and `All p ys`.
+allAppendInv :: foreach (xs :: [a]) -> All p (xs ++ ys) -> (All p xs, All p ys)
+allAppendInv []     ays            = (AllNil, ays)
+allAppendInv (_:xs) (AllCons px r) =
+  case allAppendInv xs r of
+    (axs, ays) -> (AllCons px axs, ays)
+
+-- | Left introduction for `Any` over append.
+anyAppendL :: forall a (p :: a -> Type) (xs :: [a]) (ys :: [a]). Any p xs -> Any p (xs ++ ys)
+anyAppendL (Here px) = Here px
+anyAppendL (There r) = There (anyAppendL @a @p @_ @ys r)
+
+-- | Right introduction for `Any` over append.
+anyAppendR :: forall a (p :: a -> Type) (ys :: [a]).
+              foreach (xs :: [a]) -> Any p ys -> Any p (xs ++ ys)
+anyAppendR []     ays = ays
+anyAppendR (x:xs) ays = There @p @(xs ++ ys) @x (anyAppendR @a @p @ys xs ays)
+
+-- | Inversion of `Any` over append: `Any p (xs ++ ys)` comes from `xs` or `ys`.
+anyAppendInv :: foreach (xs :: [a]) -> Any p (xs ++ ys) -> Either (Any p xs) (Any p ys)
+anyAppendInv []     ays       = Right ays
+anyAppendInv (_:_)  (Here px) = Left (Here px)
+anyAppendInv (_:xs) (There r) =
+  case anyAppendInv xs r of
+    Left  axs -> Left (There axs)
+    Right ays -> Right ays
+
+-- | Decidability of universal list quantification `All p xs`.
+decAll :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (All p xs)
+decAll d xs = case xs of
+  []    -> Yes AllNil
+  x:xs' -> case d x of
+    No npx -> No (\case AllCons px _ -> npx px)
+    Yes px -> case decAll d xs' of
+      Yes axs -> Yes (AllCons px axs)
+      No naxs -> No (\case AllCons _ axs -> naxs axs)
+
+-- | Decidability of existential list quantification `Any p xs`.
+decAny :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (Any p xs)
+decAny d xs = case xs of
+  []    -> No (\case {})
+  x:xs' -> case d x of
+    Yes px  -> Yes (Here px)
+    No  npx -> case decAny d xs' of
+      Yes axs -> Yes (There axs)
+      No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
 
 -- | Concrete membership proof: 0 ∈ [0, 1, 0].
 zeroInList :: In 'Zero '[ 'Zero, 'Succ 'Zero, 'Zero ]

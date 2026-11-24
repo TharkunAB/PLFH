@@ -1,10 +1,12 @@
 ---
 title: "Confluence: Parallel reduction and Church-Rosser confluence"
 prev: /Substitution/
-next: /Status/
+next: /Denotational/
 src: content/part2/Confluence.md
 module: PLFH.Part2.Confluence
-plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Confluence/
+plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Confluence/
+plfaEdition: "PLFA v22.08"
+plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 ```haskell
@@ -44,8 +46,10 @@ the untyped lambda calculus via Tait and Martin-Löf's **parallel reduction**
    closure `ParSteps` (`_⇛*_`).
 2. Prove that every parallel step simulates into multi-step β-reduction
    (`parToBetas`, `parsToBetas`).
-3. Prove the **Strip Lemma** (`strip`) and **Confluence of parallel
-   reduction** (`parConfluence`) from the diamond property!
+3. Prove the **Strip Lemma** (`strip`) and that **Diamond implies Confluence**
+   for parallel reduction (`parConfluence`, taking the one-step diamond proof as
+   an explicit premise; the unconditional one-step diamond proof remains tracked
+   in `[WIP NOTICE]` below).
 
 Every one of those structural proofs compiles cleanly with `-dcore-lint -dstg-lint`
 over the promoted indexed GADT `UTerm n`!
@@ -159,12 +163,15 @@ Church-Rosser confluence for <code>BetaSteps</code>:
 </ul>
 </div>
 
-## Changes from PLFA `v19.08`
+## Changes from PLFA `v22.08`
 
-- Adapted from [Confluence (v19.08)](https://plfa.inf.ed.ac.uk/19.08/Confluence/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/63fcbbe25ec3686ff4c6df2c5b58a96b3a2054f3/src/plfa/part2/Confluence.lagda.md)).
+- Adapted from [Confluence (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Confluence/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Confluence.lagda.md))
+  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `bsTrans`/`bsApp1`/`bsApp2`/`bsLam`, `Par`,
   `ParSteps`, `parToBetas`, `parsToBetas`, `Joinable`, `strip`, and
-  `parConfluence` over promoted `UTerm n`.
-- Marked `parRefl`, `betaToPar`, and `parDiamond` with `[WIP NOTICE]` tracing
-  directly back to our tracked R03, R11, and R13 reproducers.
+  `parConfluence` (conditional on the one-step diamond premise) over promoted
+  `UTerm n`.
+- Marked `parRefl`, `betaToPar`, and the unconditional one-step `parDiamond`
+  proof with `[WIP NOTICE]` tracing directly back to our tracked R03, R11, and
+  R13 reproducers.

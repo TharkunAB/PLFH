@@ -26,17 +26,27 @@ module PLFH.Part1.Relations
   , ltTrans
   , Trichotomy (..)
   , ltTrichotomy
+  , ltToLe
+  , leToLt
+  , DiffWitness (..)
+  , leToDiff
+  , diffToLe
   , Even (..)
   , Odd (..)
   , evenPlusEven
   , oddPlusEven
   , evenPlusOdd
   , oddPlusOdd
+  , One (..)
+  , Can (..)
+  , incOne
+  , incCan
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib (withEquality)
+import HaskLib (rewrite)
 import HaskLib.Size (Size (..), congSucc, plus, plusSucc, plusZero)
+import PLFH.Part1.Naturals (Bin (..), inc)
 ```
 
 After defining operations on the naturals and proving properties of them
@@ -138,7 +148,7 @@ leTotal (Succ m) n = case n of
 
 Addition is monotonic with respect to `LE` on both sides—notice how `plusMonoR`
 and `plusMonoL` use `HaskLib`'s ordinary `plus`, `plusZero`, `plusSucc`, and
-`withEquality` with the exact same hypotheses as PLFA!
+`rewrite` with the exact same hypotheses as PLFA!
 
 ```haskell
 -- | Right monotonicity: if p <= q then n + p <= n + q.
@@ -150,9 +160,9 @@ plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 plusMonoL :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
           -> LE m n -> LE (plus m p) (plus n p)
 plusMonoL m n p mn = case p of
-  Zero    -> withEquality (plusZero m) (withEquality (plusZero n) mn)
-  Succ p' -> withEquality (plusSucc m p')
-               (withEquality (plusSucc n p') (SleS (plusMonoL m n p' mn)))
+  Zero    -> rewrite (plusZero m) (rewrite (plusZero n) mn)
+  Succ p' -> rewrite (plusSucc m p')
+               (rewrite (plusSucc n p') (SleS (plusMonoL m n p' mn)))
 
 -- | Combined monotonicity: if m <= n and p <= q then m + p <= n + q.
 plusMono :: foreach (m :: Size) -> foreach (n :: Size)
@@ -227,6 +237,86 @@ evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
 -- | Odd + Odd = Even.
 oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
 oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
+```
+
+## Relating `<`, `≤`, and addition
+
+We can convert directly between strict inequality (`LT' m n`) and shifted
+non-strict inequality (`LE ('Succ m) n`), and show that `m ≤ n` holds if and
+only if there exists a difference `k` with `m + k = n`:
+
+```haskell
+-- | Strict inequality implies shifted non-strict inequality: m < n -> Succ m <= n.
+ltToLe :: LT' m n -> LE ('Succ m) n
+ltToLe ZltS     = SleS ZleN
+ltToLe (SltS p) = SleS (ltToLe p)
+
+-- | Shifted non-strict inequality implies strict inequality: Succ m <= n -> m < n.
+leToLt :: LE ('Succ m) n -> LT' m n
+leToLt (SleS ZleN)     = ZltS
+leToLt (SleS (SleS p)) = SltS (leToLt (SleS p))
+
+-- | Witness that m + k = n for some runtime Size k.
+data DiffWitness (m :: Size) (n :: Size) where
+  MkDiff :: foreach (k :: Size) -> plus m k :~: n -> DiffWitness m n
+
+-- | From m <= n we can compute a difference witness k with m + k = n.
+leToDiff :: foreach (m :: Size) -> foreach (n :: Size) -> LE m n -> DiffWitness m n
+leToDiff Zero     n p = case p of
+  ZleN -> MkDiff n Refl
+leToDiff (Succ m) n p = case n of
+  Zero    -> case p of {}
+  Succ n' -> case p of
+    SleS q -> case leToDiff m n' q of
+      MkDiff k eq -> MkDiff k (rewrite eq Refl)
+
+-- | Conversely, m <= m + k for any finite m and k.
+diffToLe :: foreach (m :: Size) -> foreach (k :: Size) -> LE m (plus m k)
+diffToLe Zero     _ = ZleN
+diffToLe (Succ m) k = SleS (diffToLe m k)
+```
+
+## Canonical binary representations (`One` and `Can`)
+
+In PLFA's **Relations** stretch exercise, a binary string `Bin` has no leading
+zeros (after the most significant bit) if it satisfies `Can`: either it is
+canonical zero (`X0 Nil`) or it contains a most-significant `1`-bit (`One`).
+Increment preserves both `One` and `Can`:
+
+```haskell
+-- | Evidence that a binary number is positive and has no leading zero bits.
+data One (b :: Bin) where
+  OneX1  :: One ('X1 'Nil)
+  OneX0  :: One b -> One ('X0 b)
+  OneX1' :: One b -> One ('X1 b)
+
+-- | Evidence that a binary number is in canonical form (unique per natural).
+data Can (b :: Bin) where
+  CanZ   :: Can ('X0 'Nil)
+  CanOne :: One b -> Can b
+
+-- | Incrementing a positive canonical binary number stays positive canonical.
+incOne :: foreach (b :: Bin) -> One b -> One (inc b)
+incOne Nil    p = case p of {}
+incOne (X0 _) p = case p of
+  OneX0 o -> OneX1' o
+incOne (X1 b) p = case b of
+  Nil -> case p of
+    OneX1    -> OneX0 OneX1
+    OneX1' o -> case o of {}
+  X0 b' -> case p of
+    OneX1' o -> OneX0 (incOne (X0 b') o)
+  X1 b' -> case p of
+    OneX1' o -> OneX0 (incOne (X1 b') o)
+
+-- | Incrementing any canonical binary number yields a canonical binary number.
+incCan :: foreach (b :: Bin) -> Can b -> Can (inc b)
+incCan Nil    p = case p of {}
+incCan (X0 _) p = case p of
+  CanZ             -> CanOne OneX1
+  CanOne (OneX0 o) -> CanOne (OneX1' o)
+incCan (X1 b) p = case p of
+  CanOne o -> CanOne (incOne (X1 b) o)
 ```
 
 ### Negative control: `Succ Zero <= Zero` is uninhabited

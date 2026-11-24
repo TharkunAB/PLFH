@@ -31,7 +31,7 @@ module PLFH.Part1.Induction
 
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import GHC.Exts (U)
-import HaskLib (withEquality)
+import HaskLib (rewrite)
 import HaskLib.Size (Size (..), congFirst, congSucc, plus, plusSucc, plusZero)
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, times, toBin)
 ```
@@ -99,20 +99,20 @@ harness audit) that every proof decreases structurally on an inductive
 argument and contains no <code>undefined</code>, holes, or circular loops.
 </div>
 
-### Associativity with `withEquality` (Haskell's `rewrite`)
+### Associativity with `HaskLib.rewrite`
 
 PLFA also proves `+-assoc′` using Agda's `rewrite` keyword. In Dependent
-Haskell, `withEquality` (re-exported from `HaskLib`, equal to `gcastWith`
-from `Data.Type.Equality`) brings a propositional equality `a :~: b` into
-scope as a local `a ~ b` constraint for the body—playing the same role as
-`rewrite`:
+Haskell, `rewrite` (exported from `HaskLib`, equal to `gcastWith`
+from `Data.Type.Equality`, with `withEquality` retained as a compatibility
+alias) brings a propositional equality `a :~: b` into scope as a local
+`a ~ b` constraint for the body—playing the same role as Agda's `rewrite`:
 
 ```haskell
--- | Associativity proved via `withEquality` (analogous to Agda `rewrite`).
+-- | Associativity proved via `HaskLib.rewrite` (analogous to Agda `rewrite`).
 plusAssocRewrite :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
                  -> plus (plus m n) p :~: plus m (plus n p)
 plusAssocRewrite Zero     _ _ = Refl
-plusAssocRewrite (Succ m) n p = withEquality (plusAssocRewrite m n p) Refl
+plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 ```
 
 ### Negative control: zero is not equal to its successor
@@ -247,7 +247,7 @@ timesDistribPlus :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: 
                  -> times (plus m n) p :~: plus (times m p) (times n p)
 timesDistribPlus Zero     _ _ = Refl
 timesDistribPlus (Succ m) n p =
-  withEquality (timesDistribPlus m n p)
+  rewrite (timesDistribPlus m n p)
     (sym (plusAssoc p (times m p) (times n p)))
 
 -- | Associativity of multiplication: (m * n) * p = m * (n * p).
@@ -255,7 +255,7 @@ timesAssoc :: foreach (m :: Size) -> foreach (n :: Size) -> foreach (p :: Size)
            -> times (times m n) p :~: times m (times n p)
 timesAssoc Zero     _ _ = Refl
 timesAssoc (Succ m) n p =
-  withEquality (timesAssoc m n p)
+  rewrite (timesAssoc m n p)
     (timesDistribPlus n (times m n) p)
 
 -- | Right zero for multiplication: m * 0 = 0.
@@ -268,7 +268,7 @@ timesSuccR :: foreach (m :: Size) -> foreach (n :: Size)
            -> times m ('Succ n) :~: plus m (times m n)
 timesSuccR Zero     _ = Refl
 timesSuccR (Succ m) n =
-  withEquality (timesSuccR m n)
+  rewrite (timesSuccR m n)
     (congSucc (plusSwap n m (times m n)))
 
 -- | Commutativity of multiplication: m * n = n * m.
@@ -276,7 +276,7 @@ timesComm :: foreach (m :: Size) -> foreach (n :: Size)
           -> times m n :~: times n m
 timesComm Zero     n = sym (timesZeroR n)
 timesComm (Succ m) n =
-  withEquality (timesComm m n)
+  rewrite (timesComm m n)
     (sym (timesSuccR n m))
 ```
 
@@ -313,7 +313,7 @@ fromInc :: foreach (b :: Bin) -> fromBin (inc b) :~: 'Succ (fromBin b)
 fromInc Nil    = Refl
 fromInc (X0 _) = Refl
 fromInc (X1 b) =
-  withEquality (fromInc b)
+  rewrite (fromInc b)
     (congSucc (plusSucc (fromBin b) (fromBin b)))
 
 -- | Round-tripping Size -> Bin -> Size is the identity.
@@ -330,7 +330,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 - Checked direct ports of `plusAssoc`, `plusAssocRewrite`, `plusComm`,
   `plusRearrange`, `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`,
   `timesSuccR`, `timesComm`, `fromInc`, and `fromTo`.
-- Replaced Agda `rewrite` with `HaskLib.withEquality`.
+- Uses `HaskLib.rewrite` (corresponding to Agda's `rewrite`, with `withEquality` retained in `HaskLib` as a compatibility alias).
 - Added an explicit negative control (`NegZeroSucc`) verifying GHC rejects
   `'Zero :~: 'Succ 'Zero` (`GHC-83865`).
 - Marked `monus` and `pow` exercises, second-column equation splitting,

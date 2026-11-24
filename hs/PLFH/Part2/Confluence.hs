@@ -4,7 +4,7 @@
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 14 "content/part2/Confluence.md" #-}
+{-# LINE 16 "content/part2/Confluence.md" #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1
@@ -29,7 +29,7 @@ import PLFH.Part2.Untyped
   , substSingleU
   )
 
-{-# LINE 56 "content/part2/Confluence.md" #-}
+{-# LINE 60 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -48,7 +48,7 @@ bsLam :: BetaSteps b b' -> BetaSteps ('ULam b) ('ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 78 "content/part2/Confluence.md" #-}
+{-# LINE 82 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Size). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -81,7 +81,7 @@ parsToBetas :: ParSteps m n -> BetaSteps m n
 parsToBetas PSRefl       = BRefl
 parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 
-{-# LINE 114 "content/part2/Confluence.md" #-}
+{-# LINE 118 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `n`.
 type Joinable :: forall (n :: Size). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where

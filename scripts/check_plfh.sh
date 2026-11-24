@@ -15,9 +15,9 @@ export LC_ALL=C
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
-DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r04-r16-r17-post-585-20261123/source/_build/stage1/bin/ghc"
+DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/bin/ghc"
 if ! [[ -x "$DEFAULT_COMPILER" ]]; then
-  DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r04-r05-r17-combined-584-20261123/source/_build/stage1/bin/ghc"
+  DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r04-r16-r17-post-585-20261123/source/_build/stage1/bin/ghc"
 fi
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 

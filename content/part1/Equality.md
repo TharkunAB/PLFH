@@ -9,8 +9,8 @@ plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Equality/
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, RequiredTypeArguments #-}
+{-# LANGUAGE ScopedTypeVariables, TypeApplications, TypeOperators #-}
 module PLFH.Part1.Equality
   ( EqP (..)
   , symP
@@ -19,6 +19,10 @@ module PLFH.Part1.Equality
   , congAppP
   , substP
   , substU
+  , beginEq
+  , stepEq
+  , qedEq
+  , plusZeroChain
   , Leibniz
   , leibnizRefl
   , leibnizTrans
@@ -31,9 +35,10 @@ module PLFH.Part1.Equality
   ) where
 
 import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (U)
-import HaskLib (withEquality)
-import HaskLib.Size (Size (..), plus)
+import HaskLib (rewrite)
+import HaskLib.Size (Size (..), congSucc, plus)
 import PLFH.Part1.Induction (plusComm)
 import PLFH.Part1.Relations (Even (..))
 ```
@@ -116,7 +121,7 @@ same theorem using `substP @Even`:
 -- | If m + n is even, then n + m is even.
 evenComm :: foreach (m :: Size) -> foreach (n :: Size)
          -> Even (plus m n) -> Even (plus n m)
-evenComm m n ev = withEquality (plusComm m n) ev
+evenComm m n ev = rewrite (plusComm m n) ev
 ```
 
 <div class="wip-notice">
@@ -129,10 +134,42 @@ compiler panic on GHC <code>db2586fdc2</code>:
   [('Unmatchable, x[sk:2]), ('Unmatchable, y[sk:2])]
   [T:plus m n, T:plus n m]
   pprPanic, called at compiler/GHC/Tc/Gen/App.hs:3947:25</code></pre>
-Using <code>withEquality (plusComm m n) ev</code> directly avoids the panic
+Using <code>HaskLib.rewrite (plusComm m n) ev</code> directly avoids the panic
 and checks cleanly. Reported to the compiler team with minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_TcInstFunPanic.hs"><code>reproducers/R03_TcInstFunPanic.hs</code></a>.
 </div>
+
+## Equational reasoning chains with `RequiredTypeArguments`
+
+In PLFA, chains of equalities are written with `begin ... ≡⟨ reason ⟩ ... ∎`
+so every intermediate expression is checked by the typechecker. In GHC with
+`RequiredTypeArguments` (`forall x y z -> ...`), we can write explicit
+equational reasoning combinators where the intermediate types appear directly
+in the proof term:
+
+```haskell
+-- | Start an equational reasoning chain from `x` to `y`.
+beginEq :: forall x y -> x :~: y -> x :~: y
+beginEq _ _ p = p
+
+-- | End an equational reasoning chain at `x`.
+qedEq :: forall x -> x :~: x
+qedEq _ = Refl
+
+-- | One reasoned step: from `x` to `y` by `p`, followed by `y` to `z`.
+stepEq :: forall x y z -> x :~: y -> y :~: z -> x :~: z
+stepEq _ _ _ Refl Refl = Refl
+
+-- | Example equational chain proving `n + 0 = n`.
+plusZeroChain :: foreach (n :: Size) -> plus n 'Zero :~: n
+plusZeroChain Zero     = beginEq (type (plus 'Zero 'Zero)) (type 'Zero) (qedEq (type 'Zero))
+plusZeroChain (Succ n) =
+  stepEq (type (plus ('Succ n) 'Zero)) (type ('Succ (plus n 'Zero))) (type ('Succ n))
+    Refl
+    (stepEq (type ('Succ (plus n 'Zero))) (type ('Succ n)) (type ('Succ n))
+      (congSucc (plusZeroChain n))
+      (qedEq (type ('Succ n))))
+```
 
 ## Leibniz equality
 
