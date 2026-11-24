@@ -27,6 +27,9 @@ module PLFH.Part2.Confluence
   , neutralNoBetaStep
   , normalNoBetaStep
   , normalNoBetaSteps
+  , neutralPar
+  , normalPar
+  , normalParSteps
   , uniqueNormalForm
   ) where
 
@@ -46,7 +49,7 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 116 "content/part2/Confluence.md" #-}
+{-# LINE 119 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -65,7 +68,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 150 "content/part2/Confluence.md" #-}
+{-# LINE 153 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -105,7 +108,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 206 "content/part2/Confluence.md" #-}
+{-# LINE 209 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -170,6 +173,25 @@ normalNoBetaSteps :: Normal m -> BetaSteps m n -> m :~: n
 normalNoBetaSteps _  BRefl       = Refl
 normalNoBetaSteps nm (BCons s _) = absurd (normalNoBetaStep nm s)
 
+-- | Neutral terms reduce under parallel reduction only to themselves (`neutral-⇒`).
+neutralPar :: Neutral m -> Par m n -> m :~: n
+neutralPar NVar         PVar         = Refl
+neutralPar (NApp nl nm) (PApp pl pm) = case (neutralPar nl pl, normalPar nm pm) of
+  (Refl, Refl) -> Refl
+neutralPar (NApp nl _)  (PBeta _ _ _) = case nl of {}
+
+-- | Normal forms reduce under parallel reduction only to themselves (`normal-⇒`).
+normalPar :: Normal m -> Par m n -> m :~: n
+normalPar (NNeu nm) p         = neutralPar nm p
+normalPar (NLam nb) (PLam pb) = case normalPar nb pb of
+  Refl -> Refl
+
+-- | Normal forms reduce under multi-step parallel reduction only to themselves (`normal-⇒*`).
+normalParSteps :: Normal m -> ParSteps m n -> m :~: n
+normalParSteps _  PSRefl        = Refl
+normalParSteps nm (PSCons p ps) = case normalPar nm p of
+  Refl -> normalParSteps nm ps
+
 -- | Corollary of Church-Rosser: every term has at most one normal form!
 uniqueNormalForm :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).
                     (forall (a :: UTerm n) (b :: UTerm n). BetaStep a b -> Par a b)
@@ -183,7 +205,7 @@ uniqueNormalForm b2p diamond bs1 bs2 nm1 nm2 =
     Join r1 r2 -> case (normalNoBetaSteps nm1 r1, normalNoBetaSteps nm2 r2) of
       (Refl, Refl) -> Refl
 
-{-# LINE 292 "content/part2/Confluence.md" #-}
+{-# LINE 314 "content/part2/Confluence.md" #-}
 -- | Parallel reduction is reflexive across the non-uniform scope index `n`.
 parRefl :: forall (n :: Nat). foreach (m :: UTerm n) -> Par m m
 parRefl (UVar _)   = PVar

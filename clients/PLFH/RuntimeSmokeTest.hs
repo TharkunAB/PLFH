@@ -26,7 +26,7 @@ import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConst
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
-import PLFH.Part2.Confluence (Par (..), betaToPar, normalNoBetaSteps, omegaPar, parRefl, parToBetas)
+import PLFH.Part2.Confluence (Par (..), ParSteps (..), betaToPar, normalNoBetaSteps, normalPar, normalParSteps, omegaPar, parRefl, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
 import qualified PLFH.Part2.DeBruijnProgress as DBP
@@ -38,9 +38,9 @@ import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, 
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
-import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
+import PLFH.Part3.Compositional (AppDen (..), congChain, denAppToAppDen, lamInversion)
 import PLFH.Part3.ContextualEquivalence (Terminates (..), terminatesLam, terminatesStep)
-import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denotId, denotIdAppId)
+import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denEqRefl, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
 natToInt :: Nat -> Int
@@ -461,6 +461,8 @@ main = do
     (checkBetaToPar (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
   assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
+  assertEq "Confluence.normalPar idIsNormal" True (case normalPar idIsNormal (PLam PVar) of Refl -> True)
+  assertEq "Confluence.normalParSteps idIsNormal" True (case normalParSteps idIsNormal (PSCons (PLam PVar) PSRefl) of Refl -> True)
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
@@ -481,6 +483,8 @@ main = do
     (case denAppToAppDen (MkDen (denotIdAppId (MkValW Bot))) of { ADApp _ _ _ -> True; _ -> False })
   assertEq "Compositional.lamInversion" True
     (case lamInversion (MkValW (Arr Bot Bot)) denotId of { DVar _ -> True; _ -> False })
+  assertEq "Compositional.congChain (Bot)" True
+    (case fst (congChain @_ @(U.UVar U.FZ) denEqRefl (MkValW Bot)) (MkDen DBot) of { MkDen DBot -> True; _ -> True })
   assertEq "Soundness.denotPreserve idAppStep" True
     (case denotPreserve (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) idAppStep of { DIntro _ -> True; _ -> False })
   assertEq "Soundness.denotReflect idAppStep" True

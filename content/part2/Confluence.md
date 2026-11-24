@@ -87,6 +87,9 @@ module PLFH.Part2.Confluence
   , neutralNoBetaStep
   , normalNoBetaStep
   , normalNoBetaSteps
+  , neutralPar
+  , normalPar
+  , normalParSteps
   , uniqueNormalForm
   ) where
 
@@ -266,6 +269,25 @@ normalNoBetaStep (NLam nb) (XiLam s) = normalNoBetaStep nb s
 normalNoBetaSteps :: Normal m -> BetaSteps m n -> m :~: n
 normalNoBetaSteps _  BRefl       = Refl
 normalNoBetaSteps nm (BCons s _) = absurd (normalNoBetaStep nm s)
+
+-- | Neutral terms reduce under parallel reduction only to themselves (`neutral-⇒`).
+neutralPar :: Neutral m -> Par m n -> m :~: n
+neutralPar NVar         PVar         = Refl
+neutralPar (NApp nl nm) (PApp pl pm) = case (neutralPar nl pl, normalPar nm pm) of
+  (Refl, Refl) -> Refl
+neutralPar (NApp nl _)  (PBeta _ _ _) = case nl of {}
+
+-- | Normal forms reduce under parallel reduction only to themselves (`normal-⇒`).
+normalPar :: Normal m -> Par m n -> m :~: n
+normalPar (NNeu nm) p         = neutralPar nm p
+normalPar (NLam nb) (PLam pb) = case normalPar nb pb of
+  Refl -> Refl
+
+-- | Normal forms reduce under multi-step parallel reduction only to themselves (`normal-⇒*`).
+normalParSteps :: Normal m -> ParSteps m n -> m :~: n
+normalParSteps _  PSRefl        = Refl
+normalParSteps nm (PSCons p ps) = case normalPar nm p of
+  Refl -> normalParSteps nm ps
 
 -- | Corollary of Church-Rosser: every term has at most one normal form!
 uniqueNormalForm :: forall (n :: Nat) (l :: UTerm n) (m1 :: UTerm n) (m2 :: UTerm n).

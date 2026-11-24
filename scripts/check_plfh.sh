@@ -19,119 +19,27 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# whenever _build/current/verified.pass exists, falling back to published
-# on-demand checkpoints (7bd39424e0, plfh-normal-622, 0452d7d17c, ...).
+# whenever _build/current/verified.pass exists, falling back to _build/stage1/bin/ghc
+# (or explicit PLFH_GHC / PLFH_GHC_LIBDIR overrides).
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
-COMP_7BD="$GHC_REPO/_build/on-demand/plfh-indexed-env-lookup-facade-20261124/relink.n73u8d/component/ghc"
-NORMAL_622="$GHC_REPO/_build/on-demand/plfh-normal-622-20261124/source/_build/stage1/bin/ghc"
-COMP_045="$GHC_REPO/_build/on-demand/plfh-nonuniform-legacy-distinct-20261124/relink.sNapGu/component/ghc"
-COMP_0B2="$GHC_REPO/_build/on-demand/plfh-breakpoint-closures-619.XXXzWovw/checked.QCEaXAtY/component/ghc"
-COMP_744="$GHC_REPO/_build/on-demand/plfh-wildcard-open-equation-20261124/complete-first.cFaM8I/component/ghc"
-COMP_056="$GHC_REPO/_build/on-demand/plfh-more-witness-integration-20261124/joint.heqcOi/component/ghc"
-COMP_457="$GHC_REPO/_build/on-demand/plfh-joint-witness-7ec3.1prHXyxM/checked.YSXkDVmS/component/ghc"
-COMP_863="$GHC_REPO/_build/on-demand/plfh-progress-backends-fb64-20261124/mixed-bytecode/relink.0sLsma/component/ghc"
-COMP_FB6="$GHC_REPO/_build/on-demand/plfh-beta-forward-c752-20261124/relink.R6vWzk/component/ghc"
-COMP_AD1="$GHC_REPO/_build/on-demand/plfh-r23-ordinary-cong-167834fb-20261124/candidate/component/ghc"
-COMP_2DE="$GHC_REPO/_build/on-demand/plfh-vector-diagnostic-compat-33a76c71.5Cha2t4T/final.j4SL5TOU/component/ghc"
-COMP_9D3="$GHC_REPO/_build/on-demand/plfh-retained-columns-and-constructors-7c18bfb.lOliSoZj/final.rAKHTW1r/component/ghc"
-COMP_359="$GHC_REPO/_build/on-demand/plfh-r23-matchability-20261124/tuple/component/ghc"
-COMP_DA0="$GHC_REPO/_build/on-demand/plfh-connectives-swap-combined.a9mMutyA/broad.iwYHO6WH/compiler/ghc"
-COMP_F0B="$GHC_REPO/_build/on-demand/plfh-r13-rev-local-9111-20261124/checked/component/ghc"
-COMP_6C8="$GHC_REPO/_build/on-demand/plfh-iso-transitivity-8def3bbd.ezUTMZSt/final.lamb4bMy/compiler/ghc"
-COMP_332="$GHC_REPO/_build/on-demand/plfh-r11-nested-gadt-8b37-20261124/checked/component/ghc"
-COMP_E7A="$GHC_REPO/_build/on-demand/plfh-indexed-app-forward-34582-20261124/checked/component/ghc"
-COMP_C97="$GHC_REPO/_build/on-demand/plfh-integration-601-20261124/check.hAzvA2/compiler/ghc"
-COMP_2E4="$GHC_REPO/_build/on-demand/plfh-pow-progress-combined-20261124/checked/component/ghc"
-COMP_1F8="$GHC_REPO/_build/on-demand/r13-pow-open-eq-20261124/relink.yk1Z2S/component/ghc"
-COMP_63E="$GHC_REPO/_build/on-demand/r13-monus-open-eq-20261124/forward-0043/relink.KarCex/component/ghc"
-COMP_9CC="$GHC_REPO/_build/on-demand/r03-nested-dep-case-20261124/audit-692/checked/component/ghc"
-COMP_LIB="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/lib"
-LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/bin/ghc"
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
 if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]]; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
-elif [[ -x "$COMP_7BD" ]]; then
-  DEFAULT_COMPILER="$COMP_7BD"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$NORMAL_622" ]]; then
-  DEFAULT_COMPILER="$NORMAL_622"
-elif [[ -x "$COMP_045" ]]; then
-  DEFAULT_COMPILER="$COMP_045"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_0B2" ]]; then
-  DEFAULT_COMPILER="$COMP_0B2"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_744" ]]; then
-  DEFAULT_COMPILER="$COMP_744"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_056" ]]; then
-  DEFAULT_COMPILER="$COMP_056"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_457" ]]; then
-  DEFAULT_COMPILER="$COMP_457"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_863" ]]; then
-  DEFAULT_COMPILER="$COMP_863"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_FB6" ]]; then
-  DEFAULT_COMPILER="$COMP_FB6"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_AD1" ]]; then
-  DEFAULT_COMPILER="$COMP_AD1"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_2DE" ]]; then
-  DEFAULT_COMPILER="$COMP_2DE"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_9D3" ]]; then
-  DEFAULT_COMPILER="$COMP_9D3"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_359" ]]; then
-  DEFAULT_COMPILER="$COMP_359"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_DA0" ]]; then
-  DEFAULT_COMPILER="$COMP_DA0"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_F0B" ]]; then
-  DEFAULT_COMPILER="$COMP_F0B"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_6C8" ]]; then
-  DEFAULT_COMPILER="$COMP_6C8"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_332" ]]; then
-  DEFAULT_COMPILER="$COMP_332"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_E7A" ]]; then
-  DEFAULT_COMPILER="$COMP_E7A"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_C97" ]]; then
-  DEFAULT_COMPILER="$COMP_C97"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_2E4" ]]; then
-  DEFAULT_COMPILER="$COMP_2E4"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_1F8" ]]; then
-  DEFAULT_COMPILER="$COMP_1F8"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_63E" ]]; then
-  DEFAULT_COMPILER="$COMP_63E"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$COMP_9CC" ]]; then
-  DEFAULT_COMPILER="$COMP_9CC"
-  DEFAULT_LIBDIR="$COMP_LIB"
-elif [[ -x "$LEGACY_590" ]]; then
-  DEFAULT_COMPILER="$LEGACY_590"
+elif [[ -x "$CURRENT_GHC" ]]; then
+  DEFAULT_COMPILER="$CURRENT_GHC"
+  DEFAULT_LIBDIR="$CURRENT_LIB"
 else
   DEFAULT_COMPILER="$GHC_REPO/_build/stage1/bin/ghc"
 fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$CURRENT_GHC" || "$COMPILER" == "$COMP_359" || "$COMPILER" == "$COMP_DA0" || "$COMPILER" == "$COMP_F0B" || "$COMPILER" == "$COMP_6C8" || "$COMPILER" == "$COMP_332" || "$COMPILER" == "$COMP_E7A" || "$COMPILER" == "$COMP_C97" || "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$CURRENT_GHC" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
@@ -169,52 +77,6 @@ echo "Version:  $VERSION"
 if [[ "$COMPILER" == "$CURRENT_GHC" ]]; then
   CURRENT_REV=$(cat "$GHC_REPO/_build/current/compiler.source" 2>/dev/null || echo "$COMMIT")
   echo "Commit:   $CURRENT_REV (consolidated _build/current stage1; ghc --info: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_7BD" ]]; then
-  echo "Commit:   7bd39424e0 / 944a4efa9d / 2b957d9d85 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$NORMAL_622" ]]; then
-  echo "Commit:   f78c0b4592bb7883333968c17f2bebbe60a76b9b (full stage1 normal-622)"
-elif [[ "$COMPILER" == "$COMP_045" ]]; then
-  echo "Commit:   0452d7d17c744f764b15290250ad87c3b1895850 / a3b684aaf1 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_0B2" ]]; then
-  echo "Commit:   0b2ad262dff9ae506700e10d4561f46444d10697 / efb66ab19f (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_744" ]]; then
-  echo "Commit:   744122325df4b96c87a98d0b1a52be6380a71036 / 143779210d (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_056" ]]; then
-  echo "Commit:   056871faa950d8974764c97d19d96f9d29ef2815 / 60b64904a4 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_457" ]]; then
-  echo "Commit:   4570cbe2f8b2e57190e8b36c4aca603bb65256f7 / f0d893681e (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_863" ]]; then
-  echo "Commit:   8632606465b9c50069fda938753ac75fe72c85f8 / 5ead8de5e4 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_FB6" ]]; then
-  echo "Commit:   fb64eaff8171a630b136167bf45c4af8e8333f5f / d7b9870ed0 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_AD1" ]]; then
-  echo "Commit:   ad1a979ead80254776043bbc8d79d963aec50e1c / 726cad5c17 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_2DE" ]]; then
-  echo "Commit:   2deac8b91ead030898938358ab2f67904d819270 / 781a6c6a8f (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_9D3" ]]; then
-  echo "Commit:   9d310102c7222750985c6918102a8db75f44ace2 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_359" ]]; then
-  echo "Commit:   35916907b952a29fa44613222079d35cd1237b12 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_DA0" ]]; then
-  echo "Commit:   da06279b7a4ba86fef478e3f988297ebd3306fd2 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_F0B" ]]; then
-  echo "Commit:   f0bc12e601f2323fa91e958f4afc947fbd48bf15 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_6C8" ]]; then
-  echo "Commit:   6c8ab7f7deb9bbd0ef5e2fa03a5ece733f638492 / d8eec2036d (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_332" ]]; then
-  echo "Commit:   3326acd9b1fea98090eb5e8f3f89b5a85e44d849 / 0eb794cd38 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_E7A" ]]; then
-  echo "Commit:   e7a798a060b754abb0f9d9dcc9cedddd6b1bdaf5 / 5a7d9d7de8 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_C97" ]]; then
-  echo "Commit:   c97f70ecdcbded27a1d705c2e9b4d42a5ddeb028 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_2E4" ]]; then
-  echo "Commit:   2e4fbb752a2fca6d9d4ac4b7901e2aa07b3c1534 / 3a6446c77e (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_1F8" ]]; then
-  echo "Commit:   1f873969e589e84b632e5d0304399ab4d2c997e3 (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_63E" ]]; then
-  echo "Commit:   63e2f0974b174dc86bef79c3a84d1d76fea3dadf / 76e67f4fdb (verified component; base libdir seed: $COMMIT)"
-elif [[ "$COMPILER" == "$COMP_9CC" ]]; then
-  echo "Commit:   9cc4065fab4f2f106859b39daa9bdad23f00f0fd (verified component; base libdir seed: $COMMIT)"
 else
   echo "Commit:   $COMMIT"
 fi

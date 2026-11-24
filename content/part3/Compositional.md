@@ -56,13 +56,14 @@ module PLFH.Part3.Compositional
   , appEquiv
   , appDenCong
   , appCong
+  , congChain
   , UCtx (..)
   , plug
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (UTerm (..))
+import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
   , DenEq
@@ -72,6 +73,7 @@ import PLFH.Part3.Denotational
   , ValEnv (..)
   , ValW (..)
   , Value (..)
+  , denEqRefl
   , denEqSym
   , denEqTrans
   , unArrW
@@ -235,6 +237,12 @@ appDenCong e1 e2 wv = (go e1 e2 wv, go (denEqSym e1) (denEqSym e2) wv)
 appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
         -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
+
+-- | Exercise `cong-chain`: composing `lamCong`, `appCong`, and `denEqRefl`
+-- yields denotational congruence under `λx. x · []`!
+congChain :: DenEq (Den m) (Den m')
+          -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
+congChain eq = lamCong (appCong denEqRefl eq)
 ```
 
 ## One-hole program contexts (`UCtx`) and `plug`
@@ -260,16 +268,18 @@ plug (CAppR l c) t = UApp l (plug c t)
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — General <code>compositionality</code> over <code>plug c m</code> (R03/R13)]</strong>
+<strong>[WIP NOTICE — General <code>compositionality</code> over <code>plug c m</code> (R13/R16)]</strong>
 Both structural congruence theorems (<code>lamCong</code> and
-<code>appCong</code>) are <strong>100% checked</strong>! Only the final
-induction over arbitrary one-hole contexts <code>UCtx m n</code>:
+<code>appCong</code>) and concrete context chains (<code>congChain</code>) are
+<strong>100% checked</strong>! Only the final induction over arbitrary
+one-hole contexts <code>UCtx m n</code>:
 <pre class="wip"><code>compositionality :: foreach (c :: UCtx m n)
                  -&gt; DenEq (Den t) (Den t')
                  -&gt; DenEq (Den (plug c t)) (Den (plug c t'))</code></pre>
-remains open, requiring R13 checked source equations for GADT-indexed
-<code>plug</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>).
+remains open because GHC does not yet publish checked source equations for the
+two-index GADT traversal <code>plug :: UCtx m n -&gt; UTerm m -&gt; UTerm n</code>
+even with <code>-fwrite-source-equations</code>. See minimal reproducer
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PlugOpenEq.hs"><code>reproducers/R13_PlugOpenEq.hs</code></a>.
 </div>
 
 ## Exercises

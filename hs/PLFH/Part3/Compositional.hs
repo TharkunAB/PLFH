@@ -22,13 +22,14 @@ module PLFH.Part3.Compositional
   , appEquiv
   , appDenCong
   , appCong
+  , congChain
   , UCtx (..)
   , plug
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part2.Untyped (UTerm (..))
+import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
   , DenEq
@@ -38,6 +39,7 @@ import PLFH.Part3.Denotational
   , ValEnv (..)
   , ValW (..)
   , Value (..)
+  , denEqRefl
   , denEqSym
   , denEqTrans
   , unArrW
@@ -45,7 +47,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 95 "content/part3/Compositional.md" #-}
+{-# LINE 97 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -109,7 +111,7 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
 lamCong :: DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 170 "content/part3/Compositional.md" #-}
+{-# LINE 172 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
@@ -179,7 +181,13 @@ appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
         -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
 
-{-# LINE 247 "content/part3/Compositional.md" #-}
+-- | Exercise `cong-chain`: composing `lamCong`, `appCong`, and `denEqRefl`
+-- yields denotational congruence under `λx. x · []`!
+congChain :: DenEq (Den m) (Den m')
+          -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
+congChain eq = lamCong (appCong denEqRefl eq)
+
+{-# LINE 255 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
