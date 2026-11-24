@@ -1,6 +1,6 @@
 ---
 title: "Yardstick Status Ledger"
-prev: /DeBruijn/
+prev: /Untyped/
 next: /Citing/
 src: content/Status.md
 ---
@@ -9,7 +9,8 @@ This page tracks every PLFA `v19.08` declaration, theorem, and exercise
 attempted in PLFH against the experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Baseline compiler:** GHC `10.1.20261115.1`, commit `db2586fdc2f391829174a5652d8744e9a9b761f8`
+- **Current published compiler:** GHC `10.1.20261115.1`, commit `d15cbd41fe1a8158ddcc761902f815b3a51380d8` (588 checkpoint; initial baseline was 585 at `db2586fdc2`)
+- **Pending compiler team fixes:** Private candidate `c21ecc47ff` (`refs/spikes/plfh-typed-congruence-591`) fixes both `R03_TcInstFunPanic.hs` and `R03_CongPartialApp.hs` at `-O0` and `-O2` (awaiting publication).
 - **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint`
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
@@ -41,6 +42,11 @@ attempted in PLFH against the experimental Dependent Haskell compiler
 | [Relations](/Relations/) | `even`, `odd`, `even+even`, `odd+even`, `even+odd`, `odd+odd` | `PLFH.Part1.Relations.{Even,Odd,*Plus*}` | <span class="badge badge-pass">Direct port</span> | No `foreach` needed—GADT refinement suffices! |
 | [Equality](/Equality/) | `_≡_`, `sym`, `trans`, `cong`, `cong-app`, `subst`, `even-comm` | `PLFH.Part1.Equality.*` | <span class="badge badge-pass">Direct port</span> | `substP @Even (toEqP (plusComm m n))` triggers a GHC panic (`R03_TcInstFunPanic.hs`); `withEquality` passes |
 | [Equality](/Equality/) | Leibniz equality & symmetry | `PLFH.Part1.Equality.{Leibniz,LeibnizU,leibnizUSym}` | <span class="badge badge-pass">Direct port</span> | Inline type-level lambda `@(\z -> EqP z x)` works (R17)! Matchability subtyping noted (R23) |
+| [Isomorphism](/Isomorphism/) | `_⇔_` (`Iff`, refl/sym/trans), `IsoSize` decl | `PLFH.Part1.Isomorphism.*` | <span class="badge badge-pass">Direct port</span> | Monomorphic `IsoSize` declares cleanly |
+| [Isomorphism](/Isomorphism/) | Polymorphic `_≃_`, `_≲_`, `MkIsoSize` construction | — | <span class="badge badge-wip">Blocker</span> | Polymorphic `foreach (to :: a -> b)` & higher-rank `foreach` constructor fields (`R04_PolyFunctionFieldInIso.hs`, `R04_HigherRankForEachField.hs`) |
+| [Connectives](/Connectives/) | `×`, `⊎`, `⊤`, `⊥`, comm/assoc/distrib/currying | `PLFH.Part1.Connectives.*` | <span class="badge badge-pass">Direct port</span> | All laws checked as `Iff` over standard `(,)`, `Either`, `()`, `Void` |
+| [Negation](/Negation/) | `¬`, double/triple neg, De Morgan, `EM ⇔ DNE ⇔ Peirce`, `ltIrrefl`/`ltAsym` | `PLFH.Part1.Negation.*` | <span class="badge badge-pass">Direct port</span> | All intuitionistic & classical equivalences checked directly |
+| [Quantifiers](/Quantifiers/) | `Exists`, `existsDistribSum`, quantifier De Morgan, `EvenSigma`, `evenToWitness` | `PLFH.Part1.Quantifiers.*` | <span class="badge badge-pass">Direct port</span> | `EvenSigma` (`some`) + `evenToWitness :: Even n -> EvenWitness n` checked! |
 | [Decidable](/Decidable/) | `¬`, `Dec`, `_≟_`, `_≤?_`, `Σ` | `PLFH.Part1.Decidable.*` | <span class="badge badge-pass">Direct port</span> | Inline `foreach ... -> some ...` hits R04 (`R04_SigmaUnderForEach.hs`); top-level `SizeWitness` passes |
 | [Lists](/Lists/) | `++-assoc`, `++-identityʳ` | `PLFH.Part1.Lists.{appendAssoc,appendNilR}` | <span class="badge badge-pass">Direct port</span> | Uses **ordinary Prelude `(++)`**! |
 | [Lists](/Lists/) | `length-++`, `length-map`, `length-reverse` | `HaskLib.{lengthAppend,lengthMap,lengthReverse}` | <span class="badge badge-reuse">HaskLib reuse</span> | Reused directly from `HaskLib` |
@@ -57,6 +63,9 @@ attempted in PLFH against the experimental Dependent Haskell compiler
 | [DeBruijn](/DeBruijn/) | `Type`, `Context`, `_∋_`, `_⊢_`, `ext`, `rename`, `exts`, `subst` | `PLFH.Part2.DeBruijn.*` | <span class="badge badge-pass">Direct port</span> | Intrinsically typed terms & type-preserving substitution checked directly |
 | [DeBruijn](/DeBruijn/) | Promoted `Value`, `_—→_`, `Progress` over `Γ ⊢ A` | `PLFH.Part2.DeBruijn.{Value,Step,Progress}` | <span class="badge badge-pass">Direct port</span> | **GADT promotion of `Term g a` + `substSingle` compiles!** |
 | [DeBruijn](/DeBruijn/) | Intrinsically-typed `progress :: foreach (m :: Term 'CEmpty a) -> Progress m` | — | <span class="badge badge-wip">Blocker</span> | `foreach` over indexed GADT domain blocked (`R03_ForEachGadt*.hs`, R03) |
+| [Inference](/Inference/) | `decEqTy`, `lookupCtx`, `infer`, `check` (certified STLC type inference) | `PLFH.Part2.Inference.*` | <span class="badge badge-pass">Direct port</span> | **Full certified STLC type inference & checking compiles!** Uses `matchArr`/`matchNat` & `App @g @a @b` (see R03 reproducers) |
+| [Untyped](/Untyped/) | `Fin`, `UTerm`, `renameU`, `substU`, promoted `Neutral`/`Normal`/`BetaStep` | `PLFH.Part2.Untyped.*` | <span class="badge badge-pass">Direct port</span> | Well-scoped syntax + GADT promotion compiles! |
+| [Untyped](/Untyped/) | Gas-bounded full normalizer over `foreach (t :: UTerm n)` | — | <span class="badge badge-wip">Blocker</span> | Same R03 indexed-GADT `foreach` domain boundary as `DeBruijn` |
 
 ## Negative Controls (Verified Rejections)
 
@@ -85,7 +94,11 @@ Every reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tre
 | `R03_FoldrRetainedIndex.hs` | R03 | `GHC-83605` | `foldrL plus Zero xs` rejected as a retained runtime argument |
 | `R03_ForEachGadtEquations.hs` | R03 | `GHC-83605` | `foreach (m :: Term 'CEmpty a)` equations rejected on indexed GADT domain |
 | `R03_ForEachGadtCase.hs` | R03 | `GHC-25897` / mismatch | `case m of` on `foreach (m :: Term 'CEmpty a)` does not refine `m` |
-| `R03_TcInstFunPanic.hs` | R03 / Compiler bug | **GHC panic!** | `substP @Even (toEqP (plusComm m n)) ev` panics in `GHC.Tc.Gen.App.tcInstFun` (line 3947) |
+| `R03_TcInstFunPanic.hs` | R03 / Compiler bug | **GHC panic!** (fixed in private `c21ecc47ff`) | `substP @Even (toEqP (plusComm m n)) ev` panics in `GHC.Tc.Gen.App.tcInstFun` (line 3947) |
 | `R05_SubstTyEtaAliasPanic.hs` | R05 / Compiler bug | **GHC panic!** | Eta-reduced alias `lengthReverseLaw = lengthReverse` panics in `GHC.Core.TyCo.Subst.substTy` (line 900) |
+| `R03_CaseRefinementMultiIndexGadt.hs` | R03 | `GHC-83605` | `case t of` refuses to refine captured multi-indexed GADT `Term g t` |
+| `R03_UntouchableUnderRetainedApp.hs` | R03 | `GHC-83865` | `MkTyped b (App lArr m)` fails with untouchable `g0`/`a0` under retained application |
 | `R04_SigmaUnderForEach.hs` | R04 | Rejected sum position | Returning inline `some (k :: Size) \| k :~: plus m n` under `foreach` rejected |
+| `R04_PolyFunctionFieldInIso.hs` | R03 / R04 | `GHC-83605` | Polymorphic `foreach (to :: a -> b)` rejected in `Iso` constructor |
+| `R04_HigherRankForEachField.hs` | R03 / R04 | `GHC-83865` (identical types!) | `MkIsoSize idSize idSize idSizeId idSizeId` fails printing identical expected/actual `foreach` types |
 | `R23_MatchabilityInLeibniz.hs` | R23 | `GHC-83865` | Matchable `EqP x :: a -> Type` cannot instantiate `a %U -> Type` directly |

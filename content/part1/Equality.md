@@ -1,7 +1,7 @@
 ---
 title: "Equality: Equality and equational reasoning"
 prev: /Relations/
-next: /Decidable/
+next: /Isomorphism/
 src: content/part1/Equality.md
 module: PLFH.Part1.Equality
 plfaChapter: https://plfa.inf.ed.ac.uk/19.08/Equality/

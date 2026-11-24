@@ -1,7 +1,7 @@
 ---
 title: "DeBruijn: Intrinsically-typed de Bruijn representation"
 prev: /Properties/
-next: /Status/
+next: /Inference/
 src: content/part2/DeBruijn.md
 module: PLFH.Part2.DeBruijn
 plfaChapter: https://plfa.inf.ed.ac.uk/19.08/DeBruijn/
@@ -49,6 +49,7 @@ requires **promoting an indexed GADT (`Term g a`) to a kind** and indexing
 ```haskell
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
+  deriving (Show)
 
 -- | Nameless typing contexts.
 data Ctx = CEmpty | CExt Ctx Ty

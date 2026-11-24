@@ -1,6 +1,6 @@
 ---
-title: "Decidable: Negation, Booleans, and Decision Procedures"
-prev: /Equality/
+title: "Decidable: Booleans and decision procedures"
+prev: /Quantifiers/
 next: /Lists/
 src: content/part1/Decidable.md
 module: PLFH.Part1.Decidable

@@ -29,7 +29,11 @@ Comments, bug reports, and pull requests are welcome on
 - [Naturals](/Naturals/): Natural numbers, `times`, `pow`, `monus`, `Bin` <span class="badge badge-partial">Partial · R13/R16</span>
 - [Induction](/Induction/): Proof by induction (`+-assoc`, `+-comm`, `*-comm`, `Bin-laws`) <span class="badge badge-partial">Partial · R03/R13</span>
 - [Relations](/Relations/): Inductive relations (`_≤_`, `_<_`, trichotomy, `Even`/`Odd`) <span class="badge badge-pass">Checked</span>
-- [Equality](/Equality/): Equality, substitution, and Leibniz equality with `%U` and type lambdas <span class="badge badge-pass">Checked</span>
+- [Equality](/Equality/): Equality, substitution, and Leibniz equality with `%U` and inline type lambdas <span class="badge badge-pass">Checked</span>
+- [Isomorphism](/Isomorphism/): Logical equivalence (`_⇔_`) and dependent isomorphism (`_≃_`) boundaries <span class="badge badge-partial">Iff ✓ · Iso WIP</span>
+- [Connectives](/Connectives/): Conjunction, disjunction, truth, falsehood, currying, distributivity <span class="badge badge-pass">Checked</span>
+- [Negation](/Negation/): Intuitionistic negation, De Morgan, and classical equivalences (EM ⇔ DNE ⇔ Peirce) <span class="badge badge-pass">Checked</span>
+- [Quantifiers](/Quantifiers/): Erased `Exists`, retained `Sigma` (`some`), and `Even` existential witness <span class="badge badge-pass">Checked</span>
 - [Decidable](/Decidable/): Negation, decidable equality/ordering, and `Sigma` pairs <span class="badge badge-pass">Checked</span>
 - [Lists](/Lists/): Prelude `(++)`, `map`, `HaskLib` length laws, `All`/`Any`/`In` <span class="badge badge-partial">Partial · R03/R13</span>
 
@@ -38,6 +42,8 @@ Comments, bug reports, and pull requests are welcome on
 - [Lambda](/Lambda/): Simply-typed lambda calculus syntax, values, reduction, and typing <span class="badge badge-partial">Partial · R13/R16</span>
 - [Properties](/Properties/): Canonical forms, **Progress** (checked!), context lemmas, **Preservation** (`[WIP]`) <span class="badge badge-partial">Progress ✓ · Preserve WIP</span>
 - [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`/`Step`, `progress` (`[WIP]`) <span class="badge badge-partial">Syntax/Promoted ✓ · Progress WIP</span>
+- [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) returning `Term g a` <span class="badge badge-pass">Checked</span>
+- [Untyped](/Untyped/): Well-scoped untyped lambda calculus, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Promoted ✓ · Eval WIP</span>
 
 ## Yardstick & Backmatter
 
