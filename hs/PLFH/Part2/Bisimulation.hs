@@ -1,8 +1,8 @@
 -- Generated from content/part2/Bisimulation.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, Modifiers #-}
+{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 {-# LINE 54 "content/part2/Bisimulation.md" #-}
 module PLFH.Part2.Bisimulation
@@ -12,6 +12,8 @@ module PLFH.Part2.Bisimulation
   , simValue
   , simValueInv
   , valNoStep
+  , Renaming
+  , simRename
   , Leg (..)
   , LegInv (..)
   , SubstCompat (..)
@@ -26,10 +28,11 @@ module PLFH.Part2.Bisimulation
 
 import Data.Kind (Type)
 import Data.Void (Void, absurd)
+import GHC.Exts (U)
 import qualified PLFH.Part2.More as M
 import qualified PLFH.Part2.MoreProgress as MP
 
-{-# LINE 94 "content/part2/Bisimulation.md" #-}
+{-# LINE 97 "content/part2/Bisimulation.md" #-}
 -- | Structural bisimulation relation relating `let x = m in n` to `(λx. n') m'`
 -- across all 19 constructors of `PLFH.Part2.More.Term`.
 type SimRel :: forall (g :: M.Ctx) (a :: M.Ty). M.Term g a -> M.Term g a -> Type
@@ -58,7 +61,7 @@ data SimRel m m' where
   SimCaseLst :: SimRel s s' -> SimRel n n' -> SimRel c c'
              -> SimRel (M.CaseLst s n c) (M.CaseLst s' n' c')
 
-{-# LINE 130 "content/part2/Bisimulation.md" #-}
+{-# LINE 133 "content/part2/Bisimulation.md" #-}
 -- | Reflexivity (`~-refl`): every extended STLC term is related to itself.
 simRefl :: forall (g :: M.Ctx) (a :: M.Ty). foreach (m :: M.Term g a) -> SimRel m m
 simRefl t = case t of
@@ -106,7 +109,7 @@ simTrans SimNil                 SimNil                  = SimNil
 simTrans (SimCons x1 xs1)       (SimCons x2 xs2)        = SimCons (simTrans x1 x2) (simTrans xs1 xs2)
 simTrans (SimCaseLst s1 n1 c1)  (SimCaseLst s2 n2 c2)   = SimCaseLst (simTrans s1 s2) (simTrans n1 n2) (simTrans c1 c2)
 
-{-# LINE 187 "content/part2/Bisimulation.md" #-}
+{-# LINE 190 "content/part2/Bisimulation.md" #-}
 -- | Forward value preservation (`~-val`): all 9 value constructors.
 simValue :: SimRel m m' -> M.Value m -> M.Value m'
 simValue rel val = case val of
@@ -147,6 +150,40 @@ valNoStep val st = case val of
   M.VCons v vs -> case st of { MP.XiCons1 s -> valNoStep v s; MP.XiCons2 _ s -> valNoStep vs s }
 
 {-# LINE 242 "content/part2/Bisimulation.md" #-}
+-- | A sort-preserving map between lookup contexts.
+type Renaming g d = forall x. M.Lookup g x %U -> M.Lookup d x
+
+-- | Renaming preserves the structural simulation relation across all 20 constructors!
+simRename :: forall g d a (r :: Renaming g d) (m :: M.Term g a) (n :: M.Term g a).
+             SimRel m n -> SimRel (M.rename r m) (M.rename r n)
+simRename SimVar = SimVar
+simRename (SimLam s) = SimLam (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimApp l m) = SimApp (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r m)
+simRename SimZero = SimZero
+simRename (SimSuc s) = SimSuc (simRename @_ @_ @_ @r s)
+simRename (SimCaseNat n z s) =
+  SimCaseNat (simRename @_ @_ @_ @r n) (simRename @_ @_ @_ @r z)
+             (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimMu s) = SimMu (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimLet m n) = SimLet (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
+simRename (SimLetApp m n) = SimLetApp (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
+simRename SimTT = SimTT
+simRename (SimPair l r') = SimPair (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r r')
+simRename (SimFst p) = SimFst (simRename @_ @_ @_ @r p)
+simRename (SimSnd p) = SimSnd (simRename @_ @_ @_ @r p)
+simRename (SimInl s) = SimInl (simRename @_ @_ @_ @r s)
+simRename (SimInr s) = SimInr (simRename @_ @_ @_ @r s)
+simRename (SimCaseSum s l r') =
+  SimCaseSum (simRename @_ @_ @_ @r s) (simRename @_ @_ @_ @(M.ext r) l)
+             (simRename @_ @_ @_ @(M.ext r) r')
+simRename (SimAbsurd s) = SimAbsurd (simRename @_ @_ @_ @r s)
+simRename SimNil = SimNil
+simRename (SimCons x xs) = SimCons (simRename @_ @_ @_ @r x) (simRename @_ @_ @_ @r xs)
+simRename (SimCaseLst xs n c) =
+  SimCaseLst (simRename @_ @_ @_ @r xs) (simRename @_ @_ @_ @r n)
+             (simRename @_ @_ @_ @(M.ext (M.ext r)) c)
+
+{-# LINE 291 "content/part2/Bisimulation.md" #-}
 -- | Forward simulation leg: `m' —→ n'` with `n ~ n'`.
 type Leg :: forall (g :: M.Ctx) (a :: M.Ty).
             (M.Term g a -> M.Term g a -> Type) -> M.Term g a -> M.Term g a -> Type
@@ -175,7 +212,7 @@ data SubstCompat where
        -> SimRel (M.substDouble c x xs) (M.substDouble c' x' xs'))
     -> SubstCompat
 
-{-# LINE 305 "content/part2/Bisimulation.md" #-}
+{-# LINE 353 "content/part2/Bisimulation.md" #-}
 -- | Complete forward lock-step simulation across all 27 rules of `MoreProgress.Step`.
 sim :: SubstCompat -> SimRel m m' -> MP.Step m n -> Leg MP.Step m' n
 sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
@@ -343,7 +380,7 @@ simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLegInv (MP.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
 
-{-# LINE 480 "content/part2/Bisimulation.md" #-}
+{-# LINE 528 "content/part2/Bisimulation.md" #-}
 -- | Multi-step forward simulation (`—↠`).
 simSteps :: SubstCompat -> SimRel m m' -> MP.Steps m n -> Leg MP.Steps m' n
 simSteps _  rel MP.StepsRefl        = MkLeg MP.StepsRefl rel

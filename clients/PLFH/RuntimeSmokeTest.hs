@@ -23,7 +23,9 @@ import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp, evalKIdOmega)
+import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
+import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
 import PLFH.Part2.Confluence (Par (..), betaToPar, normalNoBetaSteps, omegaPar, parRefl, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
@@ -64,10 +66,10 @@ checkAnyWitness xs proof = case anyIffWitness @Even @xs of
         _ -> False)
     _ -> (0, False)
 
-checkMembershipRoundTrips :: foreach (xs :: [Nat]) -> Any Even xs -> AnyWitness Even xs -> Bool
-checkMembershipRoundTrips xs position witness = case anyIsoWitness @Even @xs of
-  MkIso _ _ fromTo toFrom -> case fromTo position of
-    Refl -> case toFrom witness of Refl -> True
+checkMembershipRoundTrips :: foreach (xs :: [Nat]) -> Any Even xs -> Bool
+checkMembershipRoundTrips xs proof = case anyIsoWitness @Even @xs of
+  MkIso encode _ fromTo toFrom -> case fromTo proof of
+    Refl -> case toFrom (encode proof) of Refl -> True
 
 checkParallel :: U.UTerm Zero -> Bool
 checkParallel term = case parRefl term of
@@ -277,8 +279,7 @@ main = do
     (case foldrTimesAppend twoThree fourList of Refl -> True)
   assertEq "Lists.anyIsoWitness preserves fourth occurrence in both directions" True
     (checkMembershipRoundTrips [1, 2, 1, 2]
-      (There (There (There (Here (EvenS (OddS EvenZ))))))
-      (MkAnyWitness (There (There (There (Here Refl)))) (EvenS (OddS EvenZ))))
+      (There (There (There (Here (EvenS (OddS EvenZ)))))))
   assertEq "Lists.anyIffWitness preserves fourth occurrence" (2, True)
     (checkAnyWitness [1, 2, 1, 2] (There (There (There (Here (EvenS (OddS EvenZ)))))))
   let memTwo = sampleTailMem
@@ -408,6 +409,8 @@ main = do
     (case letDesugarSteps of { MkLeg (MP.StepsCons (MP.XiApp2 M.VLam (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLam M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
   assertEq "Bisimulation.letDesugarStepsInv (XiLet + BetaLet)" True
     (case letDesugarStepsInv of { MkLegInv (MP.StepsCons (MP.XiLet (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLet M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
+  assertEq "BisimulationRenaming.observeRenamedListBody (2-binder CaseLst shift)" True
+    BisimulationRenaming.observeRenamedListBody
 
   let moreLet :: M.Term M.CEmpty M.TNat
       moreLet = M.Let M.Zero (M.Var M.Z)
@@ -461,6 +464,10 @@ main = do
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
+  assertEq "BigStepFunctional.observeIdApp (FZ)" (True, True) BigStepFunctional.observeIdApp
+  assertEq "BigStepFunctional.observeKIdOmega (FS FZ)" (True, True) BigStepFunctional.observeKIdOmega
+  assertEq "BigStepFunctional.evalDeterm" True
+    (case BigStepFunctional.evalDeterm BigStepFunctional.evalKIdOmega BigStepFunctional.evalKIdOmega of Refl -> True)
 
   -- Part 3: Denotational Semantics, Compositionality, & Unconditional Adequacy!
   assertEq "Adequacy.decAboveFun Bot" False (case decAboveFun Bot of { Yes _ -> True; No _ -> False })

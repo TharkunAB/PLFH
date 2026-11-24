@@ -48,8 +48,8 @@ and prove with `-Werror=incomplete-patterns`:
 ## Imports
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
-{-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, Modifiers #-}
+{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
@@ -58,6 +58,8 @@ module PLFH.Part2.Bisimulation
   , simValue
   , simValueInv
   , valNoStep
+  , Renaming
+  , simRename
   , Leg (..)
   , LegInv (..)
   , SubstCompat (..)
@@ -72,6 +74,7 @@ module PLFH.Part2.Bisimulation
 
 import Data.Kind (Type)
 import Data.Void (Void, absurd)
+import GHC.Exts (U)
 import qualified PLFH.Part2.More as M
 import qualified PLFH.Part2.MoreProgress as MP
 ```
@@ -224,6 +227,52 @@ valNoStep val st = case val of
   M.VCons v vs -> case st of { MP.XiCons1 s -> valNoStep v s; MP.XiCons2 _ s -> valNoStep vs s }
 ```
 
+## Simulation commutes with renaming (`~-rename`)
+
+A renaming maps each lookup in context `g` to a lookup of the same type in
+context `d`. Because a renaming may send two distinct variables to the same
+target variable, its arrow is **unmatchable** (`%U ->`)! With checked source
+equations for `M.rename` and `M.ext` from [More](/More/), GHC verifies the
+complete 20-constructor structural renaming theorem `simRename` directly—including
+`SimLetApp`, `SimCaseSum`, and shifting through *two* simultaneous binders in
+`SimCaseLst` (`@(M.ext (M.ext r))`)! (Verified across the module boundary in
+`PLFH.Part2.BisimulationRenaming`, `clients/PLFH/Part2/BisimulationRenaming.hs`.)
+
+```haskell
+-- | A sort-preserving map between lookup contexts.
+type Renaming g d = forall x. M.Lookup g x %U -> M.Lookup d x
+
+-- | Renaming preserves the structural simulation relation across all 20 constructors!
+simRename :: forall g d a (r :: Renaming g d) (m :: M.Term g a) (n :: M.Term g a).
+             SimRel m n -> SimRel (M.rename r m) (M.rename r n)
+simRename SimVar = SimVar
+simRename (SimLam s) = SimLam (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimApp l m) = SimApp (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r m)
+simRename SimZero = SimZero
+simRename (SimSuc s) = SimSuc (simRename @_ @_ @_ @r s)
+simRename (SimCaseNat n z s) =
+  SimCaseNat (simRename @_ @_ @_ @r n) (simRename @_ @_ @_ @r z)
+             (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimMu s) = SimMu (simRename @_ @_ @_ @(M.ext r) s)
+simRename (SimLet m n) = SimLet (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
+simRename (SimLetApp m n) = SimLetApp (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
+simRename SimTT = SimTT
+simRename (SimPair l r') = SimPair (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r r')
+simRename (SimFst p) = SimFst (simRename @_ @_ @_ @r p)
+simRename (SimSnd p) = SimSnd (simRename @_ @_ @_ @r p)
+simRename (SimInl s) = SimInl (simRename @_ @_ @_ @r s)
+simRename (SimInr s) = SimInr (simRename @_ @_ @_ @r s)
+simRename (SimCaseSum s l r') =
+  SimCaseSum (simRename @_ @_ @_ @r s) (simRename @_ @_ @_ @(M.ext r) l)
+             (simRename @_ @_ @_ @(M.ext r) r')
+simRename (SimAbsurd s) = SimAbsurd (simRename @_ @_ @_ @r s)
+simRename SimNil = SimNil
+simRename (SimCons x xs) = SimCons (simRename @_ @_ @_ @r x) (simRename @_ @_ @_ @r xs)
+simRename (SimCaseLst xs n c) =
+  SimCaseLst (simRename @_ @_ @_ @r xs) (simRename @_ @_ @_ @r n)
+             (simRename @_ @_ @_ @(M.ext (M.ext r)) c)
+```
+
 ## Simulation legs and substitution compatibility
 
 Each leg packages the existential matching target term together with its step
@@ -269,14 +318,13 @@ data SubstCompat where
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Proving substitution compatibility internally (R16)]</strong>
-Proving <code>SubstCompat</code> directly by induction (generalizing to
-<code>simRename :: SimRel m m' -&gt; SimRel (M.rename r m) (M.rename r m')</code>
-and <code>simSubst</code>) currently requires applying <code>M.rename</code> to
-an abstract higher-order renaming variable
-<code>r :: forall x. M.Lookup g x -&gt; M.Lookup d x</code> inside a type, which
-triggers <code>GHC-70565</code> (<em>This argument is a type variable. Closed
-evaluation requires a known value</em>). See minimal reproducer
+<strong>[WIP NOTICE — Proving simultaneous substitution compatibility internally (R16)]</strong>
+With 20-constructor <code>simRename</code> now proved directly above using an
+unmatchable callback (<code>%U -&gt;</code>), the remaining step to discharge
+<code>SubstCompat</code> internally is proving <code>simSubst</code> over an
+abstract simultaneous substitution callback and its binder extension
+<code>M.exts</code>. Meanwhile, the original default-arrow and
+implicit-application spelling of abstract renaming remains tracked in
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>reproducers/R16_AbstractRenamingInType.hs</code></a>.
 </div>
 
@@ -564,11 +612,12 @@ accommodates weak simulations directly!
   licensed under CC BY 4.0.
 - Proved full 20-constructor `SimRel` (including `SimLetApp`), `simRefl`,
   `simTrans`, bidirectional 9-constructor value preservation (`simValue`,
-  `simValueInv`), `valNoStep`, exhaustive 27-rule lock-step forward and
-  backward simulation (`sim`, `simInv`), multi-step `simSteps`/`simStepsInv`,
-  concrete closed `let`-desugaring witnesses, and negative control
-  `NegBisimBadTarget` under `-Werror=incomplete-patterns -dcore-lint -dstg-lint`
-  with zero promoted-constructor ticks.
-- Parameterized substitution compatibility (`SubstCompat`) and marked the
-  internal `simRename`/`simSubst` proof with `[WIP NOTICE]`
-  (`R16_AbstractRenamingInType.hs`).
+  `simValueInv`), `valNoStep`, **full 20-constructor `simRename`** (including
+  double-binder `CaseLst`, exercised in `PLFH.Part2.BisimulationRenaming`),
+  exhaustive 27-rule lock-step forward and backward simulation (`sim`,
+  `simInv`), multi-step `simSteps`/`simStepsInv`, concrete closed
+  `let`-desugaring witnesses, and negative control `NegBisimBadTarget` under
+  `-Werror=incomplete-patterns -dcore-lint -dstg-lint` with zero
+  promoted-constructor ticks.
+- Parameterized simultaneous substitution compatibility (`SubstCompat`) while
+  abstract `M.exts` equations remain WIP (`R16_AbstractRenamingInType.hs`).

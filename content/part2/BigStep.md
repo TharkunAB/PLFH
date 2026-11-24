@@ -35,6 +35,7 @@ Part 3 ([Denotational Semantics](/Denotational/) and [Adequacy](/Adequacy/)):
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
 module PLFH.Part2.BigStep
   ( Env (..)
   , Clos (..)
@@ -193,11 +194,56 @@ evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
 ```
 
+## Functional lookup across a module boundary
+
+The variable rule above carries an `EnvLookup` derivation (`ELZ` selects the
+first closure, `ELS` continues in the tail). Because `PLFH.Part2.BigStep`
+compiles with `-fwrite-source-equations`, GHC publishes checked equations for
+the ordinary `lookupEnv` function into `BigStep.hi`!
+
+In the companion client module `PLFH.Part2.BigStepFunctional`
+(`clients/PLFH/Part2/BigStepFunctional.hs`), the variable rule constrains
+`B.lookupEnv e x` directly—matching PLFA's functional variable rule with zero
+promoted-constructor ticks:
+
+```{.haskell .spec}
+Var :: (B.lookupEnv e x ~ B.MkClos m d) => Eval d m v -> Eval e (UVar x) v
+```
+
+`PLFH.Part2.BigStepFunctional` proves `lookupEvidence :: EnvLookup e x c -> lookupEnv e x :~: c`,
+converts every relational derivation via `fromBigStep :: EvalBig e t v -> Eval e t v`,
+proves direct `evalDeterm`, and checks both `evalIdApp` (at `FZ`) and
+`evalKIdOmega` (at `FS FZ`).
+
+### Negative control: wrong functional lookup target is rejected
+
+Attempting to claim that `((λx y. x) id) Ω` evaluates to a different closure
+(such as `MkClos OmegaTerm ENil` instead of `MkClos IdTerm ENil`) via
+`BigStepFunctional.Eval` is rejected by GHC with `GHC-83865`:
+
+```{.haskell .fail name="NegBigStepBadLookup" expect="GHC-83865"}
+{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs #-}
+module NegBigStepBadLookup (badLookup) where
+
+import qualified PLFH.Part2.BigStep as B
+import PLFH.Part2.BigStepFunctional (Eval (..))
+import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
+
+-- MUST FAIL: `FS FZ` looks up `IdTerm`, NOT `OmegaTerm`!
+badLookup
+  :: Eval B.ENil
+          (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
+          (B.MkClos OmegaTerm B.ENil)
+badLookup = App (App Lam Lam) (Var Lam)
+```
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>lookupEnv</code> in types (R13/R16)]</strong>
-Using GADT-indexed <code>lookupEnv e x</code> directly inside the type of
-<code>EVar</code> (instead of relational <code>EnvLookup</code>) currently fails
-with <code>GHC-68947</code>. See
+<strong>[WIP NOTICE — Same-module functional <code>lookupEnv</code> (R13/R21)]</strong>
+<code>-fwrite-source-equations</code> publishes checked equations for
+<code>lookupEnv</code> into the compiled interface for downstream modules such
+as <code>PLFH.Part2.BigStepFunctional</code>; using <code>lookupEnv</code>
+inside a datatype declared in the <em>same</em> module still reports
+<code>GHC-68947</code>. See
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>reproducers/R13_LookupEnvOpenEq.hs</code></a>.
 </div>
 
@@ -222,8 +268,9 @@ problem—contradicting well-founded induction on `EvalBig`!
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
-  `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `evalIdApp`, and
-  PLFA's `(λx y. x) Ω` exercise (`evalConstOmega`), with zero promoted-constructor
-  ticks.
-- Marked direct functional `lookupEnv e x` in `EVar` with `[WIP NOTICE]`
-  (`R13_LookupEnvOpenEq.hs`).
+  `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `evalIdApp`,
+  `evalConstOmega`, and `evalKIdOmega`, plus functional `B.lookupEnv` across
+  the module boundary in `PLFH.Part2.BigStepFunctional` (verified by negative
+  control `NegBigStepBadLookup`), with zero promoted-constructor ticks.
+- Same-module functional `lookupEnv e x` in `EVar` remains tracked in
+  `R13_LookupEnvOpenEq.hs`.

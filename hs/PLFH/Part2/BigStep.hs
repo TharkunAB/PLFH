@@ -3,7 +3,8 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 38 "content/part2/BigStep.md" #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LINE 39 "content/part2/BigStep.md" #-}
 module PLFH.Part2.BigStep
   ( Env (..)
   , Clos (..)
@@ -25,7 +26,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
 
-{-# LINE 73 "content/part2/BigStep.md" #-}
+{-# LINE 74 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env Zero
@@ -44,7 +45,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 110 "content/part2/BigStep.md" #-}
+{-# LINE 111 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -60,7 +61,7 @@ data EvalBig e t v where
        -> EvalBig (ECons (MkClos m e) d) b w
        -> EvalBig e (UApp l m) w
 
-{-# LINE 137 "content/part2/BigStep.md" #-}
+{-# LINE 138 "content/part2/BigStep.md" #-}
 -- | Concrete call-by-name derivation: (λx. x) (λy. y) ⇓ <λy. y, []>.
 evalIdApp :: EvalBig ENil
                      (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -96,7 +97,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 182 "content/part2/BigStep.md" #-}
+{-# LINE 183 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl
