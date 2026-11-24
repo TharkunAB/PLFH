@@ -11,7 +11,7 @@ plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
+{-# LANGUAGE StandaloneDeriving, StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -78,12 +78,12 @@ filter / Plotkin graph model) for the untyped lambda calculus by representing
 functions as finite input-output tables `Value` ordered by approximation `Sub`
 (`_⊑_`).
 
-Remarkably, almost all of PLFA's **Denotational** chapter—including the full
-**inversion of `Sub` for function values (`subInv` and `arrSubArrInv`,
-i.e. `↦⊑↦-inv`)** using ordinary recursive binary-tree functions `dom` and
-`cod`—compiles cleanly on GHC `d15cbd41fe` with `-dcore-lint -dstg-lint`,
-while also uncovering two crisp compiler bugs (`R13_GadtSyntaxBreaksOpenEq.hs`
-and `R03_NestedDepCaseCoreLint.hs`)!
+Remarkably, the entire **Denotational** chapter—including `Value` declared in
+GADT syntax, the full **inversion of `Sub` for function values (`subInv` and
+`arrSubArrInv`, i.e. `↦⊑↦-inv`)** using ordinary recursive binary-tree
+functions `dom` and `cod`, and direct nested dependent `case` matching in
+`subInvDist`—compiles cleanly on published GHC `9cc4065fab` with
+`-dcore-lint -dstg-lint`!
 
 ## Finite function tables (`Value`) and approximation (`Sub`, `_⊑_`)
 
@@ -94,14 +94,14 @@ A `Value` represents a finite portion of a function:
 - `Join v w` (`v ⊔ w`) joins two tables.
 
 ```haskell
--- | Finite function tables (Scott/Plotkin/BCD filter model values).
--- Note: declared with H98 syntax rather than GADT syntax so ordinary `dom`
--- and `cod` get R13 checked source equations (see WIP notice below).
-data Value
-  = Bot
-  | Arr Value Value
-  | Join Value Value
-  deriving (Show)
+-- | Finite function tables (Scott/Plotkin/BCD filter model values),
+-- declared directly in GADT syntax!
+data Value where
+  Bot  :: Value
+  Arr  :: Value -> Value -> Value
+  Join :: Value -> Value -> Value
+
+deriving instance Show Value
 
 -- | Retained runtime witness for a promoted `Value`, using a single `foreach`
 -- field (not a singleton!). Carrying `ValW` in `DElim`, `DJoin`, and `DSub`
@@ -265,17 +265,14 @@ subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (M
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — GADT syntax silently disables R13 equations for plain ADTs (R13/R16)]</strong>
-Notice that <code>dom</code> and <code>cod</code> perform <em>binary-tree recursion</em>
-(two recursive calls in <code>Join (dom a) (dom b)</code>) and compute cleanly
-in types on GHC <code>d15cbd41fe</code> when <code>Value</code> is declared in
-Haskell 98 syntax (<code>data Value = Bot | Arr Value Value | Join Value Value</code>).
-Declaring the <em>exact same</em> non-indexed datatype using GADT syntax
-(<code>data Value where Bot :: Value; ...</code>) causes GHC to reject
-<code>dom</code> and <code>cod</code> with <code>GHC-68947</code>! See minimal
-reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_GadtSyntaxBreaksOpenEq.hs"><code>reproducers/R13_GadtSyntaxBreaksOpenEq.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
+declaring non-indexed <code>Value</code> using GADT syntax silently disabled
+R13 open source equations for <code>dom</code> and <code>cod</code>
+(<code>GHC-68947</code>). Fixed on <code>dependent-haskell</code> and tracked
+as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_GadtSyntaxBreaksOpenEq.hs"><code>reproducers/fixed/R13_GadtSyntaxBreaksOpenEq.hs</code></a>!
 </div>
 
 ## Inversion of `Sub` for functions (`subInv` and `arrSubArrInv`)
@@ -378,23 +375,18 @@ subInvArr (Join _ _) eq _   _   = case eq of {}
 subInvArr (Arr a b)  eq lt1 lt2 = case eq of
   Refl -> mkArrSubFactor @v @w a b lt1 lt2
 
-subInvDist2 :: forall (a :: Value) (b :: Value) (c :: Value).
-               foreach (l :: Value) -> foreach (r :: Value)
-            -> ('Join l r :~: 'Join ('Arr a b) ('Arr a c))
-            -> Factor ('Join l r) a ('Join b c)
-subInvDist2 Bot         _ eq = case eq of {}
-subInvDist2 (Join _ _)  _ eq = case eq of {}
-subInvDist2 (Arr a' b') r eq = case r of
-  Bot      -> case eq of {}
-  Join _ _ -> case eq of {}
-  Arr _ c' -> case eq of
-    Refl -> mkDistFactor a' b' c'
-
 subInvDist :: forall (a :: Value) (b :: Value) (c :: Value).
               foreach (x :: Value) -> (x :~: 'Join ('Arr a b) ('Arr a c)) -> Factor x a ('Join b c)
 subInvDist Bot        eq = case eq of {}
 subInvDist (Arr _ _)  eq = case eq of {}
-subInvDist (Join l r) eq = subInvDist2 l r eq
+subInvDist (Join l r) eq = case l of
+  Bot       -> case eq of {}
+  Join _ _  -> case eq of {}
+  Arr a' b' -> case r of
+    Bot      -> case eq of {}
+    Join _ _ -> case eq of {}
+    Arr _ c' -> case eq of
+      Refl -> mkDistFactor a' b' c'
 
 -- | Main inversion theorem for `Sub` (`sub-inv`): if `u1 ⊑ u2` and `v ↦ w ∈ u1`,
 -- then `v ↦ w` factors `u2` into a sub-collection of functions.
@@ -434,15 +426,15 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Desugar Core Lint out-of-scope coercion in nested dependent <code>case</code> (R03)]</strong>
-Writing <code>subInvDist</code> with nested dependent cases directly inside
-the <code>Join l r</code> branch (<code>case l of ... Arr a b -&gt; case r of ...</code>)
-typechecks on GHC <code>d15cbd41fe</code> and then fails Core Lint after
-Desugar with <em>The coercion variable <code>co_...</code> is out of scope</em>!
-Splitting the second match into <code>subInvDist2</code> passes Core Lint
-cleanly. Reported to the compiler team as a 16-line minimal reproducer in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_NestedDepCaseCoreLint.hs"><code>reproducers/R03_NestedDepCaseCoreLint.hs</code></a>.
+<div class="note-box">
+<strong>Fixed Core Lint bug (<code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>d15cbd41fe</code>–<code>692eae0778</code>), writing
+<code>subInvDist</code> with nested dependent <code>case</code> matches inside
+the <code>Join l r</code> branch failed Desugar Core Lint with an out-of-scope
+coercion variable (<code>co_...</code>). Fixed in <code>Tritlo/ghc</code>
+<a href="https://github.com/Tritlo/ghc/commit/9cc4065fab4f2f106859b39daa9bdad23f00f0fd"><code>9cc4065fab</code></a>
+and tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_NestedDepCaseCoreLint.hs"><code>reproducers/fixed/R03_NestedDepCaseCoreLint.hs</code></a>!
 </div>
 
 ## Environments, denotational semantics (`γ ⊢ M ↓ v`), and monotonicity
@@ -581,6 +573,7 @@ newtype Den (m :: UTerm n) (e :: ValEnv n) (v :: Value) = MkDen { unDen :: Denot
   `cod`, `arrMemToSubDom`, `subArrToCodSub`, **`subInvTrans`**, **`subInv`**,
   **`arrSubArrInv`**, `ValEnv`, `Denotes`, `denotId`/`denotDelta`/`denotOmega`,
   `envSubMono`, `upEnv`, `Denotation`, `DenEq`, and `Den`.
-- Uncovered and reported two new compiler bugs: `R13_GadtSyntaxBreaksOpenEq.hs`
-  (GADT vs H98 syntax on `Value`) and `R03_NestedDepCaseCoreLint.hs` (Desugar
-  Core Lint out-of-scope coercion on nested dependent `case`).
+- Both compiler bugs originally uncovered here (`R13_GadtSyntaxBreaksOpenEq.hs`
+  and `R03_NestedDepCaseCoreLint.hs`) are now fixed on published GHC
+  `9cc4065fab`, so `Value` uses GADT syntax and `subInvDist` uses direct nested
+  dependent `case` matching with zero workarounds!

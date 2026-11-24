@@ -31,6 +31,7 @@ module PLFH.Part1.Decidable
   , Sigma (..)
   , SizeWitness
   , mkSizeWitness
+  , plusExists
   ) where
 
 import Data.Kind (Type)
@@ -251,19 +252,20 @@ type SizeWitness = some (k :: Nat) | LE 'Zero k
 -- | Package any runtime size with its proof of Zero <= k.
 mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
+
+-- | Inline retained dependent sum returned directly from a `foreach` function!
+plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
+           -> some (k :: Nat) | k :~: plus m n
+plusExists m n = Pair (plus m n) Refl
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Returning an inline <code>some</code> from a <code>foreach</code> function (R04)]</strong>
-Writing a dependent function whose result type is an inline retained sum
-mentioning the retained inputs:
-<pre class="wip"><code>plusExists :: foreach (m :: Nat) -&gt; foreach (n :: Nat)
-           -&gt; some (k :: Nat) | k :~: plus m n</code></pre>
-is currently rejected on GHC <code>db2586fdc2</code> (<em>A retained dependent
-sum is supported in a top-level type synonym, as the result of a type family
-equation, in a complete top-level value signature, or in a constructor field...</em>).
-See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_SigmaUnderForEach.hs"><code>reproducers/R04_SigmaUnderForEach.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier GHC baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
+returning an inline retained sum <code>some (k :: Nat) | k :~: plus m n</code>
+from a <code>foreach</code> function was rejected. Fixed on
+<code>dependent-haskell</code> and tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R04_SigmaUnderForEach.hs"><code>reproducers/fixed/R04_SigmaUnderForEach.hs</code></a>.
 </div>
 
 ## Changes from PLFA
@@ -272,10 +274,10 @@ See minimal reproducer
   [Negation](https://plfa.inf.ed.ac.uk/Negation/),
   [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/), and
   [Decidable](https://plfa.inf.ed.ac.uk/Decidable/).
-- `Not`, `zeroNeqSucc`, `Dec`, `decEqSize`, `decLeSize`, `decEven`, `decOdd`,
-  `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`/`mkSizeWitness`)
-  all port directly and pass `-dcore-lint -dstg-lint`!
-- Inline `some` returned from a `foreach` function (`plusExists`) is marked
-  with `[WIP NOTICE]` (`R04_SigmaUnderForEach.hs`).
+- `Not`, `zeroNeqSucc`, `Dec`, `decNot`/`And`/`Or`/`Imp`/`Iff`, `decEqSize`,
+  `decLeSize`, `decLtSize`, `decEven`, `decOdd`, `decEqBin`/`decOne`/`decCan`,
+  `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`,
+  `mkSizeWitness`, and inline `plusExists`) all port directly and pass
+  `-dcore-lint -dstg-lint`!
 - Uses `Data.Void.Void` and `EmptyCase` (`\case {}`) in place of Agda's `⊥`
   and absurd pattern `()`.

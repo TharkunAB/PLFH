@@ -1,29 +1,53 @@
 #!/usr/bin/env bash
-# Verify extracted PLFH chapters, negative controls, and minimal compiler-bug reproducers
-# using the Dependent Haskell GHC fork.
+# Verify extracted PLFH chapters, negative controls, fixed-reproducer regressions,
+# runtime smoke tests, and minimal open compiler-bug reproducers using the
+# Dependent Haskell GHC fork.
 #
 # On this host (when ghc-build-job is present and PLFH_NO_PUEUE != 1), submits the entire
 # verification suite as ONE job to the shared pueue queue so it completes in a single slot.
 #
 # Environment variables:
-#   PLFH_GHC       Path to stage1/bin/ghc from Tritlo/ghc (dependent-haskell)
-#   PLFH_GHC_REPO  Path to Tritlo/ghc checkout (for HaskLib & ghc-build-job)
-#   PLFH_NO_PUEUE  Set to 1 to run ghc directly instead of via ghc-build-job / pueue
+#   PLFH_GHC        Path to stage1/bin/ghc (or verified component ghc) from Tritlo/ghc
+#   PLFH_GHC_LIBDIR Optional -B<libdir> when running a relinked component compiler
+#   PLFH_GHC_REPO   Path to Tritlo/ghc checkout (for HaskLib & ghc-build-job)
+#   PLFH_NO_PUEUE   Set to 1 to run ghc directly instead of via ghc-build-job / pueue
 set -euo pipefail
 export LC_ALL=C
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
-DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/bin/ghc"
-if ! [[ -x "$DEFAULT_COMPILER" ]]; then
-  DEFAULT_COMPILER="$GHC_REPO/_build/on-demand/r04-r16-r17-post-585-20261123/source/_build/stage1/bin/ghc"
+
+# Prefer the full two-stage published 9cc4065fab compiler if present,
+# otherwise use the verified 9cc4065fab component binary (matching job 2394),
+# otherwise fall back to the 590 compiler.
+NORMAL_9CC="$GHC_REPO/_build/on-demand/plfh-public-unsplit-normal-20261124/source/_build/stage1/bin/ghc"
+COMP_9CC="$GHC_REPO/_build/on-demand/r03-nested-dep-case-20261124/audit-692/checked/component/ghc"
+COMP_9CC_LIB="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/lib"
+LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/source/_build/stage1/bin/ghc"
+
+DEFAULT_COMPILER=""
+DEFAULT_LIBDIR=""
+if [[ -x "$NORMAL_9CC" ]]; then
+  DEFAULT_COMPILER="$NORMAL_9CC"
+elif [[ -x "$COMP_9CC" ]]; then
+  DEFAULT_COMPILER="$COMP_9CC"
+  DEFAULT_LIBDIR="$COMP_9CC_LIB"
+elif [[ -x "$LEGACY_590" ]]; then
+  DEFAULT_COMPILER="$LEGACY_590"
+else
+  DEFAULT_COMPILER="$GHC_REPO/_build/stage1/bin/ghc"
 fi
+
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
+GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_9CC" ]]; then
+  GHC_LIBDIR="$DEFAULT_LIBDIR"
+fi
 
 if [[ "${PLFH_NO_PUEUE:-0}" != "1" ]] && [[ -x "$GHC_REPO/docs/dependent-haskell/tools/ghc-build-job" ]]; then
-  jid=$(cd "$GHC_REPO" && CAPPED_MEM=4G docs/dependent-haskell/tools/ghc-build-job plfh-suite \
-    /usr/bin/env "PLFH_NO_PUEUE=1" "PLFH_GHC=$COMPILER" "PLFH_GHC_REPO=$GHC_REPO" \
+  jid=$(cd "$GHC_REPO" && CAPPED_MEM=5G docs/dependent-haskell/tools/ghc-build-job plfh-suite \
+    /usr/bin/env "PLFH_NO_PUEUE=1" "PLFH_GHC=$COMPILER" "PLFH_GHC_LIBDIR=$GHC_LIBDIR" "PLFH_GHC_REPO=$GHC_REPO" \
     bash "$SCRIPT_DIR/check_plfh.sh" "$@")
   echo "Submitted PLFH verification suite as pueue job $jid"
   env -u XDG_RUNTIME_DIR pueue wait -q "$jid"
@@ -39,12 +63,24 @@ if ! [[ -x "$COMPILER" ]]; then
   exit 2
 fi
 
-COMMIT=$("$COMPILER" --info | awk -F'"' '/Project Git commit id/{print $4}')
-VERSION=$("$COMPILER" --info | awk -F'"' '/Project version/{print $4}')
+GHC_CMD=("$COMPILER")
+if [[ -n "$GHC_LIBDIR" ]]; then
+  GHC_CMD+=("-B$GHC_LIBDIR")
+fi
+
+COMMIT=$("${GHC_CMD[@]}" --info | awk -F'"' '/Project Git commit id/{print $4}')
+VERSION=$("${GHC_CMD[@]}" --info | awk -F'"' '/Project version/{print $4}')
 echo "=== PLFH Verification ==="
 echo "Compiler: $COMPILER"
+if [[ -n "$GHC_LIBDIR" ]]; then
+  echo "Libdir:   $GHC_LIBDIR"
+fi
 echo "Version:  $VERSION"
-echo "Commit:   $COMMIT"
+if [[ "$COMPILER" == "$COMP_9CC" ]]; then
+  echo "Commit:   9cc4065fab4f2f106859b39daa9bdad23f00f0fd (verified component; base libdir seed: $COMMIT)"
+else
+  echo "Commit:   $COMMIT"
+fi
 echo ""
 
 # Audit: reject forbidden proof shortcuts in checked modules under hs/PLFH/
@@ -62,7 +98,7 @@ trap 'rm -rf -- "$WORK"' EXIT
 HASKLIB_SRC=${PLFH_HASKLIB:-}
 OPEN_EVAL_SRC="$GHC_REPO/docs/dependent-haskell/examples/open-evaluation"
 if [[ -z "$HASKLIB_SRC" ]]; then
-  if [[ "$COMMIT" == 1a02a866e7* ]] && [[ -d "$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib" ]]; then
+  if [[ "$COMPILER" == *r17-schema-transformer-post-588* ]] && [[ -d "$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib" ]]; then
     HASKLIB_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib"
     OPEN_EVAL_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/examples/open-evaluation"
   else
@@ -88,7 +124,7 @@ mapfile -t MODULES < <(find "$PLFH_ROOT/hs/PLFH" -name '*.hs' 2>/dev/null | sort
 for mod in "${MODULES[@]}"; do
   rel=${mod#"$PLFH_ROOT/"}
   slug=$(echo "$rel" | tr '/.' '__')
-  if "$COMPILER" --make -v0 -O0 \
+  if "${GHC_CMD[@]}" --make -v0 -O0 \
     -fomit-interface-pragmas -fno-write-if-simplified-core \
     -dcore-lint -dstg-lint -package-env - "${INCLUDES[@]}" \
     -outputdir "$BUILD_DIR" "$mod" >"$WORK/$slug.log" 2>&1; then
@@ -116,7 +152,7 @@ for neg in "${NEGS[@]}"; do
   rel=${neg#"$PLFH_ROOT/"}
   slug=$(echo "$rel" | tr '/.' '__')
   expect=$(awk '/^-- EXPECT-ERROR:/{print $3; exit}' "$neg")
-  if "$COMPILER" --make -v0 -O0 \
+  if "${GHC_CMD[@]}" --make -v0 -O0 \
     -fomit-interface-pragmas -fno-write-if-simplified-core \
     -package-env - "${INCLUDES[@]}" -outputdir "$BUILD_DIR" "$neg" >"$WORK/$slug.log" 2>&1; then
     echo "  [UNEXPECTED PASS] $rel — expected $expect"
@@ -135,7 +171,7 @@ if [[ -f "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" ]]; then
   echo ""
   echo "--- Runtime Smoke Test Execution ---"
   SMOKE_BIN="$WORK/plfh-smoke"
-  if "$COMPILER" --make -v0 -O0 \
+  if "${GHC_CMD[@]}" --make -v0 -O0 \
     -fomit-interface-pragmas -fno-write-if-simplified-core \
     -dcore-lint -dstg-lint -package-env - "${INCLUDES[@]}" \
     -outputdir "$BUILD_DIR" -main-is PLFH.RuntimeSmokeTest.main \
@@ -150,27 +186,67 @@ if [[ -f "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" ]]; then
   fi
 fi
 
+if [[ -d "$PLFH_ROOT/reproducers/fixed" ]]; then
+  echo ""
+  echo "--- Fixed Reproducers (regression checks: must PASS at -O0 and -O2!) ---"
+  FIXED_BUILD_O0="$WORK/fixed-O0"
+  FIXED_BUILD_O2="$WORK/fixed-O2"
+  mkdir -p "$FIXED_BUILD_O0" "$FIXED_BUILD_O2"
+  mapfile -t FIXED_REPROS < <(find "$PLFH_ROOT/reproducers/fixed" -maxdepth 1 -name '*.hs' 2>/dev/null | sort)
+  for rep in "${FIXED_REPROS[@]}"; do
+    rel=${rep#"$PLFH_ROOT/"}
+    slug=$(echo "$rel" | tr '/.' '__')
+    if "${GHC_CMD[@]}" --make -v0 -O0 \
+      -fomit-interface-pragmas -fno-write-if-simplified-core \
+      -dcore-lint -dstg-lint \
+      -package-env - "${INCLUDES[@]}" "-i$PLFH_ROOT/reproducers" "-i$PLFH_ROOT/reproducers/fixed" \
+      -outputdir "$FIXED_BUILD_O0" "$rep" >"$WORK/${slug}_O0.log" 2>&1 \
+      && "${GHC_CMD[@]}" --make -v0 -O2 \
+      -fomit-interface-pragmas -fno-write-if-simplified-core \
+      -dcore-lint -dstg-lint \
+      -package-env - "${INCLUDES[@]}" "-i$PLFH_ROOT/reproducers" "-i$PLFH_ROOT/reproducers/fixed" \
+      -outputdir "$FIXED_BUILD_O2" "$rep" >"$WORK/${slug}_O2.log" 2>&1; then
+      echo "  [PASS-FIXED] $rel (-O0 & -O2)"
+      PASS=$((PASS + 1))
+    else
+      echo "  [REGRESSION] $rel failed!"
+      cat "$WORK/${slug}_O0.log" "$WORK/${slug}_O2.log" 2>/dev/null || true
+      FAIL=$((FAIL + 1))
+    fi
+  done
+fi
+
 if [[ -d "$PLFH_ROOT/reproducers" ]]; then
   echo ""
-  echo "--- Minimal Blocker Reproducers (tracking compiler gaps) ---"
-  REPRO_BUILD="$WORK/repro-build"
-  mkdir -p "$REPRO_BUILD"
-  mapfile -t REPROS < <(find "$PLFH_ROOT/reproducers" -name '*.hs' 2>/dev/null | sort)
+  echo "--- Minimal Blocker Reproducers (open compiler gaps) ---"
+  REPRO_BUILD_O0="$WORK/repro-O0"
+  REPRO_BUILD_O2="$WORK/repro-O2"
+  mkdir -p "$REPRO_BUILD_O0" "$REPRO_BUILD_O2"
+  mapfile -t REPROS < <(find "$PLFH_ROOT/reproducers" -maxdepth 1 -name '*.hs' 2>/dev/null | sort)
   for rep in "${REPROS[@]}"; do
     rel=${rep#"$PLFH_ROOT/"}
     slug=$(echo "$rel" | tr '/.' '__')
     if [[ "$(basename "$rep")" == ReproOps* ]]; then
       continue
     fi
-    if "$COMPILER" --make -v0 -O0 \
+    if "${GHC_CMD[@]}" --make -v0 -O0 \
       -fomit-interface-pragmas -fno-write-if-simplified-core \
       -dcore-lint -dstg-lint \
       -package-env - "${INCLUDES[@]}" "-i$PLFH_ROOT/reproducers" \
-      -outputdir "$REPRO_BUILD" "$rep" >"$WORK/$slug.log" 2>&1; then
-      echo "  [FIXED?!] $rel now PASSES — update chapter & PLFH-NOTES.md!"
+      -outputdir "$REPRO_BUILD_O0" "$rep" >"$WORK/${slug}_O0.log" 2>&1; then
+      if "${GHC_CMD[@]}" --make -v0 -O2 \
+        -fomit-interface-pragmas -fno-write-if-simplified-core \
+        -dcore-lint -dstg-lint \
+        -package-env - "${INCLUDES[@]}" "-i$PLFH_ROOT/reproducers" \
+        -outputdir "$REPRO_BUILD_O2" "$rep" >"$WORK/${slug}_O2.log" 2>&1; then
+        echo "  [FIXED?!] $rel now PASSES at -O0 & -O2 — update chapter & PLFH-NOTES.md!"
+      else
+        first_err=$(rg -m1 'Core Lint errors|panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/${slug}_O2.log" || head -n 1 "$WORK/${slug}_O2.log")
+        echo "  [BLOCKED-O2] $rel (passes -O0, blocked at -O2) — $first_err"
+      fi
     else
-      first_err=$(rg -m1 'Core Lint errors|panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/$slug.log" || head -n 1 "$WORK/$slug.log")
-      if rg -q '\[GHC-76037\]|\[GHC-87110\]|\[GHC-61689\]' "$WORK/$slug.log"; then
+      first_err=$(rg -m1 'Core Lint errors|panic!|error: \[GHC-[0-9]+\]|error:' "$WORK/${slug}_O0.log" || head -n 1 "$WORK/${slug}_O0.log")
+      if rg -q '\[GHC-76037\]|\[GHC-87110\]|\[GHC-61689\]' "$WORK/${slug}_O0.log"; then
         echo "  [HARNESS-FAIL] $rel failed with import/scope error — $first_err"
         FAIL=$((FAIL + 1))
       else

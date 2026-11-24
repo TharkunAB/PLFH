@@ -19,12 +19,15 @@ module PLFH.Part2.BigStep
   , EvalBig (..)
   , IsLamClos (..)
   , evalBigIsLam
+  , envLookupDeterm
+  , evalDeterm
   , idClos
   , evalIdApp
   , evalConstOmega
   ) where
 
 import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ```
@@ -119,27 +122,43 @@ evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 ```
 
-## Determinism (`⇓-determ`) and compiler blockers
+## Determinism (`⇓-determ`)
+
+With the R11 Desugar Core Lint fix published on `dependent-haskell`
+(`692eae0778`/`9cc4065fab`), both `envLookupDeterm` and full call-by-name
+big-step determinism `evalDeterm` prove directly by structural induction—and
+directly discharge the determinism premise of Part 3 [Adequacy](/Adequacy/)!
+
+```haskell
+-- | Determinism of relational environment lookup.
+envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
+envLookupDeterm ELZ      ELZ      = Refl
+envLookupDeterm (ELS p1) (ELS p2) = envLookupDeterm p1 p2
+
+-- | Determinism of call-by-name big-step evaluation (`⇓-determ`).
+evalDeterm :: EvalBig e m c1 -> EvalBig e m c2 -> c1 :~: c2
+evalDeterm (EVar lk1 ev1) (EVar lk2 ev2) = case envLookupDeterm lk1 lk2 of
+  Refl -> evalDeterm ev1 ev2
+evalDeterm ELam ELam = Refl
+evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
+  Refl -> evalDeterm evB1 evB2
+```
+
+<div class="note-box">
+<strong>Fixed Core Lint bug (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier GHC baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
+<code>envLookupDeterm</code> and <code>evalDeterm</code> failed Desugar Core Lint
+with <code>R11 mixed-kind coercion binder</code>. Fixed on
+<code>dependent-haskell</code> and tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/fixed/R11_MixedKindCoercionCoreLint.hs</code></a>!
+</div>
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>lookupEnv</code> (R13) &amp; Determinism Core Lint (R11)]</strong>
-Two proofs in <strong>BigStep</strong> hit tracked compiler boundaries on GHC
-<code>d15cbd41fe</code>:
-<ol>
-  <li><strong>GADT-indexed <code>lookupEnv</code> in types (R13/R16):</strong>
-      Using <code>lookupEnv e x</code> directly in <code>EVar</code> fails
-      <code>GHC-68947</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>reproducers/R13_LookupEnvOpenEq.hs</code></a>.</li>
-  <li><strong>Determinism of <code>EnvLookup</code> and <code>EvalBig</code> (R11 Core Lint):</strong>
-      Even the 2-line proof
-      <code>envLookupDeterm :: EnvLookup e x c1 -&gt; EnvLookup e x c2 -&gt; c1 :~: c2</code>
-      (needed for <code>evalDeterm</code> and Part 3 <a href="/Adequacy/">Adequacy</a>)
-      typechecks on <code>d15cbd41fe</code> and then fails Core Lint after
-      Desugar with <code>R11 mixed-kind coercion binder</code> — the exact
-      same Desugar Core Lint bug isolated in
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/R11_MixedKindCoercionCoreLint.hs</code></a>
-      (already fixed on the compiler team's private candidate <code>f21ab22285</code> / <code>d033d0132d</code>!).</li>
-</ol>
+<strong>[WIP NOTICE — Functional <code>lookupEnv</code> in types (R13/R16)]</strong>
+Using GADT-indexed <code>lookupEnv e x</code> directly inside the type of
+<code>EVar</code> (instead of relational <code>EnvLookup</code>) still fails
+with <code>GHC-68947</code>. See
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>reproducers/R13_LookupEnvOpenEq.hs</code></a>.
 </div>
 
 ## Changes from PLFA
@@ -148,7 +167,7 @@ Two proofs in <strong>BigStep</strong> hit tracked compiler boundaries on GHC
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
-  `EvalBig`, `evalIdApp`, and PLFA's `(λx y. x) Ω` exercise (`evalConstOmega`).
-- Marked direct functional `lookupEnv e x` (`R13_LookupEnvOpenEq.hs`) and
-  `envLookupDeterm` / `evalDeterm` (`R11_MixedKindCoercionCoreLint.hs`) with
-  `[WIP NOTICE]`.
+  `EvalBig`, `evalBigIsLam`, **`envLookupDeterm`**, **`evalDeterm`**,
+  `evalIdApp`, and PLFA's `(λx y. x) Ω` exercise (`evalConstOmega`).
+- Marked direct functional `lookupEnv e x` in `EVar` with `[WIP NOTICE]`
+  (`R13_LookupEnvOpenEq.hs`).

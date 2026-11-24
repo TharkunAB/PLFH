@@ -7,6 +7,7 @@
 {-# LINE 14 "content/part1/Equality.md" #-}
 module PLFH.Part1.Equality
   ( EqP (..)
+  , toEqP
   , symP
   , transP
   , congP
@@ -36,12 +37,12 @@ import HaskLib.Nat (Nat (..), congSucc, plus)
 import PLFH.Part1.Induction (plusComm)
 import PLFH.Part1.Relations (Even (..))
 
-{-# LINE 60 "content/part1/Equality.md" #-}
+{-# LINE 61 "content/part1/Equality.md" #-}
 -- | Kind-polymorphic propositional equality (matching Data.Type.Equality.:~:).
 data EqP (x :: a) (y :: a) where
   ReflP :: EqP x x
 
-{-# LINE 70 "content/part1/Equality.md" #-}
+{-# LINE 71 "content/part1/Equality.md" #-}
 -- | Symmetry: if x = y then y = x.
 symP :: EqP x y -> EqP y x
 symP ReflP = ReflP
@@ -50,7 +51,7 @@ symP ReflP = ReflP
 transP :: EqP x y -> EqP y z -> EqP x z
 transP ReflP q = q
 
-{-# LINE 93 "content/part1/Equality.md" #-}
+{-# LINE 94 "content/part1/Equality.md" #-}
 -- | Congruence: equal inputs yield equal outputs under any unmatchable function f.
 congP :: forall {a} {b} (f :: a %U -> b) (x :: a) (y :: a).
          EqP x y -> EqP (f x) (f y)
@@ -71,11 +72,15 @@ substU :: forall {a} (p :: a %U -> Type) (x :: a) (y :: a).
           EqP x y -> p x -> p y
 substU ReflP px = px
 
-{-# LINE 121 "content/part1/Equality.md" #-}
--- | If m + n is even, then n + m is even.
+{-# LINE 122 "content/part1/Equality.md" #-}
+-- | Convert standard `Data.Type.Equality.:~:` into our local `EqP`.
+toEqP :: x :~: y -> EqP x y
+toEqP Refl = ReflP
+
+-- | If m + n is even, then n + m is even (PLFA's direct `subst even (+-comm m n)`).
 evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
-evenComm m n ev = rewrite (plusComm m n) ev
+evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 
 {-# LINE 151 "content/part1/Equality.md" #-}
 -- | Start an equational reasoning chain from `x` to `y`.

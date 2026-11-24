@@ -8,7 +8,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Lambda/
 ---
 
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll, GADTs, TypeOperators #-}
 module PLFH.Part2.Lambda
   ( Id
   , eqId
@@ -17,6 +17,8 @@ module PLFH.Part2.Lambda
   , Ctx (..)
   , Value (..)
   , substTerm
+  , Step (..)
+  , Steps (..)
   , Lookup (..)
   , HasType (..)
   , termTwo
@@ -36,11 +38,9 @@ In this chapter we define:
 
 1. Abstract syntax of terms (`Term`), types (`Ty`), and typing contexts (`Ctx`),
 2. Values (`Value`),
-3. Capture-avoiding substitution for closed values (`substTerm`),
-4. Extrinsic typing derivations (`Lookup` and `HasType`), and
-5. The exact R13/R16 open-evaluation & scoping boundary currently holding back
-   functional call-by-value reduction (`Step` / `Steps`) on the published
-   compiler.
+3. Capture-avoiding substitution for closed terms (`substTerm`),
+4. Call-by-value reduction (`Step` and `Steps`), and
+5. Extrinsic typing derivations (`Lookup` and `HasType`).
 
 ## Syntax of terms, types, and contexts
 
@@ -99,7 +99,7 @@ data Value (t :: Term) where
 
 ## Substitution (`_[_:=_]`)
 
-Following PLFA, `substTerm m y v` substitutes the closed value `v` for free
+Following PLFA, `substTerm m y v` substitutes the closed term `v` for free
 occurrences of variable `y` in term `m`:
 
 ```haskell
@@ -124,43 +124,35 @@ substTerm (TMu x n) y v = case eqId x y of
 
 ## One-step and multi-step reduction (`_—→_`, `_—↠_`)
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>Step</code> blocked on open equations for <code>substTerm</code> (R13/R16) &amp; implicit tyvar pitfall]</strong>
-Call-by-value one-step reduction uses <code>substTerm</code> directly in the
-three β-rules:
-<pre class="wip"><code>data Step (m :: Term) (n :: Term) where
-  XiApp1   :: Step l l' -&gt; Step ('App l m) ('App l' m)
-  XiApp2   :: Value v -&gt; Step m m' -&gt; Step ('App v m) ('App v m')
-  BetaLam  :: forall x n v. Value v -&gt; Step ('App ('Lam x n) v) (Syntax.substTerm n x v)
-  XiSuc    :: Step m m' -&gt; Step ('TSuc m) ('TSuc m')
-  XiCase   :: Step l l' -&gt; Step ('TCase l m x n) ('TCase l' m x n)
+Call-by-value one-step reduction is an indexed GADT `Step m n` (written
+`M —→ N` in PLFA), using our ordinary `substTerm` function directly in
+`BetaLam`, `BetaSuc`, and `BetaMu`:
+
+```haskell
+-- | Call-by-value one-step reduction relation (M —→ N).
+data Step (m :: Term) (n :: Term) where
+  XiApp1   :: Step l l' -> Step ('App l m) ('App l' m)
+  XiApp2   :: Value v -> Step m m' -> Step ('App v m) ('App v m')
+  BetaLam  :: forall v x n. Value v -> Step ('App ('Lam x n) v) (substTerm n x v)
+  XiSuc    :: Step m m' -> Step ('TSuc m) ('TSuc m')
+  XiCase   :: Step l l' -> Step ('TCase l m x n) ('TCase l' m x n)
   BetaZero :: Step ('TCase 'TZero m x n) m
-  BetaSuc  :: forall v m x n. Value v -&gt; Step ('TCase ('TSuc v) m x n) (Syntax.substTerm n x v)
-  BetaMu   :: forall x m. Step ('TMu x m) (Syntax.substTerm m x ('TMu x m))</code></pre>
-<strong>Important soundness lesson uncovered with the compiler team:</strong>
-An earlier revision wrote unqualified <code>substTerm</code> in the same module
-without an explicit constructor <code>forall</code>. Because
-<code>substTerm</code> did not have same-module checked equations, GHC's
-implicit type-variable quantification silently turned <code>substTerm</code>
-into a fresh unconstrained type variable
-<code>forall (substTerm :: Term -&gt; Id -&gt; Term -&gt; Term)</code> in
-<code>BetaLam</code>, <code>BetaSuc</code>, and <code>BetaMu</code>—letting a
-client construct a bogus <code>BetaMu</code> step to an arbitrary term!
-<br><br>
-Splitting <code>Term</code> and <code>substTerm</code> into a separate
-<code>PLFH.Part2.LambdaSyntax</code> module and referencing
-<code>Syntax.substTerm</code> eliminates the fresh type variable completely
-(and is already verified on the compiler team's private branch
-<code>09bc6546ca</code>, where wrong endpoints fail with
-<code>GHC-83865</code>). On the currently published 590 compiler
-(<code>1a02a866e7</code>), however, <code>Syntax.substTerm</code> fails with
-<code>GHC-70565</code> because <code>substTerm</code> branches on
-<code>case eqId x y of</code>. Rather than ship an unsound
-<code>Step</code> relation or duplicate <code>substTerm</code> as a type
-family, we keep <code>Step</code> and <code>Steps</code> here as
-<code>[WIP NOTICE]</code> until that compiler fix publishes. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstTermOpenEq.hs"><code>reproducers/R13_SubstTermOpenEq.hs</code></a>.
-</div>
+  BetaSuc  :: forall v m x n. Value v -> Step ('TCase ('TSuc v) m x n) (substTerm n x v)
+  BetaMu   :: forall x m. Step ('TMu x m) (substTerm m x ('TMu x m))
+
+-- | Reflexive-transitive closure of one-step reduction (M —↠ N).
+data Steps (m :: Term) (n :: Term) where
+  StepsRefl :: Steps m m
+  StepsCons :: Step l m -> Steps m n -> Steps l n
+```
+
+The three beta constructors bind their term indices explicitly. Each result
+uses the substitution function defined above (`substTerm`). On earlier GHC
+revisions (`1a02a866e7`), unqualified same-module `substTerm` had no checked
+open equations and was silently quantified as a fresh unconstrained type
+variable; fixed in `Tritlo/ghc` [`692eae0778`](https://github.com/Tritlo/ghc/commit/692eae077896a00384fecf15a3d5d92d828a6415)
+(see regression check [`reproducers/fixed/R13_SubstTermOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_SubstTermOpenEq.hs)).
+The negative control below verifies that GHC rejects an arbitrary reduction target.
 
 ## Context lookup and typing (`_∋_⦂_`, `_⊢_⦂_`)
 
@@ -212,6 +204,23 @@ badApp :: HasType 'CEmpty ('App 'TZero 'TZero) 'TNat
 badApp = TApp TZeroT TZeroT
 ```
 
+### Negative control: a beta step must compute its target
+
+The term `TMu Zero TZero` unfolds to `TZero`. The following step has a
+different target and GHC rejects it.
+
+```{.haskell .fail name="NegBetaMuTarget" expect="GHC-83865"}
+{-# LANGUAGE DataKinds, GADTs #-}
+module NegBetaMuTarget (wrong) where
+
+import HaskLib.Nat (Nat (Zero))
+import PLFH.Part2.Lambda (Step (..), Term (..))
+
+wrong :: Step ('TMu 'Zero 'TZero)
+              ('TCase 'TZero 'TZero 'Zero ('TMu 'Zero 'TZero))
+wrong = BetaMu
+```
+
 ## Changes from PLFA
 
 - Adapted from [Lambda](https://plfa.inf.ed.ac.uk/Lambda/)
@@ -220,7 +229,5 @@ badApp = TApp TZeroT TZeroT
   equality does not depend on string-literal closed evaluation.
 - `Term`, `Ty`, `Ctx`, `Value`, `substTerm`, `Lookup`, and `HasType` all port
   directly with the exact same inference rules and pass `-dcore-lint -dstg-lint`.
-- Marked `Step` and `Steps` with `[WIP NOTICE]` after an interface audit
-  (`--show-iface`) caught GHC silently quantifying unqualified same-module
-  `substTerm` as a fresh type variable; qualified `Syntax.substTerm` is verified
-  on private GHC `09bc6546ca` and waits on publication (`R13_SubstTermOpenEq.hs`).
+- The beta rules use the ordinary `substTerm` in this module. The interface
+  audit and `NegBetaMuTarget` check that callers cannot choose another target.

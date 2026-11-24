@@ -12,16 +12,19 @@ module PLFH.Part2.BigStep
   , EvalBig (..)
   , IsLamClos (..)
   , evalBigIsLam
+  , envLookupDeterm
+  , evalDeterm
   , idClos
   , evalIdApp
   , evalConstOmega
   ) where
 
 import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 45 "content/part2/BigStep.md" #-}
+{-# LINE 48 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env 'Zero
@@ -40,7 +43,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 79 "content/part2/BigStep.md" #-}
+{-# LINE 82 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -82,3 +85,17 @@ evalBigIsLam :: EvalBig e m c -> IsLamClos c
 evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
+
+{-# LINE 133 "content/part2/BigStep.md" #-}
+-- | Determinism of relational environment lookup.
+envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
+envLookupDeterm ELZ      ELZ      = Refl
+envLookupDeterm (ELS p1) (ELS p2) = envLookupDeterm p1 p2
+
+-- | Determinism of call-by-name big-step evaluation (`⇓-determ`).
+evalDeterm :: EvalBig e m c1 -> EvalBig e m c2 -> c1 :~: c2
+evalDeterm (EVar lk1 ev1) (EVar lk2 ev2) = case envLookupDeterm lk1 lk2 of
+  Refl -> evalDeterm ev1 ev2
+evalDeterm ELam ELam = Refl
+evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
+  Refl -> evalDeterm evB1 evB2

@@ -1,7 +1,7 @@
 -- Generated from content/part2/Lambda.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, ExplicitForAll, GADTs, TypeOperators #-}
 {-# LINE 12 "content/part2/Lambda.md" #-}
 module PLFH.Part2.Lambda
   ( Id
@@ -11,6 +11,8 @@ module PLFH.Part2.Lambda
   , Ctx (..)
   , Value (..)
   , substTerm
+  , Step (..)
+  , Steps (..)
   , Lookup (..)
   , HasType (..)
   , termTwo
@@ -81,7 +83,24 @@ substTerm (TMu x n) y v = case eqId x y of
   True  -> TMu x n
   False -> TMu x (substTerm n y v)
 
-{-# LINE 171 "content/part2/Lambda.md" #-}
+{-# LINE 132 "content/part2/Lambda.md" #-}
+-- | Call-by-value one-step reduction relation (M —→ N).
+data Step (m :: Term) (n :: Term) where
+  XiApp1   :: Step l l' -> Step ('App l m) ('App l' m)
+  XiApp2   :: Value v -> Step m m' -> Step ('App v m) ('App v m')
+  BetaLam  :: forall v x n. Value v -> Step ('App ('Lam x n) v) (substTerm n x v)
+  XiSuc    :: Step m m' -> Step ('TSuc m) ('TSuc m')
+  XiCase   :: Step l l' -> Step ('TCase l m x n) ('TCase l' m x n)
+  BetaZero :: Step ('TCase 'TZero m x n) m
+  BetaSuc  :: forall v m x n. Value v -> Step ('TCase ('TSuc v) m x n) (substTerm n x v)
+  BetaMu   :: forall x m. Step ('TMu x m) (substTerm m x ('TMu x m))
+
+-- | Reflexive-transitive closure of one-step reduction (M —↠ N).
+data Steps (m :: Term) (n :: Term) where
+  StepsRefl :: Steps m m
+  StepsCons :: Step l m -> Steps m n -> Steps l n
+
+{-# LINE 163 "content/part2/Lambda.md" #-}
 -- | Evidence that variable `x` has type `a` in context `g` (Γ ∋ x ⦂ A).
 data Lookup (g :: Ctx) (x :: Id) (a :: Ty) where
   LZ :: Lookup ('CExt g x a) x a
@@ -98,7 +117,7 @@ data HasType (g :: Ctx) (m :: Term) (a :: Ty) where
          -> HasType g ('TCase l m x n) a
   TMuT   :: HasType ('CExt g x a) m a -> HasType g ('TMu x m) a
 
-{-# LINE 191 "content/part2/Lambda.md" #-}
+{-# LINE 183 "content/part2/Lambda.md" #-}
 -- | The term representing natural number 2.
 termTwo :: Term
 termTwo = TSuc (TSuc TZero)

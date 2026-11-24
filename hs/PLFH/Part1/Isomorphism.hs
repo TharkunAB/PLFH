@@ -11,12 +11,14 @@ module PLFH.Part1.Isomorphism
   , IsoSize (..)
   , idSize
   , idSizeId
+  , isoSizeRefl
+  , isoSizeSym
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..))
 
-{-# LINE 42 "content/part1/Isomorphism.md" #-}
+{-# LINE 44 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b
@@ -35,7 +37,7 @@ iffSym (Iff f g) = Iff g f
 iffTrans :: Iff a b -> Iff b c -> Iff a c
 iffTrans (Iff f1 g1) (Iff f2 g2) = Iff (f2 . f1) (g1 . g2)
 
-{-# LINE 78 "content/part1/Isomorphism.md" #-}
+{-# LINE 80 "content/part1/Isomorphism.md" #-}
 -- | Identity function on Nat with explicit structural equations.
 idSize :: Nat -> Nat
 idSize Zero     = Zero
@@ -46,9 +48,17 @@ idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
 idSizeId Zero     = Refl
 idSizeId (Succ _) = Refl
 
--- | Monomorphic isomorphism witness on Nat (declaration checks!).
+-- | Monomorphic isomorphism witness on Nat.
 data IsoSize where
   MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
             -> (foreach (x :: Nat) -> from (to x) :~: x)
             -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize
+
+-- | Reflexivity of `IsoSize` (constructing higher-rank `foreach` proof fields!).
+isoSizeRefl :: IsoSize
+isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
+
+-- | Symmetry of `IsoSize`: swap `to`/`from` and their round-trip proofs.
+isoSizeSym :: IsoSize -> IsoSize
+isoSizeSym (MkIsoSize to from fromTo toFrom) = MkIsoSize from to toFrom fromTo

@@ -13,6 +13,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Equality/
 {-# LANGUAGE ScopedTypeVariables, TypeApplications, TypeOperators #-}
 module PLFH.Part1.Equality
   ( EqP (..)
+  , toEqP
   , symP
   , transP
   , congP
@@ -118,25 +119,24 @@ In PLFA, `even-comm` uses `subst even (+-comm m n)` to transfer a proof of
 same theorem using `substP @Even`:
 
 ```haskell
--- | If m + n is even, then n + m is even.
+-- | Convert standard `Data.Type.Equality.:~:` into our local `EqP`.
+toEqP :: x :~: y -> EqP x y
+toEqP Refl = ReflP
+
+-- | If m + n is even, then n + m is even (PLFA's direct `subst even (+-comm m n)`).
 evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
-evenComm m n ev = rewrite (plusComm m n) ev
+evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — GHC compiler panic in <code>tcInstFun</code> with <code>substP @Even</code>]</strong>
-Attempting PLFA's exact <code>subst even (+-comm m n)</code> phrasing via
-<code>substP @Even (toEqP (plusComm m n)) ev</code> triggers an internal
-compiler panic on GHC <code>db2586fdc2</code>:
-<pre class="wip"><code>panic! (the 'impossible' happened)
-  tcInstFun: invalid retained instantiations
-  [('Unmatchable, x[sk:2]), ('Unmatchable, y[sk:2])]
-  [T:plus m n, T:plus n m]
-  pprPanic, called at compiler/GHC/Tc/Gen/App.hs:3947:25</code></pre>
-Using <code>HaskLib.rewrite (plusComm m n) ev</code> directly avoids the panic
-and checks cleanly. Reported to the compiler team with minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_TcInstFunPanic.hs"><code>reproducers/R03_TcInstFunPanic.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler panic (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier GHC baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
+<code>substP @Even (toEqP (plusComm m n)) ev</code> triggered an internal
+<code>tcInstFun: invalid retained instantiations</code> panic at
+<code>compiler/GHC/Tc/Gen/App.hs:3947</code>. Fixed on
+<code>dependent-haskell</code> and verified as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_TcInstFunPanic.hs"><code>reproducers/fixed/R03_TcInstFunPanic.hs</code></a>.
 </div>
 
 ## Equational reasoning chains with `RequiredTypeArguments`

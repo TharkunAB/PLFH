@@ -14,6 +14,12 @@ module PLFH.Part1.Lists
   , mapAppend
   , mapCompose
   , mapId
+  , shunt
+  , shuntAppend
+  , downFrom
+  , zeros
+  , lengthDownFrom
+  , lengthZeros
   , All (..)
   , Any (..)
   , In
@@ -36,7 +42,7 @@ import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
 
-{-# LINE 60 "content/part1/Lists.md" #-}
+{-# LINE 66 "content/part1/Lists.md" #-}
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
 appendAssoc :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
@@ -48,23 +54,23 @@ appendNilR :: forall a. foreach (xs :: [a]) -> (xs ++ '[]) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 79 "content/part1/Lists.md" #-}
--- | Length of append (reused from HaskLib.lengthAppend).
+{-# LINE 85 "content/part1/Lists.md" #-}
+-- | Length of append (reused directly from HaskLib.lengthAppend).
 lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
-lengthAppendLaw xs ys = lengthAppend xs ys
+lengthAppendLaw = lengthAppend
 
--- | Length of map (reused from HaskLib.lengthMap).
+-- | Length of map (reused from HaskLib.lengthMap; eta-expanded due to R04/R05 bug below).
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a])
              -> size (map f xs) :~: size xs
 lengthMapLaw f xs = lengthMap f xs
 
--- | Length of reverse (reused from HaskLib.lengthReverse).
+-- | Length of reverse (reused directly from HaskLib.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
-lengthReverseLaw xs = lengthReverse xs
+lengthReverseLaw = lengthReverse
 
-{-# LINE 122 "content/part1/Lists.md" #-}
+{-# LINE 136 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a]) -> foreach (ys :: [a])
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -84,7 +90,39 @@ mapId :: forall a. foreach (xs :: [a]) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 181 "content/part1/Lists.md" #-}
+{-# LINE 175 "content/part1/Lists.md" #-}
+-- | Accumulating list reversal helper `shunt`.
+shunt :: [a] -> [a] -> [a]
+shunt []     ys = ys
+shunt (x:xs) ys = shunt xs (x : ys)
+
+-- | Distributivity of `shunt` over append (`shunt-++`).
+shuntAppend :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
+            -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
+shuntAppend []     _  _  = Refl
+shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
+
+-- | Countdown list from `n - 1` down to `0` (`downFrom`).
+downFrom :: Nat -> [Nat]
+downFrom Zero     = []
+downFrom (Succ n) = n : downFrom n
+
+-- | A list of `n` copies of `Zero`.
+zeros :: Nat -> [Nat]
+zeros Zero     = []
+zeros (Succ n) = Zero : zeros n
+
+-- | Length of `downFrom n` equals `n`.
+lengthDownFrom :: foreach (n :: Nat) -> size (downFrom n) :~: n
+lengthDownFrom Zero     = Refl
+lengthDownFrom (Succ n) = case lengthDownFrom n of { Refl -> Refl }
+
+-- | Length of `zeros n` equals `n`.
+lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
+lengthZeros Zero     = Refl
+lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
+
+{-# LINE 246 "content/part1/Lists.md" #-}
 -- | Evidence that predicate `p` holds for every element of `xs`.
 data All (p :: a -> Type) (xs :: [a]) where
   AllNil  :: All p '[]

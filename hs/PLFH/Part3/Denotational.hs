@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
+{-# LANGUAGE StandaloneDeriving, StandaloneKindSignatures, TypeAbstractions, TypeApplications, TypeOperators #-}
 {-# LINE 15 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
@@ -65,14 +65,14 @@ import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
 {-# LINE 97 "content/part3/Denotational.md" #-}
--- | Finite function tables (Scott/Plotkin/BCD filter model values).
--- Note: declared with H98 syntax rather than GADT syntax so ordinary `dom`
--- and `cod` get R13 checked source equations (see WIP notice below).
-data Value
-  = Bot
-  | Arr Value Value
-  | Join Value Value
-  deriving (Show)
+-- | Finite function tables (Scott/Plotkin/BCD filter model values),
+-- declared directly in GADT syntax!
+data Value where
+  Bot  :: Value
+  Arr  :: Value -> Value -> Value
+  Join :: Value -> Value -> Value
+
+deriving instance Show Value
 
 -- | Retained runtime witness for a promoted `Value`, using a single `foreach`
 -- field (not a singleton!). Carrying `ValW` in `DElim`, `DJoin`, and `DSub`
@@ -221,7 +221,7 @@ subArrToCodSub (Arr a b)  s x            = case s @('Arr a b) MemArr of { MemArr
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 288 "content/part3/Denotational.md" #-}
+{-# LINE 285 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -315,23 +315,18 @@ subInvArr (Join _ _) eq _   _   = case eq of {}
 subInvArr (Arr a b)  eq lt1 lt2 = case eq of
   Refl -> mkArrSubFactor @v @w a b lt1 lt2
 
-subInvDist2 :: forall (a :: Value) (b :: Value) (c :: Value).
-               foreach (l :: Value) -> foreach (r :: Value)
-            -> ('Join l r :~: 'Join ('Arr a b) ('Arr a c))
-            -> Factor ('Join l r) a ('Join b c)
-subInvDist2 Bot         _ eq = case eq of {}
-subInvDist2 (Join _ _)  _ eq = case eq of {}
-subInvDist2 (Arr a' b') r eq = case r of
-  Bot      -> case eq of {}
-  Join _ _ -> case eq of {}
-  Arr _ c' -> case eq of
-    Refl -> mkDistFactor a' b' c'
-
 subInvDist :: forall (a :: Value) (b :: Value) (c :: Value).
               foreach (x :: Value) -> (x :~: 'Join ('Arr a b) ('Arr a c)) -> Factor x a ('Join b c)
 subInvDist Bot        eq = case eq of {}
 subInvDist (Arr _ _)  eq = case eq of {}
-subInvDist (Join l r) eq = subInvDist2 l r eq
+subInvDist (Join l r) eq = case l of
+  Bot       -> case eq of {}
+  Join _ _  -> case eq of {}
+  Arr a' b' -> case r of
+    Bot      -> case eq of {}
+    Join _ _ -> case eq of {}
+    Arr _ c' -> case eq of
+      Refl -> mkDistFactor a' b' c'
 
 -- | Main inversion theorem for `Sub` (`sub-inv`): if `u1 ⊑ u2` and `v ↦ w ∈ u1`,
 -- then `v ↦ w` factors `u2` into a sub-collection of functions.
@@ -370,7 +365,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub ('Arr v w) ('Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 457 "content/part3/Denotational.md" #-}
+{-# LINE 449 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv 'Zero

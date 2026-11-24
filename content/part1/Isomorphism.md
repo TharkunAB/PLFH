@@ -17,6 +17,8 @@ module PLFH.Part1.Isomorphism
   , IsoSize (..)
   , idSize
   , idSizeId
+  , isoSizeRefl
+  , isoSizeSym
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -70,9 +72,9 @@ data Iso a b where
         -> Iso a b
 ```
 
-On GHC `d15cbd41fe`, **monomorphic** `IsoSize` (fixing `a = b = Nat`)
-*does* declare cleanly as a GADT with retained function fields and
-higher-rank `foreach` proof fields:
+On published GHC `692eae0778`/`9cc4065fab`, **monomorphic** `IsoSize`
+(fixing `a = b = Nat`) both declares *and* constructs/eliminates cleanly
+with higher-rank `foreach` proof fields (`isoSizeRefl` and `isoSizeSym`):
 
 ```haskell
 -- | Identity function on Nat with explicit structural equations.
@@ -85,46 +87,52 @@ idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
 idSizeId Zero     = Refl
 idSizeId (Succ _) = Refl
 
--- | Monomorphic isomorphism witness on Nat (declaration checks!).
+-- | Monomorphic isomorphism witness on Nat.
 data IsoSize where
   MkIsoSize :: foreach (to :: Nat -> Nat) -> foreach (from :: Nat -> Nat)
             -> (foreach (x :: Nat) -> from (to x) :~: x)
             -> (foreach (y :: Nat) -> to (from y) :~: y)
             -> IsoSize
+
+-- | Reflexivity of `IsoSize` (constructing higher-rank `foreach` proof fields!).
+isoSizeRefl :: IsoSize
+isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
+
+-- | Symmetry of `IsoSize`: swap `to`/`from` and their round-trip proofs.
+isoSizeSym :: IsoSize -> IsoSize
+isoSizeSym (MkIsoSize to from fromTo toFrom) = MkIsoSize from to toFrom fromTo
 ```
 
+<div class="note-box">
+<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
+constructing <code>MkIsoSize idSize idSize idSizeId idSizeId</code> failed with
+<code>GHC-83865</code> printing identical expected and actual higher-rank
+<code>foreach</code> types. Fixed and tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R04_HigherRankForEachField.hs"><code>reproducers/fixed/R04_HigherRankForEachField.hs</code></a>.
+</div>
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — Polymorphic <code>Iso a b</code> &amp; constructing <code>MkIsoSize</code> (R03/R04)]</strong>
-Stating and using PLFA's <code>_≃_</code> (<code>Iso</code>) and
-<code>_≲_</code> (<code>Embed</code>) uncovers two crisp R03/R04 boundaries
-on GHC <code>d15cbd41fe</code>:
-<ol>
-  <li><strong>Polymorphic function fields in <code>foreach</code> (R03/R04):</strong>
-      <code>MkIso :: foreach (to :: a -&gt; b) -&gt; ...</code> fails with
-      <code>GHC-83605</code> (<em>This retained argument has an unsupported
-      function domain. Its declared domain is: <code>a -&gt; b</code></em>).
-      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_PolyFunctionFieldInIso.hs"><code>reproducers/R04_PolyFunctionFieldInIso.hs</code></a>.</li>
-  <li><strong>Applying <code>MkIsoSize</code> to a higher-rank <code>foreach</code> proof (R03/R04):</strong>
-      Even though <code>data IsoSize</code> itself compiles, constructing
-      <code>MkIsoSize idSize idSize idSizeId idSizeId</code> fails with
-      <code>GHC-83865</code> printing <em>identical</em> expected and actual types:
-      <code>Couldn't match expected type: foreach (x :: Nat) -&gt; idSize (idSize x) :~: x
-      with actual type: foreach (x :: Nat) -&gt; idSize (idSize x) :~: x</code>!
-      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_HigherRankForEachField.hs"><code>reproducers/R04_HigherRankForEachField.hs</code></a>.</li>
-</ol>
-Because we avoid workarounds, full <code>_≃_</code> / <code>_≲_</code>
-isomorphisms and embeddings await R03/R04 support; in
-<a href="/Connectives/">Connectives</a> we state the logical equivalences
-using <code>Iff</code>.
+<strong>[WIP NOTICE — Polymorphic <code>Iso a b</code> &amp; <code>Embed a b</code> (R03/R04)]</strong>
+Generalizing <code>IsoSize</code> to polymorphic <code>Iso a b</code>
+(<code>MkIso :: foreach (to :: a -&gt; b) -&gt; ...</code>) still fails with
+<code>GHC-83605</code> (<em>This retained argument has an unsupported function
+domain. Its declared domain is: <code>a -&gt; b</code></em>).
+See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_PolyFunctionFieldInIso.hs"><code>reproducers/R04_PolyFunctionFieldInIso.hs</code></a>.
+Because we avoid workarounds, full polymorphic <code>_≃_</code> /
+<code>_≲_</code> isomorphisms await R03/R04 polymorphic retained function
+domains; in <a href="/Connectives/">Connectives</a> we state the logical
+equivalences using <code>Iff</code>.
 </div>
 
 ## Changes from PLFA
 
 - Adapted from [Isomorphism](https://plfa.inf.ed.ac.uk/Isomorphism/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Isomorphism.lagda.md)).
-- Checked direct ports of `Iff`, `iffRefl`, `iffSym`, `iffTrans`, and the
-  declaration of `IsoSize`.
-- Marked polymorphic `Iso`/`Embed` and constructing `MkIsoSize` with
-  `[WIP NOTICE]` and two minimal R03/R04 reproducers.
+- Checked direct ports of `Iff`, `iffRefl`, `iffSym`, `iffTrans`, and
+  monomorphic `IsoSize` with `isoSizeRefl` and `isoSizeSym`!
+- Marked polymorphic `Iso`/`Embed` with `[WIP NOTICE]` and minimal reproducer
+  `R04_PolyFunctionFieldInIso.hs` (while `R04_HigherRankForEachField.hs` is now
+  a verified regression check).
 - Note on extensionality: like Agda, Haskell does not prove function
   extensionality (`(foreach x -> f x :~: g x) -> f :~: g`) internally.

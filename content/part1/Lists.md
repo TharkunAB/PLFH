@@ -20,6 +20,12 @@ module PLFH.Part1.Lists
   , mapAppend
   , mapCompose
   , mapId
+  , shunt
+  , shuntAppend
+  , downFrom
+  , zeros
+  , lengthDownFrom
+  , lengthZeros
   , All (..)
   , Any (..)
   , In
@@ -76,33 +82,41 @@ preservation of `map` and `reverse`. All three are already proved for
 ordinary Prelude `(++)`, `map`, and `reverse` in `HaskLib`:
 
 ```haskell
--- | Length of append (reused from HaskLib.lengthAppend).
+-- | Length of append (reused directly from HaskLib.lengthAppend).
 lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
-lengthAppendLaw xs ys = lengthAppend xs ys
+lengthAppendLaw = lengthAppend
 
--- | Length of map (reused from HaskLib.lengthMap).
+-- | Length of map (reused from HaskLib.lengthMap; eta-expanded due to R04/R05 bug below).
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a])
              -> size (map f xs) :~: size xs
 lengthMapLaw f xs = lengthMap f xs
 
--- | Length of reverse (reused from HaskLib.lengthReverse).
+-- | Length of reverse (reused directly from HaskLib.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
-lengthReverseLaw xs = lengthReverse xs
+lengthReverseLaw = lengthReverse
 ```
 
+<div class="note-box">
+<strong>Fixed compiler panic (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
+eta-reduced aliases like <code>lengthReverseLaw = lengthReverse</code> panicked
+at <code>compiler/GHC/Core/TyCo/Subst.hs:900</code>. Fixed for value-typed
+<code>foreach</code> aliases (<code>lengthAppendLaw</code>,
+<code>lengthReverseLaw</code>) and tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R05_SubstTyEtaAliasPanic.hs"><code>reproducers/fixed/R05_SubstTyEtaAliasPanic.hs</code></a>.
+</div>
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — GHC compiler panic on eta-reduced polymorphic <code>foreach</code> alias (R05)]</strong>
-Writing an eta-reduced alias such as <code>lengthReverseLaw = lengthReverse</code>
-for an imported polymorphic <code>foreach (xs :: [a])</code> function triggers
-an internal compiler panic on GHC <code>db2586fdc2</code>:
-<pre class="wip"><code>panic! (the 'impossible' happened)
-  substTy: unsupported runtime index or changed domain
-  pprPanic, called at compiler/GHC/Core/TyCo/Subst.hs:900:14</code></pre>
-Eta-expanding the retained arguments (<code>lengthReverseLaw xs = lengthReverse xs</code>)
-compiles cleanly. Reported with 7-line minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R05_SubstTyEtaAliasPanic.hs"><code>reproducers/R05_SubstTyEtaAliasPanic.hs</code></a>.
+<strong>[WIP NOTICE — Eta-reduced alias with function-valued <code>foreach (f :: a -&gt; b)</code> (R04/R05)]</strong>
+Even on published <code>9cc4065fab</code>, writing the eta-reduced alias
+<code>lengthMapLaw = lengthMap</code> fails with <code>GHC-83865</code>
+printing <em>identical</em> expected and actual types
+(<code>foreach (f :: a -&gt; b) -&gt; foreach (xs :: [a]) -&gt; size (map f xs) :~: size xs</code>),
+whereas eta-expanding <code>lengthMapLaw f xs = lengthMap f xs</code> checks
+cleanly. Isolated in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_EtaAliasForEachFunctionBinder.hs"><code>reproducers/R04_EtaAliasForEachFunctionBinder.hs</code></a>.
 </div>
 
 <div class="note-box">
@@ -150,26 +164,77 @@ require bare variable patterns or wildcards</em>). See
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>.
 </div>
 
-## Reverse, `shunt`, and `foldr` monoid laws
+## Accumulating `shunt`, countdown lists (`downFrom`, `zeros`), and `foldr`
+
+On published `dependent-haskell` (`692eae0778`/`9cc4065fab`), both PLFA's
+accumulating tail-recursive `shunt` (since this module disables rewrite rules
+for `HaskLib.lengthMap`) and `Nat -> [Nat]` countdown recursion (`downFrom`,
+`zeros`) now check directly!
+
+```haskell
+-- | Accumulating list reversal helper `shunt`.
+shunt :: [a] -> [a] -> [a]
+shunt []     ys = ys
+shunt (x:xs) ys = shunt xs (x : ys)
+
+-- | Distributivity of `shunt` over append (`shunt-++`).
+shuntAppend :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
+            -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
+shuntAppend []     _  _  = Refl
+shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
+
+-- | Countdown list from `n - 1` down to `0` (`downFrom`).
+downFrom :: Nat -> [Nat]
+downFrom Zero     = []
+downFrom (Succ n) = n : downFrom n
+
+-- | A list of `n` copies of `Zero`.
+zeros :: Nat -> [Nat]
+zeros Zero     = []
+zeros (Succ n) = Zero : zeros n
+
+-- | Length of `downFrom n` equals `n`.
+lengthDownFrom :: foreach (n :: Nat) -> size (downFrom n) :~: n
+lengthDownFrom Zero     = Refl
+lengthDownFrom (Succ n) = case lengthDownFrom n of { Refl -> Refl }
+
+-- | Length of `zeros n` equals `n`.
+lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
+lengthZeros Zero     = Refl
+lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
+```
+
+<div class="note-box">
+<strong>Fixed compiler gaps (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+<code>downFrom</code> / <code>zeros</code> (<code>Nat -&gt; [Nat]</code> open
+equations) now check at both <code>-O0</code> and <code>-O2</code>
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_DownFromOpenEq.hs"><code>reproducers/fixed/R13_DownFromOpenEq.hs</code></a>).
+Accumulating <code>shuntAppend</code> checks at <code>-O0</code> and at
+<code>-O2 -fno-enable-rewrite-rules</code> (as in this module), while default
+<code>-O2</code> with Prelude <code>(++)</code> fusion rules remains tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>.
+</div>
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Quadratic <code>reverse</code> (R13/R16) and higher-order <code>foldr</code> as a retained index (R03)]</strong>
-Two classic PLFA Lists sections hit crisp compiler boundaries on GHC <code>db2586fdc2</code>:
+<strong>[WIP NOTICE — Quadratic <code>rev</code> (R13/R16), higher-order <code>foldr</code> (R03), &amp; default <code>-O2</code> <code>shunt</code>]</strong>
+Three classic PLFA Lists items remain open on published <code>9cc4065fab</code>:
 <ol>
   <li><strong>Quadratic <code>rev</code> (R13/R16):</strong>
-      While tail-recursive <code>shunt</code> (<code>shunt [] ys = ys; shunt (x:xs) ys = shunt xs (x:ys)</code>)
-      <em>does</em> get open source equations (and proves <code>shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)</code>),
       PLFA's naive quadratic <code>rev [] = []; rev (x:xs) = app (rev xs) [x]</code>
-      fails open evaluation with <code>GHC-70565</code>—blocking
+      still fails open evaluation with <code>GHC-70565</code>—blocking
       <code>shunt-reverse</code> and <code>reverses</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>.</li>
   <li><strong>Higher-order <code>foldr</code> in retained arguments (R03):</strong>
-      GHC accepts <code>foldrL plus 'Zero (app xs ys)</code> inside a type
-      signature, but rejects passing <code>foldrL plus Zero xs</code> as a
-      retained runtime argument to an associative lemma like <code>plusAssoc</code>
-      with <code>GHC-83605</code> (<em>GHC cannot use this expression as a retained
-      index</em>). This blocks PLFA's <code>foldr-monoid-++</code> proof. See
+      Passing <code>foldrL plus Zero xs</code> as a retained runtime argument
+      to an associative lemma like <code>plusAssoc</code> still fails with
+      <code>GHC-83605</code> (<em>GHC cannot use this expression as a retained
+      index</em>), blocking <code>foldr-monoid-++</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FoldrRetainedIndex.hs"><code>reproducers/R03_FoldrRetainedIndex.hs</code></a>.</li>
+  <li><strong>Default <code>-O2</code> rewrite-rule check on <code>shuntAppend</code>:</strong>
+      Without <code>-fno-enable-rewrite-rules</code>, default <code>-O2</code>
+      still rejects <code>shuntAppend</code> with <code>GHC-83605</code> at the
+      Prelude <code>(++)</code> rewrite-rule guard
+      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>).</li>
 </ol>
 </div>
 
@@ -260,28 +325,13 @@ threeNotInList (There (There p))  = case p of {}
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Accumulating <code>shunt</code>, <code>downFrom</code>, and <code>All (\x -&gt; Not (p x))</code> (R13/R23)]</strong>
-Three further PLFA <strong>Lists</strong> items hit distinct compiler boundaries
-on GHC <code>d15cbd41fe</code>:
-<ol>
-  <li><strong>Accumulating tail recursion (<code>shunt</code>, R13):</strong>
-      Defining <code>shunt (x:xs) ys = shunt xs (x : ys)</code> changes its
-      second argument in the recursive call and fails <code>GHC-68947</code>
-      when used in <code>shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)</code>.
-      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>.</li>
-  <li><strong><code>Nat -&gt; [Nat]</code> recursion (<code>downFrom</code>, R13):</strong>
-      Structural recursion matching <code>Nat</code> and returning a Prelude
-      list (<code>downFrom (Succ n) = n : downFrom n</code>) fails
-      <code>GHC-68947</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_DownFromOpenEq.hs"><code>reproducers/R13_DownFromOpenEq.hs</code></a>.</li>
-  <li><strong>De Morgan between <code>All</code> and <code>Any</code> with an inline type lambda (R23):</strong>
-      Writing <code>Not (Any p xs) -&gt; All (\x -&gt; Not (p x)) xs</code>
-      hits the same Matchable-vs-Unmatchable arrow kind clash as Leibniz
-      equality, because <code>All</code> expects a matchable predicate
-      <code>a -&gt; Type</code> while the inline type lambda has unmatchable
-      kind <code>a %U -&gt; Type</code> (see
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>).</li>
-</ol>
+<strong>[WIP NOTICE — De Morgan between <code>All</code> and <code>Any</code> with an inline type lambda (R23)]</strong>
+Writing <code>Not (Any p xs) -&gt; All (\x -&gt; Not (p x)) xs</code>
+hits the same Matchable-vs-Unmatchable arrow kind clash as Leibniz
+equality, because <code>All</code> expects a matchable predicate
+<code>a -&gt; Type</code> while the inline type lambda has unmatchable
+kind <code>a %U -&gt; Type</code> (see
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>).
 </div>
 
 ## Changes from PLFA
@@ -290,9 +340,12 @@ on GHC <code>d15cbd41fe</code>:
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)).
 - Used standard Prelude `[a]`, `(++)`, and `map` directly instead of a custom
   `List` datatype.
-- Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.
+- Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse` via
+  direct eta-reduced aliases (fixed on `692eae0778`/`9cc4065fab`).
 - Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
-  `mapCompose`, `mapId`, `All`, `Any`, `In`, `allAppend`, `allMap`,
-  `zeroInList`, and `threeNotInList`.
-- Marked naive quadratic `rev`, `foldr` as a retained index, and multi-equation
-  splitting after a retained function with `[WIP NOTICE]` and minimal reproducers.
+  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `downFrom`/`zeros`/`lengthDownFrom`/`lengthZeros`,
+  `All`, `Any`, `In`, `allAppend`/`Inv`, `anyAppend*`/`Inv`, `allMap`,
+  `decAll`, `decAny`, `zeroInList`, and `threeNotInList`.
+- Marked naive quadratic `rev`, `foldr` as a retained index, default `-O2`
+  `shunt` fusion rules, multi-equation splitting after a retained function,
+  and inline type-lambda `All` with `[WIP NOTICE]` and minimal reproducers.

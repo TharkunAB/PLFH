@@ -25,6 +25,7 @@ module PLFH.Part1.Decidable
   , Sigma (..)
   , SizeWitness
   , mkSizeWitness
+  , plusExists
   ) where
 
 import Data.Kind (Type)
@@ -36,7 +37,7 @@ import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 
-{-# LINE 57 "content/part1/Decidable.md" #-}
+{-# LINE 58 "content/part1/Decidable.md" #-}
 -- | Logical negation: evidence that a proposition implies falsehood (Void).
 type Not a = a -> Void
 
@@ -44,7 +45,7 @@ type Not a = a -> Void
 zeroNeqSucc :: Not ('Zero :~: 'Succ n)
 zeroNeqSucc eq = case eq of {}
 
-{-# LINE 81 "content/part1/Decidable.md" #-}
+{-# LINE 82 "content/part1/Decidable.md" #-}
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
@@ -76,7 +77,7 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
   Yes (f, g) -> Yes (Iff f g)
   No nfg     -> No (\(Iff f g) -> nfg (f, g))
 
-{-# LINE 119 "content/part1/Decidable.md" #-}
+{-# LINE 120 "content/part1/Decidable.md" #-}
 -- | Decidable propositional equality on Nat.
 decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
 decEqSize Zero n = case n of
@@ -88,7 +89,7 @@ decEqSize (Succ m) n = case n of
     Yes eq -> Yes (congSucc eq)
     No neq -> No (\Refl -> neq Refl)
 
-{-# LINE 136 "content/part1/Decidable.md" #-}
+{-# LINE 137 "content/part1/Decidable.md" #-}
 -- | Decidable less-than-or-equal relation on Nat.
 decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
 decLeSize Zero _ = Yes ZleN
@@ -109,7 +110,7 @@ decLtSize (Succ m) n = case n of
     Yes p  -> Yes (SltS p)
     No  np -> No (\case SltS q -> np q)
 
-{-# LINE 165 "content/part1/Decidable.md" #-}
+{-# LINE 166 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
@@ -185,10 +186,15 @@ decCan (X1 b) = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 248 "content/part1/Decidable.md" #-}
+{-# LINE 249 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
 type SizeWitness = some (k :: Nat) | LE 'Zero k
 
 -- | Package any runtime size with its proof of Zero <= k.
 mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
+
+-- | Inline retained dependent sum returned directly from a `foreach` function!
+plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
+           -> some (k :: Nat) | k :~: plus m n
+plusExists m n = Pair (plus m n) Refl

@@ -11,7 +11,8 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Induction/
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, TypeApplications, TypeOperators #-}
 module PLFH.Part1.Induction
-  ( congSecond
+  ( cong
+  , congSecond
   , plusAssoc
   , plusAssocRewrite
   , plusIdentityR
@@ -179,35 +180,38 @@ PLFA uses `+-assoc`, `sym`, and a section `cong (m +_)` to prove:
 
     (m + n) + (p + q) ≡ (m + (n + p)) + q
 
-Just as `HaskLib.Nat` provides `congFirst` to lift an equality through the
-first argument of a binary size function, we define `congSecond` for the
-second argument:
+With Dependent Haskell's unmatchable function arrow (`%U ->`, Serokell R23)
+and partial application of `plus`, we can write PLFA's generic unary `cong`
+and apply `cong @(plus m)` directly! (We also keep `congSecond` exported for
+binary congruence.)
 
 ```haskell
+-- | Generic unary congruence for any unmatchable function `f :: a %U -> b`.
+cong :: forall {a} {b} (f :: a %U -> b) (x :: a) (y :: a). x :~: y -> f x :~: f y
+cong Refl = Refl
+
 -- | Lift an equality through the second argument of a binary size function.
 congSecond :: forall (f :: Nat %U -> Nat %U -> Nat) l m n.
               m :~: n -> f l m :~: f l n
 congSecond Refl = Refl
 
--- | Rearranging parentheses in a four-way sum.
+-- | Rearranging parentheses in a four-way sum, using PLFA's direct `cong @(plus m)`.
 plusRearrange :: foreach (m :: Nat) -> foreach (n :: Nat)
               -> foreach (p :: Nat) -> foreach (q :: Nat)
               -> plus (plus m n) (plus p q) :~: plus (plus m (plus n p)) q
 plusRearrange m n p q =
   plusAssoc m n (plus p q)
-    `trans` congSecond @plus @m (sym (plusAssoc n p q))
+    `trans` cong @(plus m) (sym (plusAssoc n p q))
     `trans` sym (plusAssoc m (plus n p) q)
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Partial application in generic <code>cong @(plus m)</code> (R03/R17/R23)]</strong>
-Writing PLFA's direct section <code>cong @(plus m) (sym (plusAssoc n p q))</code>
-with a generic unary <code>cong :: forall (f :: a %U -> b) x y. x :~: y -> f x :~: f y</code>
-currently fails on GHC <code>db2586fdc2</code> with an <em>untouchable</em>
-meta-variable error bound by the retained application. Passing the unapplied
-binary function and fixed argument explicitly via <code>congSecond @plus @m</code>
-checks cleanly. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_CongPartialApp.hs"><code>reproducers/R03_CongPartialApp.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
+<code>cong @(plus m)</code> failed with an untouchable meta-variable error.
+That fix is now published on <code>dependent-haskell</code> and tracked as
+regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_CongPartialApp.hs"><code>reproducers/fixed/R03_CongPartialApp.hs</code></a>.
 </div>
 
 ## Exercises checked directly
@@ -215,24 +219,23 @@ checks cleanly. See
 ### `+-swap` (recommended) {#plus-swap}
 
 ```haskell
--- | Swap the first two addends: m + (n + p) = n + (m + p).
+-- | Swap the first two addends: m + (n + p) = n + (m + p),
+-- using `HaskLib.rewrite` directly inside a `trans` chain!
 plusSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
          -> plus m (plus n p) :~: plus n (plus m p)
 plusSwap m n p =
   sym (plusAssoc m n p)
-    `trans` congFirst @plus @p (plusComm m n)
+    `trans` rewrite (plusComm m n) Refl
     `trans` plusAssoc n m p
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — <code>rewrite</code> on a retained call inside <code>trans</code>/<code>congSucc</code> (R03)]</strong>
-Using <code>rewrite (plusComm m n) Refl</code> inside a chain of
-<code>`trans`</code> calls (or inside <code>congSucc</code>) fails on GHC
-<code>1a02a866e7</code> because the retained application binds an implication
-constraint that renders the surrounding meta-variables untouchable. Putting
-<code>rewrite</code> on the <em>outside</em> of the expression, or using
-<code>congFirst</code>/<code>congSecond</code>, works cleanly. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_WithEqualityUnderTrans.hs"><code>reproducers/R03_WithEqualityUnderTrans.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
+calling <code>rewrite (plusComm m n) Refl</code> inside <code>`trans`</code>
+failed with an untouchable meta-variable error. Fixed and tracked as regression
+check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_WithEqualityUnderTrans.hs"><code>reproducers/fixed/R03_WithEqualityUnderTrans.hs</code></a>.
 </div>
 
 ### Multiplication laws (`*-distrib-+`, `*-assoc`, `*-comm`)
@@ -333,6 +336,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 - Uses `HaskLib.rewrite` (corresponding to Agda's `rewrite`, with `withEquality` retained in `HaskLib` as a compatibility alias).
 - Added an explicit negative control (`NegZeroSucc`) verifying GHC rejects
   `'Zero :~: 'Succ 'Zero` (`GHC-83865`).
-- Marked `monus` and `pow` exercises, second-column equation splitting,
-  `cong @(plus m)`, and nested `rewrite` under `trans` with `[WIP NOTICE]`
-  callouts and minimal reproducers.
+- Marked `monus` and `pow` exercises and second-column equation splitting
+  with `[WIP NOTICE]` callouts and minimal reproducers. (`cong @(plus m)` and
+  nested `rewrite` under `trans` were previously blocked and are now checked
+  directly on `692eae0778`/`9cc4065fab`.)

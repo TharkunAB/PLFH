@@ -25,7 +25,6 @@ module PLFH.Part3.Adequacy
   , notAboveFunJoinInv
   , decAboveFun
   , WHNF (..)
-  , EvalDeterm
   , HaltsV (..)
   , LogE
   , LogArr (..)
@@ -43,6 +42,7 @@ module PLFH.Part3.Adequacy
   , fundamental
   , HaltsBig (..)
   , adequacyBigStep
+  , adequacyIdApp
   ) where
 
 import Data.Kind (Type)
@@ -51,7 +51,7 @@ import Data.Void (Void, absurd)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
-import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..))
+import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Denotes (..)
@@ -64,6 +64,7 @@ import PLFH.Part3.Denotational
   , ValW (..)
   , Value (..)
   , allFunsMem
+  , denotIdAppId
   , memToSub
   , subInv
   , unArrW
@@ -76,14 +77,13 @@ call-by-name operational evaluation ([BigStep](/BigStep/)): whenever a closed
 term has a non-trivial function denotation (`AboveFun`), it halts at a lambda
 abstraction!
 
-Remarkably, **almost the entire Adequacy proof**—`decAboveFun`, the
+With `BigStep.evalDeterm` now proved unconditionally on published GHC
+`9cc4065fab`, the **entire Big-Step Adequacy theorem**—`decAboveFun`, the
 negative-position logical relation `LogVLam`/`LogE`, **full subsumption across
 all 8 `Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`!)**,
 the **complete Fundamental Lemma (`fundamental`, all 6 `Denotes` rules!)**, and
-the **Big-Step Adequacy Corollary (`adequacyBigStep`)**—compiles directly with
-`-dcore-lint -dstg-lint` on published GHC `1a02a866e7`, parameterized only by
-`EvalDeterm` (whose R11 Core Lint blocker is already fixed in the compiler
-team's queued 597 release)!
+**unconditional Big-Step Adequacy (`adequacyBigStep`)**—compiles directly with
+`-dcore-lint -dstg-lint` and executes at runtime!
 
 ## Being greater than or equal to a function (`AboveFun`) and its decidability
 
@@ -165,13 +165,6 @@ type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
   WLam :: WHNF ('ULam b)
 
--- | Determinism of call-by-name big-step evaluation (`⇓-determ`).
--- Parameterized explicitly here while `BigStep.evalDeterm` waits on the R11
--- Desugar Core Lint fix (`R11_MixedKindCoercionCoreLint.hs`, queued in 597).
-type EvalDeterm =
-  forall (n :: Nat) (e :: Env n) (m :: UTerm n) (c1 :: Clos) (c2 :: Clos).
-    EvalBig e m c1 -> EvalBig e m c2 -> c1 :~: c2
-
 -- | Witness that evaluating `m` in `e` halts at a lambda closure related to `v`.
 type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
@@ -209,16 +202,15 @@ notAboveFunLogV (Join a c) na =
   , notAboveFunLogV @n @e @b c (\af -> na (aboveFunJoinR af)) )
 
 -- | Join introduction for the expression logical relation (`𝔼-⊔`), using
--- `decAboveFun` and `EvalDeterm` when both components are above a function!
+-- `decAboveFun` and our unconditional `BigStep.evalDeterm`!
 haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
-              EvalDeterm
-           -> foreach (w1 :: Value) -> foreach (w2 :: Value)
+              foreach (w1 :: Value) -> foreach (w2 :: Value)
            -> LogE w1 e m
            -> LogE w2 e m
            -> LogE ('Join w1 w2) e m
-haltsVJoin ed w1 w2 le1 le2 af = case (decAboveFun w1, decAboveFun w2) of
+haltsVJoin w1 w2 le1 le2 af = case (decAboveFun w1, decAboveFun w2) of
   (Yes af1, Yes af2) -> case (le1 af1, le2 af2) of
-    (MkHaltsV ev1 lv1, MkHaltsV ev2 lv2) -> case ed ev1 ev2 of
+    (MkHaltsV ev1 lv1, MkHaltsV ev2 lv2) -> case evalDeterm ev1 ev2 of
       Refl -> MkHaltsV ev1 (lv1, lv2)
   (Yes af1, No na2) -> case le1 af1 of
     MkHaltsV (ev1 :: EvalBig e m ('MkClos ('ULam b) (d :: Env k))) lv1 ->
@@ -230,56 +222,54 @@ haltsVJoin ed w1 w2 le1 le2 af = case (decAboveFun w1, decAboveFun w2) of
 
 subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm ('Succ n))
                         (a :: Value) (w1 :: Value) (w2 :: Value).
-                 EvalDeterm
-              -> ValW w1 -> ValW w2
+                 ValW w1 -> ValW w2
               -> (LogArr a w1 e b, LogArr a w2 e b)
               -> LogArr a ('Join w1 w2) e b
-subDistHelper ed (MkValW w1) (MkValW w2) (f1, f2) =
-  MkLogArr (\le af -> haltsVJoin ed w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
+subDistHelper (MkValW w1) (MkValW w2) (f1, f2) =
+  MkLogArr (\le af -> haltsVJoin w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
 
--- | Full downward closure of `LogVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
+-- | Full unconditional downward closure of `LogVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
 subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm ('Succ n)) (u :: Value) (v :: Value).
-              EvalDeterm
-           -> ValW u -> ValW v
+              ValW u -> ValW v
            -> Sub u v
            -> LogVLam v e b
            -> LogVLam u e b
-subLogVLam _  _  _  SubBot             _  = ()
-subLogVLam _  _  _  SubRefl            lv = lv
-subLogVLam ed wu wv (SubJoinL l1 l2)   lv = case unJoinW wu of
-  (wu1, wu2) -> (subLogVLam @n @e @b ed wu1 wv l1 lv, subLogVLam @n @e @b ed wu2 wv l2 lv)
-subLogVLam ed wu wv (SubJoinR1 l1)     lv = case unJoinW wv of
-  (wv1, _) -> subLogVLam @n @e @b ed wu wv1 l1 (fst lv)
-subLogVLam ed wu wv (SubJoinR2 l2)     lv = case unJoinW wv of
-  (_, wv2) -> subLogVLam @n @e @b ed wu wv2 l2 (snd lv)
-subLogVLam ed wu wv (SubTrans mid l1 l2) lv = go (MkValW mid) l1 l2 lv
+subLogVLam _  _  SubBot             _  = ()
+subLogVLam _  _  SubRefl            lv = lv
+subLogVLam wu wv (SubJoinL l1 l2)   lv = case unJoinW wu of
+  (wu1, wu2) -> (subLogVLam @n @e @b wu1 wv l1 lv, subLogVLam @n @e @b wu2 wv l2 lv)
+subLogVLam wu wv (SubJoinR1 l1)     lv = case unJoinW wv of
+  (wv1, _) -> subLogVLam @n @e @b wu wv1 l1 (fst lv)
+subLogVLam wu wv (SubJoinR2 l2)     lv = case unJoinW wv of
+  (_, wv2) -> subLogVLam @n @e @b wu wv2 l2 (snd lv)
+subLogVLam wu wv (SubTrans mid l1 l2) lv = go (MkValW mid) l1 l2 lv
   where
     go :: forall (m :: Value). ValW m -> Sub u m -> Sub m v -> LogVLam v e b -> LogVLam u e b
     go wMid s1 s2 x =
-      subLogVLam @n @e @b @u @m ed wu wMid s1 (subLogVLam @n @e @b @m @v ed wMid wv s2 x)
-subLogVLam ed wu wv (SubArr l1 l2)     lv = case (unArrW wu, unArrW wv) of
+      subLogVLam @n @e @b @u @m wu wMid s1 (subLogVLam @n @e @b @m @v wMid wv s2 x)
+subLogVLam wu wv (SubArr l1 l2)     lv = case (unArrW wu, unArrW wv) of
   ((wu1, wu2), (wv1, wv2)) ->
-    MkLogArr (\le -> subLogE ed wu2 wv2 l2 (runLogArr lv (subLogE ed wv1 wu1 l1 le)))
-subLogVLam ed wu _  SubDist            lv = case unArrW wu of
+    MkLogArr (\le -> subLogE wu2 wv2 l2 (runLogArr lv (subLogE wv1 wu1 l1 le)))
+subLogVLam wu _  SubDist            lv = case unArrW wu of
   (_, wJoin) -> case unJoinW wJoin of
-    (ww1, ww2) -> subDistHelper @n @e @b ed ww1 ww2 lv
+    (ww1, ww2) -> subDistHelper @n @e @b ww1 ww2 lv
 
--- | Full downward closure of `LogE` under `Sub` (`sub-𝔼`)!
+-- | Full unconditional downward closure of `LogE` under `Sub` (`sub-𝔼`)!
 subLogE :: forall (n :: Nat) (e :: Env n) (m :: UTerm n) (u :: Value) (v :: Value).
-           EvalDeterm
-        -> ValW u -> ValW v
+           ValW u -> ValW v
         -> Sub u v
         -> LogE v e m
         -> LogE u e m
-subLogE ed wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
+subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m ('MkClos ('ULam b) (d :: Env k))) lv ->
-    MkHaltsV ev (subLogVLam @k @d @b ed wu wv lt lv)
+    MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 ```
 
-## The Fundamental Lemma and Big-Step Adequacy Corollary!
+## The Fundamental Lemma and Unconditional Big-Step Adequacy!
 
 Every single rule of `Denotes` (`DVar`, `DElim`, `DIntro`, `DBot`, `DJoin`,
-`DSub`) checks directly in `fundamental`, yielding `adequacyBigStep`:
+`DSub`) checks unconditionally in `fundamental`, yielding unconditional
+`adequacyBigStep` and an executable halting derivation `adequacyIdApp`:
 
 ```haskell
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
@@ -299,49 +289,54 @@ envLogCons le _  VLZ      = MkEnvLogHit ELZ le
 envLogCons _  el (VLS lk) = case el lk of
   MkEnvLogHit envLk le' -> MkEnvLogHit (ELS envLk) le'
 
--- | Fundamental Lemma of the logical relation:
+-- | Unconditional Fundamental Lemma of the logical relation:
 -- if `e ⊢ m ↓ v` and `e' 𝒢 e`, then `v 𝔼 (m, e')`!
 fundamental :: forall (n :: Nat) (e' :: Env n) (e :: ValEnv n) (m :: UTerm n) (v :: Value).
-               EvalDeterm
-            -> ValW v
+               ValW v
             -> EnvLog e' e
             -> Denotes e m v
             -> LogE v e' m
-fundamental _  _  el (DVar lk) af = case el lk of
+fundamental _  el (DVar lk) af = case el lk of
   MkEnvLogHit envLk le -> case le af of
     MkHaltsV ev lv -> MkHaltsV (EVar envLk ev) lv
-fundamental ed (MkValW v) el (DElim wArg@(MkValW vArg) d1 d2) af =
-  case fundamental ed (MkValW (Arr vArg v)) el d1 aboveFunArr of
-    MkHaltsV evL lvL -> case runLogArr lvL (fundamental ed wArg el d2) af of
+fundamental (MkValW v) el (DElim wArg@(MkValW vArg) d1 d2) af =
+  case fundamental (MkValW (Arr vArg v)) el d1 aboveFunArr of
+    MkHaltsV evL lvL -> case runLogArr lvL (fundamental wArg el d2) af of
       MkHaltsV evB lvB -> MkHaltsV (EApp evL evB) lvB
-fundamental ed wv el (DIntro dBody) _ = case unArrW wv of
-  (_, wv2) -> MkHaltsV ELam (MkLogArr (\le -> fundamental ed wv2 (envLogCons le el) dBody))
-fundamental _  _  _  DBot af = absurd (notAboveFunBot af)
-fundamental ed _  el (DJoin w1@(MkValW v1) w2@(MkValW v2) d1 d2) af =
-  haltsVJoin ed v1 v2 (fundamental ed w1 el d1) (fundamental ed w2 el d2) af
-fundamental ed wv el (DSub wSuper d1 lt) af =
-  subLogE ed wv wSuper lt (fundamental ed wSuper el d1) af
+fundamental wv el (DIntro dBody) _ = case unArrW wv of
+  (_, wv2) -> MkHaltsV ELam (MkLogArr (\le -> fundamental wv2 (envLogCons le el) dBody))
+fundamental _  _  DBot af = absurd (notAboveFunBot af)
+fundamental _  el (DJoin w1@(MkValW v1) w2@(MkValW v2) d1 d2) af =
+  haltsVJoin v1 v2 (fundamental w1 el d1) (fundamental w2 el d2) af
+fundamental wv el (DSub wSuper d1 lt) af =
+  subLogE wv wSuper lt (fundamental wSuper el d1) af
 
 -- | Big-step termination witness: `(m, e)` evaluates to some lambda closure.
 data HaltsBig (e :: Env n) (m :: UTerm n) where
   MkHaltsBig :: EvalBig e m ('MkClos ('ULam b) d) -> HaltsBig e m
 
--- | Big-step Adequacy theorem (`adequacy`):
+-- | Unconditional Big-Step Adequacy theorem (`adequacy`):
 -- every closed term with a non-trivial function denotation halts at a lambda!
-adequacyBigStep :: EvalDeterm -> ValW v -> Denotes 'VNil m v -> AboveFun v -> HaltsBig 'ENil m
-adequacyBigStep ed wv d af = case fundamental ed wv envLogNil d af of
+adequacyBigStep :: ValW v -> Denotes 'VNil m v -> AboveFun v -> HaltsBig 'ENil m
+adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev
+
+-- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
+-- call-by-name halting derivation for `(λx. x) (λx. x)`!
+adequacyIdApp :: HaltsBig 'ENil ('UApp ('ULam ('UVar 'FZ)) ('ULam ('UVar 'FZ)))
+adequacyIdApp =
+  adequacyBigStep (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) aboveFunArr
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Discharging <code>EvalDeterm</code> (R11) &amp; <code>foreach</code> + Type-Family Rewriting Bug (R03)]</strong>
+<strong>[WIP NOTICE — <code>foreach</code> + Type-Family Rewriting Bug (R03) &amp; Big-Step → Small-Step Bridge]</strong>
 <ul>
-  <li><strong><code>EvalDeterm</code> (R11):</strong> Proving
-      <code>evalDeterm</code> unconditionally in <a href="/BigStep/">BigStep</a>
-      waits on the R11 Desugar Core Lint fix
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>R11_MixedKindCoercionCoreLint.hs</code></a>,
-      already fixed in the compiler team's queued 597 release!).</li>
-  <li><strong>Compiler bug uncovered while writing <code>subLogVLam</code>:</strong>
+  <li><strong>Discharged on <code>9cc4065fab</code>:</strong> <code>EvalDeterm</code>
+      is now proved unconditionally as <code>BigStep.evalDeterm</code>
+      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/fixed/R11_MixedKindCoercionCoreLint.hs</code></a>),
+      making <code>subLogVLam</code>, <code>fundamental</code>, and
+      <code>adequacyBigStep</code> 100% unconditional!</li>
+  <li><strong>Open compiler bug uncovered while writing <code>subLogVLam</code>:</strong>
       Matching a GADT equality (<code>u :~: v</code> or <code>u :~: 'Zero</code>)
       under a retained <code>foreach (u :: Nat)</code> binder fails to rewrite
       a closed type family <code>F u</code> (<code>GHC-05617</code>:
@@ -366,7 +361,8 @@ adequacyBigStep ed wv d af = case fundamental ed wv envLogNil d af of
   **`aboveFunJoin`**, `notAboveFunJoin`, `notAboveFunJoinInv`,
   **`decAboveFun`**, `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam`,
   `notAboveFunLogV`, **`haltsVJoin`**, **`subLogVLam`** (all 8 `Sub` rules!),
-  **`subLogE`**, **`fundamental`** (all 6 `Denotes` rules!), and
-  **`adequacyBigStep`** (parameterized only by `EvalDeterm`).
-- Uncovered and reported a new minimal R03 compiler bug:
+  **`subLogE`**, **`fundamental`** (all 6 `Denotes` rules!),
+  **unconditional `adequacyBigStep`** (via `BigStep.evalDeterm`), and
+  executable `adequacyIdApp`!
+- Uncovered and reported a minimal R03 compiler bug:
   `reproducers/R03_ForEachGadtEqTypeFamily.hs`.

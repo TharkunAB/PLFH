@@ -14,6 +14,7 @@ module PLFH.Part2.Bisimulation
   ( SimRel (..)
   , Leg (..)
   , simValueLam
+  , simValue
   ) where
 
 import Data.Kind (Type)
@@ -45,25 +46,22 @@ data Leg step m' n where
 -- | Simulation preserves lambda values cleanly.
 simValueLam :: SimRel ('Lam n) ('Lam n') -> Value ('Lam n) -> Value ('Lam n')
 simValueLam _ VLam = VLam
-```
 
-## Value preservation across promoted GADT indices (R11 Core Lint bug!)
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — GHC Core Lint failure in Desugar: R11 mixed-kind coercion binder!]</strong>
-Writing the general value-preservation lemma over promoted <code>Term g a</code>:
-<pre class="wip"><code>simValue :: SimRel m m' -&gt; Value m -&gt; Value m'
+-- | General value preservation across promoted GADT indices (`~-val`).
+simValue :: SimRel m m' -> Value m -> Value m'
 simValue SimRefl         v           = v
 simValue (SimLam _)      VLam        = VLam
-simValue (SimPair s1 s2) (VPair v w) = VPair (simValue s1 v) (simValue s2 w)</code></pre>
-typechecks, but fails <strong>Core Lint immediately after Desugar</strong> on
-published GHC <code>1a02a866e7</code> with:
-<pre class="wip"><code>*** Core Lint errors : in result of Desugar (before optimization) ***
-  R11 mixed-kind coercion binder: 'Pair m n ~# ('Pair (v |&gt; ...) (w |&gt; ...) |&gt; ...)</code></pre>
-This directly exercises Serokell card <strong>R11 (Homogeneous equality)</strong>
-for GADT pattern matching on promoted indexed GADTs! (Already fixed on the
-compiler team's queued 597 candidate.) See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/R11_MixedKindCoercionCoreLint.hs</code></a>.
+simValue (SimPair s1 s2) (VPair v w) = VPair (simValue s1 v) (simValue s2 w)
+```
+
+<div class="note-box">
+<strong>Fixed Core Lint bug (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
+On earlier GHC baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
+general <code>simValue</code> typechecked and then failed Desugar Core Lint with
+<code>R11 mixed-kind coercion binder</code> when matching two GADTs indexed by
+promoted <code>Term g a</code>. Fixed on <code>dependent-haskell</code> and
+tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/fixed/R11_MixedKindCoercionCoreLint.hs</code></a>!
 </div>
 
 ## Changes from PLFA
@@ -71,7 +69,5 @@ compiler team's queued 597 candidate.) See minimal reproducer
 - Adapted from [Bisimulation](https://plfa.inf.ed.ac.uk/Bisimulation/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Bisimulation.lagda.md)).
 - `SimRel`, `Leg` (parameterized cleanly over any reduction relation `step`),
-  and `simValueLam` compile with `-dcore-lint -dstg-lint`.
-- General `simValue` (and full `sim`) uncovered a real **R11 Core Lint error**
-  in GHC's desugarer when matching two GADTs indexed by a promoted GADT (`Term g a`),
-  tracked in `R11_MixedKindCoercionCoreLint.hs`.
+  `simValueLam`, and full **`simValue`** all compile with `-dcore-lint -dstg-lint`!
+- Full `sim` waits on checked functional `Step` for extended STLC in [More](/More/).
