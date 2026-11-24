@@ -7,9 +7,31 @@ module: PLFH.Part1.Lists
 plfaChapter: https://plfa.inf.ed.ac.uk/Lists/
 ---
 
+This chapter discusses the **list** datatype. It brings together the
+techniques we have developed throughout Part 1—induction, congruence,
+rewriting, decidability, and indexed predicates—and applies them to
+polymorphic data structures and **higher-order functions** (`map`, `foldr`,
+monoids, and the list quantifiers `All`, `Any`, and membership `In`).
+
+On this Dependent Haskell fork, **ordinary Prelude lists**, **Prelude `(++)`**,
+**Prelude `map`**, and **Prelude `reverse`** already have checked open source
+equations—so we prove classic list laws directly over standard Haskell lists
+with no shadow `List` datatype! Moreover, enabling `-XNoListTuplePuns` and
+importing `List` from `GHC.Types` lets us write the promoted empty list `[]`,
+cons `x : xs`, and list literals `[0, 1, 0]` at the type level **without a
+single leading `'` tick**!
+
+## Imports
+
+We import `Type`, `(:~:)` and `gcastWith`, `Void`, `List` and `Matchability`
+from `GHC.Types`, `HaskLib`'s length laws (`lengthAppend`, `lengthMap`,
+`lengthReverse`), `rewrite`, and `size`, `Nat` and `plus`, `Dec`/`Not` from
+[Decidable](/Decidable/), and `Iff` from [Isomorphism](/Isomorphism/).
+
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, ScopedTypeVariables, TypeApplications, TypeOperators #-}
+{-# LANGUAGE GADTs, Modifiers, NoListTuplePuns, PolyKinds, ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneKindSignatures, TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Lists
   ( appendAssoc
@@ -35,6 +57,9 @@ module PLFH.Part1.Lists
   , anyAppendL
   , anyAppendR
   , anyAppendInv
+  , notAnyToAllNot
+  , allNotToNotAny
+  , notAnyIffAllNot
   , decAll
   , decAny
   , zeroInList
@@ -44,56 +69,70 @@ module PLFH.Part1.Lists
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
 import Data.Void (Void)
+import GHC.Tuple (Tuple2)
+import GHC.Types (List, Matchability)
 import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
+import PLFH.Part1.Isomorphism (Iff (..))
 ```
 
-In PLFA, the **Lists** chapter introduces polymorphic lists, append (`++`),
-length, reverse, `shunt`, `map`, `foldr`, monoids, and the indexed list
-predicates `All`, `Any`, and membership (`∈`).
+## Lists and Append (`++`)
 
-On this Dependent Haskell fork, **ordinary Prelude lists `[a]`**,
-**Prelude `(++)`**, and **Prelude `map`** already have checked open source
-equations—so we can state and prove classic list laws directly over standard
-Haskell lists with no custom shadow `List` datatype!
+In Haskell, a list of elements of type `a` has type `List a` (ordinarily
+written `[a]`, which puns the term-level list bracket syntax; with
+`-XNoListTuplePuns` we write the type constructor as `List a` so that `[]`,
+`:`, and `[0, 1, 0]` refer unambiguously to the data constructors even in
+types!). As PLFA observes, *"A list is a strange beast: it has a head and a
+tail, nothing in between, and the tail is itself another list!"*
 
-## Append (`++`): associativity and right identity
+Prelude `(++)` appends two lists in time linear in the length of the first
+list:
 
-Using Prelude `(++)` directly in both types and terms:
+```text
+[]       ++ ys = ys
+(x : xs) ++ ys = x : (xs ++ ys)
+```
+
+Using Prelude `(++)` directly in both types and terms, we prove that append
+is associative (`appendAssoc`) and has `[]` as its right identity
+(`appendNilR`; left identity `[] ++ xs :~: xs` holds immediately by `Refl`).
+Together, `(++)` and `[]` form a **monoid** over lists:
 
 ```haskell
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
-appendAssoc :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
+appendAssoc :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
 appendAssoc []       _  _  = Refl
 appendAssoc (_ : xs) ys zs = rewrite (appendAssoc xs ys zs) Refl
 
 -- | Right identity of Prelude list append: xs ++ [] = xs.
-appendNilR :: forall a. foreach (xs :: [a]) -> (xs ++ '[]) :~: xs
+appendNilR :: forall a. foreach (xs :: List a) -> (xs ++ []) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 ```
 
 ## Length laws (reused from `HaskLib`)
 
-PLFA proves `length (xs ++ ys) ≡ length xs + length ys` and asks for length
-preservation of `map` and `reverse`. All three are already proved for
-ordinary Prelude `(++)`, `map`, and `reverse` in `HaskLib`:
+PLFA defines `length` and proves `length (xs ++ ys) ≡ length xs + length ys`,
+along with length preservation for `map` and `reverse`. In Dependent Haskell,
+all three theorems are already proved in `HaskLib` over ordinary Prelude
+`(++)`, `map`, and `reverse` (using `size :: List a -> Nat`), so we reuse
+them directly by eta-reduced equality:
 
 ```haskell
 -- | Length of append (reused directly from HaskLib.lengthAppend).
-lengthAppendLaw :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a])
+lengthAppendLaw :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppendLaw = lengthAppend
 
 -- | Length of map (reused directly from HaskLib.lengthMap).
-lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a])
+lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
              -> size (map f xs) :~: size xs
 lengthMapLaw = lengthMap
 
 -- | Length of reverse (reused directly from HaskLib.lengthReverse).
-lengthReverseLaw :: forall a. foreach (xs :: [a])
+lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 ```
@@ -107,27 +146,29 @@ list-fusion rewrite rules can change demand on partial inputs.
 
 ## Higher-order list laws: `map`
 
-Because `foreach (f :: a -> b)` retains an arbitrary unknown Haskell function,
-we can prove the functor and append-homomorphism laws for **ordinary
-Prelude `map`** and **`(.)`**:
+`map` is a **higher-order function**—it takes a function `f :: a -> b` as an
+argument and applies `f` to every element of a list. Because
+`foreach (f :: a -> b)` retains an arbitrary unknown Haskell function, we can
+prove the append-homomorphism and functor laws (`mapAppend`, `mapCompose`,
+`mapId`) for **ordinary Prelude `map`** and **`(.)`**:
 
 ```haskell
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
-mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a]) -> foreach (ys :: [a])
+mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
 mapAppend f xs ys = case xs of
   []        -> Refl
   (_ : xs') -> gcastWith (mapAppend f xs' ys) Refl
 
 -- | Functor composition law: map (g . f) xs = map g (map f xs).
-mapCompose :: forall a b c. foreach (g :: b -> c) -> foreach (f :: a -> b) -> foreach (xs :: [a])
+mapCompose :: forall a b c. foreach (g :: b -> c) -> foreach (f :: a -> b) -> foreach (xs :: List a)
            -> map (g . f) xs :~: map g (map f xs)
 mapCompose g f xs = case xs of
   []        -> Refl
   (_ : xs') -> gcastWith (mapCompose g f xs') Refl
 
 -- | Functor identity law: map id xs = xs.
-mapId :: forall a. foreach (xs :: [a]) -> map id xs :~: xs
+mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 ```
@@ -143,31 +184,39 @@ require bare variable patterns or wildcards</em>). See
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>.
 </div>
 
-## Accumulating `shunt`, countdown lists (`downFrom`, `zeros`), and `foldr`
+## Faster reverse (`shunt`), countdown lists (`downFrom`, `zeros`), and `foldr`
 
-Both PLFA's accumulating tail-recursive `shunt` (with `-fno-enable-rewrite-rules`
-as already set for `HaskLib.lengthMap`) and `Nat -> [Nat]` countdown recursion
-(`downFrom`, `zeros`) check directly:
+Naive list reversal (`rev (x : xs) = rev xs ++ [x]`) takes **quadratic**
+time because each step appends to the end of the growing reversed tail.
+PLFA introduces the accumulating helper **`shunt`**—whose second argument
+grows as its first argument shrinks—so `shunt xs []` reverses a list in
+**linear** time! *"Generalising on an auxiliary argument, which becomes
+larger as the argument on which we recurse or induct becomes smaller, is a
+common trick. It belongs in your quiver of arrows, ready to slay the right
+problem."*
+
+Both `shunt` / `shuntAppend` and PLFA's `downFrom` / `zeros` countdown lists
+check directly:
 
 ```haskell
--- | Accumulating list reversal helper `shunt`.
-shunt :: [a] -> [a] -> [a]
+-- | Accumulating linear-time list reversal helper `shunt`.
+shunt :: List a -> List a -> List a
 shunt []     ys = ys
 shunt (x:xs) ys = shunt xs (x : ys)
 
 -- | Distributivity of `shunt` over append (`shunt-++`).
-shuntAppend :: forall a. foreach (xs :: [a]) -> foreach (ys :: [a]) -> foreach (zs :: [a])
+shuntAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
             -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
 shuntAppend []     _  _  = Refl
 shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
 
 -- | Countdown list from `n - 1` down to `0` (`downFrom`).
-downFrom :: Nat -> [Nat]
+downFrom :: Nat -> List Nat
 downFrom Zero     = []
 downFrom (Succ n) = n : downFrom n
 
 -- | A list of `n` copies of `Zero`.
-zeros :: Nat -> [Nat]
+zeros :: Nat -> List Nat
 zeros Zero     = []
 zeros (Succ n) = Zero : zeros n
 
@@ -188,18 +237,18 @@ Three classic PLFA Lists items remain open:
 <ol>
   <li><strong>Quadratic <code>rev</code> (R13/R16):</strong>
       PLFA's naive quadratic <code>rev [] = []; rev (x:xs) = app (rev xs) [x]</code>
-      still fails open evaluation with <code>GHC-70565</code>—blocking
+      fails open evaluation with <code>GHC-70565</code>—blocking
       <code>shunt-reverse</code> and <code>reverses</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>.</li>
   <li><strong>Higher-order <code>foldr</code> in retained arguments (R03):</strong>
       Passing <code>foldrL plus Zero xs</code> as a retained runtime argument
-      to an associative lemma like <code>plusAssoc</code> still fails with
+      to an associative lemma like <code>plusAssoc</code> fails with
       <code>GHC-83605</code> (<em>GHC cannot use this expression as a retained
       index</em>), blocking <code>foldr-monoid-++</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FoldrRetainedIndex.hs"><code>reproducers/R03_FoldrRetainedIndex.hs</code></a>.</li>
   <li><strong>Default <code>-O2</code> rewrite-rule check on <code>shuntAppend</code>:</strong>
       Without <code>-fno-enable-rewrite-rules</code>, default <code>-O2</code>
-      still rejects <code>shuntAppend</code> with <code>GHC-83605</code> at the
+      rejects <code>shuntAppend</code> with <code>GHC-83605</code> at the
       Prelude <code>(++)</code> rewrite-rule guard
       (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>).</li>
 </ol>
@@ -207,61 +256,135 @@ Three classic PLFA Lists items remain open:
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
 
-Indexed list predicates port cleanly as GADTs over promoted Prelude lists:
+We now define the two fundamental indexed predicates over lists:
+
+- **`All p xs`**: predicate `p` holds for *every* element of `xs`.
+- **`Any p xs`**: predicate `p` holds for *at least one* element of `xs`.
+- **List membership `In x xs`** (`x ∈ xs`): defined concisely as
+  `Any ((:~:) x) xs`—some element of `xs` equals `x`!
+
+By quantifying both `All` and `Any` over `{m :: Matchability}` (`p :: a %m -> Type`),
+they accept **both** matchable GADT predicates (like `Even` or `(:~:) x`) **and**
+unmatchable inline type-level lambdas (like `\x -> Not (p x)` for De Morgan's
+law below!)—and with `-XNoListTuplePuns`, `[]`, `:`, and `[0, 1, 0]` all
+appear without a single tick!
 
 ```haskell
--- | Evidence that predicate `p` holds for every element of `xs`.
-data All (p :: a -> Type) (xs :: [a]) where
-  AllNil  :: All p '[]
-  AllCons :: p x -> All p xs -> All p (x ': xs)
+-- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
+type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
+data All p xs where
+  AllNil  :: forall {a} {m :: Matchability} {p :: a %m -> Type}. All p []
+  AllCons :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
+             p x -> All p xs -> All p (x : xs)
 
--- | Evidence that predicate `p` holds for at least one element of `xs`.
-data Any (p :: a -> Type) (xs :: [a]) where
-  Here  :: p x -> Any p (x ': xs)
-  There :: Any p xs -> Any p (x ': xs)
+-- | Matchability-polymorphic existential list predicate: `p` holds for some element of `xs`.
+type Any :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
+data Any p xs where
+  Here  :: forall {a} {m :: Matchability} (p :: a %m -> Type) (x :: a) (xs :: List a).
+           p x -> Any p (x : xs)
+  There :: forall {a} {m :: Matchability} (p :: a %m -> Type) (xs :: List a) (x :: a).
+           Any p xs -> Any p (x : xs)
 
--- | List membership: `x` appears in `xs`.
-type In (x :: a) (xs :: [a]) = Any ((:~:) x) xs
+-- | List membership (`_∈_`): `x` appears in `xs`.
+type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
+```
 
+### `All`, `Any`, and append (`++`)
+
+A predicate holds for every element of `xs ++ ys` if and only if it holds for
+every element of `xs` and every element of `ys` (`allAppend` / `allAppendInv`).
+Dually, a predicate holds for *some* element of `xs ++ ys` if and only if it
+holds for some element of `xs` or some element of `ys` (`anyAppendL`,
+`anyAppendR`, `anyAppendInv`):
+
+```haskell
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
-allAppend :: All p xs -> All p ys -> All p (xs ++ ys)
+allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
+             All p xs -> All p ys -> All p (xs ++ ys)
 allAppend AllNil           pys = pys
 allAppend (AllCons px pxs) pys = AllCons px (allAppend pxs pys)
 
 -- | Transforming element proofs under `All`.
-allMap :: (forall x. p x -> q x) -> All p xs -> All q xs
+allMap :: forall {a} {m1 :: Matchability} {m2 :: Matchability}
+                 {p :: a %m1 -> Type} {q :: a %m2 -> Type} {xs}.
+          (forall x. p x -> q x) -> All p xs -> All q xs
 allMap _ AllNil           = AllNil
 allMap f (AllCons px pxs) = AllCons (f px) (allMap f pxs)
 
 -- | Inversion of `All` over append: `All p (xs ++ ys)` splits into `All p xs` and `All p ys`.
-allAppendInv :: foreach (xs :: [a]) -> All p (xs ++ ys) -> (All p xs, All p ys)
+allAppendInv :: forall {a} {m :: Matchability} {p :: a %m -> Type} {ys}.
+                foreach (xs :: List a) -> All p (xs ++ ys) -> Tuple2 (All p xs) (All p ys)
 allAppendInv []     ays            = (AllNil, ays)
 allAppendInv (_:xs) (AllCons px r) =
   case allAppendInv xs r of
     (axs, ays) -> (AllCons px axs, ays)
 
 -- | Left introduction for `Any` over append.
-anyAppendL :: forall a (p :: a -> Type) (xs :: [a]) (ys :: [a]). Any p xs -> Any p (xs ++ ys)
+anyAppendL :: forall a {m :: Matchability} (p :: a %m -> Type) (xs :: List a) (ys :: List a).
+              Any p xs -> Any p (xs ++ ys)
 anyAppendL (Here px) = Here px
 anyAppendL (There r) = There (anyAppendL @a @p @_ @ys r)
 
 -- | Right introduction for `Any` over append.
-anyAppendR :: forall a (p :: a -> Type) (ys :: [a]).
-              foreach (xs :: [a]) -> Any p ys -> Any p (xs ++ ys)
+anyAppendR :: forall a {m :: Matchability} (p :: a %m -> Type) (ys :: List a).
+              foreach (xs :: List a) -> Any p ys -> Any p (xs ++ ys)
 anyAppendR []     ays = ays
 anyAppendR (x:xs) ays = There @p @(xs ++ ys) @x (anyAppendR @a @p @ys xs ays)
 
 -- | Inversion of `Any` over append: `Any p (xs ++ ys)` comes from `xs` or `ys`.
-anyAppendInv :: foreach (xs :: [a]) -> Any p (xs ++ ys) -> Either (Any p xs) (Any p ys)
+anyAppendInv :: forall {a} {m :: Matchability} {p :: a %m -> Type} {ys}.
+                foreach (xs :: List a) -> Any p (xs ++ ys) -> Either (Any p xs) (Any p ys)
 anyAppendInv []     ays       = Right ays
 anyAppendInv (_:_)  (Here px) = Left (Here px)
 anyAppendInv (_:xs) (There r) =
   case anyAppendInv xs r of
     Left  axs -> Left (There axs)
     Right ays -> Right ays
+```
 
--- | Decidability of universal list quantification `All p xs`.
-decAll :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (All p xs)
+### De Morgan's Law for `Any` and `All` (`¬Any ⇔ All ¬`)
+
+Because `All` and `Any` are matchability-polymorphic (`p :: a %m -> Type`),
+PLFA's De Morgan equivalence between `Not (Any p xs)` and
+`All (\x -> Not (p x)) xs` checks directly using an inline type-level lambda!
+
+```haskell
+mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
+             Not (Any p (x : xs)) -> Not (p x)
+mkNotHere nany px = nany (Here px)
+
+-- | De Morgan forward: `¬(Any p xs) -> All (¬ ∘ p) xs` using an inline type lambda!
+notAnyToAllNot :: forall {a} {m :: Matchability} (p :: a %m -> Type).
+                  foreach (xs :: List a) -> Not (Any p xs) -> All (\x -> Not (p x)) xs
+notAnyToAllNot []     _    = AllNil
+notAnyToAllNot (_:xs) nany =
+  AllCons (mkNotHere nany) (notAnyToAllNot @p xs (\anyXs -> nany (There anyXs)))
+
+-- | De Morgan backward: `All (¬ ∘ p) xs -> ¬(Any p xs)`.
+allNotToNotAny :: forall {a} {m :: Matchability} (p :: a %m -> Type) (xs :: List a).
+                  All (\x -> Not (p x)) xs -> Not (Any p xs)
+allNotToNotAny (AllCons npx _) (Here px) = npx px
+allNotToNotAny (AllCons _ nxs) (There r) = allNotToNotAny @p nxs r
+
+-- | Full De Morgan bi-implication (`¬Any⇔All¬`): `Not (Any p xs) ⇔ All (\x -> Not (p x)) xs`.
+notAnyIffAllNot :: forall {a} {m :: Matchability} (p :: a %m -> Type).
+                   foreach (xs :: List a) -> Iff (Not (Any p xs)) (All (\x -> Not (p x)) xs)
+notAnyIffAllNot [] = Iff (\_ -> AllNil) (\_ anyNil -> case anyNil of {})
+notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
+  Iff toTail fromTail ->
+    Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
+        (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
+```
+
+### Decidability of `All` and `Any` (`All?`, `Any?`), and concrete examples
+
+If a predicate `p` is decidable (`foreach (x :: a) -> Dec (p x)`), then both
+`All p xs` and `Any p xs` are decidable for every finite list `xs`:
+
+```haskell
+-- | Decidability of universal list quantification `All p xs` (`All?`).
+decAll :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
+          (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (All p xs)
 decAll d xs = case xs of
   []    -> Yes AllNil
   x:xs' -> case d x of
@@ -270,8 +393,9 @@ decAll d xs = case xs of
       Yes axs -> Yes (AllCons px axs)
       No naxs -> No (\case AllCons _ axs -> naxs axs)
 
--- | Decidability of existential list quantification `Any p xs`.
-decAny :: (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: [a]) -> Dec (Any p xs)
+-- | Decidability of existential list quantification `Any p xs` (`Any?`).
+decAny :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
+          (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (Any p xs)
 decAny d xs = case xs of
   []    -> No (\case {})
   x:xs' -> case d x of
@@ -280,38 +404,55 @@ decAny d xs = case xs of
       Yes axs -> Yes (There axs)
       No naxs -> No (\case Here px -> npx px; There axs -> naxs axs)
 
--- | Concrete membership proof: 0 ∈ [0, 1, 0].
-zeroInList :: In (0 :: Nat) '[ (0 :: Nat), (1 :: Nat), (0 :: Nat) ]
+-- | Concrete membership proof: 0 ∈ [0, 1, 0] (zero ticks with NoListTuplePuns!).
+zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]
 zeroInList = Here Refl
 
 -- | Concrete non-membership proof: 2 ∉ [0, 1].
-threeNotInList :: Not (In (2 :: Nat) '[ (0 :: Nat), (1 :: Nat) ])
+threeNotInList :: Not (In (2 :: Nat) [0 :: Nat, 1 :: Nat])
 threeNotInList (Here eq)          = case eq of {}
 threeNotInList (There (Here eq))  = case eq of {}
 threeNotInList (There (There p))  = case p of {}
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — De Morgan between <code>All</code> and <code>Any</code> with an inline type lambda (R23)]</strong>
-Writing <code>Not (Any p xs) -&gt; All (\x -&gt; Not (p x)) xs</code>
-hits the same Matchable-vs-Unmatchable arrow kind clash as Leibniz
-equality, because <code>All</code> expects a matchable predicate
-<code>a -&gt; Type</code> while the inline type lambda has unmatchable
-kind <code>a %U -&gt; Type</code> (see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>).
-</div>
+## Exercises
+
+#### Exercise `map-Tree` and `fold-Tree` (practice)
+
+Define binary trees `data Tree a b = Leaf a | Node (Tree a b) b (Tree a b)`
+and write `mapTree :: (a -> c) -> (b -> d) -> Tree a b -> Tree c d` and
+`foldTree :: (a -> c) -> (c -> b -> c -> c) -> Tree a b -> c`.
+
+#### Exercise `All-∀` and `Any-∃` (practice)
+
+Show constructively that `All p xs` is logically equivalent to
+`forall x. In x xs -> p x`, and that `Any p xs` is logically equivalent to
+there existing `x` with both `In x xs` and `p x`.
+
+#### Exercise `split` (stretch)
+
+Using `decAll`, `decAny`, and an inductive `Merge xs ys zs` relation
+(`MergeNil`, `MergeL`, `MergeR`), design a certified list-filtering function
+that splits a list `zs` into the elements satisfying `p` and those satisfying
+`\x -> Not (p x)` together with a `Merge` proof!
 
 ## Changes from PLFA
 
 - Adapted from [Lists](https://plfa.inf.ed.ac.uk/Lists/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)).
-- Used standard Prelude `[a]`, `(++)`, and `map` directly instead of a custom
-  `List` datatype.
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)),
+  licensed under CC BY 4.0.
+- Used standard Prelude lists (`GHC.Types.List`), `(++)`, and `map` directly,
+  with `-XNoListTuplePuns` so promoted `[]`, `:`, and `[0, 1, 0]` require
+  zero leading `'` ticks!
 - Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.
+- Made `All` and `Any` matchability-polymorphic (`p :: a %m -> Type`),
+  unlocking PLFA's full inline type-lambda De Morgan theorem
+  (`notAnyToAllNot`, `allNotToNotAny`, `notAnyIffAllNot`).
 - Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
-  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `downFrom`/`zeros`/`lengthDownFrom`/`lengthZeros`,
-  `All`, `Any`, `In`, `allAppend`/`Inv`, `anyAppend*`/`Inv`, `allMap`,
-  `decAll`, `decAny`, `zeroInList`, and `threeNotInList`.
+  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `downFrom`/`zeros`/
+  `lengthDownFrom`/`lengthZeros`, `All`, `Any`, `In`, `allAppend`/`Inv`,
+  `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `decAll`, `decAny`,
+  `zeroInList`, and `threeNotInList`.
 - Marked naive quadratic `rev`, `foldr` as a retained index, default `-O2`
-  `shunt` fusion rules, multi-equation splitting after a retained function,
-  and inline type-lambda `All` with `[WIP NOTICE]` and minimal reproducers.
+  `shunt` fusion rules, and multi-equation splitting after a retained function
+  with `[WIP NOTICE]` and minimal reproducers.

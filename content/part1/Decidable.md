@@ -7,8 +7,28 @@ module: PLFH.Part1.Decidable
 plfaChapter: https://plfa.inf.ed.ac.uk/Decidable/
 ---
 
+We have a choice as to how to represent relations and predicates:
+
+- As an inductive GADT of **evidence** that the relation holds (like `LE m n`
+  in [Relations](/Relations/)).
+- As a function that **computes** a `Bool` (`True` or `False`).
+
+In this chapter we explore the relationship between evidence and computation,
+and introduce **decidable propositions** (`Dec p`), which combine the best of
+both worlds: a decision procedure *computes* whether a proposition holds and
+simultaneously *returns proof evidence* (`Yes p` or `No (Not p)`) certifying
+its answer!
+
+## Imports
+
+We import `Type`, `(:~:)`, `Void`, `GHC.Sigma`, `Nat` and `plus`, unified
+`cong` from [Induction](/Induction/), `Iff` from [Isomorphism](/Isomorphism/),
+`Bin` from [Naturals](/Naturals/), and our inductive relations from
+[Relations](/Relations/).
+
 ```haskell
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 module PLFH.Part1.Decidable
   ( Not
   , Dec (..)
@@ -38,52 +58,63 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Nat (Nat (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), plus)
+import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 ```
 
-Before moving on to lists and lambda calculus, we assemble the core logical
-building blocks from PLFA's **Connectives**, **Negation**, **Quantifiers**,
-and **Decidable** chapters: negation (`Not`), decision procedures (`Dec`),
-and dependent pairs (`Sigma`).
+## Evidence vs. Computation
 
-## Negation (`¬`)
+A Boolean-valued function such as `leBool :: Nat -> Nat -> Bool` returns a
+single bit of information: `True` or `False`, with no guarantee that the bit
+matches our inductive relation `LE m n`. To trust `leBool`, we would have to
+write *two* additional soundness/completeness proofs relating `leBool m n` to
+`LE m n` (via `Reflects`, shown below).
 
-Following *Propositions as Types*, falsehood is the empty type `Void` from
-`Data.Void`, and negation `Not a` is a function `a -> Void`:
+Conversely, inductive evidence like `LE m n` explains *why* the relation
+holds—and lets us skip impossible cases in proofs—but forces the caller to
+construct derivations like `SleS (SleS ZleN)` by hand.
+
+### Negation (`Not`) and Peano's postulate
+
+Before defining `Dec`, we define logical negation `Not a = a -> Void` (also
+re-exported and explored in [Negation](/Negation/)) and prove Peano's
+postulate that `Zero` is never equal to `Succ n`:
 
 ```haskell
 -- | Logical negation: evidence that a proposition implies falsehood (Void).
 type Not a = a -> Void
 
--- | Zero is never equal to any successor.
-zeroNeqSucc :: Not ('Zero :~: 'Succ n)
+-- | Peano's postulate: Zero is never equal to any successor.
+zeroNeqSucc :: Not (Zero :~: Succ n)
 zeroNeqSucc eq = case eq of {}
 ```
 
-<div class="note-box">
-<strong>Totality note:</strong>
-In Agda, <code>¬ A = A → ⊥</code> is sound because Agda rejects
-non-terminating functions and <code>undefined</code>. In Haskell,
-<code>undefined :: a -&gt; Void</code> typechecks, so every proof of
-<code>Not a</code> in PLFH must discharge its hypothesis constructively
-via an impossible GADT pattern match (<code>case ... of {}</code>) with
-no bottoms or loops.
-</div>
+## The best of both worlds: `Dec`
 
-## Decidable propositions (`Dec`)
-
-A proposition `p :: Type` is *decidable* if we can construct either a proof
-of `p` (`Yes`) or a refutation `Not p` (`No`):
+A proposition `p :: Type` is **decidable** (`Dec p`) if we can construct
+either a proof of `p` (`Yes`) or a refutation `Not p` (`No`):
 
 ```haskell
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
+```
 
+Like `Bool`, `Dec p` has two constructors, so we can branch on it at runtime
+in ordinary Haskell programs; unlike `Bool`, each branch delivers a
+machine-checked proof (`p` or `Not p`) directly into scope! As PLFA puts it:
+*a decision procedure proves itself correct, as attested by its type.*
+
+### Logical connectives for decidables
+
+Every Boolean connective (`not`, `&&`, `||`, implication, bi-implication)
+lifts directly to decidable propositions:
+
+```haskell
 -- | Decidable propositions are closed under negation, conjunction, disjunction,
 -- implication, and bi-implication.
 decNot :: Dec p -> Dec (Not p)
@@ -111,13 +142,19 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
   No nfg     -> No (\(Iff f g) -> nfg (f, g))
 ```
 
-### Decidable equality on `Nat`
+Notice that just as in PLFA's discussion of overlapping equations, when both
+`dp` and `dq` are `No` in `decAnd` (or both `Yes` in `decOr`), Haskell's
+top-to-bottom clause ordering deterministically selects the first matching
+clause—both choices are equally valid proofs.
 
-With `foreach` and `EmptyCase`, decidable equality on natural numbers is a
-direct structural recursion:
+### Decidable equality (`_≟_`) and ordering (`_≤?_`, `_<?_`) on `Nat`
+
+With `foreach`, `EmptyCase`, and unified `cong @Succ`, decidable equality,
+weak inequality, and strict inequality on natural numbers are all direct
+structural recursions:
 
 ```haskell
--- | Decidable propositional equality on Nat.
+-- | Decidable propositional equality on Nat (`_≡ℕ?_`).
 decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
 decEqSize Zero n = case n of
   Zero   -> Yes Refl
@@ -125,16 +162,10 @@ decEqSize Zero n = case n of
 decEqSize (Succ m) n = case n of
   Zero    -> No (\case {})
   Succ n' -> case decEqSize m n' of
-    Yes eq -> Yes (congSucc eq)
+    Yes eq -> Yes (cong @Succ eq)
     No neq -> No (\Refl -> neq Refl)
-```
 
-### Decidable ordering (`_≤?_`)
-
-Similarly, `m ≤ n` is decidable for all finite `m` and `n`:
-
-```haskell
--- | Decidable less-than-or-equal relation on Nat.
+-- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
 decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
 decLeSize Zero _ = Yes ZleN
 decLeSize (Succ m) n = case n of
@@ -155,12 +186,18 @@ decLtSize (Succ m) n = case n of
     No  np -> No (\case SltS q -> np q)
 ```
 
-### Decidable parity (`decEven`, `decOdd`) and Boolean reflection (`Reflects`)
+### Decidable parity, Boolean reflection (`Reflects`), and `Bin-decidable`
 
-Parity is also decidable by two-step structural recursion on `Nat`. Notice
-that GHC's R03 pattern-matching rules currently reject nested constructor
-patterns like `decEven (Succ Zero)` directly in a retained column, so we match
-the inner `n` in a `case` expression on the right-hand side:
+Parity (`decEven`, `decOdd`) is decided by two-step structural recursion on
+`Nat` (matching the inner `n` in a `case` expression on the RHS). And
+whenever we *do* wish to bridge a Boolean `b :: Bool` back to a proposition
+`p`, the standard **`Reflects p b`** GADT packages `OfTrue :: p -> Reflects p True`
+and `OfFalse :: Not p -> Reflects p False` (using tick-free promoted `True`
+and `False`), from which `reflectsToDec` immediately produces `Dec p`.
+
+Finally, we solve PLFA's **Bin-decidable** stretch exercise completely:
+propositional equality (`decEqBin`), positive canonical form (`decOne`), and
+canonical form (`decCan`) are all decidable on `Bin`!
 
 ```haskell
 -- | Decidable evenness predicate on Nat.
@@ -183,15 +220,15 @@ decOdd (Succ n) = case n of
 
 -- | Boolean reflection: ties a proposition `p` to a promoted `Bool` `b`.
 data Reflects (p :: Type) (b :: Bool) where
-  OfTrue  :: p -> Reflects p 'True
-  OfFalse :: Not p -> Reflects p 'False
+  OfTrue  :: p -> Reflects p True
+  OfFalse :: Not p -> Reflects p False
 
 -- | Reflecting a Boolean yields a decision procedure.
 reflectsToDec :: foreach (b :: Bool) -> Reflects p b -> Dec p
 reflectsToDec True  (OfTrue p)   = Yes p
 reflectsToDec False (OfFalse np) = No np
 
--- | Decidable equality and canonical-form predicates on binary numbers (`Bin`).
+-- | Decidable equality on binary numbers (`Bin`).
 decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
 decEqBin Nil b = case b of
   Nil  -> Yes Refl
@@ -210,6 +247,7 @@ decEqBin (X1 a) b = case b of
     Yes Refl -> Yes Refl
     No  neq  -> No (\Refl -> neq Refl)
 
+-- | Decidable `One` predicate (`One?`).
 decOne :: foreach (b :: Bin) -> Dec (One b)
 decOne Nil    = No (\case {})
 decOne (X0 b) = case decOne b of
@@ -224,6 +262,7 @@ decOne (X1 b) = case b of
     Yes o  -> Yes (OneX1' o)
     No  no -> No (\case OneX1' o -> no o)
 
+-- | Decidable canonical-form predicate (`Can?`).
 decCan :: foreach (b :: Bin) -> Dec (Can b)
 decCan Nil    = No (\case CanOne o -> case o of {})
 decCan (X0 b) = case b of
@@ -239,36 +278,58 @@ decCan (X1 b) = case decOne (X1 b) of
   No  no -> No (\case CanOne o -> no o)
 ```
 
-## Dependent pairs (existentials, `Σ`)
+## Proof by reflection and dependent pairs (`Sigma`)
 
-This GHC fork provides retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`,
-constructed with `Pair x px`, Serokell R04). For example, we can pair a
-runtime `Nat` with evidence that `Zero <= k`:
+In PLFA, **proof by reflection** uses Agda's automatic filling of empty-record
+implicits (`⊤`) so that calling guarded subtraction `5 - 3` runs `3 ≤? 5` at
+type-checking time and silently fills in the proof of `3 ≤ 5`.
+
+In Dependent Haskell, type-class / constraint solving plays the analogous role
+of automatically discharging statically known invariants, while at runtime
+we carry existential witnesses directly using retained dependent pairs
+`GHC.Sigma.Sigma` (`some (x :: a) | p x`, constructed with `Pair x px`,
+Serokell R04):
 
 ```haskell
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Nat) | LE 'Zero k
+type SizeWitness = some (k :: Nat) | LE Zero k
 
 -- | Package any runtime size with its proof of Zero <= k.
 mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
 
--- | Inline retained dependent sum returned directly from a `foreach` function!
+-- | Inline retained dependent sum returned directly from a `foreach` function.
 plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
            -> some (k :: Nat) | k :~: plus m n
 plusExists m n = Pair (plus m n) Refl
 ```
 
+## Exercises
+
+#### Exercise `erasure` (practice)
+
+Define erasure `eraseDec :: Dec p -> Bool` mapping `Yes _` to `True` and
+`No _` to `False`, and verify at runtime that `eraseDec (decAnd dp dq)` agrees
+with `eraseDec dp && eraseDec dq`, and similarly for `decOr`, `decNot`, and
+`decIff`.
+
+#### Exercise `guarded-minus` (practice)
+
+Using `LE n m`, define a guarded subtraction function
+`minus :: foreach (m :: Nat) -> foreach (n :: Nat) -> LE n m -> Nat`
+that subtracts `n` from `m` only when given evidence that `n ≤ m`, with an
+absurd `case p of {}` in the impossible `Zero` / `Succ` branch.
+
 ## Changes from PLFA
 
-- Consolidates the core definitions needed for later chapters from
-  [Negation](https://plfa.inf.ed.ac.uk/Negation/),
-  [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/), and
-  [Decidable](https://plfa.inf.ed.ac.uk/Decidable/).
+- Adapted from [Decidable](https://plfa.inf.ed.ac.uk/Decidable/)
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Decidable.lagda.md)),
+  licensed under CC BY 4.0.
 - `Not`, `zeroNeqSucc`, `Dec`, `decNot`/`And`/`Or`/`Imp`/`Iff`, `decEqSize`,
   `decLeSize`, `decLtSize`, `decEven`, `decOdd`, `decEqBin`/`decOne`/`decCan`,
   `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`,
   `mkSizeWitness`, and inline `plusExists`) all port directly and pass
-  `-dcore-lint -dstg-lint`!
-- Uses `Data.Void.Void` and `EmptyCase` (`\case {}`) in place of Agda's `⊥`
-  and absurd pattern `()`.
+  `-dcore-lint -dstg-lint`.
+- Uses unified `cong @Succ` from [Induction](/Induction/), `Data.Void.Void`,
+  `EmptyCase` (`\case {}`), and tick-free promoted constructors (`Zero`,
+  `Succ`, `True`, `False`).

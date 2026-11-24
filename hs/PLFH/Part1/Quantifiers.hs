@@ -2,8 +2,8 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, PolyKinds #-}
-{-# LANGUAGE RankNTypes, TypeOperators, UndecidableInstances #-}
-{-# LINE 13 "content/part1/Quantifiers.md" #-}
+{-# LANGUAGE RankNTypes, TypeApplications, TypeOperators, UndecidableInstances #-}
+{-# LINE 38 "content/part1/Quantifiers.md" #-}
 module PLFH.Part1.Quantifiers
   ( Exists (..)
   , SumPred (..)
@@ -35,12 +35,13 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
 import HaskLib (rewrite)
-import HaskLib.Nat (Nat (..), congSucc, plus, plusSucc)
+import HaskLib.Nat (Nat (..), plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
+import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
 
-{-# LINE 62 "content/part1/Quantifiers.md" #-}
+{-# LINE 127 "content/part1/Quantifiers.md" #-}
 -- | Erased existential: there exists some type-level `x :: a` satisfying `p x`.
 data Exists (p :: a -> Type) where
   Witness :: p x -> Exists p
@@ -50,7 +51,7 @@ data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
   InL :: p x -> SumPred p q x
   InR :: q x -> SumPred p q x
 
--- | Existentials distribute over disjunction:
+-- | Existentials distribute over disjunction (`∃-distrib-⊎`):
 -- (∃ x. P x ∨ Q x) ⇔ (∃ x. P x) ∨ (∃ x. Q x).
 existsDistribSum :: Iff (Exists (SumPred p q)) (Either (Exists p) (Exists q))
 existsDistribSum = Iff toF fromF
@@ -61,7 +62,7 @@ existsDistribSum = Iff toF fromF
     fromF (Left (Witness px))  = Witness (InL px)
     fromF (Right (Witness qx)) = Witness (InR qx)
 
--- | Currying for existentials (`Σ-curry`): (∃ x. P x -> C) ⇔ (∀ x. P x -> C).
+-- | Currying for existentials (`∀∃-currying`): (∃ x. P x -> C) ⇔ (∀ x. P x -> C).
 existsCurryTo :: (Exists p -> c) -> (forall x. p x -> c)
 existsCurryTo f px = f (Witness px)
 
@@ -73,7 +74,7 @@ newtype Forall (p :: a -> Type) = MkForall { unForall :: forall x. p x }
 newtype ProdPred (p :: a -> Type) (q :: a -> Type) (x :: a) =
   MkProdPred { unProdPred :: (p x, q x) }
 
--- | Universals distribute over conjunction (`∀-×`):
+-- | Universals distribute over conjunction (`∀-distrib-×`):
 -- (∀ x. P x ∧ Q x) ⇔ (∀ x. P x) ∧ (∀ x. Q x).
 forallDistribProd :: Iff (Forall (ProdPred p q)) (Forall p, Forall q)
 forallDistribProd =
@@ -88,7 +89,7 @@ notExistsToForallNot ne px = ne (Witness px)
 forallNotToNotExists :: (forall x. Not (p x)) -> Not (Exists p)
 forallNotToNotExists fn (Witness px) = fn px
 
-{-# LINE 121 "content/part1/Quantifiers.md" #-}
+{-# LINE 191 "content/part1/Quantifiers.md" #-}
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -98,17 +99,17 @@ evenZeroSigma = Pair Zero Refl
 evenTwoSigma :: EvenSigma 2
 evenTwoSigma = Pair 1 Refl
 
-{-# LINE 136 "content/part1/Quantifiers.md" #-}
+{-# LINE 207 "content/part1/Quantifiers.md" #-}
 -- | Retained existential witness that `n` is double some runtime `k`.
 data EvenWitness (n :: Nat) where
   MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n
 
-evenWitnessZero :: EvenWitness 'Zero
+evenWitnessZero :: EvenWitness Zero
 evenWitnessZero = MkEvenWitness Zero Refl
 
-evenWitnessSuc2 :: EvenWitness n -> EvenWitness ('Succ ('Succ n))
+evenWitnessSuc2 :: EvenWitness n -> EvenWitness (Succ (Succ n))
 evenWitnessSuc2 (MkEvenWitness k Refl) =
-  MkEvenWitness (Succ k) (congSucc (plusSucc k k))
+  MkEvenWitness (Succ k) (cong @Succ (plusSucc k k))
 
 -- | Every double `k + k` is even (proved directly using `HaskLib.rewrite`).
 evenDouble :: foreach (k :: Nat) -> Even (plus k k)
@@ -128,9 +129,9 @@ witnessToEven (MkEvenWitness k Refl) = evenDouble k
 evenIffWitness :: Iff (Even n) (EvenWitness n)
 evenIffWitness = Iff evenToWitness witnessToEven
 
--- | Retained existential witness that `n = suc (k + k)` for some runtime `k`.
+-- | Retained existential witness that `n = Succ (k + k)` for some runtime `k`.
 data OddWitness (n :: Nat) where
-  MkOddWitness :: foreach (k :: Nat) -> 'Succ (plus k k) :~: n -> OddWitness n
+  MkOddWitness :: foreach (k :: Nat) -> Succ (plus k k) :~: n -> OddWitness n
 
 oddToWitness :: Odd n -> OddWitness n
 oddToWitness (OddS ev) = case evenToWitness ev of
@@ -139,6 +140,6 @@ oddToWitness (OddS ev) = case evenToWitness ev of
 witnessToOdd :: OddWitness n -> Odd n
 witnessToOdd (MkOddWitness k Refl) = OddS (evenDouble k)
 
--- | Full bi-implication: `Odd n ⇔ (∃ k. suc (k + k) = n)`.
+-- | Full bi-implication: `Odd n ⇔ (∃ k. Succ (k + k) = n)`.
 oddIffWitness :: Iff (Odd n) (OddWitness n)
 oddIffWitness = Iff oddToWitness witnessToOdd

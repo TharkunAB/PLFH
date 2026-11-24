@@ -31,12 +31,12 @@ Comments, bug reports, and pull requests are welcome on
 - [Induction](/Induction/): Proof by induction (`+-assoc`, `HaskLib.rewrite`, `+-comm`, `cong`/`+-rearrange`, `+-swap`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, **`+*^`**, `Bin-laws`) <span class="badge badge-pass">Checked</span>
 - [Relations](/Relations/): Inductive relations (`_≤_`, `_<_`, trichotomy, `DiffWitness`, `Even`/`Odd`, canonical `One`/`Can` bijection) <span class="badge badge-pass">Checked</span>
 - [Equality](/Equality/): Equality, `RequiredTypeArguments` chains, `substP @Even`, and Leibniz equality with `%U` and inline type lambdas <span class="badge badge-pass">Checked</span>
-- [Isomorphism](/Isomorphism/): Polymorphic `_≃_` (`Iso`, `isoSym`, `natIsoRefl`), `_≲_` (`Embed`, `binEmbedding`), `_⇔_` (`Iff`), and generic `isoRefl`/`isoTrans` boundary <span class="badge badge-pass">Checked</span>
+- [Isomorphism](/Isomorphism/): Polymorphic `_≃_` (`Iso`, **`isoRefl`**, `isoSym`), `_≲_` (`Embed`, **`embedRefl`**, `binEmbedding`), `_⇔_` (`Iff`), and `isoTrans` boundary <span class="badge badge-pass">Checked</span>
 - [Connectives](/Connectives/): Conjunction, disjunction, truth, falsehood, currying, distributivity, exponential laws <span class="badge badge-pass">Checked</span>
 - [Negation](/Negation/): Intuitionistic negation, De Morgan, order-negation laws, and classical equivalences (EM ⇔ DNE ⇔ Peirce) <span class="badge badge-pass">Checked</span>
 - [Quantifiers](/Quantifiers/): Erased `Exists`, retained `Sigma` (`some`), and `Even`/`Odd` existential witnesses <span class="badge badge-pass">Checked</span>
 - [Decidable](/Decidable/): Negation, decidable equality/ordering/parity/`Bin`, `Reflects`, and inline `Sigma` (`plusExists`) <span class="badge badge-pass">Checked</span>
-- [Lists](/Lists/): Prelude `(++)`, `map`, `HaskLib` length laws, `shunt`, `downFrom`, `All`/`Any`/`In`, `decAll`/`decAny` <span class="badge badge-partial">Partial · R03/R13</span>
+- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `downFrom`, matchability-poly `All`/`Any`/`In`, **`notAnyIffAllNot`**, `decAll`/`decAny` <span class="badge badge-partial">Partial · R03/R13</span>
 
 ## Part 2: Programming Language Foundations
 

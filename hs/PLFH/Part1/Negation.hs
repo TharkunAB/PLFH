@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE RankNTypes, TypeOperators #-}
-{-# LINE 13 "content/part1/Negation.md" #-}
+{-# LINE 25 "content/part1/Negation.md" #-}
 module PLFH.Part1.Negation
   ( Not
   , doubleNegIntro
@@ -39,7 +39,11 @@ import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))
 
-{-# LINE 59 "content/part1/Negation.md" #-}
+{-# LINE 68 "content/part1/Negation.md" #-}
+-- From PLFH.Part1.Decidable:
+-- type Not a = a -> Void
+
+{-# LINE 106 "content/part1/Negation.md" #-}
 -- | Double negation introduction: a -> ¬(¬a).
 doubleNegIntro :: a -> Not (Not a)
 doubleNegIntro x k = k x
@@ -65,7 +69,7 @@ contraposition f nb x = nb (f x)
 deMorganSum :: Iff (Not (Either a b)) (Not a, Not b)
 deMorganSum = Iff toF fromF
   where
-    toF nab       = (nab . Left, nab . Right)
+    toF nab        = (nab . Left, nab . Right)
     fromF (na, nb) = either na nb
 
 -- | One direction of De Morgan for conjunction holds intuitionistically:
@@ -74,12 +78,12 @@ deMorganProdPartial :: Either (Not a) (Not b) -> Not (a, b)
 deMorganProdPartial (Left na)  (x, _) = na x
 deMorganProdPartial (Right nb) (_, y) = nb y
 
-{-# LINE 100 "content/part1/Negation.md" #-}
+{-# LINE 170 "content/part1/Negation.md" #-}
 -- | Excluded Middle is intuitionistically irrefutable: ¬¬(a ∨ ¬a).
 irrefutableLEM :: Not (Not (Either a (Not a)))
 irrefutableLEM k = k (Right (\x -> k (Left x)))
 
-{-# LINE 110 "content/part1/Negation.md" #-}
+{-# LINE 211 "content/part1/Negation.md" #-}
 type ExcludedMiddle = forall a. Either a (Not a)
 type DoubleNegElim  = forall a. Not (Not a) -> a
 type Peirce         = forall a b. ((a -> b) -> a) -> a
@@ -118,7 +122,7 @@ emToDeMorganProd em nab = case em of
   Left a   -> Right (\b -> nab (a, b))
   Right na -> Left na
 
-{-# LINE 155 "content/part1/Negation.md" #-}
+{-# LINE 258 "content/part1/Negation.md" #-}
 -- | No finite natural number is strictly less than itself: ¬(n < n).
 ltIrrefl :: LT' n n -> Void
 ltIrrefl (SltS p) = ltIrrefl p
@@ -128,7 +132,7 @@ ltAsym :: LT' m n -> Not (LT' n m)
 ltAsym (SltS p) (SltS q) = ltAsym p q
 
 -- | No natural number is strictly less than zero: ¬(n < 0).
-notLtZero :: Not (LT' n 'Zero)
+notLtZero :: Not (LT' n Zero)
 notLtZero p = case p of {}
 
 -- | Strict inequality excludes the reverse weak inequality: m < n -> ¬(n ≤ m).

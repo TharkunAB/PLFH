@@ -2,16 +2,20 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
-{-# LINE 33 "content/part1/Isomorphism.md" #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+{-# LINE 34 "content/part1/Isomorphism.md" #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
   , iffRefl
   , iffSym
   , iffTrans
   , Iso (..)
+  , identityRoundTrip
+  , isoRefl
   , isoSym
   , natIsoRefl
   , Embed (..)
+  , embedRefl
   , isoImpliesEmbed
   , embedImpliesIff
   , binEmbedding
@@ -27,12 +31,12 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
-{-# LINE 64 "content/part1/Isomorphism.md" #-}
+{-# LINE 68 "content/part1/Isomorphism.md" #-}
 -- From Prelude:
 -- (.) :: (b -> c) -> (a -> b) -> (a -> c)
 -- (g . f) x = g (f x)
 
-{-# LINE 99 "content/part1/Isomorphism.md" #-}
+{-# LINE 103 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic isomorphism witness between `a` and `b`.
 data Iso a b where
   MkIso :: foreach (to :: a -> b) -> foreach (from :: b -> a)
@@ -44,7 +48,16 @@ data Iso a b where
 isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
-{-# LINE 118 "content/part1/Isomorphism.md" #-}
+{-# LINE 121 "content/part1/Isomorphism.md" #-}
+-- | Round-trip identity at any lifted type.
+identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
+identityRoundTrip _ = Refl
+
+-- | Generic reflexivity of isomorphism (`≃-refl`).
+isoRefl :: Iso a a
+isoRefl = MkIso id id identityRoundTrip identityRoundTrip
+
+{-# LINE 134 "content/part1/Isomorphism.md" #-}
 -- | Identity function on Nat with explicit structural equations.
 idSize :: Nat -> Nat
 idSize Zero     = Zero
@@ -74,28 +87,32 @@ isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
 isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
-{-# LINE 171 "content/part1/Isomorphism.md" #-}
+{-# LINE 182 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 183 "content/part1/Isomorphism.md" #-}
+{-# LINE 195 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
+
+-- | Generic reflexivity of embedding (`≲-refl`).
+embedRefl :: Embed a a
+embedRefl = isoImpliesEmbed isoRefl
 
 -- | Every embedding gives a logical equivalence.
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 199 "content/part1/Isomorphism.md" #-}
+{-# LINE 215 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 233 "content/part1/Isomorphism.md" #-}
+{-# LINE 249 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b

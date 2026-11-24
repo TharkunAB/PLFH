@@ -1,4 +1,5 @@
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE LambdaCase, TypeApplications, TypeOperators #-}
 -- | Executable runtime smoke test exercising checked Dependent Haskell proofs
 -- across Part 1, Part 2, and Part 3 at real runtime inputs (including decimal Nat literals)!
 module PLFH.RuntimeSmokeTest (main) where
@@ -11,8 +12,8 @@ import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, dec
 import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
-import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, isoImpliesEmbed, isoSizeRefl, isoSizeSym, isoSym, natIsoRefl)
-import PLFH.Part1.Lists (decAll, downFrom, lengthDownFrom, lengthZeros, shuntAppend)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, natIsoRefl)
+import PLFH.Part1.Lists (All (..), Any (..), decAll, downFrom, lengthDownFrom, lengthZeros, notAnyIffAllNot, shuntAppend)
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
@@ -89,6 +90,18 @@ main = do
   assertEq "Isomorphism.binEmbedding round-trip 5" 5 binEmbedRT
   assertEq "Isomorphism.embedImpliesIff binEmbedding 5" 5
     (let Iff to from = embedImpliesIff binEmbedding in natToInt (from (to 5)))
+  let polyReflMaybe = case isoRefl @(Maybe Bool) of
+        MkIso to from left right ->
+          let x :: Maybe Bool
+              x = Just True
+          in case (left x, right x) of (Refl, Refl) -> from (to x)
+  assertEq "Isomorphism.isoRefl @(Maybe Bool)" (Just True) polyReflMaybe
+  let polyEmbedRefl = case embedRefl @Bool of
+        MkEmbed to from left ->
+          let b :: Bool
+              b = False
+          in case left b of Refl -> from (to b)
+  assertEq "Isomorphism.embedRefl @Bool" False polyEmbedRefl
 
   let sum23 = case plusExists 2 3 of
         Pair k Refl -> natToInt k
@@ -137,6 +150,15 @@ main = do
       zs1 = [3] :: [Nat]
   assertEq "Lists.shuntAppend [0,1] [2] [3]" True
     (case shuntAppend xs1 ys1 zs1 of Refl -> True)
+  let odds = [1, 3] :: [Nat]
+  assertEq "Lists.notAnyIffAllNot @Even [1,3]" True
+    (case notAnyIffAllNot @Even odds of
+      Iff toAll _ ->
+        let allNot = toAll (\case
+              Here (EvenS (OddS ev)) -> case ev of {}
+              There (Here (EvenS (OddS (EvenS (OddS ev))))) -> case ev of {}
+              There (There r) -> case r of {})
+        in case allNot of AllCons _ (AllCons _ AllNil) -> True)
 
   -- Part 2: STLC Progress & Preservation, Certified Inference, Untyped, Bisimulation, BigStep, Confluence
   let idTy :: L.HasType 'L.CEmpty ('L.App ('L.Lam 'Zero ('L.Var 'Zero)) 'L.TZero) 'L.TNat

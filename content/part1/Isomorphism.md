@@ -30,15 +30,19 @@ round-trip proof `fromTo` from [Induction](/Induction/).
 
 ```haskell
 {-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
   , iffRefl
   , iffSym
   , iffTrans
   , Iso (..)
+  , identityRoundTrip
+  , isoRefl
   , isoSym
   , natIsoRefl
   , Embed (..)
+  , embedRefl
   , isoImpliesEmbed
   , embedImpliesIff
   , binEmbedding
@@ -108,11 +112,23 @@ isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 ```
 
-To witness reflexivity at `Nat`, we supply an explicit identity function
-`idSize` whose two structural equations let each round-trip proof reduce
-immediately to `Refl`. The same function and proof construct both the
-polymorphic witness `natIsoRefl :: Iso Nat Nat` and the monomorphic record
-`IsoSize`:
+**Reflexivity** (`isoRefl :: Iso a a`) uses Prelude's polymorphic `id` in both
+directions at any lifted type `a`! GHC's checked equation for `id` reduces
+`id (id x)` directly to `x` (with `-fno-enable-rewrite-rules` enabled for the
+module):
+
+```haskell
+-- | Round-trip identity at any lifted type.
+identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
+identityRoundTrip _ = Refl
+
+-- | Generic reflexivity of isomorphism (`≃-refl`).
+isoRefl :: Iso a a
+isoRefl = MkIso id id identityRoundTrip identityRoundTrip
+```
+
+We can also witness reflexivity at `Nat` explicitly with `idSize` (which
+constructs both `natIsoRefl` and the monomorphic `IsoSize` record):
 
 ```haskell
 -- | Identity function on Nat with explicit structural equations.
@@ -146,12 +162,7 @@ isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Generic reflexivity and transitivity of <code>Iso</code> (R04/R13)]</strong>
-Generic reflexivity (<code>isoRefl :: Iso a a</code>) needs to reduce
-<code>id (id x) :~: x</code> in a proof type, which currently fails with
-<code>GHC-70565</code> because polymorphic <code>id</code> has no checked open
-equation (see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PolymorphicIsoIdentity.hs"><code>reproducers/R13_PolymorphicIsoIdentity.hs</code></a>).
+<strong>[WIP NOTICE — Generic transitivity of <code>Iso</code> (R04)]</strong>
 Generic transitivity (<code>isoTrans :: Iso a b -&gt; Iso b c -&gt; Iso a c</code>)
 needs local composite functions <code>to x = h (f x)</code> and
 <code>from y = g (k y)</code> to fill <code>MkIso</code>'s retained function
@@ -176,13 +187,18 @@ data Embed a b where
 ```
 
 Every isomorphism immediately gives an embedding by forgetting the reverse
-round-trip proof (`isoImpliesEmbed`), and every embedding gives a logical
-equivalence by forgetting the remaining round-trip proof (`embedImpliesIff`):
+round-trip proof (`isoImpliesEmbed`)—giving generic embedding reflexivity
+`embedRefl` immediately—and every embedding gives a logical equivalence by
+forgetting the remaining round-trip proof (`embedImpliesIff`):
 
 ```haskell
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
+
+-- | Generic reflexivity of embedding (`≲-refl`).
+embedRefl :: Embed a a
+embedRefl = isoImpliesEmbed isoRefl
 
 -- | Every embedding gives a logical equivalence.
 embedImpliesIff :: Embed a b -> Iff a b
@@ -271,10 +287,11 @@ canonicality proof `Can b` repairs the failure shown in
 - Polymorphic `Iso a b` and `Embed a b` are declared directly with retained
   function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`)
   and explicit round-trip proofs.
-- Checked `isoSym`, `natIsoRefl`, `isoImpliesEmbed`, `embedImpliesIff`,
-  `binEmbedding`, negative control `NegBinReverseRoundTrip`, `Iff`
-  (`iffRefl`, `iffSym`, `iffTrans`), and monomorphic `IsoSize`.
-- Marked generic `isoRefl` and `isoTrans` with `[WIP NOTICE]` and minimal
-  reproducers `R13_PolymorphicIsoIdentity.hs` and `R04_ComposedIsoFields.hs`.
+- Checked generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
+  `isoImpliesEmbed`, `embedImpliesIff`, `binEmbedding`, negative control
+  `NegBinReverseRoundTrip`, `Iff` (`iffRefl`, `iffSym`, `iffTrans`), and
+  monomorphic `IsoSize`.
+- Marked generic `isoTrans` with `[WIP NOTICE]` and minimal reproducer
+  `R04_ComposedIsoFields.hs`.
 - Like Agda, Dependent Haskell does not prove function extensionality
   internally; PLFH avoids axioms/`postulate`.

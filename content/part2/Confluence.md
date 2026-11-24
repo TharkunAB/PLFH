@@ -203,9 +203,7 @@ Church-Rosser confluence for <code>BetaSteps</code>:
   <li><code>substCommute</code> &amp; <code>parDiamond</code> (Takahashi's
       complete development and substitution commutation): wait on
       <strong>R13/R16</strong>
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>)
-      and <strong>R11</strong>
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_ExistentialNestedGadtCoreLint.hs"><code>R11_ExistentialNestedGadtCoreLint.hs</code></a>).</li>
+      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).</li>
 </ul>
 </div>
 

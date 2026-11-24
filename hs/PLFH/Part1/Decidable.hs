@@ -1,8 +1,9 @@
 -- Generated from content/part1/Decidable.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, TypeOperators #-}
-{-# LINE 12 "content/part1/Decidable.md" #-}
+{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
+{-# LINE 32 "content/part1/Decidable.md" #-}
 module PLFH.Part1.Decidable
   ( Not
   , Dec (..)
@@ -32,25 +33,27 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Nat (Nat (..), congSucc, plus)
+import HaskLib.Nat (Nat (..), plus)
+import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 
-{-# LINE 58 "content/part1/Decidable.md" #-}
+{-# LINE 87 "content/part1/Decidable.md" #-}
 -- | Logical negation: evidence that a proposition implies falsehood (Void).
 type Not a = a -> Void
 
--- | Zero is never equal to any successor.
-zeroNeqSucc :: Not ('Zero :~: 'Succ n)
+-- | Peano's postulate: Zero is never equal to any successor.
+zeroNeqSucc :: Not (Zero :~: Succ n)
 zeroNeqSucc eq = case eq of {}
 
-{-# LINE 82 "content/part1/Decidable.md" #-}
+{-# LINE 101 "content/part1/Decidable.md" #-}
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
 
+{-# LINE 118 "content/part1/Decidable.md" #-}
 -- | Decidable propositions are closed under negation, conjunction, disjunction,
 -- implication, and bi-implication.
 decNot :: Dec p -> Dec (Not p)
@@ -77,8 +80,8 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
   Yes (f, g) -> Yes (Iff f g)
   No nfg     -> No (\(Iff f g) -> nfg (f, g))
 
-{-# LINE 120 "content/part1/Decidable.md" #-}
--- | Decidable propositional equality on Nat.
+{-# LINE 157 "content/part1/Decidable.md" #-}
+-- | Decidable propositional equality on Nat (`_≡ℕ?_`).
 decEqSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (m :~: n)
 decEqSize Zero n = case n of
   Zero   -> Yes Refl
@@ -86,11 +89,10 @@ decEqSize Zero n = case n of
 decEqSize (Succ m) n = case n of
   Zero    -> No (\case {})
   Succ n' -> case decEqSize m n' of
-    Yes eq -> Yes (congSucc eq)
+    Yes eq -> Yes (cong @Succ eq)
     No neq -> No (\Refl -> neq Refl)
 
-{-# LINE 137 "content/part1/Decidable.md" #-}
--- | Decidable less-than-or-equal relation on Nat.
+-- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
 decLeSize :: foreach (m :: Nat) -> foreach (n :: Nat) -> Dec (LE m n)
 decLeSize Zero _ = Yes ZleN
 decLeSize (Succ m) n = case n of
@@ -110,7 +112,7 @@ decLtSize (Succ m) n = case n of
     Yes p  -> Yes (SltS p)
     No  np -> No (\case SltS q -> np q)
 
-{-# LINE 166 "content/part1/Decidable.md" #-}
+{-# LINE 203 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero     = Yes EvenZ
@@ -131,15 +133,15 @@ decOdd (Succ n) = case n of
 
 -- | Boolean reflection: ties a proposition `p` to a promoted `Bool` `b`.
 data Reflects (p :: Type) (b :: Bool) where
-  OfTrue  :: p -> Reflects p 'True
-  OfFalse :: Not p -> Reflects p 'False
+  OfTrue  :: p -> Reflects p True
+  OfFalse :: Not p -> Reflects p False
 
 -- | Reflecting a Boolean yields a decision procedure.
 reflectsToDec :: foreach (b :: Bool) -> Reflects p b -> Dec p
 reflectsToDec True  (OfTrue p)   = Yes p
 reflectsToDec False (OfFalse np) = No np
 
--- | Decidable equality and canonical-form predicates on binary numbers (`Bin`).
+-- | Decidable equality on binary numbers (`Bin`).
 decEqBin :: foreach (a :: Bin) -> foreach (b :: Bin) -> Dec (a :~: b)
 decEqBin Nil b = case b of
   Nil  -> Yes Refl
@@ -158,6 +160,7 @@ decEqBin (X1 a) b = case b of
     Yes Refl -> Yes Refl
     No  neq  -> No (\Refl -> neq Refl)
 
+-- | Decidable `One` predicate (`One?`).
 decOne :: foreach (b :: Bin) -> Dec (One b)
 decOne Nil    = No (\case {})
 decOne (X0 b) = case decOne b of
@@ -172,6 +175,7 @@ decOne (X1 b) = case b of
     Yes o  -> Yes (OneX1' o)
     No  no -> No (\case OneX1' o -> no o)
 
+-- | Decidable canonical-form predicate (`Can?`).
 decCan :: foreach (b :: Bin) -> Dec (Can b)
 decCan Nil    = No (\case CanOne o -> case o of {})
 decCan (X0 b) = case b of
@@ -186,15 +190,15 @@ decCan (X1 b) = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 249 "content/part1/Decidable.md" #-}
+{-# LINE 294 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Nat) | LE 'Zero k
+type SizeWitness = some (k :: Nat) | LE Zero k
 
 -- | Package any runtime size with its proof of Zero <= k.
 mkSizeWitness :: Nat -> SizeWitness
 mkSizeWitness k = Pair k ZleN
 
--- | Inline retained dependent sum returned directly from a `foreach` function!
+-- | Inline retained dependent sum returned directly from a `foreach` function.
 plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
            -> some (k :: Nat) | k :~: plus m n
 plusExists m n = Pair (plus m n) Refl

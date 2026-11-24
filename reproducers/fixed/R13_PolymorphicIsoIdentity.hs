@@ -1,4 +1,5 @@
 {-# LANGUAGE ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 -- | Minimal reproducer (Serokell R13/R16):
 -- Generic reflexivity of polymorphic `Iso a a` requires reducing `id (id x) :~: x`,
 -- which fails with GHC-70565 because polymorphic `id` has no checked open equation.

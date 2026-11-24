@@ -193,15 +193,6 @@ joinInsert wu1 wu2 (IES ie1) (IES ie2) = case joinInsert wu1 wu2 ie1 ie2 of
   MkJoinInsert ie3 es1 es2 ->
     MkJoinInsert (IES ie3) (envSubConsRefl es1) (envSubConsRefl es2)
 
-unLamSubstRefl
-  :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (a :: Value)
-            (w :: UTerm n) (w' :: UTerm ('Succ n)) (b :: UTerm ('Succ ('Succ n))) (r :: Value).
-     ShiftU 'FZ w w'
-  -> SubstReflRes ('FS c) ('VCons e a) w' b r
-  -> SubstReflRes c e w ('ULam b) ('Arr a r)
-unLamSubstRefl shW (MkSubstRefl wu (IES ie) dwShifted db) =
-  MkSubstRefl wu ie (denotUnshift shW IEZ dwShifted) (DIntro db)
-
 -- | Backward single-variable substitution expansion (`subst-reflect`)!
 denotSubstReflect
   :: forall (n :: Nat) (c :: Fin ('Succ n)) (e :: ValEnv n) (eBot :: ValEnv ('Succ n))
@@ -239,7 +230,9 @@ denotSubstReflect (MkValW v) (SUApp s1 s2) ieBot (DElim wArg@(MkValW vArg) d1 d2
             (DElim wArg (envSubMono es1 dl) (envSubMono es2 dr))
 denotSubstReflect wv (SULam shW sB) ieBot (DIntro dBody) =
   case unArrW wv of
-    (_, wCod) -> unLamSubstRefl shW (denotSubstReflect wCod sB (IES ieBot) dBody)
+    (_, wCod) -> case denotSubstReflect wCod sB (IES ieBot) dBody of
+      MkSubstRefl wu (IES ie) dwShifted db ->
+        MkSubstRefl wu ie (denotUnshift shW IEZ dwShifted) (DIntro db)
 
 -- | Unconditional β-redex preservation.
 betaPres :: SubstAtU 'FZ w b r -> Denotes ('VCons e u) b v -> Denotes e w u -> Denotes e r v
@@ -250,18 +243,6 @@ betaReflect :: ValW v -> SubstAtU 'FZ w b r -> Denotes e r v -> Denotes e ('UApp
 betaReflect wv sub dr = case denotSubstReflect wv sub IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 ```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Desugar Core Lint on inline existential <code>IES</code> match inside GADT branch (R11)]</strong>
-Notice that <code>unLamSubstRefl</code> is factored out as a top-level helper
-with an explicit <code>SubstReflRes ('FS c) ('VCons e a) ...</code> signature.
-Inlining the exact same <code>MkSubstRefl wu (IES ie) dwShifted db</code> match
-directly inside the <code>SULam</code>/<code>DIntro</code> branch of
-<code>denotSubstReflect</code> typechecks and then fails Desugar Core Lint
-with <code>R11 mixed-kind coercion binder: 'VCons e1 w1 ~# 'VCons e a</code>.
-Isolated as a 50-line minimal reproducer in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_ExistentialNestedGadtCoreLint.hs"><code>reproducers/R11_ExistentialNestedGadtCoreLint.hs</code></a>.
-</div>
 
 ## Unconditional Soundness (`denotPreserve`, `denotReflect`, `denotEquivSteps`)
 
