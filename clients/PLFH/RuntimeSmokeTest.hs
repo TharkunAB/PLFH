@@ -25,6 +25,7 @@ import PLFH.Part2.Bisimulation (SimRel (..), simSym, simTrans, simValue)
 import PLFH.Part2.Confluence (Par (..), normalNoBetaSteps, omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
+import qualified PLFH.Part2.DeBruijnProgress as DBP
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
@@ -285,6 +286,16 @@ main = do
     (case DB.checkValue dbSuc of { DB.YesVal _ -> True; DB.NotVal -> False })
   assertEq "DeBruijn.checkValue (App (Lam (Var Z)) Zero)" False
     (case DB.checkValue dbApp of { DB.YesVal _ -> True; DB.NotVal -> False })
+  assertEq "DeBruijnProgress.betaIdStep ((lam. 0) 0 -> 0)" True
+    (case DBP.betaIdStep of { DBP.BetaLam DB.VZero -> True })
+  assertEq "DeBruijnProgress.betaCaptureAvoid ((lam. lam. 1) 0 -> lam. 0)" True
+    (case DBP.betaCaptureAvoid of { DBP.BetaLam DB.VZero -> True })
+  assertEq "DeBruijnProgress.betaShiftUnderLam (open shift under binder!)" True
+    (case DBP.betaShiftUnderLam of { DBP.BetaLam DB.VLam -> True })
+  let betaMuZero :: DBP.Step (DB.Mu DB.Zero) DB.Zero
+      betaMuZero = DBP.BetaMu
+  assertEq "DeBruijnProgress.BetaMu (mu. 0 -> 0)" True
+    (case betaMuZero of { DBP.BetaMu -> True })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)

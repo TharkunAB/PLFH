@@ -9,8 +9,8 @@ This page tracks every PLFA declaration, theorem, and exercise in PLFH against
 the current experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`ad1a979ead`](https://github.com/Tritlo/ghc/commit/ad1a979ead80254776043bbc8d79d963aec50e1c) / `58fe868eb2`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 27 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **6 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 103 `[RUN-OK]` checks), **30 fixed regressions**, and **10 open compiler-gap reproducers**.
+- **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, commit [`fb64eaff81`](https://github.com/Tritlo/ghc/commit/fb64eaff8171a630b136167bf45c4af8e8333f5f) / `d7b9870ed0`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 28 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **7 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 107 `[RUN-OK]` checks), **30 fixed regressions**, and **10 open compiler-gap reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
 
@@ -32,7 +32,7 @@ the current experimental Dependent Haskell compiler
 | [Lists](/Lists/) | Default `-O2` list rewrite rules (`mapAppend`, `shuntAppend`, `rev`) | — | <span class="badge badge-wip">Blocker (`-O2`)</span> | `R03_FunctionColumnSplit.hs` (`-O2`), `R13_ShuntAccumOpenEq.hs` (`-O2`), `R13_RevOpenEq.hs` (`-O2`) |
 | [Lambda](/Lambda/) | `Term`, `Type`, `Context`, `Value`, `substTerm`, **`Step`**, **`Steps`**, `_∋_⦂_`, `_⊢_⦂_`, **`twoChurchTyped`**, **`addTyped`** (`TMu` recursion), **`stepExample`** | `PLFH.Part2.Lambda.*` | <span class="badge badge-pass">Direct port</span> | Same-module `substTerm` in `BetaLam`/`BetaSuc`/`BetaMu`, zero ticks book-wide, `.hi`-audited, verified by `NegBetaMuTarget` and runtime `eval (AddTerm 1 2) = 3` |
 | [Properties](/Properties/) | `Canonical`, `canonical`, **`Progress`/`progress`**, `valueCannotStep`, **`stepDeterm`**, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`, `swapTyping`, `NameDecision`/`decide`, **`substTyping`**, **`preserve`**, **`preserveSteps`**, **`eval`** | `PLFH.Part2.Properties.*` | <span class="badge badge-pass">Direct port</span> | Full STLC Progress + Determinism + 8-constructor Preservation + Multi-step Preservation + Verified Evaluator `eval` |
-| [DeBruijn](/DeBruijn/) | Intrinsically-typed `Term g a`, `rename`, `subst`, `substSingle`, promoted `Value`, **`IsVal`/`checkValue`** | `PLFH.Part2.DeBruijn.*` | <span class="badge badge-pass">Direct port</span> | Direct equation-style `checkValue :: foreach (m :: Term CEmpty a) -> IsVal m` checked; `Step` (`R13_SubstSingleUOpenEq.hs`) remains `[WIP NOTICE]` |
+| [DeBruijn](/DeBruijn/) | Intrinsically-typed `Term g a`, `rename`, `subst`, `substSingle`, promoted `Value`, **`IsVal`/`checkValue`**, **8-rule functional `Step` (`substSingle`)**, **`betaShiftUnderLam`**, **`appProgress`** | `PLFH.Part2.DeBruijn.*` + `PLFH.Part2.DeBruijnProgress.*` | <span class="badge badge-pass">Direct port</span> | Direct `checkValue`, all 8 intrinsically-typed `Step` rules with real `substSingle` (verified by `NegDeBruijnBadCapture`), and `appProgress` checked across `-fwrite-source-equations` interface; full `Case`/`Mu` `progress` remains `[WIP NOTICE]` |
 | [Inference](/Inference/) | `decEqTy`, `lookupCtx`, **`infer`**, **`check`** | `PLFH.Part2.Inference.*` | <span class="badge badge-pass">Direct port</span> | Full certified STLC inference & checking with direct inline `case lTy of` refinement |
 | [Untyped](/Untyped/) | `Fin`, `UTerm`, `renameU`, `substU`, relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep`, `idAppStep`, `omegaStep` | `PLFH.Part2.Untyped.*` | <span class="badge badge-pass">Direct port</span> | Sound relational `SubstAtU` verified by `NegBadBetaStep`; functional `substSingleU` tracked in `R13_SubstSingleUOpenEq.hs` |
 | [More](/More/) | Extended STLC (`Let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value`, `TBool`/`ifThenElse`/`swapSum`/`appendList` | `PLFH.Part2.More.*` | <span class="badge badge-pass">Direct port</span> | Functional `Step` (`substSingle`/`substDouble`, `R13_SubstSingleUOpenEq.hs`) marked `[WIP NOTICE]` |
@@ -46,7 +46,7 @@ the current experimental Dependent Haskell compiler
 | [Adequacy](/Adequacy/) | `AboveFun`, **`notAboveFunBot`**, **`aboveFunJoin`**, **`decAboveFun`**, `WHNF`, `HaltsV`, **`LogE`/`LogVLam`**, `notAboveFunLogV`, **`haltsVJoin`**, **`subLogVLam`**, **`subLogE`**, **`fundamental`**, **unconditional `adequacyBigStep`**, **`adequacyIdApp`** | `PLFH.Part3.Adequacy.*` | <span class="badge badge-pass">Direct port</span> | 100% unconditional Big-Step Adequacy (`adequacyBigStep`) via `BigStep.evalDeterm`, executing at runtime on `id · id` |
 | [ContextualEquivalence](/ContextualEquivalence/) | `Terminates`, `terminatesLam`, `terminatesStep`, `denotEqualTerminates`, `denotEqualCtxEquiv`, **`denotEqualCtxEquivFromSoundness`**, **`betaCtxEquiv`** | `PLFH.Part3.ContextualEquivalence.*` | <span class="badge badge-pass">Direct port</span> | Instantiates `SoundnessProp` unconditionally via `Soundness.denotEquivSteps` (parameterized only by small-step `AdequacyProp`) |
 
-## Negative Controls (6 Verified Rejections)
+## Negative Controls (7 Verified Rejections)
 
 | Control File | Claimed Falsehood | Expected Diagnostic |
 | --- | --- | --- |
@@ -55,6 +55,7 @@ the current experimental Dependent Haskell compiler
 | `hs/negative/NegBinReverseRoundTrip.hs` | `toBin (fromBin Nil) :~: Nil` | `GHC-83865` |
 | `hs/negative/NegIllTypedApp.hs` | `HasType CEmpty (App TZero TZero) TNat` | `GHC-83865` |
 | `hs/negative/NegBetaMuTarget.hs` | `Step (TMu Zero TZero) (TCase ...)` (bogus β-target) | `GHC-83865` |
+| `hs/negative/NegDeBruijnBadCapture.hs` | `Step (App (Lam (Lam (Var (S Z)))) (Lam (Var (S Z)))) (Lam (Lam (Var (S Z))))` (forged capture) | `GHC-83865` |
 | `hs/negative/NegBadBetaStep.hs` | `BetaStep (UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
 
 ## Open Minimal Compiler-Gap Reproducers (10 Tracked)

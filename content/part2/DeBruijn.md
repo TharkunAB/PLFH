@@ -38,6 +38,7 @@ to a kind**!
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
 module PLFH.Part2.DeBruijn
   ( Ty (..)
   , Ctx (..)
@@ -220,19 +221,73 @@ checkValue (Case _ _ _) = NotVal
 checkValue (Mu _)       = NotVal
 ```
 
-## Intrinsically-typed Reduction (`Step`) and Progress (`progress`)
+## Intrinsically-typed Reduction (`Step`) and Progress (`appProgress`)
 
 In the intrinsically-typed representation, `Step` has kind
 `forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type`—so **Preservation
 holds automatically** by the very type of `Step`! Every reduction step connects
 two terms of the *exact same* type `a` in the *exact same* context `g`.
 
+Compiling this syntax module with `{-# OPTIONS_GHC -fwrite-source-equations #-}`
+publishes the checked equations for `rename`, `subst`, and `substSingle` into
+its compiled interface (`DeBruijn.hi`). Our companion checked module
+[`PLFH.Part2.DeBruijnProgress`](https://github.com/Tritlo/PLFH/blob/main/clients/PLFH/Part2/DeBruijnProgress.hs)
+reads that native interface and defines all eight intrinsically-typed reduction
+rules (`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
+`BetaMu`) using real functional `D.substSingle`, concrete capture-avoiding beta
+witnesses (`betaIdStep`, `betaCaptureAvoid`, `betaShiftUnderLam`), and the
+checked application progress dispatcher `appProgress`:
+
+```{.haskell .ignore}
+-- Excerpt from checked client module PLFH.Part2.DeBruijnProgress:
+type Step :: forall (g :: D.Ctx) (a :: D.Ty). D.Term g a -> D.Term g a -> Type
+data Step m n where
+  XiApp1   :: Step l l' -> Step (D.App l m) (D.App l' m)
+  XiApp2   :: D.Value l -> Step m m' -> Step (D.App l m) (D.App l m')
+  XiSuc    :: Step m m' -> Step (D.Suc m) (D.Suc m')
+  XiCase   :: Step l l' -> Step (D.Case l m n) (D.Case l' m n)
+  BetaLam  :: forall g a b (n :: D.Term (D.CExt g a) b) (w :: D.Term g a).
+              D.Value w -> Step (D.App (D.Lam n) w) (D.substSingle n w)
+  BetaZero :: forall g a (m :: D.Term g a) (n :: D.Term (D.CExt g D.TNat) a).
+              Step (D.Case D.Zero m n) m
+  BetaSuc  :: forall g a (m :: D.Term g a) (n :: D.Term (D.CExt g D.TNat) a)
+                         (v :: D.Term g D.TNat).
+              D.Value v -> Step (D.Case (D.Suc v) m n) (D.substSingle n v)
+  BetaMu   :: forall g a (n :: D.Term (D.CExt g a) a).
+              Step (D.Mu n) (D.substSingle n (D.Mu n))
+```
+
+### Negative control: forged variable capture is rejected
+
+When substituting the open value `λ. Var (S Z)` under an inner binder,
+`substSingle` must shift its free variable to `S (S Z)` (`betaShiftUnderLam`).
+Claiming the unshifted (capturing) result `Lam (Lam (Var (S Z)))` is rejected
+by GHC with `GHC-83865`:
+
+```{.haskell .fail name="NegDeBruijnBadCapture" expect="GHC-83865"}
+{-# LANGUAGE DataKinds, GADTs, TypeApplications #-}
+module NegDeBruijnBadCapture (badCapture) where
+
+import qualified PLFH.Part2.DeBruijn as D
+import PLFH.Part2.DeBruijnProgress (Step (..))
+
+badCapture
+  :: Step @(D.CExt D.CEmpty D.TNat)
+          @(D.TArr D.TNat (D.TArr D.TNat D.TNat))
+          (D.App (D.Lam (D.Lam (D.Var (D.S D.Z)))) (D.Lam (D.Var (D.S D.Z))))
+          (D.Lam (D.Lam (D.Var (D.S D.Z))))
+badCapture = BetaLam D.VLam
+```
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>Step</code> (R13/R16)]</strong>
-Writing qualified <code>Syntax.substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
-currently fails with <code>GHC-68947</code>/<code>GHC-70565</code> because
-<code>substSingle</code> calls higher-order GADT-indexed <code>subst</code>.
-See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>reproducers/R13_SubstSingleUOpenEq.hs</code></a>.
+<strong>[WIP NOTICE — Full intrinsic <code>progress</code> over <code>Case</code> and <code>Mu</code>]</strong>
+All eight reduction rules using functional <code>substSingle</code> and the
+application progress branch (<code>appProgress</code>) check cleanly across the
+compiled interface in <code>PLFH.Part2.DeBruijnProgress</code>. Completing full
+recursive <code>progress</code> still awaits retained refinements for the outer
+<code>Case</code> and <code>Mu</code> branches (and untyped substitution in
+<code>Untyped</code> remains tracked separately in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>reproducers/R13_SubstSingleUOpenEq.hs</code></a>).
 </div>
 
 ## Exercises
@@ -265,5 +320,9 @@ in context `CExt CEmpty TNat`?
   `IsVal`/`checkValue` over retained `foreach (m :: Term CEmpty a)` all
   compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
   soundness audit.
-- Functional `Step` (`substSingle`, `R13_SubstSingleUOpenEq.hs`) remains marked
-  `[WIP NOTICE]`.
+- With `-fwrite-source-equations`, our checked client module
+  `PLFH.Part2.DeBruijnProgress` defines all eight intrinsically-typed `Step`
+  rules using real functional `substSingle`, concrete capture-avoiding beta
+  witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
+  application progress dispatcher `appProgress`; full `Case`/`Mu` `progress`
+  remains marked `[WIP NOTICE]`.
