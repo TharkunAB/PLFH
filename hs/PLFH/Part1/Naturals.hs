@@ -47,14 +47,14 @@ pow :: Nat -> Nat -> Nat
 pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
-{-# LINE 216 "content/part1/Naturals.md" #-}
+{-# LINE 220 "content/part1/Naturals.md" #-}
 -- | Truncated subtraction (monus), matching PLFA's exact clause order.
 monus :: Nat -> Nat -> Nat
 monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
-{-# LINE 242 "content/part1/Naturals.md" #-}
+{-# LINE 246 "content/part1/Naturals.md" #-}
 -- | Least-significant-bit-first binary natural numbers.
 data Bin
   = Nil

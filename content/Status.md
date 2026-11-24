@@ -9,15 +9,16 @@ This page tracks every PLFA declaration, theorem, and
 exercise attempted in PLFH against the experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Current published compiler & HaskLib:** GHC `10.1.20261115.1`, published commits [`692eae0778`](https://github.com/Tritlo/ghc/commit/692eae077896a00384fecf15a3d5d92d828a6415) + [`9cc4065fab`](https://github.com/Tritlo/ghc/commit/9cc4065fab4f2f106859b39daa9bdad23f00f0fd) + [`63e2f0974b`](https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf) / [`76e67f4fdb`](https://github.com/Tritlo/ghc/commit/76e67f4fdbc5d1c8dafc9d29da8e942e0fec1c85) (600-example Showcase on `dependent-haskell`; previous baselines: 590 `1a02a866e7`, 588 `d15cbd41fe`, 585 `db2586fdc2`) + live `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
-- **Major milestone — 15 compiler fixes published & integrated (half of all 30 reproducers!):** Fifteen of our 30 tracked reproducers now pass at **both `-O0` and `-O2`** with `-dcore-lint -dstg-lint` and live as automated regression checks under [`reproducers/fixed/`](https://github.com/Tritlo/PLFH/tree/main/reproducers/fixed), unlocking:
+- **Current published compiler & HaskLib:** GHC `10.1.20261115.1`, published commits [`692eae0778`](https://github.com/Tritlo/ghc/commit/692eae077896a00384fecf15a3d5d92d828a6415) + [`9cc4065fab`](https://github.com/Tritlo/ghc/commit/9cc4065fab4f2f106859b39daa9bdad23f00f0fd) + [`63e2f0974b`](https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf) + [`1f873969e5`](https://github.com/Tritlo/ghc/commit/1f873969e589e84b632e5d0304399ab4d2c997e3) on `dependent-haskell` (previous baselines: 590 `1a02a866e7`, 588 `d15cbd41fe`, 585 `db2586fdc2`) + live `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
+- **Major milestone — 16 of 30 compiler fixes published & integrated (over half of all tracked reproducers!):** Sixteen of our 30 tracked reproducers now pass at **both `-O0` and `-O2`** with `-dcore-lint -dstg-lint` and live as automated regression checks under [`reproducers/fixed/`](https://github.com/Tritlo/PLFH/tree/main/reproducers/fixed), unlocking:
+  - **100% of PLFA `Naturals` & `Induction`:** every arithmetic operation (`plus`, `times`, `monus`, `pow`, `Bin`) and every theorem/exercise (`plusAssoc`, `plusComm`, `cong`/`plusRearrange`, `plusSwap`, `timesDistribPlus`/`timesAssoc`/`timesComm`, `zeroMonus`/`monusPlusAssoc`, **`powPlus`/`powMul`/`powTimes`**, `Bin-laws`)!
   - **Full STLC Progress & 8-constructor Preservation** (`Lambda.Step` using ordinary same-module `substTerm` + `Properties.{progress,substTyping,preserve}` + negative control `NegBetaMuTarget`),
   - **Unconditional Big-Step Determinism & Unconditional Adequacy** (`BigStep.evalDeterm` → `Adequacy.{subLogVLam,fundamental,adequacyBigStep,adequacyIdApp}`),
   - **Full `Bisimulation.simValue`** (R11 Desugar Core Lint fixed!),
   - **Direct `Denotational` GADT `Value` & nested dependent `case` `subInvDist`** (R13 GADT syntax + R03 Desugar Core Lint fixed!),
   - **Simplified certified `Inference.infer`** (inline `case lTy of` refinement, no `matchArr`/`matchNat` or `@g @a @b` annotations!),
-  - **Part 1 direct proofs:** `Induction.{cong,plusRearrange,plusSwap,zeroMonus,monusPlusAssoc}` (ordinary `monus` fixed in `63e2f0974b`!), `Equality.evenComm` via `substP @Even`, `Isomorphism.{isoSizeRefl,isoSizeSym}`, `Decidable.plusExists` (inline `some` under `foreach`), and `Lists.{lengthAppendLaw,lengthReverseLaw,shunt,shuntAppend,downFrom,zeros,lengthDownFrom,lengthZeros}`!
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 27 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **5 negative controls**, **15 fixed-reproducer regressions** checked at both `-O0` and `-O2`, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 56 `[RUN-OK]` checks), and **15 open blocker reproducers**.
+  - **Part 1 direct proofs:** `Equality.evenComm` via `substP @Even`, `Isomorphism.{isoSizeRefl,isoSizeSym}`, `Decidable.plusExists` (inline `some` under `foreach`), and `Lists.{lengthAppendLaw,lengthReverseLaw,shunt,shuntAppend,downFrom,zeros,lengthDownFrom,lengthZeros}`!
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 27 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **5 negative controls**, **16 fixed-reproducer regressions** checked at both `-O0` and `-O2`, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 59 `[RUN-OK]` checks), and **14 open blocker reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
 
@@ -26,10 +27,8 @@ exercise attempted in PLFH against the experimental Dependent Haskell compiler
 | Chapter | PLFA Declaration | PLFH Module & Symbol | Category | Notes / Serokell Card |
 | --- | --- | --- | --- | --- |
 | [Naturals](/Naturals/) | `ℕ` (`zero`, `suc`), `_+_`, decimal numerals | `HaskLib.Nat.{Nat,plus,(+)}` | <span class="badge badge-reuse">HaskLib reuse</span> | `FromNatural` & `Num` enable `plus 2 3 :~: 5` and `(2 + 3 :: Nat) :~: 5`! |
-| [Naturals](/Naturals/) | `2 + 3 ≡ 5`, `_*_`, `_∸_` (`monus`), `Bin`, `inc`, `to`, `from` | `PLFH.Part1.Naturals.*` | <span class="badge badge-pass">Direct port</span> | `monus` open equations fixed in `63e2f0974b`! `times` still needs named `n` (`R13_WildcardBreaksOpenEq.hs`) |
-| [Naturals](/Naturals/) | `_^_` open type eval | `PLFH.Part1.Naturals.pow` | <span class="badge badge-wip">Blocker (open)</span> | Runtime OK; open type eval blocked (`R13_PowOpenEq.hs`) |
-| [Induction](/Induction/) | `+-assoc`, `+-assoc′` (`HaskLib.rewrite`), `+-identityʳ`, `+-suc`, `+-comm`, **`cong` + `+-rearrange`**, **`+-swap`** (nested `rewrite`), `*-distrib-+`, `*-assoc`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, `Bin-laws` | `PLFH.Part1.Induction.*` + `HaskLib.Nat.{plusZero,plusSucc}` | <span class="badge badge-pass">Direct port</span> | Direct `cong @(plus m)`, nested `rewrite`, and ordinary `monus` laws (`zeroMonus`, `monusPlusAssoc`) fixed on `63e2f0974b`! |
-| [Induction](/Induction/) | `+*^` (exponentiation laws) | — | <span class="badge badge-wip">Blocker</span> | Blocked by open equations for `pow` (`R13_PowOpenEq.hs`) |
+| [Naturals](/Naturals/) | `2 + 3 ≡ 5`, `_*_`, `_∸_` (`monus`), `_^_` (`pow`), `Bin`, `inc`, `to`, `from` | `PLFH.Part1.Naturals.*` | <span class="badge badge-pass">Direct port</span> | **All** arithmetic ops now get checked open equations (`monus` `63e2f0974b`, `pow` `1f873969e5`)! `times` still needs named `n` (`R13_WildcardBreaksOpenEq.hs`) |
+| [Induction](/Induction/) | `+-assoc`, `+-assoc′` (`HaskLib.rewrite`), `+-identityʳ`, `+-suc`, `+-comm`, **`cong` + `+-rearrange`**, **`+-swap`**, `*-distrib-+`, `*-assoc`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, **`+*^` (`powPlus`, `powMul`, `powTimes`)**, `Bin-laws` | `PLFH.Part1.Induction.*` + `HaskLib.Nat.{plusZero,plusSucc}` | <span class="badge badge-pass">Direct port</span> | **100% of PLFA Induction theorems and exercises checked!** |
 | [Relations](/Relations/) | `_≤_`, `inv-*`, `≤-refl/trans/antisym`, `Total`, `+-mono-*`, `_<_`, `<-trans`, `Trichotomy`, `ltToLe`/`leToLt`, `DiffWitness`, `Even`/`Odd` + sums + `evenOrOdd`/`notBothEvenOdd`, canonical `One`/`Can` + `incOne`/`incCan` + **`toBinCan`** + **`toFromCan`** | `PLFH.Part1.Relations.*` | <span class="badge badge-pass">Direct port</span> | Full `Nat ≃ Can Bin` bijection (`fromTo` + `toBinCan` + `toFromCan`) checked! |
 | [Equality](/Equality/) | `_≡_`, `sym`, `trans`, `cong`, `cong-app`, `subst`, `RequiredTypeArguments` chains (`beginEq`/`stepEq`/`qedEq`), **`evenComm` (`substP @Even`)**, `Leibniz`, `LeibnizU`, `leibnizUSym` | `PLFH.Part1.Equality.*` | <span class="badge badge-pass">Direct port</span> | Direct `substP @Even (toEqP (plusComm m n)) ev` fixed (`R03_TcInstFunPanic.hs`); inline type lambda `@(\z -> EqP z x)` works (R17)! |
 | [Isomorphism](/Isomorphism/) | `_⇔_` (`Iff`, refl/sym/trans), monomorphic **`IsoSize` (`isoSizeRefl`, `isoSizeSym`)** | `PLFH.Part1.Isomorphism.*` | <span class="badge badge-pass">Direct port</span> | Higher-rank `foreach` proof fields construct & eliminate cleanly (`R04_HigherRankForEachField.hs` fixed!) |
@@ -66,11 +65,11 @@ exercise attempted in PLFH against the experimental Dependent Haskell compiler
 | `hs/negative/NegBetaMuTarget.hs` | `Step ('TMu 'Zero 'TZero) ('TCase ...)` (bogus β-target) | `GHC-83865` |
 | `hs/negative/NegBadBetaStep.hs` | `BetaStep ('UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
 
-## Fixed Reproducers (15 Verified Regressions at `-O0` & `-O2`)
+## Fixed Reproducers (16 Verified Regressions at `-O0` & `-O2`)
 
-All 15 fixed reproducers are preserved under [`reproducers/fixed/`](https://github.com/Tritlo/PLFH/tree/main/reproducers/fixed) and compiled at **both `-O0` and `-O2`** with `-dcore-lint -dstg-lint` on every test run so fixes can never regress:
+All 16 fixed reproducers are preserved under [`reproducers/fixed/`](https://github.com/Tritlo/PLFH/tree/main/reproducers/fixed) and compiled at **both `-O0` and `-O2`** with `-dcore-lint -dstg-lint` on every test run so fixes can never regress:
 
-| Reproducer (`reproducers/fixed/`) | Serokell Card | Historical Failure (`db2586fdc2`–`9cc4065fab`) | Published Fix (`692eae0778` / `9cc4065fab` / `63e2f0974b`) |
+| Reproducer (`reproducers/fixed/`) | Serokell Card | Historical Failure (`db2586fdc2`–`76e67f4fdb`) | Published Fix (`692eae0778`–`1f873969e5`) |
 | --- | --- | --- | --- |
 | `R03_TcInstFunPanic.hs` | R03 / Compiler bug | **GHC panic!** (`App.hs:3947`) | Fixed — `substP @Even (toEqP (plusComm m n)) ev` in `Equality` |
 | `R05_SubstTyEtaAliasPanic.hs` | R05 / Compiler bug | **GHC panic!** (`Subst.hs:900`) | Fixed — eta-reduced `lengthReverseLaw = lengthReverse` in `Lists` |
@@ -81,6 +80,7 @@ All 15 fixed reproducers are preserved under [`reproducers/fixed/`](https://gith
 | `R13_DownFromOpenEq.hs` | R13 / R16 | `GHC-68947` | Fixed — `downFrom` / `zeros` / `lengthDownFrom` in `Lists` |
 | `R13_SubstTermOpenEq.hs` | R13 / R16 | `GHC-70565` | Fixed (`692eae0778`) — same-module `substTerm` unlocks STLC Progress & Preservation! |
 | `R13_MonusOpenEq.hs` | R13 / R16 | `GHC-70565` | Fixed (`63e2f0974b`) — right-first `monus` equations unlock `zeroMonus` & `monusPlusAssoc` in `Induction`! |
+| `R13_PowOpenEq.hs` | R13 / R16 | `GHC-70565` | Fixed (`1f873969e5`) — carried-argument `pow` equations unlock `powPlus`, `powMul`, & `powTimes` in `Induction`! |
 | `R03_CongPartialApp.hs` | R03 / R17 / R23 | Untouchable meta | Fixed — `cong @(plus m)` in `Induction.plusRearrange` |
 | `R03_WithEqualityUnderTrans.hs` | R03 | Untouchable meta | Fixed — `rewrite (plusComm m n) Refl` inside `trans` in `Induction.plusSwap` |
 | `R03_CaseRefinementMultiIndexGadt.hs` | R03 | `GHC-83605` | Fixed — inline `case lTy of` refinement in `Inference.infer` |
@@ -88,17 +88,16 @@ All 15 fixed reproducers are preserved under [`reproducers/fixed/`](https://gith
 | `R04_SigmaUnderForEach.hs` | R04 | Rejected sum position | Fixed — inline `some (k :: Nat) \| k :~: plus m n` in `Decidable.plusExists` |
 | `R04_HigherRankForEachField.hs` | R03 / R04 | `GHC-83865` (identical types!) | Fixed — `isoSizeRefl` & `isoSizeSym` over `MkIsoSize` in `Isomorphism` |
 
-## Open Minimal Compiler-Gap Reproducers (15 Tracked)
+## Open Minimal Compiler-Gap Reproducers (14 Tracked)
 
 Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers) and is mirrored to `docs/dependent-haskell/plfh/reproducers/` in `Tritlo/ghc`:
 
-| Reproducer (`reproducers/`) | Serokell Card | Diagnostic (`63e2f0974b`) | Summary |
+| Reproducer (`reproducers/`) | Serokell Card | Diagnostic (`1f873969e5`) | Summary |
 | --- | --- | --- | --- |
 | `R03_ForEachGadtEqTypeFamily.hs` | R03 / Typechecker bug | `GHC-05617` | Given GADT equality (`u :~: v`, `u :~: 'Zero`) under retained `foreach` fails to rewrite closed type family `F u` (erased `forall` passes!) |
 | `R04_EtaAliasForEachFunctionBinder.hs` | R04 / R05 / **NEW!** | `GHC-83865` (identical types!) | Eta-reduced alias `lengthMapLaw = lengthMap` with function-valued `foreach (f :: a -> b)` prints identical expected/actual types (while `lengthReverseLaw = lengthReverse` passes!) |
 | `R13_ShuntAccumOpenEq.hs` | R13 / R16 | `GHC-83605` (`-O2` only) | Passes `-O0` and `-O2 -fno-enable-rewrite-rules` (checked in `Lists`), still blocked at default `-O2` by Prelude `(++)` rewrite-rule guard |
 | `R13_WildcardBreaksOpenEq.hs` | R13 / R16 | `GHC-70565` | `timesWild Zero _ = Zero` fails open evaluation while `timesNamed Zero n = Zero` succeeds |
-| `R13_PowOpenEq.hs` | R13 / R16 | `GHC-70565` | `pow` (recursion on 2nd arg) fails open evaluation |
 | `R13_RevOpenEq.hs` | R13 / R16 | `GHC-70565` | Naive quadratic `rev (x:xs) = app (rev xs) [x]` fails open evaluation |
 | `R13_SubstSingleUOpenEq.hs` | R13 / R16 | `GHC-68947` | Higher-order GADT-indexed `substSingleU` on `UTerm n` has no checked type-level equations |
 | `R13_LookupEnvOpenEq.hs` | R13 / R16 | `GHC-68947` | GADT-indexed `lookupEnv e x` in `EVar` has no checked type-level equations |

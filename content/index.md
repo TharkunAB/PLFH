@@ -27,8 +27,8 @@ Comments, bug reports, and pull requests are welcome on
 
 ## Part 1: Logical Foundations
 
-- [Naturals](/Naturals/): Natural numbers, `times`, `pow`, `monus`, `Bin` <span class="badge badge-partial">Partial · R13/R16</span>
-- [Induction](/Induction/): Proof by induction (`+-assoc`, `HaskLib.rewrite`, `+-comm`, `cong`/`+-rearrange`, `+-swap`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, `Bin-laws`) <span class="badge badge-partial">Partial · pow WIP</span>
+- [Naturals](/Naturals/): Natural numbers, `times`, `monus`, `pow`, `Bin` <span class="badge badge-pass">Checked</span>
+- [Induction](/Induction/): Proof by induction (`+-assoc`, `HaskLib.rewrite`, `+-comm`, `cong`/`+-rearrange`, `+-swap`, `*-comm`, **`0∸n≡0`**, **`∸-+-assoc`**, **`+*^`**, `Bin-laws`) <span class="badge badge-pass">Checked</span>
 - [Relations](/Relations/): Inductive relations (`_≤_`, `_<_`, trichotomy, `DiffWitness`, `Even`/`Odd`, canonical `One`/`Can` bijection) <span class="badge badge-pass">Checked</span>
 - [Equality](/Equality/): Equality, `RequiredTypeArguments` chains, `substP @Even`, and Leibniz equality with `%U` and inline type lambdas <span class="badge badge-pass">Checked</span>
 - [Isomorphism](/Isomorphism/): Logical equivalence (`_⇔_`), monomorphic `IsoSize` (`isoSizeRefl`/`isoSizeSym`), and polymorphic `_≃_` boundary <span class="badge badge-partial">Iff/IsoSize ✓ · Poly Iso WIP</span>

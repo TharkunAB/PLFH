@@ -197,14 +197,18 @@ pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Recursion on the second argument in open types (R13/R16)]</strong>
-<code>pow</code> compiles as an ordinary Haskell function, but on GHC
-<code>db2586fdc2</code> GHC does not yet publish open source equations for
-functions that recurse on their <em>second</em> argument. Using
-<code>pow m 'Zero</code> with an unknown <code>m</code> in a type fails with
-<code>GHC-70565</code>. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PowOpenEq.hs"><code>reproducers/R13_PowOpenEq.hs</code></a>.
+<div class="note-box">
+<strong>Fixed compiler gap (<code>1f873969e5</code>):</strong>
+On earlier GHC baselines (<code>db2586fdc2</code>–<code>76e67f4fdb</code>),
+<code>pow</code> (which recurses on its <em>second</em> argument while carrying
+<code>m</code> unchanged) failed open type-level evaluation with
+<code>GHC-70565</code>. Checked carried-argument structural equations are now
+published on <code>dependent-haskell</code>
+(<a href="https://github.com/Tritlo/ghc/commit/1f873969e589e84b632e5d0304399ab4d2c997e3"><code>1f873969e5</code></a>),
+tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_PowOpenEq.hs"><code>reproducers/fixed/R13_PowOpenEq.hs</code></a>,
+and used directly to prove all three exponentiation laws (<code>powPlus</code>,
+<code>powMul</code>, <code>powTimes</code>) in <a href="/Induction/">Induction</a>!
 </div>
 
 ## Monus

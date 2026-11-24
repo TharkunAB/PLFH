@@ -25,8 +25,13 @@ module PLFH.Part1.Induction
   , timesZeroR
   , timesSuccR
   , timesComm
+  , timesSwap
+  , timesInterchange
   , zeroMonus
   , monusPlusAssoc
+  , powPlus
+  , powMul
+  , powTimes
   , fromInc
   , fromTo
   , twoTimesThree
@@ -36,7 +41,7 @@ import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import GHC.Exts (U)
 import HaskLib (rewrite)
 import HaskLib.Nat (Nat (..), congFirst, congSucc, plus, plusSucc, plusZero)
-import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, times, toBin)
+import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, pow, times, toBin)
 ```
 
 > Induction makes you feel guilty for getting something out of nothing
@@ -331,14 +336,69 @@ Checked open equations for ordinary <code>monus</code> published on
 unlocking both <code>zeroMonus</code> and <code>monusPlusAssoc</code> directly!
 </div>
 
-### Exponentiation exercises (`+*^`)
+### Exponentiation exercises (`+*^`: `powPlus`, `powMul`, `powTimes`)
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Blocked on open source equations for <code>pow</code> (R13/R16)]</strong>
-PLFA's exponentiation laws (<code>powPlus</code>, <code>powMul</code>,
-<code>powTimes</code>) still await checked open equations for ordinary
-<code>pow</code> from <a href="/Naturals/">Naturals</a>. Minimal reproducer:
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PowOpenEq.hs"><code>reproducers/R13_PowOpenEq.hs</code></a>.
+With checked carried-argument source equations published in `1f873969e5`, all
+three of PLFA's exponentiation laws (`^-distribˡ-+-*`, `^-distribʳ-*`, and
+`^-*-assoc`) prove directly over ordinary `pow` from [Naturals](/Naturals/)!
+
+```haskell
+-- | Swap the first two factors: m * (n * p) = n * (m * p).
+timesSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+          -> times m (times n p) :~: times n (times m p)
+timesSwap m n p =
+  sym (timesAssoc m n p)
+    `trans` congFirst @times @p (timesComm m n)
+    `trans` timesAssoc n m p
+
+-- | Interchange law for multiplication: (a * b) * (c * d) = (a * c) * (b * d).
+timesInterchange :: foreach (a :: Nat) -> foreach (b :: Nat)
+                 -> foreach (c :: Nat) -> foreach (d :: Nat)
+                 -> times (times a b) (times c d) :~: times (times a c) (times b d)
+timesInterchange a b c d =
+  timesAssoc a b (times c d)
+    `trans` congSecond @times @a (timesSwap b c d)
+    `trans` sym (timesAssoc a c (times b d))
+
+-- | Distributivity of exponentiation over addition (`^-distribˡ-+-*`):
+-- m ^ (n + p) = (m ^ n) * (m ^ p).
+powPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+        -> pow m (plus n p) :~: times (pow m n) (pow m p)
+powPlus m n p = case n of
+  Zero   -> sym (plusZero (pow m p))
+  Succ k -> rewrite (powPlus m k p)
+              (sym (timesAssoc m (pow m k) (pow m p)))
+
+-- | Distributivity of exponentiation over multiplication (`^-distribʳ-*`):
+-- (m * n) ^ p = (m ^ p) * (n ^ p).
+powMul :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+       -> pow (times m n) p :~: times (pow m p) (pow n p)
+powMul m n p = case p of
+  Zero   -> Refl
+  Succ k -> rewrite (powMul m n k)
+              (timesInterchange m n (pow m k) (pow n k))
+
+-- | Associativity of iterated exponentiation (`^-*-assoc`):
+-- (m ^ n) ^ p = m ^ (n * p).
+powTimes :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
+         -> pow (pow m n) p :~: pow m (times n p)
+powTimes m n p = case p of
+  Zero   -> rewrite (timesZeroR n) Refl
+  Succ k -> rewrite (powTimes m n k)
+              (sym (powPlus m n (times n k))
+                 `trans` congSecond @pow @m (sym (timesSuccR n k)))
+```
+
+<div class="note-box">
+<strong>Fixed compiler gap (<code>1f873969e5</code>):</strong>
+Checked open equations for ordinary <code>pow</code> (structural recursion on
+a non-leading argument carrying <code>m</code> unchanged) published on
+<code>dependent-haskell</code> at
+<a href="https://github.com/Tritlo/ghc/commit/1f873969e589e84b632e5d0304399ab4d2c997e3"><code>1f873969e5</code></a>
+(tracked as regression check
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_PowOpenEq.hs"><code>reproducers/fixed/R13_PowOpenEq.hs</code></a>),
+completing <strong>every single arithmetic theorem and exercise in PLFA
+Induction</strong>!
 </div>
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
@@ -368,13 +428,14 @@ fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 - Adapted from [Induction](https://plfa.inf.ed.ac.uk/Induction/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
 - Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
-- Checked direct ports of `plusAssoc`, `plusAssocRewrite`, `plusComm`,
-  `plusRearrange`, `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`,
-  `timesSuccR`, `timesComm`, **`zeroMonus`**, **`monusPlusAssoc`**, `fromInc`,
-  and `fromTo`.
+- Checked direct ports of **every** theorem and exercise in PLFA Induction:
+  `plusAssoc`, `plusAssocRewrite`, `plusComm`, `cong`/`plusRearrange`,
+  `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`, `timesSuccR`,
+  `timesComm`, `timesSwap`, `timesInterchange`, `zeroMonus`, `monusPlusAssoc`,
+  **`powPlus`**, **`powMul`**, **`powTimes`**, `fromInc`, and `fromTo`!
 - Uses `HaskLib.rewrite` (corresponding to Agda's `rewrite`, with `withEquality` retained in `HaskLib` as a compatibility alias).
 - Added an explicit negative control (`NegZeroSucc`) verifying GHC rejects
   `'Zero :~: 'Succ 'Zero` (`GHC-83865`).
-- Marked `pow` exercises and second-column equation splitting with `[WIP NOTICE]`
-  callouts and minimal reproducers. (`cong @(plus m)`, nested `rewrite` under
-  `trans`, and ordinary `monus` laws are now checked directly on `63e2f0974b`.)
+- Only the ergonomic pattern-matching limitation for splitting a non-leading
+  retained column directly in function equations (`R03_SecondColumnPattern.hs`)
+  remains as a `[WIP NOTICE]` (using explicit `case` works cleanly).
