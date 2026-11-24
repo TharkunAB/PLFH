@@ -7,6 +7,34 @@ module: PLFH.Part2.Properties
 plfaChapter: https://plfa.inf.ed.ac.uk/Properties/
 ---
 
+Robin Milner famously summarized the guarantee of a sound type system as:
+
+> *"Well-typed programs cannot go wrong."*
+
+In 1994, Andrew Wright and Matthias Felleisen gave a remarkably clean,
+syntactic method for proving Milner's slogan directly from small-step
+operational semantics. Their recipe splits **type safety** into two theorems:
+
+1. **Progress (`progress`)**: Every closed, well-typed term is either already a
+   value or can take a reduction step. It can never get *stuck* in an
+   unrecognized non-value state (such as trying to apply `zero` to an argument).
+2. **Preservation (`preserve`)**, also called *subject reduction*: If a closed,
+   well-typed term takes a reduction step, the resulting term still has the
+   exact same type.
+
+Together, Progress and Preservation tell us by induction that a well-typed
+program can reduce step after step without ever losing its type or getting
+stuck: either it eventually reaches a value of the expected type, or it runs
+forever. Even better, because our proofs are constructive Dependent Haskell
+functions, combining `progress` and `preserve` directly yields a **verified
+interpreter** (`eval`) that computes reduction traces up to a given gas limit!
+
+## Imports
+
+We import equality `(:~:)`, `Void`/`absurd`, Peano naturals `Nat` (for gas and
+variable identifiers), `Not`, and all of the syntax, reduction, and typing
+relations from [Lambda](/Lambda/).
+
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE RankNTypes, ScopedTypeVariables, TypeAbstractions, TypeApplications, TypeOperators #-}
@@ -52,41 +80,38 @@ import PLFH.Part2.Lambda
   )
 ```
 
-Type safety for the simply-typed lambda calculus rests on two classic
-theorems due to Wright and Felleisen:
+## Values do not reduce, and Canonical Forms
 
-1. **Progress:** Every closed, well-typed term is either already a value or
-   can take a step (`progress`).
-2. **Preservation (Subject Reduction):** If a closed, well-typed term takes
-   a step, the resulting term has the same type (`preserve`).
+Before proving Progress, we need to know what *shape* a closed value of a given
+type must have—this is the **Canonical Forms Lemma** (`canonical`):
 
-We prove canonical forms and progress first. The context lemmas then let
-us carry a typing derivation under binders. We use them to prove
-substitution and preservation.
-
-## Canonical forms
-
-A closed value of function type must be a lambda abstraction, and a closed
-value of natural-number type must be `TZero` or `TSuc v`:
+- A closed value of function type `TArr a b` *must* be a lambda abstraction
+  `Lam x n`, whose body `n` has type `b` in `CExt CEmpty x a`.
+- A closed value of natural-number type `TNat` *must* be either `TZero` or
+  `TSuc v`, where `v` is itself a closed value of type `TNat`.
 
 ```haskell
 -- | Canonical form of a closed well-typed value.
 data Canonical (m :: Term) (a :: Ty) where
-  CLam  :: HasType ('CExt 'CEmpty x a) n b -> Canonical ('Lam x n) ('TArr a b)
-  CZero :: Canonical 'TZero 'TNat
-  CSuc  :: Value v -> HasType 'CEmpty v 'TNat -> Canonical ('TSuc v) 'TNat
+  CLam  :: HasType (CExt CEmpty x a) n b -> Canonical (Lam x n) (TArr a b)
+  CZero :: Canonical TZero TNat
+  CSuc  :: Value v -> HasType CEmpty v TNat -> Canonical (TSuc v) TNat
 
 -- | Every closed well-typed value has a canonical form matching its type.
-canonical :: HasType 'CEmpty v a -> Value v -> Canonical v a
+canonical :: HasType CEmpty v a -> Value v -> Canonical v a
 canonical (TLam tn)  VLam      = CLam tn
 canonical TZeroT     VZero     = CZero
 canonical (TSucT tv) (VSuc vv) = CSuc vv tv
 ```
 
+Because `Value` only has constructors for `Lam`, `TZero`, and `TSuc`, GHC's
+pattern-match exhaustiveness checker immediately rules out every mismatched
+pair (like `TZeroT` with `VLam`, or `TApp` with any `Value`).
+
 ## Progress
 
-A closed term `m` makes *progress* if either there exists `n` such that
-`Step m n`, or `Value m`:
+A closed term `m` makes **progress** (`Progress m`) if either there exists some
+term `n` such that `Step m n` (`PStep`), or `m` is already a value (`PDone`):
 
 ```haskell
 -- | Evidence that a closed term either steps or is already a value.
@@ -95,7 +120,7 @@ data Progress (m :: Term) where
   PDone :: Value m  -> Progress m
 
 -- | Progress theorem: every closed well-typed term either steps or is a value.
-progress :: HasType 'CEmpty m a -> Progress m
+progress :: HasType CEmpty m a -> Progress m
 progress (TVar x) = case x of {}
 progress (TLam _) = PDone VLam
 progress (TApp tl tm) = case progress tl of
@@ -116,21 +141,45 @@ progress (TCaseT tl _ _) = case progress tl of
 progress (TMuT _) = PStep BetaMu
 ```
 
-Look how clean that is: `progress` has the **exact same statement, hypotheses,
-and proof structure** as PLFA—no singletons, no type families, no
-coercions—and passes GHC's Core Lint and STG Lint!
+Walk through the `TApp tl tm` case to see how cleanly `progress` works:
+1. By induction on `tl`, either `l` steps (`PStep s`), so `App l m` steps via
+   `XiApp1 s`, or `l` is already a value (`PDone vl`).
+2. If `l` is a value, then by induction on `tm`, either `m` steps (`XiApp2 vl s`)
+   or `m` is also a value (`PDone vm`).
+3. When *both* `l` and `m` are values, `canonical tl vl` proves that `l` must be
+   `Lam x n`, unlocking `BetaLam vm`!
 
-## Structural context lemmas for Preservation (`ext`, `rename`, `weaken`, `drop`, `swap`)
+The `TVar x` case is impossible (`case x of {}`) because the context is empty
+(`CEmpty`), so `Lookup CEmpty x a` has no constructors. Notice that `progress`
+has the **exact same statement, hypotheses, and proof structure** as PLFA—with
+no singletons, no type families, and no coercions—and passes GHC's Core Lint
+and STG Lint.
 
-Before proving substitution and preservation, PLFA develops context renaming
-and its corollaries. Every single one of these structural lemmas ports
-directly to Dependent Haskell:
+## Structural context lemmas (`extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`, `swapTyping`)
+
+To prove Preservation, we must show that β-reduction (`substTerm`) preserves
+typing. Because `substTerm` descends underneath binders (`Lam`, `TCase`, `TMu`),
+we first prove a general **renaming** (context-mapping) lemma: if every lookup
+valid in context `g` can be mapped to a lookup in context `d`, then every
+typing derivation in `g` transports to `d`.
+
+From `renameTyping`, three essential structural properties follow in a few lines
+each:
+
+- **Weakening (`weakenTyping`)**: a closed term (`CEmpty`) is well-typed in *any*
+  context `g` (needed when substituting a closed value at a variable occurrence).
+- **Drop (`dropTyping`)**: when a variable `x` is bound twice in a row, the
+  shadowed inner binding can be dropped (needed when substitution stops at a
+  shadowing binder).
+- **Swap (`swapTyping`)**: two adjacent bindings for *distinct* variables
+  `x /= y` can be exchanged (needed to keep the substituted variable at the end
+  of the context when descending under a different binder).
 
 ```haskell
 -- | Extend a context inclusion under a newly bound variable `x : a`.
 extCtx :: (forall y b. Lookup g y b -> Lookup d y b)
-       -> Lookup ('CExt g x a) y b
-       -> Lookup ('CExt d x a) y b
+       -> Lookup (CExt g x a) y b
+       -> Lookup (CExt d x a) y b
 extCtx _   LZ         = LZ
 extCtx rho (LS neq p) = LS neq (rho p)
 
@@ -148,15 +197,15 @@ renameTyping rho (TCaseT tl tm tn) =
 renameTyping rho (TMuT tm)         = TMuT (renameTyping (extCtx rho) tm)
 
 -- | A closed term is well-typed in any context `g`.
-weakenTyping :: HasType 'CEmpty m a -> HasType g m a
+weakenTyping :: HasType CEmpty m a -> HasType g m a
 weakenTyping = renameTyping (\case {})
 
 -- | Drop a shadowed duplicate binding for `x` from the context.
-dropTyping :: HasType ('CExt ('CExt g x a) x b) m c
-           -> HasType ('CExt g x b) m c
+dropTyping :: HasType (CExt (CExt g x a) x b) m c
+           -> HasType (CExt g x b) m c
 dropTyping = renameTyping dropLookup
   where
-    dropLookup :: Lookup ('CExt ('CExt g x a) x b) y c -> Lookup ('CExt g x b) y c
+    dropLookup :: Lookup (CExt (CExt g x a) x b) y c -> Lookup (CExt g x b) y c
     dropLookup LZ                = LZ
     dropLookup (LS neq LZ)       = absurd (neq Refl)
     dropLookup (LS neq (LS _ p)) = LS neq p
@@ -164,30 +213,42 @@ dropTyping = renameTyping dropLookup
 -- | Swap two distinct adjacent bindings `x /= y` in the context.
 swapTyping :: forall g x y a b m c.
               Not (x :~: y)
-           -> HasType ('CExt ('CExt g x a) y b) m c
-           -> HasType ('CExt ('CExt g y b) x a) m c
+           -> HasType (CExt (CExt g x a) y b) m c
+           -> HasType (CExt (CExt g y b) x a) m c
 swapTyping xNeqY = renameTyping swapLookup
   where
-    swapLookup :: Lookup ('CExt ('CExt g x a) y b) z d
-               -> Lookup ('CExt ('CExt g y b) x a) z d
+    swapLookup :: Lookup (CExt (CExt g x a) y b) z d
+               -> Lookup (CExt (CExt g y b) x a) z d
     swapLookup LZ                         = LS (\Refl -> xNeqY Refl) LZ
     swapLookup (LS _ LZ)                  = LZ
     swapLookup (LS zNeqY (LS zNeqX rest)) = LS zNeqX (LS zNeqY rest)
 ```
 
-## Substitution and Preservation
+## Substitution Typing Lemma (`substTyping`)
 
-The substitution lemma takes a typing derivation for the closed
-replacement and one for the original term in a context ending in
-`y : a`. The proof checks the same identifier comparison as `substTerm`.
-A matching binder shadows `y`. Under a different binder, the proof uses
-`swapTyping` to move the substituted binding to the end of the context.
+The **Substitution Lemma** says: if `v` is a closed term of type `a`
+(`HasType CEmpty v a`) and `t` has type `b` in `CExt g y a`, then substituting
+`v` for `y` in `t` yields a term `substTerm t y v` of type `b` in `g`.
+
+Because `substTerm` branches on `eqId x y :: Bool`, we first package decidable
+equality on `Id` together with the exact Boolean result of `eqId x y` in
+`NameDecision x y`. Pattern matching on `decide x y` simultaneously refines
+`x :~: y` (or `Not (x :~: y)`) *and* reduces `eqId x y` to `True` or `False` in
+`substTerm`'s type!
+
+- When `x` matches `y`, a `Lam`/`TCase`/`TMu` binder shadows `y`, so `substTerm`
+  leaves the body alone and `dropTyping` removes the shadowed `y : a` entry.
+- When `x` differs from `y`, `swapTyping` swaps `x` and `y` so that `y : a` is
+  again the rightmost context entry, ready for the recursive call to
+  `substTyping`.
 
 ```haskell
+-- | Decidable identifier equality paired with the Boolean result of `eqId`.
 data NameDecision (x :: Id) (y :: Id) where
-    Same :: x :~: y -> eqId x y :~: 'True -> NameDecision x y
-    Different :: (x :~: y -> Void) -> eqId x y :~: 'False -> NameDecision x y
+    Same :: x :~: y -> eqId x y :~: True -> NameDecision x y
+    Different :: (x :~: y -> Void) -> eqId x y :~: False -> NameDecision x y
 
+-- | Decide whether two variable identifiers are equal, reflecting `eqId`.
 decide :: foreach (x :: Id) -> foreach (y :: Id) -> NameDecision x y
 decide Zero Zero = Same Refl Refl
 decide Zero (Succ _) = Different (\case {}) Refl
@@ -198,7 +259,7 @@ decide (Succ x) (Succ y) = case decide x y of
 
 -- | Substitute a closed well-typed term for the last context entry.
 substTyping :: forall g a b v. foreach (y :: Id) -> foreach (t :: Term)
-      -> HasType 'CEmpty v a -> HasType ('CExt g y a) t b -> HasType g (substTerm t y v) b
+      -> HasType CEmpty v a -> HasType (CExt g y a) t b -> HasType g (substTerm t y v) b
 substTyping y term replacement typed = case term of
     Var x -> case typed of
       TVar LZ -> case decide x y of
@@ -229,21 +290,29 @@ substTyping y term replacement typed = case term of
         Different neq Refl -> TMuT (substTyping y t replacement (swapTyping (\Refl -> neq Refl) tt))
 ```
 
-Preservation takes the source term, its closed typing derivation, and the
-step. The retained source term supplies the raw syntax for recursive
-calls and substitution. In the two beta cases with an inner constructor
-pattern, `IsLam` and `IsSuc` record the shape imposed by the step. Each
-impossible alternative eliminates that shape witness.
+## Preservation (`preserve`)
+
+Now we prove **Preservation**: if a closed term `m` has type `a` and reduces in
+one step `Step m n`, then `n` also has type `a`.
+
+We retain `foreach (m :: Term)` so that we have the runtime syntax of `m` in
+hand for recursive calls and for `substTyping`. In the two beta cases whose
+redexes constrain a subterm (`BetaLam` forces the function position `l` to be a
+`Lam`; `BetaSuc` forces the scrutinee `l` to be a `TSuc`), the lightweight
+shape witnesses `IsLam` and `IsSuc` carry that constraint across the runtime
+pattern match on `l` so every impossible branch closes with an empty case.
 
 ```haskell
+-- | Shape witness recording that a term is a lambda abstraction.
 data IsLam (m :: Term) where
-    IsLam :: IsLam ('Lam x body)
+    IsLam :: IsLam (Lam x body)
 
+-- | Shape witness recording that a term is a successor.
 data IsSuc (m :: Term) where
-    IsSuc :: IsSuc ('TSuc v)
+    IsSuc :: IsSuc (TSuc v)
 
--- | A step preserves the type of a closed term.
-preserve :: foreach (m :: Term) -> HasType 'CEmpty m a -> Step m n -> HasType 'CEmpty n a
+-- | Preservation theorem: a step preserves the type of a closed term.
+preserve :: foreach (m :: Term) -> HasType CEmpty m a -> Step m n -> HasType CEmpty n a
 preserve source typed step = case source of
     Var _ -> case step of {}
     Lam _ _ -> case step of {}
@@ -286,25 +355,25 @@ preserve source typed step = case source of
         BetaMu -> substTyping x m typed tm
 
 substLam :: foreach (x :: Id) -> foreach (body :: Term)
-         -> HasType 'CEmpty v a
-         -> HasType 'CEmpty ('Lam x body) ('TArr a b)
-         -> HasType 'CEmpty (substTerm body x v) b
+         -> HasType CEmpty v a
+         -> HasType CEmpty (Lam x body) (TArr a b)
+         -> HasType CEmpty (substTerm body x v) b
 substLam x body replacement (TLam tb) = substTyping x body replacement tb
 
 substSuc :: foreach (v :: Term) -> foreach (x :: Id) -> foreach (body :: Term)
-         -> HasType 'CEmpty ('TSuc v) 'TNat
-         -> HasType ('CExt 'CEmpty x 'TNat) body a
-         -> HasType 'CEmpty (substTerm body x v) a
+         -> HasType CEmpty (TSuc v) TNat
+         -> HasType (CExt CEmpty x TNat) body a
+         -> HasType CEmpty (substTerm body x v) a
 substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
 ```
 
-## Determinism (`det`), Multi-Step Preservation (`preserve*`), and Verified Evaluation (`eval`)
+## Determinism (`valueCannotStep`, `stepDeterm`)
 
-Following PLFA's `Properties` exercises and final evaluation section, we also
-prove that values cannot step (`valueCannotStep`), that call-by-value
-reduction is deterministic (`stepDeterm`), that multi-step reduction preserves
-types (`preserveSteps`), and we assemble PLFA's **verified gas-bounded
-evaluator** `eval` directly from `progress` and `preserve`:
+Our call-by-value operational semantics is **deterministic**: every term can
+reduce in at most one way! First we show that no value can take a step
+(`valueCannotStep`), and then structural induction on two steps `Step m n1` and
+`Step m n2` proves `n1 :~: n2` (`stepDeterm`), using `valueCannotStep` to
+eliminate every overlapping `ξ`/`β` pair:
 
 ```haskell
 -- | Values do not reduce (`V-¬—→`).
@@ -333,7 +402,23 @@ stepDeterm BetaZero     BetaZero     = Refl
 stepDeterm (BetaSuc v)  (XiCase s2)  = absurd (valueCannotStep (VSuc v) s2)
 stepDeterm (BetaSuc _)  (BetaSuc _)  = Refl
 stepDeterm BetaMu       BetaMu       = Refl
+```
 
+## Multi-Step Preservation (`preserveSteps`) and Verified Evaluation (`eval`)
+
+Because our language includes general recursion `TMu`, a well-typed term need
+not terminate! How can we write a total evaluator for a Turing-complete
+language? PLFA borrows a well-known idea from smart-contract virtual machines
+such as Ethereum: supply an explicit **gas** budget (`Nat`).
+
+- At each step, if gas is `Zero`, evaluation stops cleanly with `OutOfGas`.
+- If gas is `Succ g`, we call `progress tm`:
+  - If `PDone v`, we have reached a value (`Done StepsRefl v`)!
+  - If `PStep s`, we compute the retained target term `wm' = stepTarget m s`,
+    transport the typing derivation via `preserve m tm s`, and recurse with `g`
+    units of gas remaining!
+
+```haskell
 -- | Retained runtime witness for a promoted `Term`.
 data TermW (t :: Term) where
   MkTermW :: foreach (t :: Term) -> TermW t
@@ -382,7 +467,7 @@ stepTarget source step = case source of
     BetaMu -> MkTermW (substTerm m x (TMu x m))
 
 -- | Multi-step preservation (`preserve*`): `M —↠ N` preserves closed typing.
-preserveSteps :: foreach (m :: Term) -> HasType 'CEmpty m a -> Steps m n -> HasType 'CEmpty n a
+preserveSteps :: foreach (m :: Term) -> HasType CEmpty m a -> Steps m n -> HasType CEmpty n a
 preserveSteps m tm steps = case steps of
   StepsRefl     -> tm
   StepsCons s r -> case stepTarget m s of
@@ -394,7 +479,7 @@ data EvalResult (m :: Term) where
   OutOfGas :: Steps m n -> EvalResult m
 
 -- | PLFA's verified gas-bounded evaluator built directly from `progress` and `preserve`!
-eval :: Nat -> TermW m -> HasType 'CEmpty m a -> EvalResult m
+eval :: Nat -> TermW m -> HasType CEmpty m a -> EvalResult m
 eval Zero     _           _  = OutOfGas StepsRefl
 eval (Succ g) (MkTermW m) tm = case progress tm of
   PDone v -> Done StepsRefl v
@@ -404,12 +489,38 @@ eval (Succ g) (MkTermW m) tm = case progress tm of
       OutOfGas ss -> OutOfGas (StepsCons s ss)
 ```
 
+Notice the payoff: `eval` does not merely compute an answer—it returns a
+machine-checked proof `Steps m v` that the source term `m` reduces to a value
+`v`, built automatically from our Progress and Preservation theorems!
+
+## Exercises
+
+#### Exercise `Progress-¬` (practice)
+
+Show that well-typedness is *not* necessary for progress: exhibit an ill-typed
+closed term `m` that nevertheless satisfies `Progress m` (for instance,
+`App (Lam Zero TZero) (App TZero TZero)` reduces via `XiApp2`? Wait—think
+carefully about call-by-value order and try `Lam Zero (App TZero TZero)`!).
+
+#### Exercise `Preservation-¬` (practice)
+
+Show that a closed term can take a step to a well-typed term without itself
+being well-typed (for instance, `TCase TZero TZero Zero (App TZero TZero)`
+steps via `BetaZero` to `TZero`!).
+
+#### Exercise `eval-example` (practice)
+
+Using `eval` with gas `5`, evaluate `App (Lam Zero (Var Zero)) TZero` and
+`TCase (TSuc TZero) TZero Zero (Var Zero)`, verifying both return `Done` with
+`VZero`.
+
 ## Changes from PLFA
 
 - Adapted from [Properties](https://plfa.inf.ed.ac.uk/Properties/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Properties.lagda.md)).
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Properties.lagda.md)),
+  licensed under CC BY 4.0.
 - `Canonical`, `canonical`, `Progress`, `progress`, `valueCannotStep`,
-  **`stepDeterm`**, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
-  `swapTyping`, `substTyping`, **`preserve`**, **`preserveSteps`**, and the
-  verified gas-bounded evaluator **`eval`** are all **checked direct ports**
-  passing `-dcore-lint -dstg-lint`!
+  `stepDeterm`, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
+  `swapTyping`, `substTyping`, `preserve`, `preserveSteps`, and the verified
+  gas-bounded evaluator `eval` are all checked direct ports passing
+  `-dcore-lint -dstg-lint`.

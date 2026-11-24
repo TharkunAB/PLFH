@@ -12,7 +12,7 @@ import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, dec
 import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
-import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, natIsoRefl)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
 import PLFH.Part1.Lists (All (..), Any (..), decAll, downFrom, lengthDownFrom, lengthZeros, notAnyIffAllNot, shuntAppend)
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
@@ -102,6 +102,18 @@ main = do
               b = False
           in case left b of Refl -> from (to b)
   assertEq "Isomorphism.embedRefl @Bool" False polyEmbedRefl
+  let polyIsoTrans = case isoTrans (isoRefl @(Maybe Bool)) (isoSym (isoRefl @(Maybe Bool))) of
+        MkIso to from left right ->
+          let x :: Maybe Bool
+              x = Just False
+          in case (left x, right x) of (Refl, Refl) -> from (to x)
+  assertEq "Isomorphism.isoTrans @(Maybe Bool)" (Just False) polyIsoTrans
+  let natEmbedTrans = case embedTrans embedRefl binEmbedding of
+        MkEmbed to from left ->
+          let n :: Nat
+              n = 6
+          in case left n of Refl -> natToInt (from (to n))
+  assertEq "Isomorphism.embedTrans embedRefl binEmbedding 6" 6 natEmbedTrans
 
   let sum23 = case plusExists 2 3 of
         Pair k Refl -> natToInt k
@@ -161,17 +173,17 @@ main = do
         in case allNot of AllCons _ (AllCons _ AllNil) -> True)
 
   -- Part 2: STLC Progress & Preservation, Certified Inference, Untyped, Bisimulation, BigStep, Confluence
-  let idTy :: L.HasType 'L.CEmpty ('L.App ('L.Lam 'Zero ('L.Var 'Zero)) 'L.TZero) 'L.TNat
+  let idTy :: L.HasType L.CEmpty (L.App (L.Lam Zero (L.Var Zero)) L.TZero) L.TNat
       idTy = L.TApp (L.TLam (L.TVar L.LZ)) L.TZeroT
   assertEq "Properties.progress ((\\x. x) 0)" True
     (case progress idTy of { PStep (L.BetaLam L.VZero) -> True; _ -> False })
   assertEq "Properties.preserve BetaLam ((\\x. x) 0)" True
     (case preserve (L.App (L.Lam Zero (L.Var Zero)) L.TZero) idTy (L.BetaLam L.VZero) of { L.TZeroT -> True })
-  let caseSucTy :: L.HasType 'L.CEmpty ('L.TCase ('L.TSuc 'L.TZero) 'L.TZero 'Zero ('L.Var 'Zero)) 'L.TNat
+  let caseSucTy :: L.HasType L.CEmpty (L.TCase (L.TSuc L.TZero) L.TZero Zero (L.Var Zero)) L.TNat
       caseSucTy = L.TCaseT (L.TSucT L.TZeroT) L.TZeroT (L.TVar L.LZ)
   assertEq "Properties.preserve BetaSuc (case (suc 0) ...)" True
     (case preserve (L.TCase (L.TSuc L.TZero) L.TZero Zero (L.Var Zero)) caseSucTy (L.BetaSuc L.VZero) of { L.TZeroT -> True })
-  let muTy :: L.HasType 'L.CEmpty ('L.TMu 'Zero 'L.TZero) 'L.TNat
+  let muTy :: L.HasType L.CEmpty (L.TMu Zero L.TZero) L.TNat
       muTy = L.TMuT L.TZeroT
   assertEq "Properties.preserve BetaMu (mu x. 0)" True
     (case preserve (L.TMu Zero L.TZero) muTy L.BetaMu of { L.TZeroT -> True })
@@ -181,9 +193,9 @@ main = do
     (case eval 5 (MkTermW (L.App (L.Lam Zero (L.Var Zero)) L.TZero)) idTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
   assertEq "Properties.eval (case (suc 0) ...) 5" True
     (case eval 5 (MkTermW (L.TCase (L.TSuc L.TZero) L.TZero Zero (L.Var Zero))) caseSucTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
-  let dbSuc :: DB.Term 'DB.CEmpty 'DB.TNat
+  let dbSuc :: DB.Term DB.CEmpty DB.TNat
       dbSuc = DB.Suc DB.Zero
-      dbApp :: DB.Term 'DB.CEmpty 'DB.TNat
+      dbApp :: DB.Term DB.CEmpty DB.TNat
       dbApp = DB.App (DB.Lam (DB.Var DB.Z)) DB.Zero
   assertEq "DeBruijn.checkValue (Suc Zero)" True
     (case DB.checkValue dbSuc of { DB.YesVal _ -> True; DB.NotVal -> False })

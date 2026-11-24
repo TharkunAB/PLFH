@@ -19,8 +19,9 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the latest verified published component binary on dependent-haskell:
-#   3326acd9b1 / 0eb794cd38 (R11 nested existential GADT fix + polymorphic isoRefl + e7a798a060),
-#   falling back to e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+#   6c8ab7f7de / d8eec2036d (generic isoTrans/embedTrans via Prelude (.) + 3326acd9b1 + 0eb794cd38),
+#   falling back to 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+COMP_6C8="$GHC_REPO/_build/on-demand/plfh-iso-transitivity-8def3bbd.ezUTMZSt/final.lamb4bMy/compiler/ghc"
 COMP_332="$GHC_REPO/_build/on-demand/plfh-r11-nested-gadt-8b37-20261124/checked/component/ghc"
 COMP_E7A="$GHC_REPO/_build/on-demand/plfh-indexed-app-forward-34582-20261124/checked/component/ghc"
 COMP_C97="$GHC_REPO/_build/on-demand/plfh-integration-601-20261124/check.hAzvA2/compiler/ghc"
@@ -33,7 +34,10 @@ LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$COMP_332" ]]; then
+if [[ -x "$COMP_6C8" ]]; then
+  DEFAULT_COMPILER="$COMP_6C8"
+  DEFAULT_LIBDIR="$COMP_LIB"
+elif [[ -x "$COMP_332" ]]; then
   DEFAULT_COMPILER="$COMP_332"
   DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$COMP_E7A" ]]; then
@@ -62,7 +66,7 @@ fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_332" || "$COMPILER" == "$COMP_E7A" || "$COMPILER" == "$COMP_C97" || "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_6C8" || "$COMPILER" == "$COMP_332" || "$COMPILER" == "$COMP_E7A" || "$COMPILER" == "$COMP_C97" || "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
@@ -97,7 +101,9 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_332" ]]; then
+if [[ "$COMPILER" == "$COMP_6C8" ]]; then
+  echo "Commit:   6c8ab7f7deb9bbd0ef5e2fa03a5ece733f638492 / d8eec2036d (verified component; base libdir seed: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_332" ]]; then
   echo "Commit:   3326acd9b1fea98090eb5e8f3f89b5a85e44d849 / 0eb794cd38 (verified component; base libdir seed: $COMMIT)"
 elif [[ "$COMPILER" == "$COMP_E7A" ]]; then
   echo "Commit:   e7a798a060b754abb0f9d9dcc9cedddd6b1bdaf5 / 5a7d9d7de8 (verified component; base libdir seed: $COMMIT)"

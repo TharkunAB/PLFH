@@ -7,6 +7,35 @@ module: PLFH.Part2.Inference
 plfaChapter: https://plfa.inf.ed.ac.uk/Inference/
 ---
 
+In [DeBruijn](/DeBruijn/) we represented programs as intrinsically typed terms
+`Term g a`, whose well-typedness is enforced statically by GHC. That makes
+metatheory wonderfully clean—ill-typed terms simply do not exist!—but it leaves
+a practical question: in a real compiler or interpreter, programs arrive from a
+parser as **untyped abstract syntax trees** (`RawTerm`), not as pre-verified
+typing derivations!
+
+How do we bridge the gap between untyped syntax and intrinsically typed terms?
+We write a **certified type inference and typechecking algorithm**:
+
+- Given a runtime typing context `g :: Ctx` and a raw syntax tree `RawTerm`,
+  `infer` *synthesizes* a runtime type `a :: Ty` paired with an intrinsically
+  typed `Term g a` (or returns `Nothing` if the raw term is ill-typed).
+- Given an expected runtime type `a :: Ty`, `check` verifies that the raw term
+  has type `a` and returns `Maybe (Term g a)`.
+
+Notice the beauty of dependent types here: **soundness of type inference is
+guaranteed by construction!** Because `infer` returns a `Term g a`, it is
+impossible for `infer` to succeed and report a bogus type—the returned value
+*is* a complete machine-checked typing derivation! Every single line of this
+chapter compiles natively with `-dcore-lint -dstg-lint` with **no singletons
+and no type families**.
+
+## Imports
+
+We import propositional equality `(:~:)`, Peano naturals `HaskLib.Nat` (for
+raw de Bruijn numbers), `Not` from [Decidable](/Decidable/), and our
+intrinsically typed STLC definitions from [DeBruijn](/DeBruijn/).
+
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, TypeApplications #-}
@@ -29,24 +58,17 @@ import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 ```
 
-In [DeBruijn](/DeBruijn/) we defined intrinsically typed terms `Term g a`,
-whose well-typedness is enforced statically by GHC. But in a real compiler,
-programs arrive as *untyped* raw syntax trees parsed from text!
+## Bidirectional vs. syntax-directed typing, and raw syntax (`RawTerm`)
 
-Following PLFA's **Inference** chapter, we write a **certified type
-inference and typechecking algorithm** that takes a raw, untyped term
-`RawTerm` and a runtime context `g :: Ctx`, and—if typechecking succeeds—
-returns a **dependent pair** (`Typed g`) pairing the inferred runtime type
-`a :: Ty` with an intrinsically-typed derivation `Term g a`!
+Our typing rules in [DeBruijn](/DeBruijn/) are almost **syntax-directed**: the
+outermost constructor of a term determines which typing rule applies. The only
+places where an untyped term lacks enough information to *synthesize* its type
+from the bottom up are variable-binding forms (`Lam` and `Mu`), where the
+bound variable's type could otherwise be anything.
 
-Every single piece of this chapter compiles natively with `-dcore-lint -dstg-lint`
-with **no singletons and no type families**!
-
-## Raw untyped syntax (`RawTerm`)
-
-Lambda abstractions and `μ`-recursions carry type annotations for their bound
-variables (bidirectional/Church-style syntax), while variable occurrences are
-plain runtime de Bruijn numbers (`N.Nat`):
+Following PLFA's Church-style raw syntax, we annotate `RLam` and `RMu` with the
+type `Ty` of their bound variable, while variable occurrences are plain runtime
+natural numbers `N.Nat` (unverified de Bruijn indices):
 
 ```haskell
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
@@ -61,10 +83,20 @@ data RawTerm
   deriving (Show)
 ```
 
+Notice what is *not* checked by `RawTerm`: `RVar 99` can refer out of bounds,
+`RApp RZero RZero` can apply zero to zero, and `RCase RZero RZero (RLam TNat (RVar 0))`
+can have mismatched branch types. Our certified `infer` function will reject all
+of these and produce a `Term g a` only when every typing invariant holds.
+
 ## Decidable type equality (`decEqTy`)
 
-To check that a function's argument type matches its parameter type, we need
-decidable propositional equality on `Ty`:
+When typechecking an application `RApp l m`, a `RCase` expression's two
+branches, or a recursive `RMu a m`, we need to test whether two runtime types
+`a` and `b` are equal—and, when they are, obtain a **propositional equality
+proof** `a :~: b` so GHC knows `Term g a` and `Term g b` have the same type!
+
+Because `Ty` is a simple inductive datatype, structural recursion on retained
+`foreach (a :: Ty)` and `foreach (b :: Ty)` decides equality cleanly:
 
 ```haskell
 -- | Decidable equality on simple types `Ty`.
@@ -83,8 +115,15 @@ decEqTy (TArr a1 a2) b = case b of
 
 ## Dependent result packages & runtime context lookup
 
-A successful inference returns a runtime type `a :: Ty` paired with an
-intrinsically typed `Term g a` (a `foreach`-carrying GADT constructor):
+When `infer` succeeds on a raw term in context `g`, it does not know the
+result type `a` in advance—it *discovers* `a` at runtime! We therefore package
+the inferred runtime type `a :: Ty` (bound with `foreach` so callers can inspect
+it!) together with the intrinsically typed term `Term g a` in a dependent pair
+`Typed g`.
+
+Likewise, looking up a raw de Bruijn number `n :: N.Nat` in a runtime context
+`g :: Ctx` returns `Maybe (LookupRes g)`, pairing the discovered entry type `a`
+with the verified de Bruijn pointer `Lookup g a`:
 
 ```haskell
 -- | An inferred runtime type paired with its intrinsically typed term.
@@ -105,6 +144,23 @@ lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
 ```
 
 ## Certified Type Inference (`infer`) and Checking (`check`)
+
+Now `infer` walks `RawTerm` structurally, combining `lookupCtx` and `decEqTy`:
+
+- **`RVar n`**: look up `n` in `g`; if found at type `a` with pointer `p`, wrap
+  `Var p`.
+- **`RLam a body`**: extend the runtime context to `CExt g a`, infer `body`'s
+  type `b`, and return `TArr a b` with `Lam body'`.
+- **`RApp l m`**: infer `l`'s type `lTy`, match on `lTy` to ensure it is
+  `TArr a b`, infer `m`'s type `a'`, and call `decEqTy a a'`! Matching
+  `Right Refl` unifies `a` and `a'`, so GHC accepts `App l' m'` at type `b`!
+- **`RZero` / `RSuc m`**: verify `m` has type `TNat`.
+- **`RCase l m n`**: verify `l` has type `TNat`, infer `m`'s type `a` and `n`'s
+  type `a'` in `CExt g TNat`, and unify `a` with `a'` via `decEqTy`.
+- **`RMu a m`**: infer `m`'s type `a'` in `CExt g a` and verify `a :~: a'`.
+
+Finally, `check` checks a raw term against a caller-supplied runtime type `a`
+by running `infer` and comparing the inferred type `a'` with `a`:
 
 ```haskell
 -- | Certified type inference: given a runtime context `g` and raw term,
@@ -165,10 +221,39 @@ rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
 ```
 
+Notice what happens at runtime (tested in PLFH's executable smoke test):
+- `infer CEmpty (RApp rawIdNat rawTwo)` returns `Just (MkTyped TNat (App (Lam (Var Z)) (Suc (Suc Zero))))`!
+- `infer CEmpty (RApp RZero rawTwo)` returns `Nothing` (applying `0` to `2` is rejected)!
+- `check CEmpty rawTwo TNat` returns `Just (Suc (Suc Zero))`, while `check CEmpty rawTwo (TArr TNat TNat)` returns `Nothing`.
+
+## Exercises
+
+#### Exercise `erase` and round-trip soundness (recommended)
+
+Define an erasure function `erase :: Term g a -> RawTerm` that strips the
+dependent typing information back down to raw syntax (preserving binder
+annotations on `Lam` and `Mu`), and observe that `infer` on `erase t` recovers
+a term equivalent to `t`.
+
+#### Exercise `Bidirectional` (stretch)
+
+Notice that `RLam` always requires a type annotation even when it is checked
+against a known function type `TArr a b` via `check`. Following PLFA's
+bidirectional typing exercise, split `RawTerm` into *synthesizable* terms
+(variables, applications, annotated expressions) and *checkable* terms (unannotated
+lambdas `λ. body`), mutually recursing between `infer` and `check`!
+
+#### Exercise `Inference-errors` (practice)
+
+Replace `Maybe` in `infer` with a rich `Either TypeError (Typed g)` carrying
+structured diagnostics (out-of-scope variable, expected function type, type
+mismatch with expected and actual `Ty`).
+
 ## Changes from PLFA
 
 - Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)).
+  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)),
+  licensed under CC BY 4.0.
 - Implements full certified type inference (`infer`) and type checking (`check`)
   for Church-annotated de Bruijn STLC terms (variables, lambdas, applications,
   `Zero`, `Suc`, `Case`, `Mu`), returning intrinsically-typed `Term g a` values

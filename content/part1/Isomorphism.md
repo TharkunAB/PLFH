@@ -24,12 +24,14 @@ by constructing functions between them:
 
 ## Imports
 
-We import propositional equality `(:~:)`, `Nat` from `HaskLib.Nat`, binary
-numerals `Bin`, `fromBin`, `toBin` from [Naturals](/Naturals/), and the
-round-trip proof `fromTo` from [Induction](/Induction/).
+We import propositional equality `(:~:)`, equality transitivity `trans`,
+congruence `cong`, `Nat` from `HaskLib.Nat`, binary numerals `Bin`, `fromBin`,
+`toBin` from [Naturals](/Naturals/), and the round-trip proof `fromTo` from
+[Induction](/Induction/).
 
 ```haskell
-{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, TypeOperators #-}
+{-# LANGUAGE DataKinds, ExperimentalDependentTypes, GADTs, ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
@@ -40,9 +42,12 @@ module PLFH.Part1.Isomorphism
   , identityRoundTrip
   , isoRefl
   , isoSym
+  , composeLeft
+  , isoTrans
   , natIsoRefl
   , Embed (..)
   , embedRefl
+  , embedTrans
   , isoImpliesEmbed
   , embedImpliesIff
   , binEmbedding
@@ -53,7 +58,8 @@ module PLFH.Part1.Isomorphism
   , isoSizeSym
   ) where
 
-import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality ((:~:) (Refl), trans)
+import HaskLib (cong)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
@@ -161,15 +167,35 @@ isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Generic transitivity of <code>Iso</code> (R04)]</strong>
-Generic transitivity (<code>isoTrans :: Iso a b -&gt; Iso b c -&gt; Iso a c</code>)
-needs local composite functions <code>to x = h (f x)</code> and
-<code>from y = g (k y)</code> to fill <code>MkIso</code>'s retained function
-fields, yet the nested-call round-trip proofs do not reduce to those opaque
-local composite names (<code>GHC-83865</code>; see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>reproducers/R04_ComposedIsoFields.hs</code></a>).
-</div>
+### Transitivity of isomorphism (`≃-trans`)
+
+Given an isomorphism `Iso a b` with maps `f :: a -> b` and `g :: b -> a`, and
+an isomorphism `Iso b c` with maps `h :: b -> c` and `k :: c -> b`, we compose
+the forward maps with Prelude `(.)` as `h . f` and the reverse maps as `g . k`.
+
+To prove the left round trip `g (k (h (f x))) :~: x`, the inner inverse proof
+`kh (f x)` gives `k (h (f x)) :~: f x`; applying `cong @g` surrounds both sides
+with `g`, and `trans` composes that step with the outer inverse proof `gf x`:
+
+```haskell
+-- | Cancel the inner round trip, then use the outer left inverse.
+composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
+            -> foreach (h :: b -> c) -> foreach (k :: c -> b)
+            -> (foreach (x :: a) -> g (f x) :~: x)
+            -> (foreach (y :: b) -> k (h y) :~: y)
+            -> foreach (x :: a) -> g (k (h (f x))) :~: x
+composeLeft f g _ _ gf kh x = trans (cong @g (kh (f x))) (gf x)
+
+-- | Generic transitivity of isomorphism (`≃-trans`).
+isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
+isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
+  MkIso @a @c (h . f) (g . k)
+    (composeLeft f g h k gf kh)
+    (composeLeft k h g f hk fg)
+```
+
+Exchanging the roles of `(f, g, gf)` and `(k, h, hk)` gives the reverse round
+trip by the exact same lemma `composeLeft`!
 
 ## Embedding (`_≲_`)
 
@@ -188,8 +214,9 @@ data Embed a b where
 
 Every isomorphism immediately gives an embedding by forgetting the reverse
 round-trip proof (`isoImpliesEmbed`)—giving generic embedding reflexivity
-`embedRefl` immediately—and every embedding gives a logical equivalence by
-forgetting the remaining round-trip proof (`embedImpliesIff`):
+`embedRefl` immediately—and `composeLeft` gives generic embedding transitivity
+`embedTrans` (`≲-trans`) as well! Finally, forgetting the remaining round-trip
+proof gives logical equivalence (`embedImpliesIff`):
 
 ```haskell
 -- | Every isomorphism gives an embedding.
@@ -199,6 +226,11 @@ isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
 -- | Generic reflexivity of embedding (`≲-refl`).
 embedRefl :: Embed a a
 embedRefl = isoImpliesEmbed isoRefl
+
+-- | Generic transitivity of embedding (`≲-trans`).
+embedTrans :: forall a b c. Embed a b -> Embed b c -> Embed a c
+embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
+  MkEmbed @a @c (h . f) (g . k) (composeLeft f g h k gf kh)
 
 -- | Every embedding gives a logical equivalence.
 embedImpliesIff :: Embed a b -> Iff a b
@@ -288,10 +320,9 @@ canonicality proof `Can b` repairs the failure shown in
   function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`)
   and explicit round-trip proofs.
 - Checked generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
+  transitivity (`isoTrans`, `embedTrans`, using Prelude `(.)` directly),
   `isoImpliesEmbed`, `embedImpliesIff`, `binEmbedding`, negative control
   `NegBinReverseRoundTrip`, `Iff` (`iffRefl`, `iffSym`, `iffTrans`), and
   monomorphic `IsoSize`.
-- Marked generic `isoTrans` with `[WIP NOTICE]` and minimal reproducer
-  `R04_ComposedIsoFields.hs`.
 - Like Agda, Dependent Haskell does not prove function extensionality
   internally; PLFH avoids axioms/`postulate`.

@@ -4,5 +4,5 @@ module NegIllTypedApp (badApp) where
 
 import PLFH.Part2.Lambda (Ctx (..), HasType (..), Term (..), Ty (..))
 
-badApp :: HasType 'CEmpty ('App 'TZero 'TZero) 'TNat
+badApp :: HasType CEmpty (App TZero TZero) TNat
 badApp = TApp TZeroT TZeroT
