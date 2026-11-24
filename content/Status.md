@@ -10,7 +10,7 @@ the current experimental Dependent Haskell compiler
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
 - **Compiler & HaskLib:** GHC `10.1.20261115.1` (`Tritlo/ghc`, branch `dependent-haskell`, Wave 1 4-lane preview [`69a36b132f`](https://github.com/Tritlo/ghc/tree/dependent-haskell), verified at `-O0` and `-O2`) + `HaskLib.Nat` (`Nat(..)`, `type (+)`, `eqSize`/`eqSizeRefl`, decimal literals) and `HaskLib.rewrite`.
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 34 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **10 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 152 `[RUN-OK]` checks), **37 fixed regressions**, and **7 open compiler-gap reproducers**.
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all 34 modules, automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **10 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, 152 `[RUN-OK]` checks), **37 fixed regressions**, and **13 open compiler-gap reproducers**.
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; mark unsupported items `[WIP NOTICE]` and maintain a minimal standalone reproducer under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers).
 
@@ -61,16 +61,22 @@ the current experimental Dependent Haskell compiler
 | `hs/negative/NegBigStepBadLookup.hs` | `Eval ENil (((λx y. x) id) Ω) (MkClos OmegaTerm ENil)` (forged `lookupEnv` closure) | `GHC-83865` |
 | `hs/negative/NegBadBetaStep.hs` | `BetaStep (UApp IdTerm IdTerm) OmegaTerm` | `GHC-83865` |
 
-## Open Minimal Compiler-Gap Reproducers (7 Tracked)
+## Open Minimal Compiler-Gap Reproducers (13 Tracked)
 
 Every open reproducer lives under [`reproducers/`](https://github.com/Tritlo/PLFH/tree/main/reproducers) and is mirrored to `docs/dependent-haskell/plfh/reproducers/` in `Tritlo/ghc`:
 
-| Reproducer (`reproducers/`) | Serokell Card | Diagnostic | Summary |
+| Reproducer (`reproducers/`) | Serokell Card / Proposals | Diagnostic | Summary |
 | --- | --- | --- | --- |
-| `R04_ComposedIsoFields.hs` | R04 | `GHC-83865` | Defining `isoTrans` with opaque local aliases `to x = h (f x)` / `from y = g (k y)` fails to reduce in `MkIso` (whereas Prelude `(.)` succeeds directly in `Isomorphism`) |
-| `R04_IndexedForEachCtorField.hs` | R04 / R03 | `GHC-83605` | Binding an indexed GADT (`UTerm n`, `Fin n`) as a `foreach` data-constructor field—or packing a constructed `ULam b'` into `GHC.Sigma.Sigma` (`Pair`)—is rejected (blocks constructive `Untyped.evalNormal` & bridging retained `betaToPar`/`simSubst` to erased GADTs) |
-| `R03_FunctionColumnSplit.hs` | R03 | `GHC-83605` (`-O2` only) | Passes `-O0` and `-fno-enable-rewrite-rules` (direct `mapAppend`/`mapCompose` checked in `Lists`), blocked at default `-O2` by list-fusion rewrite-rule guard |
-| `R13_ShuntAccumOpenEq.hs` | R13 / R16 | `GHC-83605` (`-O2` only) | Passes `-O0` and `-O2 -fno-enable-rewrite-rules` (checked in `Lists`), blocked at default `-O2` by Prelude `(++)` rewrite-rule guard |
-| `R16_AbstractRenamingInType.hs` | R13 / R16 | `GHC-70565` | Mentioning `rename r m` with a default-arrow (`->` instead of `%U ->`) abstract renaming variable fails closed evaluation |
-| `R13_RevOpenEq.hs` | R13 / R16 | `GHC-70565` (`-O2` only) | Passes `-O0` (and `rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses` check in `Lists` under `-fno-enable-rewrite-rules`); blocked at default `-O2` by list-literal `[x]` rewrite-rule guard |
-| `R23_MatchabilityInLeibniz.hs` | R23 | `GHC-83865` | Matchable `EqP x :: a -> Type` cannot instantiate `a %U -> Type` directly |
+| `R03_FunctionColumnSplit.hs` | R03 / R16 (`#378`) | `GHC-83605` (`-O2` only) | Passes `-O0` and `-fno-enable-rewrite-rules` (checked in `Lists`), blocked at default `-O2` by list-fusion rewrite-rule guard |
+| `R03_InlineGadtCtorForEachArg.hs` | R03 (`#378`) | `GHC-83605` | Passing an inline indexed-GADT constructor (`P.CHole :: P.UCtx Zero Zero`) directly as a `foreach` argument is rejected unless routed through a plain wrapper |
+| `R03_UntouchableRetainedCallPoly.hs` | R03 / R05 (`#274`, OutsideIn(X)) | `GHC-83865` | Calling a polymorphic combinator (`appCong (comp c eq) MkRel`) inside a `foreach` equation hits *"untouchable inside the constraints: () bound by a retained application"* unless every type argument is passed explicitly |
+| `R04_ComposedIsoFields.hs` | R04 (`#378`) | `GHC-83865` | Defining `isoTrans` with opaque local aliases `to x = h (f x)` / `from y = g (k y)` fails to reduce in `MkIso` (whereas Prelude `(.)` succeeds directly in `Isomorphism`) |
+| `R04_IndexedForEachCtorField.hs` | R04 / R03 (`#378`, `#473`) | `GHC-83605` | Binding an indexed GADT (`UTerm n`, `Fin n`) as a `foreach` data-constructor field—or packing a constructed `ULam b'` into `GHC.Sigma.Sigma` (`Pair`)—is rejected (blocks `DeBruijn`/`Untyped` `eval` & bridging retained `betaToPar`/`simSubst` to erased GADTs) |
+| `R13_LargeElimTermToType.hs` | R06 / R13 (`#378`, `#281`, `#509`) | `GHC-83605` / `GHC-70566` | Term-to-`Type` large elimination (`valPred :: Val -> Type` via `type (...)`) is unsupported, forcing `Adequacy.LogVLam` to remain the book's sole `type family` |
+| `R13_RevOpenEq.hs` | R13 / R16 (`#378`) | `GHC-70565` (`-O2` only) | Passes `-O0` and `-fno-enable-rewrite-rules` (checked in `Lists`); blocked at default `-O2` by list-literal `[x]` rewrite-rule guard |
+| `R13_SameModulePlugOpenEq.hs` | R13 / R16 / R21 (`#378`, `#509`) | `GHC-68947` | Two-index GADT traversal `plug :: UCtx m n -> UTerm m -> UTerm n` has no same-module checked equations (passes cross-module via `-fwrite-source-equations` in `fixed/R13_PlugOpenEq.hs`) |
+| `R13_ShuntAccumOpenEq.hs` | R13 / R16 (`#378`) | `GHC-83605` (`-O2` only) | Passes `-O0` and `-O2 -fno-enable-rewrite-rules` (checked in `Lists`), blocked at default `-O2` by Prelude `(++)` rewrite-rule guard |
+| `R16_AbstractRenamingInType.hs` | R16 / R23 (`#242`) | `GHC-83865` | Mentioning `rename r m` with a default-arrow (`->` instead of `%U ->`) abstract renaming variable fails matchability check |
+| `R17_TypeLambdaCaptureUnmatchable.hs` | R17 / R23 (`#378`, `#242`) | `GHC-27185` | Capturing an unmatchable predicate variable `p :: a %U -> Type` inside an inline type-level lambda (`@(\z -> p z -> p x)`) fails, blocking PLFA's pure impredicative Leibniz symmetry `sym-≐` |
+| `R21_SameModuleSubstSingleOpenEq.hs` | R13 / R16 / R21 (`#378`, `#509`) | `GHC-68947` | Intrinsically-typed `substSingle` has no same-module checked equations in `Step`/`BetaLam` (passes cross-module via `-fwrite-source-equations` in `DeBruijnProgress.hs` / `MoreProgress.hs`) |
+| `R23_MatchabilityInLeibniz.hs` | R23 (`#242`) | `GHC-83865` | Matchable `EqP x :: a -> Type` cannot instantiate `a %U -> Type` directly without eta-expansion `@(\z -> EqP x z)` |
