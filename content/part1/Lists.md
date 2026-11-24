@@ -220,7 +220,7 @@ shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
 -- | Naive quadratic list reversal (`reverse` in PLFA).
 rev :: List a -> List a
 rev []     = []
-rev (x:xs) = rev xs ++ (x : [])
+rev (x:xs) = rev xs ++ [x]
 
 -- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
 revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
@@ -228,14 +228,14 @@ revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
 revAppend []     ys = sym (appendNilR @a (rev ys))
 revAppend (x:xs) ys =
   case revAppend xs ys of
-    Refl -> case appendAssoc (rev ys) (rev xs) (x : []) of
+    Refl -> case appendAssoc (rev ys) (rev xs) [x] of
       Refl -> Refl
 
 -- | Reversing a list twice returns the original list (`reverse-involutive`).
 revInvolutive :: forall a. foreach (xs :: List a) -> rev (rev xs) :~: xs
 revInvolutive []     = Refl
 revInvolutive (x:xs) =
-  case revAppend (rev xs) (x : []) of
+  case revAppend (rev xs) [x] of
     Refl -> case revInvolutive xs of
       Refl -> Refl
 
@@ -245,7 +245,7 @@ shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
 shuntRev []     _  = Refl
 shuntRev (x:xs) ys =
   case shuntRev xs (x : ys) of
-    Refl -> case appendAssoc (rev xs) (x : []) ys of
+    Refl -> case appendAssoc (rev xs) [x] ys of
       Refl -> Refl
 
 -- | Fast linear-time reversal `shunt xs []` agrees with naive `rev xs` (`reverses`)!
@@ -325,13 +325,12 @@ foldrTimesAppend (x : xs) ys =
 <strong>[WIP NOTICE — Default <code>-O2</code> list rewrite rules]</strong>
 This module disables list-fusion rewrite rules via
 <code>-fno-enable-rewrite-rules</code>. With rewrite rules enabled at default
-<code>-O2</code>, GHC rejects <code>mapAppend</code>, <code>shuntAppend</code>,
-and list-literal <code>rev</code> at the Prelude list-fusion rewrite-rule guard
-(see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>,
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>,
+<code>-O2</code>, GHC guards <code>mapAppend</code> and
+<code>shuntAppend</code> against Prelude <code>(++)</code>/<code>map</code>
+fusion rewrite rules (see
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>
 and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>).
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>).
 </div>
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
@@ -613,6 +612,6 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
   installed `GHC.Internal.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
   `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
   `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
-- Marked default `-O2` list rewrite-rule guards (`R03_FunctionColumnSplit.hs`,
-  `R13_ShuntAccumOpenEq.hs`, `R13_RevOpenEq.hs`) with `[WIP NOTICE]` and
-  minimal reproducers.
+- Marked default `-O2` Prelude `(++)`/`map` list-fusion rewrite-rule guards
+  (`R03_FunctionColumnSplit.hs`, `R13_ShuntAccumOpenEq.hs`) with `[WIP NOTICE]`
+  and minimal reproducers.

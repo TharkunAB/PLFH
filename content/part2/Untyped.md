@@ -352,11 +352,6 @@ type BumpRes :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Type
 data BumpRes c x where
   MkBump :: foreach (y :: Fin (Succ n)) -> BumpFin c x y -> BumpRes c x
 
--- | Lift a `BumpRes` witness under one `FS` constructor.
-liftBumpFS :: forall (k :: Nat) (c :: Fin (Succ k)) (x :: Fin k).
-              BumpRes c x -> BumpRes (FS c) (FS x)
-liftBumpFS (MkBump y b) = MkBump (FS y) (BumpSS b)
-
 -- | Compute the bumped variable `y` together with its `BumpFin` proof.
 bumpProof :: forall (n :: Nat).
              foreach (c :: Fin (Succ n)) -> foreach (x :: Fin n) -> BumpRes c x
@@ -364,7 +359,8 @@ bumpProof c x = case c of
   FZ    -> MkBump (FS x) BumpZ
   FS c' -> case x of
     FZ    -> MkBump FZ (BumpSZ @c')
-    FS x' -> liftBumpFS (bumpProof c' x')
+    FS x' -> case bumpProof c' x' of
+      MkBump y b -> MkBump (FS y) (BumpSS b)
 
 -- | Constructive witness for `ShiftU c m m'`.
 type ShiftRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> Type
@@ -389,12 +385,6 @@ data CmpFin c x where
   CmpEq  :: CmpFin c c
   CmpNeq :: foreach (y :: Fin n) -> RemoveFin c x y -> CmpFin c x
 
--- | Lift a `CmpFin` witness under one `FS` constructor.
-liftCmpFS :: forall (k :: Nat) (c :: Fin (Succ k)) (x :: Fin (Succ k)).
-             CmpFin c x -> CmpFin (FS c) (FS x)
-liftCmpFS CmpEq        = CmpEq
-liftCmpFS (CmpNeq y r) = CmpNeq (FS y) (RemSS r)
-
 -- | Helper for comparing `FZ` against any `x :: Fin (Succ m)`.
 cmpFinZ :: forall (m :: Nat).
            foreach (x :: Fin (Succ m)) -> CmpFin (FZ @m) x
@@ -407,7 +397,9 @@ cmpFinFZ :: forall (m :: Nat).
             foreach (x :: Fin (Succ (Succ m))) -> CmpFin (FS (FZ @m)) x
 cmpFinFZ x = case x of
   FZ    -> CmpNeq FZ (RemLt @FZ)
-  FS x' -> liftCmpFS (cmpFinZ x')
+  FS x' -> case x' of
+    FZ   -> CmpEq
+    FS y -> CmpNeq (FS y) (RemSS (RemGt @y))
 
 -- | Helper for the `FS (FS c'')` branch where the outer scope index is manifestly `Succ m`.
 cmpFinFSS :: forall (m :: Nat).
@@ -416,8 +408,12 @@ cmpFinFSS :: forall (m :: Nat).
 cmpFinFSS c'' x = case x of
   FZ    -> CmpNeq FZ (RemLt @(FS c''))
   FS x' -> case c'' of
-    FZ      -> liftCmpFS (cmpFinFZ x')
-    FS c''' -> liftCmpFS (cmpFinFSS c''' x')
+    FZ -> case cmpFinFZ x' of
+      CmpEq      -> CmpEq
+      CmpNeq y r -> CmpNeq (FS y) (RemSS r)
+    FS c''' -> case cmpFinFSS c''' x' of
+      CmpEq      -> CmpEq
+      CmpNeq y r -> CmpNeq (FS y) (RemSS r)
 
 -- | Decidable comparison with `RemoveFin` evidence.
 cmpFin :: forall (n :: Nat).

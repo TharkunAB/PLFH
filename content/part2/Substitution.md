@@ -146,10 +146,8 @@ Haskell types, such as:
 subSub :: foreach (s1 :: Subst m n) -&gt; foreach (s2 :: Subst n p)
        -&gt; foreach (t :: UTerm m)
        -&gt; substU s2 (substU s1 t) :~: substU (seqSubst s1 s2) t</code></pre>
-requires both (1) reducing function-valued <code>foreach</code> binders and
-composed aliases in types (tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>R04_ComposedIsoFields.hs</code></a>
-and
+requires both (1) reducing abstract function-valued <code>foreach</code>
+binders and higher-order substitutions in types (tracked in
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>)
 and (2) function extensionality (which PLFA postulates via
 <code>extensionality</code> for the substitution-algebra equations).
@@ -179,5 +177,5 @@ Verify on `FZ` and `FS x` that `extsU sigma` agrees pointwise with
   `consSubst`, `seqSubst`, and the computational σ-calculus combinators with
   zero promoted-constructor ticks.
 - Marked the equational substitution proofs (`sub-id`, `sub-sub`, `sub-dist`)
-  with `[WIP NOTICE]` pointing to our tracked `R04_ComposedIsoFields.hs` and
-  `R16_AbstractRenamingInType.hs` reproducers.
+  with `[WIP NOTICE]` pointing to `R16_AbstractRenamingInType.hs` and function
+  extensionality.

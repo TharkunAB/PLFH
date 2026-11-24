@@ -91,7 +91,7 @@ isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
 isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
-{-# LINE 181 "content/part1/Isomorphism.md" #-}
+{-# LINE 182 "content/part1/Isomorphism.md" #-}
 -- | Cancel the inner round trip, then use the outer left inverse.
 composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (h :: b -> c) -> foreach (k :: c -> b)
@@ -100,21 +100,25 @@ composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (x :: a) -> g (k (h (f x))) :~: x
 composeLeft f g _ _ gf kh x = trans (cong g (kh (f x))) (gf x)
 
--- | Generic transitivity of isomorphism (`≃-trans`).
+-- | Generic transitivity of isomorphism (`≃-trans`), composing maps directly
+-- via local `where` definitions!
 isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
 isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
-  MkIso @a @c (h . f) (g . k)
+  MkIso @a @c to from
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
+  where
+    to x   = h (f x)
+    from z = g (k z)
 
-{-# LINE 218 "content/part1/Isomorphism.md" #-}
+{-# LINE 213 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 232 "content/part1/Isomorphism.md" #-}
+{-# LINE 227 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
@@ -132,12 +136,12 @@ embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 257 "content/part1/Isomorphism.md" #-}
+{-# LINE 252 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 291 "content/part1/Isomorphism.md" #-}
+{-# LINE 286 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b

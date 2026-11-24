@@ -130,7 +130,7 @@ shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
 -- | Naive quadratic list reversal (`reverse` in PLFA).
 rev :: List a -> List a
 rev []     = []
-rev (x:xs) = rev xs ++ (x : [])
+rev (x:xs) = rev xs ++ [x]
 
 -- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
 revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
@@ -138,14 +138,14 @@ revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
 revAppend []     ys = sym (appendNilR @a (rev ys))
 revAppend (x:xs) ys =
   case revAppend xs ys of
-    Refl -> case appendAssoc (rev ys) (rev xs) (x : []) of
+    Refl -> case appendAssoc (rev ys) (rev xs) [x] of
       Refl -> Refl
 
 -- | Reversing a list twice returns the original list (`reverse-involutive`).
 revInvolutive :: forall a. foreach (xs :: List a) -> rev (rev xs) :~: xs
 revInvolutive []     = Refl
 revInvolutive (x:xs) =
-  case revAppend (rev xs) (x : []) of
+  case revAppend (rev xs) [x] of
     Refl -> case revInvolutive xs of
       Refl -> Refl
 
@@ -155,7 +155,7 @@ shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
 shuntRev []     _  = Refl
 shuntRev (x:xs) ys =
   case shuntRev xs (x : ys) of
-    Refl -> case appendAssoc (rev xs) (x : []) ys of
+    Refl -> case appendAssoc (rev xs) [x] ys of
       Refl -> Refl
 
 -- | Fast linear-time reversal `shunt xs []` agrees with naive `rev xs` (`reverses`)!
@@ -219,7 +219,7 @@ foldrTimesAppend (x : xs) ys =
   trans (cong (times x) (foldrTimesAppend xs ys))
         (sym (timesAssoc x (List.foldr times 1 xs) (List.foldr times 1 ys)))
 
-{-# LINE 353 "content/part1/Lists.md" #-}
+{-# LINE 352 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -238,7 +238,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 381 "content/part1/Lists.md" #-}
+{-# LINE 380 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -282,7 +282,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 432 "content/part1/Lists.md" #-}
+{-# LINE 431 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -309,7 +309,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 468 "content/part1/Lists.md" #-}
+{-# LINE 467 "content/part1/Lists.md" #-}
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
@@ -339,7 +339,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 518 "content/part1/Lists.md" #-}
+{-# LINE 517 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.

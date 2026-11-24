@@ -171,7 +171,8 @@ isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
 Given an isomorphism `Iso a b` with maps `f :: a -> b` and `g :: b -> a`, and
 an isomorphism `Iso b c` with maps `h :: b -> c` and `k :: c -> b`, we compose
-the forward maps with Prelude `(.)` as `h . f` and the reverse maps as `g . k`.
+the forward maps as `to x = h (f x)` and the reverse maps as `from z = g (k z)`
+in a local `where` block (or directly with Prelude `(.)`, as in `embedTrans`).
 
 To prove the left round trip `g (k (h (f x))) :~: x`, the inner inverse proof
 `kh (f x)` gives `k (h (f x)) :~: f x`; applying `cong g` surrounds both sides
@@ -186,26 +187,20 @@ composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (x :: a) -> g (k (h (f x))) :~: x
 composeLeft f g _ _ gf kh x = trans (cong g (kh (f x))) (gf x)
 
--- | Generic transitivity of isomorphism (`≃-trans`).
+-- | Generic transitivity of isomorphism (`≃-trans`), composing maps directly
+-- via local `where` definitions!
 isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
 isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
-  MkIso @a @c (h . f) (g . k)
+  MkIso @a @c to from
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
+  where
+    to x   = h (f x)
+    from z = g (k z)
 ```
 
 Exchanging the roles of `(f, g, gf)` and `(k, h, hk)` gives the reverse round
 trip by the exact same lemma `composeLeft`!
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Local let/where aliases in composed <code>Iso</code> fields (R04)]</strong>
-Composing maps directly with Prelude <code>(.)</code> in <code>isoTrans</code>
-and <code>embedTrans</code> above works cleanly. However, binding the composed
-maps through opaque local <code>where</code>-clauses (<code>to x = h (f x)</code>)
-before passing them to <code>MkIso</code> currently fails to reduce in the
-round-trip proof types (<code>GHC-83865</code>). See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>reproducers/R04_ComposedIsoFields.hs</code></a>.
-</div>
 
 ## Embedding (`_≲_`)
 
@@ -330,9 +325,9 @@ canonicality proof `Can b` repairs the failure shown in
   function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`)
   and explicit round-trip proofs.
 - Checked generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
-  transitivity (`isoTrans`, `embedTrans`, using Prelude `(.)` directly),
-  `isoImpliesEmbed`, `embedImpliesIff`, `binEmbedding`, negative control
-  `NegBinReverseRoundTrip`, `Iff` (`iffRefl`, `iffSym`, `iffTrans`), and
-  monomorphic `IsoSize`.
+  transitivity (`isoTrans` using local `where` compositions `to x = h (f x)`
+  and `embedTrans` using Prelude `(.)`), `isoImpliesEmbed`, `embedImpliesIff`,
+  `binEmbedding`, negative control `NegBinReverseRoundTrip`, `Iff`
+  (`iffRefl`, `iffSym`, `iffTrans`), and monomorphic `IsoSize`.
 - Like Agda, Dependent Haskell does not prove function extensionality
   internally; PLFH avoids axioms/`postulate`.
