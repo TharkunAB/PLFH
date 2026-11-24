@@ -174,7 +174,7 @@ plusComm m n = case n of
 <strong>[WIP NOTICE — Pattern matching a non-leading retained argument in equations (R03)]</strong>
 In Agda, <code>+-comm</code> splits directly on its second argument in the
 function equations (<code>+-comm m zero = ...; +-comm m (suc n) = ...</code>).
-On GHC <code>db2586fdc2</code>, constructor equations may only split the
+Currently, constructor equations may only split the
 <em>first</em> retained index column; writing <code>plusComm m Zero = ...</code>
 fails with <code>GHC-83605</code>. Splitting via an explicit <code>case n of</code>
 on the right-hand side works cleanly. See
@@ -212,15 +212,6 @@ plusRearrange m n p q =
     `trans` sym (plusAssoc m (plus n p) q)
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
-<code>cong @(plus m)</code> failed with an untouchable meta-variable error.
-That fix is now published on <code>dependent-haskell</code> and tracked as
-regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_CongPartialApp.hs"><code>reproducers/fixed/R03_CongPartialApp.hs</code></a>.
-</div>
-
 ## Exercises checked directly
 
 ### `+-swap` (recommended) {#plus-swap}
@@ -235,15 +226,6 @@ plusSwap m n p =
     `trans` rewrite (plusComm m n) Refl
     `trans` plusAssoc n m p
 ```
-
-<div class="note-box">
-<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
-calling <code>rewrite (plusComm m n) Refl</code> inside <code>`trans`</code>
-failed with an untouchable meta-variable error. Fixed and tracked as regression
-check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_WithEqualityUnderTrans.hs"><code>reproducers/fixed/R03_WithEqualityUnderTrans.hs</code></a>.
-</div>
 
 ### Multiplication laws (`*-distrib-+`, `*-assoc`, `*-comm`)
 
@@ -326,20 +308,9 @@ subtractSucc Zero     _ p = zeroMonus p
 subtractSucc (Succ m) n p = monusPlusAssoc m n p
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gap (<code>63e2f0974b</code> / <code>76e67f4fdb</code>):</strong>
-Checked open equations for ordinary <code>monus</code> published on
-<code>dependent-haskell</code> at
-<a href="https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf"><code>63e2f0974b</code></a>
-(tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_MonusOpenEq.hs"><code>reproducers/fixed/R13_MonusOpenEq.hs</code></a>),
-unlocking both <code>zeroMonus</code> and <code>monusPlusAssoc</code> directly!
-</div>
-
 ### Exponentiation exercises (`+*^`: `powPlus`, `powMul`, `powTimes`)
 
-With checked carried-argument source equations published in `1f873969e5`, all
-three of PLFA's exponentiation laws (`^-distribˡ-+-*`, `^-distribʳ-*`, and
+All three of PLFA's exponentiation laws (`^-distribˡ-+-*`, `^-distribʳ-*`, and
 `^-*-assoc`) prove directly over ordinary `pow` from [Naturals](/Naturals/)!
 
 ```haskell
@@ -388,18 +359,6 @@ powTimes m n p = case p of
               (sym (powPlus m n (times n k))
                  `trans` congSecond @pow @m (sym (timesSuccR n k)))
 ```
-
-<div class="note-box">
-<strong>Fixed compiler gap (<code>1f873969e5</code>):</strong>
-Checked open equations for ordinary <code>pow</code> (structural recursion on
-a non-leading argument carrying <code>m</code> unchanged) published on
-<code>dependent-haskell</code> at
-<a href="https://github.com/Tritlo/ghc/commit/1f873969e589e84b632e5d0304399ab4d2c997e3"><code>1f873969e5</code></a>
-(tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_PowOpenEq.hs"><code>reproducers/fixed/R13_PowOpenEq.hs</code></a>),
-completing <strong>every single arithmetic theorem and exercise in PLFA
-Induction</strong>!
-</div>
 
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
 

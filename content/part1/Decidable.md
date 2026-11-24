@@ -259,15 +259,6 @@ plusExists :: foreach (m :: Nat) -> foreach (n :: Nat)
 plusExists m n = Pair (plus m n) Refl
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier GHC baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
-returning an inline retained sum <code>some (k :: Nat) | k :~: plus m n</code>
-from a <code>foreach</code> function was rejected. Fixed on
-<code>dependent-haskell</code> and tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R04_SigmaUnderForEach.hs"><code>reproducers/fixed/R04_SigmaUnderForEach.hs</code></a>.
-</div>
-
 ## Changes from PLFA
 
 - Consolidates the core definitions needed for later chapters from

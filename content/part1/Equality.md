@@ -129,16 +129,6 @@ evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
 evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 ```
 
-<div class="note-box">
-<strong>Fixed compiler panic (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier GHC baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
-<code>substP @Even (toEqP (plusComm m n)) ev</code> triggered an internal
-<code>tcInstFun: invalid retained instantiations</code> panic at
-<code>compiler/GHC/Tc/Gen/App.hs:3947</code>. Fixed on
-<code>dependent-haskell</code> and verified as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_TcInstFunPanic.hs"><code>reproducers/fixed/R03_TcInstFunPanic.hs</code></a>.
-</div>
-
 ## Equational reasoning chains with `RequiredTypeArguments`
 
 In PLFA, chains of equalities are written with `begin ... ≡⟨ reason ⟩ ... ∎`
@@ -220,8 +210,8 @@ leibnizUToEq f = f @(\z -> EqP x z) ReflP
 <div class="wip-notice">
 <strong>[WIP NOTICE — Matchability subtyping in Leibniz equality (R23)]</strong>
 While inline type-level lambdas inside visible type applications
-(<code>xy @(\z -&gt; EqP z x)</code>) <em>do</em> work on GHC
-<code>db2586fdc2</code>, instantiating <code>LeibnizU</code> (which expects
+(<code>xy @(\z -&gt; EqP z x)</code>) <em>do</em> work,
+instantiating <code>LeibnizU</code> (which expects
 an unmatchable predicate <code>a %U -&gt; Type</code>) directly at the
 matchable constructor <code>@(EqP x)</code> fails with <code>GHC-83865</code>
 (<em>Couldn't match kind Matchable with Unmatchable</em>), requiring an

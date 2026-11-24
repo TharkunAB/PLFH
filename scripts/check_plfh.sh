@@ -19,8 +19,9 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the latest verified published component binary on dependent-haskell:
-#   1f873969e5 (pow + monus + nested-case + preservation),
-#   falling back to 63e2f0974b, 9cc4065fab, or 590.
+#   2e4fbb752a (DeBruijn GADT case + pow + monus + nested-case + preservation),
+#   falling back to 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+COMP_2E4="$GHC_REPO/_build/on-demand/plfh-pow-progress-combined-20261124/checked/component/ghc"
 COMP_1F8="$GHC_REPO/_build/on-demand/r13-pow-open-eq-20261124/relink.yk1Z2S/component/ghc"
 COMP_63E="$GHC_REPO/_build/on-demand/r13-monus-open-eq-20261124/forward-0043/relink.KarCex/component/ghc"
 COMP_9CC="$GHC_REPO/_build/on-demand/r03-nested-dep-case-20261124/audit-692/checked/component/ghc"
@@ -29,7 +30,10 @@ LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$COMP_1F8" ]]; then
+if [[ -x "$COMP_2E4" ]]; then
+  DEFAULT_COMPILER="$COMP_2E4"
+  DEFAULT_LIBDIR="$COMP_LIB"
+elif [[ -x "$COMP_1F8" ]]; then
   DEFAULT_COMPILER="$COMP_1F8"
   DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$COMP_63E" ]]; then
@@ -46,7 +50,7 @@ fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
@@ -81,7 +85,9 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_1F8" ]]; then
+if [[ "$COMPILER" == "$COMP_2E4" ]]; then
+  echo "Commit:   2e4fbb752a2fca6d9d4ac4b7901e2aa07b3c1534 / 3a6446c77e (verified component; base libdir seed: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_1F8" ]]; then
   echo "Commit:   1f873969e589e84b632e5d0304399ab4d2c997e3 (verified component; base libdir seed: $COMMIT)"
 elif [[ "$COMPILER" == "$COMP_63E" ]]; then
   echo "Commit:   63e2f0974b174dc86bef79c3a84d1d76fea3dadf / 76e67f4fdb (verified component; base libdir seed: $COMMIT)"

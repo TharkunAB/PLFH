@@ -77,11 +77,11 @@ call-by-name operational evaluation ([BigStep](/BigStep/)): whenever a closed
 term has a non-trivial function denotation (`AboveFun`), it halts at a lambda
 abstraction!
 
-With `BigStep.evalDeterm` now proved unconditionally on published GHC
-`9cc4065fab`, the **entire Big-Step Adequacy theorem**—`decAboveFun`, the
-negative-position logical relation `LogVLam`/`LogE`, **full subsumption across
-all 8 `Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`!)**,
-the **complete Fundamental Lemma (`fundamental`, all 6 `Denotes` rules!)**, and
+With `BigStep.evalDeterm` proved unconditionally, the **entire Big-Step Adequacy
+theorem**—`decAboveFun`, the negative-position logical relation
+`LogVLam`/`LogE`, **full subsumption across all 8 `Sub` constructors
+(`subLogVLam` and `subLogE`, including `SubDist`!)**, the **complete
+Fundamental Lemma (`fundamental`, all 6 `Denotes` rules!)**, and
 **unconditional Big-Step Adequacy (`adequacyBigStep`)**—compiles directly with
 `-dcore-lint -dstg-lint` and executes at runtime!
 
@@ -331,11 +331,6 @@ adequacyIdApp =
 <div class="wip-notice">
 <strong>[WIP NOTICE — <code>foreach</code> + Type-Family Rewriting Bug (R03) &amp; Big-Step → Small-Step Bridge]</strong>
 <ul>
-  <li><strong>Discharged on <code>9cc4065fab</code>:</strong> <code>EvalDeterm</code>
-      is now proved unconditionally as <code>BigStep.evalDeterm</code>
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/fixed/R11_MixedKindCoercionCoreLint.hs</code></a>),
-      making <code>subLogVLam</code>, <code>fundamental</code>, and
-      <code>adequacyBigStep</code> 100% unconditional!</li>
   <li><strong>Open compiler bug uncovered while writing <code>subLogVLam</code>:</strong>
       Matching a GADT equality (<code>u :~: v</code> or <code>u :~: 'Zero</code>)
       under a retained <code>foreach (u :: Nat)</code> binder fails to rewrite

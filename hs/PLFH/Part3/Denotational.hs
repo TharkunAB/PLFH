@@ -64,7 +64,7 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 97 "content/part3/Denotational.md" #-}
+{-# LINE 96 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values),
 -- declared directly in GADT syntax!
 data Value where
@@ -100,7 +100,7 @@ unArrW (MkValW v) = go v Refl
     go (Join _ _) eq = case eq of {}
     go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
 
-{-# LINE 139 "content/part3/Denotational.md" #-}
+{-# LINE 138 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
   SubBot    :: Sub 'Bot v
@@ -147,7 +147,7 @@ joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 194 "content/part3/Denotational.md" #-}
+{-# LINE 193 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
   MemBot   :: ValMem 'Bot 'Bot
@@ -221,7 +221,7 @@ subArrToCodSub (Arr a b)  s x            = case s @('Arr a b) MemArr of { MemArr
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 
-{-# LINE 285 "content/part3/Denotational.md" #-}
+{-# LINE 274 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -365,7 +365,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub ('Arr v w) ('Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 449 "content/part3/Denotational.md" #-}
+{-# LINE 427 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv 'Zero

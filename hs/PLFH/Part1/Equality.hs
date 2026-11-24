@@ -82,7 +82,7 @@ evenComm :: foreach (m :: Nat) -> foreach (n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 
-{-# LINE 151 "content/part1/Equality.md" #-}
+{-# LINE 141 "content/part1/Equality.md" #-}
 -- | Start an equational reasoning chain from `x` to `y`.
 beginEq :: forall x y -> x :~: y -> x :~: y
 beginEq _ _ p = p
@@ -105,7 +105,7 @@ plusZeroChain (Succ n) =
       (congSucc (plusZeroChain n))
       (qedEq (type ('Succ n))))
 
-{-# LINE 184 "content/part1/Equality.md" #-}
+{-# LINE 174 "content/part1/Equality.md" #-}
 -- | Leibniz equality over matchable predicates `p :: a -> Type`.
 type Leibniz (x :: a) (y :: a) = forall (p :: a -> Type). p x -> p y
 
@@ -122,7 +122,7 @@ eqToLeibniz ReflP px = px
 leibnizToEq :: forall {a} (x :: a) (y :: a). Leibniz x y -> EqP x y
 leibnizToEq f = f @(EqP x) ReflP
 
-{-# LINE 207 "content/part1/Equality.md" #-}
+{-# LINE 197 "content/part1/Equality.md" #-}
 -- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
 type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 

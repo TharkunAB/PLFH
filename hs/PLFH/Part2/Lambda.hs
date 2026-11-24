@@ -100,7 +100,7 @@ data Steps (m :: Term) (n :: Term) where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
 
-{-# LINE 163 "content/part2/Lambda.md" #-}
+{-# LINE 159 "content/part2/Lambda.md" #-}
 -- | Evidence that variable `x` has type `a` in context `g` (Γ ∋ x ⦂ A).
 data Lookup (g :: Ctx) (x :: Id) (a :: Ty) where
   LZ :: Lookup ('CExt g x a) x a
@@ -117,7 +117,7 @@ data HasType (g :: Ctx) (m :: Term) (a :: Ty) where
          -> HasType g ('TCase l m x n) a
   TMuT   :: HasType ('CExt g x a) m a -> HasType g ('TMu x m) a
 
-{-# LINE 183 "content/part2/Lambda.md" #-}
+{-# LINE 179 "content/part2/Lambda.md" #-}
 -- | The term representing natural number 2.
 termTwo :: Term
 termTwo = TSuc (TSuc TZero)

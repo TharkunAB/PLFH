@@ -15,13 +15,22 @@ module PLFH.Part2.Properties
   , canonical
   , Progress (..)
   , progress
+  , valueCannotStep
+  , stepDeterm
   , extCtx
   , renameTyping
   , weakenTyping
   , dropTyping
   , swapTyping
+  , NameDecision (..)
+  , decide
   , substTyping
   , preserve
+  , TermW (..)
+  , stepTarget
+  , preserveSteps
+  , EvalResult (..)
+  , eval
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -34,6 +43,7 @@ import PLFH.Part2.Lambda
   , Id
   , Lookup (..)
   , Step (..)
+  , Steps (..)
   , Term (..)
   , Ty (..)
   , Value (..)
@@ -288,12 +298,118 @@ substSuc :: foreach (v :: Term) -> foreach (x :: Id) -> foreach (body :: Term)
 substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
 ```
 
+## Determinism (`det`), Multi-Step Preservation (`preserve*`), and Verified Evaluation (`eval`)
+
+Following PLFA's `Properties` exercises and final evaluation section, we also
+prove that values cannot step (`valueCannotStep`), that call-by-value
+reduction is deterministic (`stepDeterm`), that multi-step reduction preserves
+types (`preserveSteps`), and we assemble PLFA's **verified gas-bounded
+evaluator** `eval` directly from `progress` and `preserve`:
+
+```haskell
+-- | Values do not reduce (`V-¬—→`).
+valueCannotStep :: Value m -> Not (Step m n)
+valueCannotStep VLam     s         = case s of {}
+valueCannotStep VZero    s         = case s of {}
+valueCannotStep (VSuc v) (XiSuc s) = valueCannotStep v s
+
+-- | Determinism of call-by-value one-step reduction (`det`).
+stepDeterm :: Step m n1 -> Step m n2 -> n1 :~: n2
+stepDeterm (XiApp1 s1)  (XiApp1 s2)  = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiApp1 s1)  (XiApp2 v _) = absurd (valueCannotStep v s1)
+stepDeterm (XiApp1 s1)  (BetaLam _)  = absurd (valueCannotStep VLam s1)
+stepDeterm (XiApp2 v _) (XiApp1 s2)  = absurd (valueCannotStep v s2)
+stepDeterm (XiApp2 _ s1) (XiApp2 _ s2) = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiApp2 _ s1) (BetaLam v) = absurd (valueCannotStep v s1)
+stepDeterm (BetaLam _)  (XiApp1 s2)  = absurd (valueCannotStep VLam s2)
+stepDeterm (BetaLam v)  (XiApp2 _ s2) = absurd (valueCannotStep v s2)
+stepDeterm (BetaLam _)  (BetaLam _)  = Refl
+stepDeterm (XiSuc s1)   (XiSuc s2)   = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiCase s1)  (XiCase s2)  = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiCase s1)  BetaZero     = absurd (valueCannotStep VZero s1)
+stepDeterm (XiCase s1)  (BetaSuc v)  = absurd (valueCannotStep (VSuc v) s1)
+stepDeterm BetaZero     (XiCase s2)  = absurd (valueCannotStep VZero s2)
+stepDeterm BetaZero     BetaZero     = Refl
+stepDeterm (BetaSuc v)  (XiCase s2)  = absurd (valueCannotStep (VSuc v) s2)
+stepDeterm (BetaSuc _)  (BetaSuc _)  = Refl
+stepDeterm BetaMu       BetaMu       = Refl
+
+-- | Retained runtime witness for a promoted `Term`.
+data TermW (t :: Term) where
+  MkTermW :: foreach (t :: Term) -> TermW t
+
+-- | Compute the retained target term of any one-step reduction.
+stepTarget :: foreach (m :: Term) -> Step m n -> TermW n
+stepTarget source step = case source of
+  Var _   -> case step of {}
+  Lam _ _ -> case step of {}
+  TZero   -> case step of {}
+  App l r -> case step of
+    XiApp1 sl -> case stepTarget l sl of
+      MkTermW l' -> MkTermW (App l' r)
+    XiApp2 _ sr -> case stepTarget r sr of
+      MkTermW r' -> MkTermW (App l r')
+    BetaLam @_ @binder @bodyIndex _ ->
+      let shape :: IsLam l
+          shape = IsLam @binder @bodyIndex
+      in case l of
+        Lam x body    -> MkTermW (substTerm body x r)
+        Var _         -> case shape of {}
+        App _ _       -> case shape of {}
+        TZero         -> case shape of {}
+        TSuc _        -> case shape of {}
+        TCase _ _ _ _ -> case shape of {}
+        TMu _ _       -> case shape of {}
+  TSuc m -> case step of
+    XiSuc sm -> case stepTarget m sm of
+      MkTermW m' -> MkTermW (TSuc m')
+  TCase l z x n -> case step of
+    XiCase sl -> case stepTarget l sl of
+      MkTermW l' -> MkTermW (TCase l' z x n)
+    BetaZero -> MkTermW z
+    BetaSuc @value _ ->
+      let shape :: IsSuc l
+          shape = IsSuc @value
+      in case l of
+        TSuc v        -> MkTermW (substTerm n x v)
+        Var _         -> case shape of {}
+        Lam _ _       -> case shape of {}
+        App _ _       -> case shape of {}
+        TZero         -> case shape of {}
+        TCase _ _ _ _ -> case shape of {}
+        TMu _ _       -> case shape of {}
+  TMu x m -> case step of
+    BetaMu -> MkTermW (substTerm m x (TMu x m))
+
+-- | Multi-step preservation (`preserve*`): `M —↠ N` preserves closed typing.
+preserveSteps :: foreach (m :: Term) -> HasType 'CEmpty m a -> Steps m n -> HasType 'CEmpty n a
+preserveSteps m tm steps = case steps of
+  StepsRefl     -> tm
+  StepsCons s r -> case stepTarget m s of
+    MkTermW m' -> preserveSteps m' (preserve m tm s) r
+
+-- | Result of gas-bounded evaluation (`Finished`): either a value or out-of-gas trace.
+data EvalResult (m :: Term) where
+  Done     :: Steps m v -> Value v -> EvalResult m
+  OutOfGas :: Steps m n -> EvalResult m
+
+-- | PLFA's verified gas-bounded evaluator built directly from `progress` and `preserve`!
+eval :: Nat -> TermW m -> HasType 'CEmpty m a -> EvalResult m
+eval Zero     _           _  = OutOfGas StepsRefl
+eval (Succ g) (MkTermW m) tm = case progress tm of
+  PDone v -> Done StepsRefl v
+  PStep s -> case stepTarget m s of
+    wm' -> case eval g wm' (preserve m tm s) of
+      Done ss v   -> Done (StepsCons s ss) v
+      OutOfGas ss -> OutOfGas (StepsCons s ss)
+```
+
 ## Changes from PLFA
 
 - Adapted from [Properties](https://plfa.inf.ed.ac.uk/Properties/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Properties.lagda.md)).
-- `Canonical`, `canonical`, `Progress`, `progress` (full closed well-typed
-  progress theorem!), `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
-  and `swapTyping` are all **checked direct ports** passing `-dcore-lint -dstg-lint`.
-- `substTyping` uses the equations of the ordinary `substTerm` function.
-  `preserve` checks all eight one-step constructors.
+- `Canonical`, `canonical`, `Progress`, `progress`, `valueCannotStep`,
+  **`stepDeterm`**, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
+  `swapTyping`, `substTyping`, **`preserve`**, **`preserveSteps`**, and the
+  verified gas-bounded evaluator **`eval`** are all **checked direct ports**
+  passing `-dcore-lint -dstg-lint`!

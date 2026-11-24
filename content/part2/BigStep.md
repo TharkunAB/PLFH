@@ -124,10 +124,9 @@ evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
 ## Determinism (`⇓-determ`)
 
-With the R11 Desugar Core Lint fix published on `dependent-haskell`
-(`692eae0778`/`9cc4065fab`), both `envLookupDeterm` and full call-by-name
-big-step determinism `evalDeterm` prove directly by structural induction—and
-directly discharge the determinism premise of Part 3 [Adequacy](/Adequacy/)!
+Both `envLookupDeterm` and full call-by-name big-step determinism `evalDeterm`
+prove directly by structural induction—and directly discharge the determinism
+premise of Part 3 [Adequacy](/Adequacy/):
 
 ```haskell
 -- | Determinism of relational environment lookup.
@@ -143,15 +142,6 @@ evalDeterm ELam ELam = Refl
 evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
 ```
-
-<div class="note-box">
-<strong>Fixed Core Lint bug (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier GHC baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
-<code>envLookupDeterm</code> and <code>evalDeterm</code> failed Desugar Core Lint
-with <code>R11 mixed-kind coercion binder</code>. Fixed on
-<code>dependent-haskell</code> and tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/fixed/R11_MixedKindCoercionCoreLint.hs</code></a>!
-</div>
 
 <div class="wip-notice">
 <strong>[WIP NOTICE — Functional <code>lookupEnv</code> in types (R13/R16)]</strong>

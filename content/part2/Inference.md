@@ -165,19 +165,6 @@ rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gaps (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier GHC baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
-inline <code>case lTy of</code> refinement over <code>Term g lTy</code> required
-top-level <code>matchArr</code>/<code>matchNat</code> helpers, and
-<code>MkTyped b (App l' m')</code> inside <code>Right Refl</code> required
-explicit <code>App @g @a @b</code> applications. Both R03 issues are now fixed
-on <code>dependent-haskell</code> and tracked as regression checks
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_CaseRefinementMultiIndexGadt.hs"><code>reproducers/fixed/R03_CaseRefinementMultiIndexGadt.hs</code></a>
-and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_UntouchableUnderRetainedApp.hs"><code>reproducers/fixed/R03_UntouchableUnderRetainedApp.hs</code></a>!
-</div>
-
 ## Changes from PLFA
 
 - Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)

@@ -86,7 +86,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 133 "content/part2/BigStep.md" #-}
+{-# LINE 132 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl

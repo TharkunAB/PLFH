@@ -168,7 +168,7 @@ times (Succ m) n = plus n (times m n)
 <strong>[WIP NOTICE — Wildcard patterns break open source equations (R13/R16)]</strong>
 Notice that we wrote <code>times Zero n = Zero</code> with a <em>named</em>
 variable <code>n</code> rather than <code>times Zero _ = Zero</code>.
-On GHC commit <code>db2586fdc2</code>, writing a wildcard <code>_</code> in
+Currently, writing a wildcard <code>_</code> in
 the base case silently prevents GHC from registering open source equations
 for <code>times</code>, causing downstream proofs over unknown variables to
 fail with <code>GHC-70565</code> (<em>Cannot evaluate 'times' in a type</em>).
@@ -197,20 +197,6 @@ pow m Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gap (<code>1f873969e5</code>):</strong>
-On earlier GHC baselines (<code>db2586fdc2</code>–<code>76e67f4fdb</code>),
-<code>pow</code> (which recurses on its <em>second</em> argument while carrying
-<code>m</code> unchanged) failed open type-level evaluation with
-<code>GHC-70565</code>. Checked carried-argument structural equations are now
-published on <code>dependent-haskell</code>
-(<a href="https://github.com/Tritlo/ghc/commit/1f873969e589e84b632e5d0304399ab4d2c997e3"><code>1f873969e5</code></a>),
-tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_PowOpenEq.hs"><code>reproducers/fixed/R13_PowOpenEq.hs</code></a>,
-and used directly to prove all three exponentiation laws (<code>powPlus</code>,
-<code>powMul</code>, <code>powTimes</code>) in <a href="/Induction/">Induction</a>!
-</div>
-
 ## Monus
 
 Truncated subtraction on natural numbers (*monus*, written `∸` in PLFA)
@@ -223,19 +209,6 @@ monus m        Zero     = m
 monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 ```
-
-<div class="note-box">
-<strong>Fixed compiler gap (<code>63e2f0974b</code> / <code>76e67f4fdb</code>):</strong>
-On earlier GHC baselines (<code>db2586fdc2</code>–<code>9cc4065fab</code>),
-<code>monus</code> failed open type-level evaluation with <code>GHC-70565</code>.
-Checked right-first structural equations for ordinary <code>monus</code> are now
-published on <code>dependent-haskell</code>
-(<a href="https://github.com/Tritlo/ghc/commit/63e2f0974b174dc86bef79c3a84d1d76fea3dadf"><code>63e2f0974b</code></a>),
-tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_MonusOpenEq.hs"><code>reproducers/fixed/R13_MonusOpenEq.hs</code></a>,
-and used directly to prove <code>zeroMonus</code> and <code>monusPlusAssoc</code>
-in <a href="/Induction/">Induction</a>!
-</div>
 
 ## Binary natural numbers (`Bin`, stretch exercise) {#Bin}
 

@@ -98,20 +98,10 @@ lengthReverseLaw :: forall a. foreach (xs :: [a])
 lengthReverseLaw = lengthReverse
 ```
 
-<div class="note-box">
-<strong>Fixed compiler panic (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier baselines (<code>db2586fdc2</code>–<code>1a02a866e7</code>),
-eta-reduced aliases like <code>lengthReverseLaw = lengthReverse</code> panicked
-at <code>compiler/GHC/Core/TyCo/Subst.hs:900</code>. Fixed for value-typed
-<code>foreach</code> aliases (<code>lengthAppendLaw</code>,
-<code>lengthReverseLaw</code>) and tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R05_SubstTyEtaAliasPanic.hs"><code>reproducers/fixed/R05_SubstTyEtaAliasPanic.hs</code></a>.
-</div>
-
 <div class="wip-notice">
 <strong>[WIP NOTICE — Eta-reduced alias with function-valued <code>foreach (f :: a -&gt; b)</code> (R04/R05)]</strong>
-Even on published <code>9cc4065fab</code>, writing the eta-reduced alias
-<code>lengthMapLaw = lengthMap</code> fails with <code>GHC-83865</code>
+Writing the eta-reduced alias
+<code>lengthMapLaw = lengthMap</code> currently fails with <code>GHC-83865</code>
 printing <em>identical</em> expected and actual types
 (<code>foreach (f :: a -&gt; b) -&gt; foreach (xs :: [a]) -&gt; size (map f xs) :~: size xs</code>),
 whereas eta-expanding <code>lengthMapLaw f xs = lengthMap f xs</code> checks
@@ -157,7 +147,7 @@ mapId (_ : xs) = gcastWith (mapId xs) Refl
 <strong>[WIP NOTICE — Equations with a leading retained function binder (R03)]</strong>
 Notice that <code>mapAppend</code> and <code>mapCompose</code> match on
 <code>xs</code> using <code>case xs of</code> rather than constructor
-equations <code>mapAppend _ [] _ = Refl</code>. On GHC <code>db2586fdc2</code>,
+equations <code>mapAppend _ [] _ = Refl</code>. Currently,
 multi-equation constructor splitting after a leading function-valued retained
 binder reports <code>GHC-83605</code> (<em>Function-valued retained binders
 require bare variable patterns or wildcards</em>). See
@@ -166,10 +156,9 @@ require bare variable patterns or wildcards</em>). See
 
 ## Accumulating `shunt`, countdown lists (`downFrom`, `zeros`), and `foldr`
 
-On published `dependent-haskell` (`692eae0778`/`9cc4065fab`), both PLFA's
-accumulating tail-recursive `shunt` (since this module disables rewrite rules
-for `HaskLib.lengthMap`) and `Nat -> [Nat]` countdown recursion (`downFrom`,
-`zeros`) now check directly!
+Both PLFA's accumulating tail-recursive `shunt` (with `-fno-enable-rewrite-rules`
+as already set for `HaskLib.lengthMap`) and `Nat -> [Nat]` countdown recursion
+(`downFrom`, `zeros`) check directly:
 
 ```haskell
 -- | Accumulating list reversal helper `shunt`.
@@ -204,20 +193,9 @@ lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gaps (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-<code>downFrom</code> / <code>zeros</code> (<code>Nat -&gt; [Nat]</code> open
-equations) now check at both <code>-O0</code> and <code>-O2</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_DownFromOpenEq.hs"><code>reproducers/fixed/R13_DownFromOpenEq.hs</code></a>).
-Accumulating <code>shuntAppend</code> checks at <code>-O0</code> and at
-<code>-O2 -fno-enable-rewrite-rules</code> (as in this module), while default
-<code>-O2</code> with Prelude <code>(++)</code> fusion rules remains tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>.
-</div>
-
 <div class="wip-notice">
 <strong>[WIP NOTICE — Quadratic <code>rev</code> (R13/R16), higher-order <code>foldr</code> (R03), &amp; default <code>-O2</code> <code>shunt</code>]</strong>
-Three classic PLFA Lists items remain open on published <code>9cc4065fab</code>:
+Three classic PLFA Lists items remain open:
 <ol>
   <li><strong>Quadratic <code>rev</code> (R13/R16):</strong>
       PLFA's naive quadratic <code>rev [] = []; rev (x:xs) = app (rev xs) [x]</code>
@@ -340,8 +318,7 @@ kind <code>a %U -&gt; Type</code> (see
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)).
 - Used standard Prelude `[a]`, `(++)`, and `map` directly instead of a custom
   `List` datatype.
-- Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse` via
-  direct eta-reduced aliases (fixed on `692eae0778`/`9cc4065fab`).
+- Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.
 - Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
   `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `downFrom`/`zeros`/`lengthDownFrom`/`lengthZeros`,
   `All`, `Any`, `In`, `allAppend`/`Inv`, `anyAppend*`/`Inv`, `allMap`,

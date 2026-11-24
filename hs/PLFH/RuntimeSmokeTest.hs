@@ -21,14 +21,16 @@ import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConst
 import PLFH.Part2.Bisimulation (SimRel (..), simValue)
 import PLFH.Part2.Confluence (Par (..), omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
+import qualified PLFH.Part2.DeBruijn as DB
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
-import PLFH.Part2.Properties (Progress (..), preserve, progress)
+import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyIdApp, decAboveFun)
 import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
 import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denotId, denotIdAppId)
+import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
 natToInt :: Nat -> Int
 natToInt Zero     = 0
@@ -131,6 +133,20 @@ main = do
       muTy = L.TMuT L.TZeroT
   assertEq "Properties.preserve BetaMu (mu x. 0)" True
     (case preserve (L.TMu Zero L.TZero) muTy L.BetaMu of { L.TZeroT -> True })
+  assertEq "Properties.stepDeterm BetaLam" True
+    (case stepDeterm (L.BetaLam L.VZero) (L.BetaLam L.VZero) of Refl -> True)
+  assertEq "Properties.eval ((\\x. x) 0) 5" True
+    (case eval 5 (MkTermW (L.App (L.Lam Zero (L.Var Zero)) L.TZero)) idTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
+  assertEq "Properties.eval (case (suc 0) ...) 5" True
+    (case eval 5 (MkTermW (L.TCase (L.TSuc L.TZero) L.TZero Zero (L.Var Zero))) caseSucTy of { Done (L.StepsCons _ L.StepsRefl) L.VZero -> True; _ -> False })
+  let dbSuc :: DB.Term 'DB.CEmpty 'DB.TNat
+      dbSuc = DB.Suc DB.Zero
+      dbApp :: DB.Term 'DB.CEmpty 'DB.TNat
+      dbApp = DB.App (DB.Lam (DB.Var DB.Z)) DB.Zero
+  assertEq "DeBruijn.checkValue (Suc Zero)" True
+    (case DB.checkValue dbSuc of { DB.YesVal _ -> True; DB.NotVal -> False })
+  assertEq "DeBruijn.checkValue (App (Lam (Var Z)) Zero)" False
+    (case DB.checkValue dbApp of { DB.YesVal _ -> True; DB.NotVal -> False })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)
@@ -166,6 +182,10 @@ main = do
     (case denAppToAppDen (MkDen (denotIdAppId (MkValW Bot))) of { ADApp _ _ _ -> True; _ -> False })
   assertEq "Compositional.lamInversion" True
     (case lamInversion (MkValW (Arr Bot Bot)) denotId of { DVar _ -> True; _ -> False })
+  assertEq "Soundness.denotPreserve idAppStep" True
+    (case denotPreserve (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) idAppStep of { DIntro _ -> True; _ -> False })
+  assertEq "Soundness.denotReflect idAppStep" True
+    (case denotReflect (MkValW (Arr Bot Bot)) idAppStep denotId of { DElim _ (DIntro _) _ -> True; _ -> False })
   assertEq "Adequacy.adequacyIdApp (unconditional Big-Step Adequacy!)" True
     (case adequacyIdApp of { MkHaltsBig (EApp _ _) -> True; _ -> False })
 

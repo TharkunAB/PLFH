@@ -41,8 +41,8 @@ Comments, bug reports, and pull requests are welcome on
 ## Part 2: Programming Language Foundations
 
 - [Lambda](/Lambda/): Simply-typed lambda calculus syntax, values, same-module `substTerm`, reduction (`Step`/`Steps`), and typing <span class="badge badge-pass">Checked</span>
-- [Properties](/Properties/): Canonical forms, **Progress**, context lemmas, **Substitution Lemma**, and **8-constructor Preservation** <span class="badge badge-pass">Checked</span>
-- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, functional `Step`/`progress` (`[WIP]`) <span class="badge badge-partial">Syntax/Subst ✓ · Step/Progress WIP</span>
+- [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, and **verified evaluator `eval`** <span class="badge badge-pass">Checked</span>
+- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, case-based **`checkValue`** (`Step` `[WIP]`) <span class="badge badge-partial">checkValue ✓ · Step WIP</span>
 - [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) with inline GADT refinement returning `Term g a` <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Beta ✓ · Eval WIP</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value` <span class="badge badge-partial">Syntax/Subst ✓ · Step WIP</span>
@@ -55,7 +55,7 @@ Comments, bug reports, and pull requests are welcome on
 
 - [Denotational](/Denotational/): Filter model (GADT `Value`, `Sub`, `dom`/`cod`, nested `subInvDist`, **`subInv`**, **`arrSubArrInv`**, `Denotes`, `envSubMono`) <span class="badge badge-pass">Checked</span>
 - [Compositional](/Compositional/): Semantic curry & application (**`lamEquiv`/`lamCong`**, **`appEquiv`/`appCong`**), `UCtx`/`plug` <span class="badge badge-partial">Lam &amp; App ✓ · Plug WIP</span>
-- [Soundness](/Soundness/): Forward preservation (**`denotPreserve`**) & backward expansion (**`denotReflect`**, **`denotEquivSteps`**) <span class="badge badge-partial">Pres/Refl ✓ · Subst WIP</span>
+- [Soundness](/Soundness/): **100% unconditional** weakening, strengthening, substitution, forward preservation, subject expansion, and **`denotEquivSteps`** <span class="badge badge-pass">Checked</span>
 - [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, and **unconditional `adequacyBigStep`** <span class="badge badge-pass">Big-Step ✓</span>
 - [ContextualEquivalence](/ContextualEquivalence/): Deriving contextual equivalence (`Terminates`, `denotEqualCtxEquivFromSoundness`) <span class="badge badge-partial">Reduction ✓ · Premises WIP</span>
 

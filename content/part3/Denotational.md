@@ -82,8 +82,7 @@ Remarkably, the entire **Denotational** chapter—including `Value` declared in
 GADT syntax, the full **inversion of `Sub` for function values (`subInv` and
 `arrSubArrInv`, i.e. `↦⊑↦-inv`)** using ordinary recursive binary-tree
 functions `dom` and `cod`, and direct nested dependent `case` matching in
-`subInvDist`—compiles cleanly on published GHC `9cc4065fab` with
-`-dcore-lint -dstg-lint`!
+`subInvDist`—compiles cleanly with `-dcore-lint -dstg-lint`!
 
 ## Finite function tables (`Value`) and approximation (`Sub`, `_⊑_`)
 
@@ -265,16 +264,6 @@ subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (M
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
 ```
 
-<div class="note-box">
-<strong>Fixed compiler gap (<code>692eae0778</code> / <code>9cc4065fab</code>):</strong>
-On earlier baselines (<code>d15cbd41fe</code>–<code>1a02a866e7</code>),
-declaring non-indexed <code>Value</code> using GADT syntax silently disabled
-R13 open source equations for <code>dom</code> and <code>cod</code>
-(<code>GHC-68947</code>). Fixed on <code>dependent-haskell</code> and tracked
-as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_GadtSyntaxBreaksOpenEq.hs"><code>reproducers/fixed/R13_GadtSyntaxBreaksOpenEq.hs</code></a>!
-</div>
-
 ## Inversion of `Sub` for functions (`subInv` and `arrSubArrInv`)
 
 This is the technical centerpiece of PLFA's **Denotational** chapter (and the
@@ -426,17 +415,6 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 ```
 
-<div class="note-box">
-<strong>Fixed Core Lint bug (<code>9cc4065fab</code>):</strong>
-On earlier baselines (<code>d15cbd41fe</code>–<code>692eae0778</code>), writing
-<code>subInvDist</code> with nested dependent <code>case</code> matches inside
-the <code>Join l r</code> branch failed Desugar Core Lint with an out-of-scope
-coercion variable (<code>co_...</code>). Fixed in <code>Tritlo/ghc</code>
-<a href="https://github.com/Tritlo/ghc/commit/9cc4065fab4f2f106859b39daa9bdad23f00f0fd"><code>9cc4065fab</code></a>
-and tracked as regression check
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R03_NestedDepCaseCoreLint.hs"><code>reproducers/fixed/R03_NestedDepCaseCoreLint.hs</code></a>!
-</div>
-
 ## Environments, denotational semantics (`γ ⊢ M ↓ v`), and monotonicity
 
 We represent environments as length-indexed value vectors `ValEnv n` with
@@ -573,7 +551,3 @@ newtype Den (m :: UTerm n) (e :: ValEnv n) (v :: Value) = MkDen { unDen :: Denot
   `cod`, `arrMemToSubDom`, `subArrToCodSub`, **`subInvTrans`**, **`subInv`**,
   **`arrSubArrInv`**, `ValEnv`, `Denotes`, `denotId`/`denotDelta`/`denotOmega`,
   `envSubMono`, `upEnv`, `Denotation`, `DenEq`, and `Den`.
-- Both compiler bugs originally uncovered here (`R13_GadtSyntaxBreaksOpenEq.hs`
-  and `R03_NestedDepCaseCoreLint.hs`) are now fixed on published GHC
-  `9cc4065fab`, so `Value` uses GADT syntax and `subInvDist` uses direct nested
-  dependent `case` matching with zero workarounds!

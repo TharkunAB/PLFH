@@ -24,7 +24,7 @@ import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
-import PLFH.Part3.Soundness (BetaPres, BetaReflect, denotEquivSteps)
+import PLFH.Part3.Soundness (denotEquivSteps)
 ```
 
 In PLFA's final Part 3 chapter, **ContextualEquivalence**, we combine
@@ -35,12 +35,12 @@ diverge.
 
 ## Termination and the contextual equivalence corollary
 
-Because full `compositionality`, subject expansion in `Soundness`, and the
-fundamental lemma in `Adequacy` are still blocked by our tracked R03/R11/R13
-yardstick frontiers (see [Status](/Status/)), we state the main corollary
-explicitly parameterized by `SoundnessProp` and `AdequacyProp`—showing cleanly
-how the three Part 3 pillars snap together once those individual theorem
-blockers clear!
+Now that [Soundness](/Soundness/) (`denotEquivSteps`) and big-step
+[Adequacy](/Adequacy/) (`adequacyBigStep`) are both proved **unconditionally**,
+`denotEqualCtxEquivFromSoundness` instantiates `SoundnessProp` directly with
+`Soundness.denotEquivSteps` (parameterized only by the small-step `AdequacyProp`
+bridge while big-step → small-step and `UCtx`/`plug` compositionality await
+our tracked R03/R13 blockers):
 
 ```haskell
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
@@ -83,15 +83,13 @@ denotEqualCtxEquiv soundness adequacy eqC =
   , denotEqualTerminates soundness adequacy (denEqSym eqC)
   )
 
--- | Instantiate `SoundnessProp` directly via `Soundness.denotEquivSteps`!
+-- | Instantiate `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`!
 denotEqualCtxEquivFromSoundness
   :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
-     BetaPres
-  -> BetaReflect
-  -> AdequacyProp
+     AdequacyProp
   -> DenEq (Den cm) (Den cn)
   -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
-denotEqualCtxEquivFromSoundness bp br = denotEqualCtxEquiv (denotEquivSteps bp br)
+denotEqualCtxEquivFromSoundness = denotEqualCtxEquiv denotEquivSteps
 ```
 
 <div class="wip-notice">

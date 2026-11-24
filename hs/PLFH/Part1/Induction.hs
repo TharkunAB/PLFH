@@ -93,7 +93,7 @@ plusRearrange m n p q =
     `trans` cong @(plus m) (sym (plusAssoc n p q))
     `trans` sym (plusAssoc m (plus n p) q)
 
-{-# LINE 229 "content/part1/Induction.md" #-}
+{-# LINE 220 "content/part1/Induction.md" #-}
 -- | Swap the first two addends: m + (n + p) = n + (m + p),
 -- using `HaskLib.rewrite` directly inside a `trans` chain!
 plusSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
@@ -103,7 +103,7 @@ plusSwap m n p =
     `trans` rewrite (plusComm m n) Refl
     `trans` plusAssoc n m p
 
-{-# LINE 254 "content/part1/Induction.md" #-}
+{-# LINE 236 "content/part1/Induction.md" #-}
 -- | Right distributivity of multiplication over addition:
 -- (m + n) * p = m * p + n * p.
 timesDistribPlus :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
@@ -142,13 +142,13 @@ timesComm (Succ m) n =
   rewrite (timesComm m n)
     (sym (timesSuccR n m))
 
-{-# LINE 301 "content/part1/Induction.md" #-}
+{-# LINE 283 "content/part1/Induction.md" #-}
 -- | Subtracting any natural from zero gives zero (`0∸n≡0`).
 zeroMonus :: foreach (n :: Nat) -> monus 'Zero n :~: 'Zero
 zeroMonus Zero     = Refl
 zeroMonus (Succ _) = Refl
 
-{-# LINE 313 "content/part1/Induction.md" #-}
+{-# LINE 295 "content/part1/Induction.md" #-}
 -- | Two successive subtractions subtract the sum of their operands (`∸-+-assoc`).
 monusPlusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
                -> monus (monus m n) p :~: monus m (plus n p)
@@ -164,7 +164,7 @@ subtractSucc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
 subtractSucc Zero     _ p = zeroMonus p
 subtractSucc (Succ m) n p = monusPlusAssoc m n p
 
-{-# LINE 346 "content/part1/Induction.md" #-}
+{-# LINE 317 "content/part1/Induction.md" #-}
 -- | Swap the first two factors: m * (n * p) = n * (m * p).
 timesSwap :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
           -> times m (times n p) :~: times n (times m p)
@@ -210,7 +210,7 @@ powTimes m n p = case p of
               (sym (powPlus m n (times n k))
                  `trans` congSecond @pow @m (sym (timesSuccR n k)))
 
-{-# LINE 412 "content/part1/Induction.md" #-}
+{-# LINE 371 "content/part1/Induction.md" #-}
 -- | Incrementing a bitstring adds one to its unary value.
 fromInc :: foreach (b :: Bin) -> fromBin (inc b) :~: 'Succ (fromBin b)
 fromInc Nil    = Refl

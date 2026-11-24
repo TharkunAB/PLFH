@@ -9,13 +9,22 @@ module PLFH.Part2.Properties
   , canonical
   , Progress (..)
   , progress
+  , valueCannotStep
+  , stepDeterm
   , extCtx
   , renameTyping
   , weakenTyping
   , dropTyping
   , swapTyping
+  , NameDecision (..)
+  , decide
   , substTyping
   , preserve
+  , TermW (..)
+  , stepTarget
+  , preserveSteps
+  , EvalResult (..)
+  , eval
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -28,6 +37,7 @@ import PLFH.Part2.Lambda
   , Id
   , Lookup (..)
   , Step (..)
+  , Steps (..)
   , Term (..)
   , Ty (..)
   , Value (..)
@@ -35,7 +45,7 @@ import PLFH.Part2.Lambda
   , substTerm
   )
 
-{-# LINE 63 "content/part2/Properties.md" #-}
+{-# LINE 73 "content/part2/Properties.md" #-}
 -- | Canonical form of a closed well-typed value.
 data Canonical (m :: Term) (a :: Ty) where
   CLam  :: HasType ('CExt 'CEmpty x a) n b -> Canonical ('Lam x n) ('TArr a b)
@@ -48,7 +58,7 @@ canonical (TLam tn)  VLam      = CLam tn
 canonical TZeroT     VZero     = CZero
 canonical (TSucT tv) (VSuc vv) = CSuc vv tv
 
-{-# LINE 82 "content/part2/Properties.md" #-}
+{-# LINE 92 "content/part2/Properties.md" #-}
 -- | Evidence that a closed term either steps or is already a value.
 data Progress (m :: Term) where
   PStep :: Step m n -> Progress m
@@ -75,7 +85,7 @@ progress (TCaseT tl _ _) = case progress tl of
     CSuc v _ -> PStep (BetaSuc v)
 progress (TMuT _) = PStep BetaMu
 
-{-# LINE 120 "content/part2/Properties.md" #-}
+{-# LINE 130 "content/part2/Properties.md" #-}
 -- | Extend a context inclusion under a newly bound variable `x : a`.
 extCtx :: (forall y b. Lookup g y b -> Lookup d y b)
        -> Lookup ('CExt g x a) y b
@@ -123,7 +133,7 @@ swapTyping xNeqY = renameTyping swapLookup
     swapLookup (LS _ LZ)                  = LZ
     swapLookup (LS zNeqY (LS zNeqX rest)) = LS zNeqX (LS zNeqY rest)
 
-{-# LINE 177 "content/part2/Properties.md" #-}
+{-# LINE 187 "content/part2/Properties.md" #-}
 data NameDecision (x :: Id) (y :: Id) where
     Same :: x :~: y -> eqId x y :~: 'True -> NameDecision x y
     Different :: (x :~: y -> Void) -> eqId x y :~: 'False -> NameDecision x y
@@ -168,7 +178,7 @@ substTyping y term replacement typed = case term of
         Same Refl Refl -> TMuT (dropTyping tt)
         Different neq Refl -> TMuT (substTyping y t replacement (swapTyping (\Refl -> neq Refl) tt))
 
-{-# LINE 229 "content/part2/Properties.md" #-}
+{-# LINE 239 "content/part2/Properties.md" #-}
 data IsLam (m :: Term) where
     IsLam :: IsLam ('Lam x body)
 
@@ -229,3 +239,100 @@ substSuc :: foreach (v :: Term) -> foreach (x :: Id) -> foreach (body :: Term)
          -> HasType ('CExt 'CEmpty x 'TNat) body a
          -> HasType 'CEmpty (substTerm body x v) a
 substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
+
+{-# LINE 310 "content/part2/Properties.md" #-}
+-- | Values do not reduce (`V-¬—→`).
+valueCannotStep :: Value m -> Not (Step m n)
+valueCannotStep VLam     s         = case s of {}
+valueCannotStep VZero    s         = case s of {}
+valueCannotStep (VSuc v) (XiSuc s) = valueCannotStep v s
+
+-- | Determinism of call-by-value one-step reduction (`det`).
+stepDeterm :: Step m n1 -> Step m n2 -> n1 :~: n2
+stepDeterm (XiApp1 s1)  (XiApp1 s2)  = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiApp1 s1)  (XiApp2 v _) = absurd (valueCannotStep v s1)
+stepDeterm (XiApp1 s1)  (BetaLam _)  = absurd (valueCannotStep VLam s1)
+stepDeterm (XiApp2 v _) (XiApp1 s2)  = absurd (valueCannotStep v s2)
+stepDeterm (XiApp2 _ s1) (XiApp2 _ s2) = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiApp2 _ s1) (BetaLam v) = absurd (valueCannotStep v s1)
+stepDeterm (BetaLam _)  (XiApp1 s2)  = absurd (valueCannotStep VLam s2)
+stepDeterm (BetaLam v)  (XiApp2 _ s2) = absurd (valueCannotStep v s2)
+stepDeterm (BetaLam _)  (BetaLam _)  = Refl
+stepDeterm (XiSuc s1)   (XiSuc s2)   = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiCase s1)  (XiCase s2)  = case stepDeterm s1 s2 of Refl -> Refl
+stepDeterm (XiCase s1)  BetaZero     = absurd (valueCannotStep VZero s1)
+stepDeterm (XiCase s1)  (BetaSuc v)  = absurd (valueCannotStep (VSuc v) s1)
+stepDeterm BetaZero     (XiCase s2)  = absurd (valueCannotStep VZero s2)
+stepDeterm BetaZero     BetaZero     = Refl
+stepDeterm (BetaSuc v)  (XiCase s2)  = absurd (valueCannotStep (VSuc v) s2)
+stepDeterm (BetaSuc _)  (BetaSuc _)  = Refl
+stepDeterm BetaMu       BetaMu       = Refl
+
+-- | Retained runtime witness for a promoted `Term`.
+data TermW (t :: Term) where
+  MkTermW :: foreach (t :: Term) -> TermW t
+
+-- | Compute the retained target term of any one-step reduction.
+stepTarget :: foreach (m :: Term) -> Step m n -> TermW n
+stepTarget source step = case source of
+  Var _   -> case step of {}
+  Lam _ _ -> case step of {}
+  TZero   -> case step of {}
+  App l r -> case step of
+    XiApp1 sl -> case stepTarget l sl of
+      MkTermW l' -> MkTermW (App l' r)
+    XiApp2 _ sr -> case stepTarget r sr of
+      MkTermW r' -> MkTermW (App l r')
+    BetaLam @_ @binder @bodyIndex _ ->
+      let shape :: IsLam l
+          shape = IsLam @binder @bodyIndex
+      in case l of
+        Lam x body    -> MkTermW (substTerm body x r)
+        Var _         -> case shape of {}
+        App _ _       -> case shape of {}
+        TZero         -> case shape of {}
+        TSuc _        -> case shape of {}
+        TCase _ _ _ _ -> case shape of {}
+        TMu _ _       -> case shape of {}
+  TSuc m -> case step of
+    XiSuc sm -> case stepTarget m sm of
+      MkTermW m' -> MkTermW (TSuc m')
+  TCase l z x n -> case step of
+    XiCase sl -> case stepTarget l sl of
+      MkTermW l' -> MkTermW (TCase l' z x n)
+    BetaZero -> MkTermW z
+    BetaSuc @value _ ->
+      let shape :: IsSuc l
+          shape = IsSuc @value
+      in case l of
+        TSuc v        -> MkTermW (substTerm n x v)
+        Var _         -> case shape of {}
+        Lam _ _       -> case shape of {}
+        App _ _       -> case shape of {}
+        TZero         -> case shape of {}
+        TCase _ _ _ _ -> case shape of {}
+        TMu _ _       -> case shape of {}
+  TMu x m -> case step of
+    BetaMu -> MkTermW (substTerm m x (TMu x m))
+
+-- | Multi-step preservation (`preserve*`): `M —↠ N` preserves closed typing.
+preserveSteps :: foreach (m :: Term) -> HasType 'CEmpty m a -> Steps m n -> HasType 'CEmpty n a
+preserveSteps m tm steps = case steps of
+  StepsRefl     -> tm
+  StepsCons s r -> case stepTarget m s of
+    MkTermW m' -> preserveSteps m' (preserve m tm s) r
+
+-- | Result of gas-bounded evaluation (`Finished`): either a value or out-of-gas trace.
+data EvalResult (m :: Term) where
+  Done     :: Steps m v -> Value v -> EvalResult m
+  OutOfGas :: Steps m n -> EvalResult m
+
+-- | PLFA's verified gas-bounded evaluator built directly from `progress` and `preserve`!
+eval :: Nat -> TermW m -> HasType 'CEmpty m a -> EvalResult m
+eval Zero     _           _  = OutOfGas StepsRefl
+eval (Succ g) (MkTermW m) tm = case progress tm of
+  PDone v -> Done StepsRefl v
+  PStep s -> case stepTarget m s of
+    wm' -> case eval g wm' (preserve m tm s) of
+      Done ss v   -> Done (StepsCons s ss) v
+      OutOfGas ss -> OutOfGas (StepsCons s ss)

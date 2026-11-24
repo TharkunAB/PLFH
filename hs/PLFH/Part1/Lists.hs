@@ -70,7 +70,7 @@ lengthReverseLaw :: forall a. foreach (xs :: [a])
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 136 "content/part1/Lists.md" #-}
+{-# LINE 126 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: [a]) -> foreach (ys :: [a])
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -90,7 +90,7 @@ mapId :: forall a. foreach (xs :: [a]) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 175 "content/part1/Lists.md" #-}
+{-# LINE 164 "content/part1/Lists.md" #-}
 -- | Accumulating list reversal helper `shunt`.
 shunt :: [a] -> [a] -> [a]
 shunt []     ys = ys
@@ -122,7 +122,7 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 246 "content/part1/Lists.md" #-}
+{-# LINE 224 "content/part1/Lists.md" #-}
 -- | Evidence that predicate `p` holds for every element of `xs`.
 data All (p :: a -> Type) (xs :: [a]) where
   AllNil  :: All p '[]

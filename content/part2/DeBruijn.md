@@ -23,6 +23,8 @@ module PLFH.Part2.DeBruijn
   , termTwo
   , Value (..)
   , valZero
+  , IsVal (..)
+  , checkValue
   ) where
 
 import Data.Kind (Type)
@@ -122,7 +124,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
 ## Promoting `Term g a`: Values
 
-Remarkably, GHC (`1a02a866e7`) **accepts promoting the indexed GADT `Term g a`**
+Remarkably, GHC **accepts promoting the indexed GADT `Term g a`**
 as the kind of `Value` (using `StandaloneKindSignatures`):
 
 ```haskell
@@ -136,32 +138,43 @@ data Value m where
 -- | Concrete witness that `Zero` is already a value.
 valZero :: Value ('Zero :: Term 'CEmpty 'TNat)
 valZero = VZero
+
+-- | Classification of a closed intrinsically-typed term as a value or non-value.
+type IsVal :: forall (a :: Ty). Term 'CEmpty a -> Type
+data IsVal m where
+  YesVal :: Value m -> IsVal m
+  NotVal :: IsVal m
+
+-- | Case-based value classification over retained intrinsically-typed `Term 'CEmpty a`!
+checkValue :: forall (a :: Ty). foreach (m :: Term 'CEmpty a) -> IsVal m
+checkValue m = case m of
+  Var x      -> case x of {}
+  Lam _      -> YesVal VLam
+  App _ _    -> NotVal
+  Zero       -> YesVal VZero
+  Suc n      -> case checkValue n of
+    YesVal v -> YesVal (VSuc v)
+    NotVal   -> NotVal
+  Case _ _ _ -> NotVal
+  Mu _       -> NotVal
 ```
 
 ## Intrinsically-typed Reduction (`Step`) and Progress (`progress`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>Step</code> &amp; <code>foreach</code> over indexed GADT <code>Term g a</code> (R03/R13)]</strong>
-Two distinct Dependent Haskell frontiers currently meet here:
+<strong>[WIP NOTICE — Functional <code>Step</code> (R13/R16) &amp; Equation-style <code>foreach</code> on indexed GADTs (R03)]</strong>
+Two distinct Dependent Haskell frontiers remain open here:
 <ol>
   <li><strong>R13/R16 (Open equations for GADT-indexed higher-order <code>substSingle</code>):</strong>
-      Writing unqualified <code>substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
-      silently quantified <code>substSingle</code> as an unconstrained fresh type variable
-      (the same implicit-quantification pitfall documented in <a href="/Lambda/">Lambda</a>).
-      Writing qualified <code>Syntax.substSingle</code> from a separate syntax module honestly
-      fails with <code>GHC-70565</code> on published GHC <code>1a02a866e7</code> because
+      Writing qualified <code>Syntax.substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
+      still fails with <code>GHC-68947</code>/<code>GHC-70565</code> because
       <code>substSingle</code> calls higher-order GADT-indexed <code>subst</code>.
       See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>.</li>
-  <li><strong>R03 (<code>foreach</code> over an indexed GADT domain):</strong>
-      Writing intrinsically-typed progress:
-<pre class="wip"><code>progress :: forall (a :: Ty). foreach (m :: Term 'CEmpty a) -&gt; Progress m</code></pre>
-      hits <code>GHC-83605</code> when matching in function equations (<code>foreach</code>
-      currently requires a closed, unparameterized, non-GADT algebraic domain),
-      and matching via <code>case m of</code> does not refine the type-level index
-      <code>m</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>
-      and
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtCase.hs"><code>R03_ForEachGadtCase.hs</code></a>.</li>
+  <li><strong>R03 (Direct equation-style matching on <code>foreach (m :: Term 'CEmpty a)</code>):</strong>
+      While <code>case m of</code> now works cleanly (see <code>checkValue</code> above!),
+      matching <code>Term 'CEmpty a</code> directly in function equations still hits
+      <code>GHC-83605</code>. See
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>.</li>
 </ol>
 </div>
 
@@ -170,9 +183,9 @@ Two distinct Dependent Haskell frontiers currently meet here:
 - Adapted from [DeBruijn](https://plfa.inf.ed.ac.uk/DeBruijn/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/DeBruijn.lagda.md)).
 - `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
-  `substSingle`, and the GADT-promoted `Value` definition all compile cleanly
-  with `-dcore-lint -dstg-lint` and pass our `.hi` interface soundness audit.
-- Functional `Step` (`Syntax.substSingle`, R13/R16) and intrinsically-typed
-  `progress` (`foreach (m :: Term 'CEmpty a) -> Progress m`, R03) are marked
-  `[WIP NOTICE]` rather than leaving an unconstrained fresh-tyvar `Step`
-  constructor.
+  `substSingle`, GADT-promoted `Value`, and case-based **`IsVal`/`checkValue`**
+  over retained `foreach (m :: Term 'CEmpty a)` all compile cleanly with
+  `-dcore-lint -dstg-lint` and pass our `.hi` interface soundness audit!
+- Functional `Step` (`substSingle`, R13/R16) and direct equation-style
+  `foreach` on indexed GADTs (`R03_ForEachGadtEquations.hs`) remain marked
+  `[WIP NOTICE]`.

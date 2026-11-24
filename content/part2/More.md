@@ -183,8 +183,8 @@ As in <a href="/DeBruijn/">DeBruijn</a>, writing unqualified <code>substSingle</
 and <code>substDouble</code> in the <code>BetaLam</code>, <code>BetaLet</code>,
 <code>BetaInl</code>, <code>BetaInr</code>, and <code>BetaCons</code> constructors
 of <code>Step</code> silently quantified fresh unconstrained type variables, while
-qualifying them from a split syntax module fails with <code>GHC-70565</code> on
-published GHC <code>1a02a866e7</code>. Functional <code>Step</code> and
+qualifying them from a split syntax module currently fails with
+<code>GHC-70565</code>. Functional <code>Step</code> and
 intrinsically-typed <code>progress</code> remain tracked as
 <code>[WIP NOTICE]</code> (see
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>

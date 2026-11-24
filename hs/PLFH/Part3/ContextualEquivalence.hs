@@ -17,7 +17,7 @@ import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped (BetaSteps (..), UTerm (..))
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
-import PLFH.Part3.Soundness (BetaPres, BetaReflect, denotEquivSteps)
+import PLFH.Part3.Soundness (denotEquivSteps)
 
 {-# LINE 46 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
@@ -60,12 +60,10 @@ denotEqualCtxEquiv soundness adequacy eqC =
   , denotEqualTerminates soundness adequacy (denEqSym eqC)
   )
 
--- | Instantiate `SoundnessProp` directly via `Soundness.denotEquivSteps`!
+-- | Instantiate `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`!
 denotEqualCtxEquivFromSoundness
   :: forall (cm :: UTerm 'Zero) (cn :: UTerm 'Zero).
-     BetaPres
-  -> BetaReflect
-  -> AdequacyProp
+     AdequacyProp
   -> DenEq (Den cm) (Den cn)
   -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
-denotEqualCtxEquivFromSoundness bp br = denotEqualCtxEquiv (denotEquivSteps bp br)
+denotEqualCtxEquivFromSoundness = denotEqualCtxEquiv denotEquivSteps

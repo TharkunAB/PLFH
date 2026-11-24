@@ -146,13 +146,9 @@ data Steps (m :: Term) (n :: Term) where
   StepsCons :: Step l m -> Steps m n -> Steps l n
 ```
 
-The three beta constructors bind their term indices explicitly. Each result
-uses the substitution function defined above (`substTerm`). On earlier GHC
-revisions (`1a02a866e7`), unqualified same-module `substTerm` had no checked
-open equations and was silently quantified as a fresh unconstrained type
-variable; fixed in `Tritlo/ghc` [`692eae0778`](https://github.com/Tritlo/ghc/commit/692eae077896a00384fecf15a3d5d92d828a6415)
-(see regression check [`reproducers/fixed/R13_SubstTermOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/fixed/R13_SubstTermOpenEq.hs)).
-The negative control below verifies that GHC rejects an arbitrary reduction target.
+The three beta constructors bind their term indices explicitly, and each result
+uses the ordinary `substTerm` function defined above. The negative control
+below verifies that GHC rejects an arbitrary reduction target.
 
 ## Context lookup and typing (`_∋_⦂_`, `_⊢_⦂_`)
 
