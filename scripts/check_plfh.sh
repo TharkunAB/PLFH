@@ -18,9 +18,12 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
-# Prefer the latest verified published component binary on dependent-haskell:
-#   7bd39424e0 (indexed env lookup + rank-n abstract renaming + CorePrep + 0452d7d17c),
-#   falling back to plfh-normal-622 (f78c0b4592), 0452d7d17c, 0b2ad262df, 744122325d, 056871faa9, 4570cbe2f8, 8632606465, fb64eaff81, ad1a979ead, 2deac8b91e, 9d310102c7, 35916907b9, da06279b7a, f0bc12e601, 6c8ab7f7de, 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+# Prefer the consolidated verified normal stage1 build under _build/current/
+# whenever _build/current/verified.pass exists, falling back to published
+# on-demand checkpoints (7bd39424e0, plfh-normal-622, 0452d7d17c, ...).
+CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
+CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
+CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
 COMP_7BD="$GHC_REPO/_build/on-demand/plfh-indexed-env-lookup-facade-20261124/relink.n73u8d/component/ghc"
 NORMAL_622="$GHC_REPO/_build/on-demand/plfh-normal-622-20261124/source/_build/stage1/bin/ghc"
 COMP_045="$GHC_REPO/_build/on-demand/plfh-nonuniform-legacy-distinct-20261124/relink.sNapGu/component/ghc"
@@ -49,7 +52,10 @@ LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$COMP_7BD" ]]; then
+if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]]; then
+  DEFAULT_COMPILER="$CURRENT_GHC"
+  DEFAULT_LIBDIR="$CURRENT_LIB"
+elif [[ -x "$COMP_7BD" ]]; then
   DEFAULT_COMPILER="$COMP_7BD"
   DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$NORMAL_622" ]]; then
@@ -125,7 +131,7 @@ fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$COMP_359" || "$COMPILER" == "$COMP_DA0" || "$COMPILER" == "$COMP_F0B" || "$COMPILER" == "$COMP_6C8" || "$COMPILER" == "$COMP_332" || "$COMPILER" == "$COMP_E7A" || "$COMPILER" == "$COMP_C97" || "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$CURRENT_GHC" || "$COMPILER" == "$COMP_359" || "$COMPILER" == "$COMP_DA0" || "$COMPILER" == "$COMP_F0B" || "$COMPILER" == "$COMP_6C8" || "$COMPILER" == "$COMP_332" || "$COMPILER" == "$COMP_E7A" || "$COMPILER" == "$COMP_C97" || "$COMPILER" == "$COMP_2E4" || "$COMPILER" == "$COMP_1F8" || "$COMPILER" == "$COMP_63E" || "$COMPILER" == "$COMP_9CC" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
@@ -160,7 +166,10 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_7BD" ]]; then
+if [[ "$COMPILER" == "$CURRENT_GHC" ]]; then
+  CURRENT_REV=$(cat "$GHC_REPO/_build/current/compiler.source" 2>/dev/null || echo "$COMMIT")
+  echo "Commit:   $CURRENT_REV (consolidated _build/current stage1; ghc --info: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_7BD" ]]; then
   echo "Commit:   7bd39424e0 / 944a4efa9d / 2b957d9d85 (verified component; base libdir seed: $COMMIT)"
 elif [[ "$COMPILER" == "$NORMAL_622" ]]; then
   echo "Commit:   f78c0b4592bb7883333968c17f2bebbe60a76b9b (full stage1 normal-622)"
