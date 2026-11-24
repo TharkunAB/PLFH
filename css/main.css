@@ -1,0 +1,320 @@
+/* PLFH stylesheet — adapted from PLFA v19.08 (CC BY 4.0) & Jekyll minima,
+ * modernized with Iosevka for code/Unicode math and [WIP NOTICE] callouts. */
+
+:root {
+  --text-color: #111111;
+  --muted-color: #5a5a5a;
+  --bg-color: #fdfdfd;
+  --brand-color: #2a7ae2;
+  --brand-dark: #1756a9;
+  --border-color: #e8e8e8;
+  --code-bg: #e8f2fb;
+  --code-border: #c9e1f6;
+  --wip-bg: #fff8e6;
+  --wip-border: #e6a700;
+  --wip-title: #8a5a00;
+  --attr-bg: #f6f8fa;
+  --attr-border: #d0d7de;
+  --content-width: 820px;
+  --prose-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --code-font: "Iosevka", "Iosevka Web", "Iosevka Term", "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--prose-font);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--brand-color);
+  text-decoration: none;
+}
+
+a:visited {
+  color: var(--brand-dark);
+}
+
+a:hover {
+  color: var(--text-color);
+  text-decoration: underline;
+}
+
+.wrapper {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+.site-header {
+  border-top: 5px solid #424242;
+  border-bottom: 1px solid var(--border-color);
+  min-height: 56px;
+  background-color: #ffffff;
+}
+
+.site-header .wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.site-title {
+  font-size: 1.35rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #424242 !important;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.site-nav .page-link {
+  color: var(--text-color);
+  font-size: 0.95rem;
+}
+
+/* Main content */
+.page-content {
+  padding: 28px 0 40px;
+}
+
+.post-header {
+  margin-bottom: 16px;
+}
+
+.post-title {
+  font-size: 2.15rem;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px 0;
+}
+
+.chapter-nav {
+  text-align: center;
+  margin: 14px 0 22px;
+  font-size: 0.95rem;
+  color: var(--muted-color);
+}
+
+.chapter-nav:empty {
+  display: none;
+}
+
+h2 {
+  font-size: 1.55rem;
+  font-weight: 400;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+h3 {
+  font-size: 1.25rem;
+  font-weight: 500;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+h4 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 1.4rem;
+  margin-bottom: 0.4rem;
+}
+
+blockquote {
+  color: var(--muted-color);
+  border-left: 4px solid var(--border-color);
+  padding: 2px 0 2px 16px;
+  margin: 16px 0;
+  font-style: italic;
+}
+
+/* Code blocks — PLFA ice-blue aesthetic + Iosevka */
+code, pre {
+  font-family: var(--code-font);
+  font-size: 0.92rem;
+}
+
+code {
+  padding: 1px 5px;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+}
+
+pre {
+  padding: 10px 14px;
+  overflow-x: auto;
+  background-color: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 3px;
+  line-height: 1.45;
+  margin: 14px 0;
+}
+
+pre > code {
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 0.92rem;
+}
+
+/* Non-checked / exercise / expected-failure / WIP code blocks use dashed borders (like PLFA) */
+div.sourceCode.wip pre,
+div.sourceCode.exercise pre,
+div.sourceCode.ignore pre,
+div.sourceCode.fail pre,
+pre.wip,
+pre.exercise,
+pre.ignore,
+pre.fail {
+  border-style: dashed;
+}
+
+div.sourceCode.fail pre,
+pre.fail {
+  background-color: #fdf2f2;
+  border-color: #e6b8b8;
+}
+
+div.sourceCode.wip pre,
+pre.wip {
+  background-color: #fffaf0;
+  border-color: #e6c675;
+}
+
+/* Attribution banner & [WIP NOTICE] callout */
+.attribution-banner {
+  background-color: var(--attr-bg);
+  border: 1px solid var(--attr-border);
+  border-left: 4px solid var(--brand-color);
+  border-radius: 3px;
+  padding: 10px 14px;
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.wip-notice {
+  background-color: var(--wip-bg);
+  border: 1px solid var(--wip-border);
+  border-left: 4px solid var(--wip-border);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 18px 0;
+}
+
+.wip-notice strong:first-child,
+.wip-notice .wip-label {
+  color: var(--wip-title);
+}
+
+.note-box {
+  background-color: #f3f7fc;
+  border: 1px solid var(--code-border);
+  border-left: 4px solid var(--brand-color);
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin: 18px 0;
+}
+
+/* Inference rules without TeX */
+.inference-rule {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--code-font);
+  font-size: 0.92rem;
+  margin: 8px 18px 8px 0;
+  vertical-align: middle;
+}
+
+.inference-rule .premises {
+  padding: 0 8px 3px;
+  border-bottom: 1.5px solid #222;
+}
+
+.inference-rule .conclusion {
+  padding: 3px 8px 0;
+}
+
+/* Status badges */
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  font-family: var(--code-font);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.badge-pass    { background: #dafbe1; color: #116329; border: 1px solid #82d198; }
+.badge-reuse   { background: #ddf4ff; color: #0969da; border: 1px solid #8cc7ff; }
+.badge-partial { background: #fff8c5; color: #7d4e00; border: 1px solid #e6c656; }
+.badge-wip     { background: #ffebe9; color: #a40e26; border: 1px solid #f09595; }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+  font-size: 0.92rem;
+}
+
+th, td {
+  border: 1px solid var(--border-color);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background-color: #f4f6f8;
+  font-weight: 600;
+}
+
+tr:nth-child(even) td {
+  background-color: #fafafa;
+}
+
+/* Footer */
+.site-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 24px 0 36px;
+  color: var(--muted-color);
+  font-size: 0.88rem;
+  background-color: #ffffff;
+}
+
+.footer-heading {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--text-color);
+  margin: 0 0 8px;
+}
+
+.site-footer p {
+  margin: 6px 0;
+}

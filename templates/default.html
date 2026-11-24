@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>$title$ — $siteTitle$</title>
+  <meta name="description" content="Programming Language Foundations in Haskell (PLFH), adapted from Programming Language Foundations in Agda (v19.08) for Dependent Haskell in GHC.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/400.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/600.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/400-italic.css">
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/syntax.css">
+</head>
+<body>
+  <header class="site-header" role="banner">
+    <div class="wrapper">
+      <a class="site-title" href="/">$siteTitle$</a>
+      <nav class="site-nav">
+        <a class="page-link" href="/">The Book</a>
+        <a class="page-link" href="/Setup/">Setup</a>
+        <a class="page-link" href="/Status/">Yardstick Status</a>
+        <a class="page-link" href="/Citing/">Citing</a>
+        <a class="page-link" href="$repoUrl$">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="page-content" aria-label="Content">
+    <div class="wrapper">
+      $body$
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrapper">
+      <h2 class="footer-heading">$siteTitle$</h2>
+      <p class="footer-attribution">
+        Adapted from Philip Wadler and Wen Kokke,
+        <a href="$plfaUrl$"><em>Programming Language Foundations in Agda</em> (edition 19.08)</a>,
+        commit <code>63fcbbe</code>, translated and extended for Dependent Haskell in GHC
+        (<a href="https://github.com/Tritlo/ghc/tree/dependent-haskell"><code>Tritlo/ghc</code></a>).
+      </p>
+      <p class="footer-license">
+        This work is licensed under a
+        <a rel="license" href="$licenseUrl$">$licenseName$</a>.
+        Changes from PLFA are noted on each chapter and tracked on the
+        <a href="/Status/">Yardstick Status</a> page.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>

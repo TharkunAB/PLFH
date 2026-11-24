@@ -1,0 +1,19 @@
+/* Skylighting syntax colors tuned to PLFA's Agda palette (CC BY 4.0) */
+
+code span.kw { color: #cd6600; font-weight: 600; } /* Keywords */
+code span.dt { color: #0000cd; }                   /* Data types & constructors */
+code span.dv { color: #a020f0; }                   /* Decimal numbers */
+code span.bn { color: #a020f0; }                   /* Base-N */
+code span.fl { color: #a020f0; }                   /* Float */
+code span.ch { color: #b22222; }                   /* Char */
+code span.st { color: #b22222; }                   /* String */
+code span.co { color: #b22222; font-style: italic; } /* Comments */
+code span.ot { color: #008b00; }                   /* Operators / constructors */
+code span.al { color: #ff0000; font-weight: 600; } /* Alert */
+code span.fu { color: #0000cd; }                   /* Function */
+code span.er { color: #ff0000; text-decoration: underline; }
+code span.op { color: #404040; }                   /* Operator */
+code span.cf { color: #cd6600; font-weight: 600; } /* Control flow */
+code span.im { color: #a020f0; }                   /* Import / Module */
+code span.pp { color: #8b7500; }                   /* Pragma */
+code span.va { color: #111111; }                   /* Variable */

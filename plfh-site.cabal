@@ -1,0 +1,19 @@
+cabal-version: 3.0
+name:          plfh-site
+version:       0.1.0.0
+synopsis:      Hakyll static site generator for Programming Language Foundations in Haskell
+license:       NONE
+license-file:  LICENSE
+author:        Matti & Contributors (adapted from PLFA by Philip Wadler and Wen Kokke)
+build-type:    Simple
+
+executable plfh-site
+  main-is:          site.hs
+  default-language: GHC2021
+  ghc-options:      -threaded -rtsopts -with-rtsopts=-N -Wall
+  build-depends:
+      base      >= 4.18 && < 5
+    , filepath  >= 1.4
+    , hakyll    >= 4.16
+    , pandoc    >= 3.1
+    , text      >= 2.0

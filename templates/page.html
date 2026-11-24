@@ -1,0 +1,36 @@
+<article class="post">
+  <header class="post-header">
+    <h1 class="post-title">$title$</h1>
+  </header>
+
+  <nav class="chapter-nav" aria-label="Chapter navigation">
+    $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
+    $if(prevUrl)$$if(srcUrl)$ &bullet; $else$$if(nextUrl)$ &bullet; $endif$$endif$$endif$
+    $if(srcUrl)$<a href="$srcUrl$">Source</a>$endif$
+    $if(srcUrl)$$if(nextUrl)$ &bullet; $endif$$endif$
+    $if(nextUrl)$<a href="$nextUrl$">Next</a>$endif$
+  </nav>
+
+  $if(plfaChapter)$
+  <div class="attribution-banner">
+    <strong>Attribution:</strong> Adapted from
+    <a href="$plfaChapter$">PLFA v19.08</a>
+    by Philip Wadler and Wen Kokke
+    (<a rel="license" href="$licenseUrl$">CC BY 4.0</a>).
+    Translated for Dependent Haskell (<code>-XExperimentalDependentTypes</code>);
+    differences, HaskLib reuse, and current compiler limitations are marked inline.
+  </div>
+  $endif$
+
+  <div class="post-content">
+    $body$
+  </div>
+
+  <nav class="chapter-nav" aria-label="Chapter navigation">
+    $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
+    $if(prevUrl)$$if(srcUrl)$ &bullet; $else$$if(nextUrl)$ &bullet; $endif$$endif$$endif$
+    $if(srcUrl)$<a href="$srcUrl$">Source</a>$endif$
+    $if(srcUrl)$$if(nextUrl)$ &bullet; $endif$$endif$
+    $if(nextUrl)$<a href="$nextUrl$">Next</a>$endif$
+  </nav>
+</article>
