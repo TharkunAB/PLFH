@@ -8,6 +8,33 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Substitution/
 plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
+When proving deep metatheorems about lambda calculi—such as **Confluence**
+([Confluence](/Confluence/)), **Big-Step/Small-Step Equivalence**, or
+**Barendregt's Substitution Lemma** (`M [ x := N ] [ y := L ] = M [ y := L ] [ x := N [ y := L ] ]`)—ad-hoc inductions over single-variable substitution quickly
+become tangled in variable-shifting arithmetic.
+
+In PLFA's **Substitution** chapter (following Abadi, Cardelli, Curien, and
+Lévy's **σ-calculus** of explicit substitutions, and Steven Schäfer, Tobias
+Tebbi, and Gert Smolka's Autosubst framework), simultaneous renamings and
+substitutions are packaged into a small **algebraic calculus** governed by a
+handful of clean equational laws:
+
+```text
+Identity:           M [ ids ]            ≡  M
+Composition:        (M [ σ ]) [ τ ]      ≡  M [ σ ⨟ τ ]
+Head & Tail:        0 [ M • σ ]          ≡  M
+                    (S x) [ M • σ ]      ≡  σ x
+Shift & Cons:       ↑ ⨟ (M • σ)          ≡  σ
+Eta:                (0 • ↑)              ≡  ids
+Distributivity:     (M • σ) ⨟ τ          ≡  (M [ τ ]) • (σ ⨟ τ)
+```
+
+Once those algebraic identities are in place, Barendregt's substitution lemma
+and commutation of parallel reduction become short equational calculations
+rather than tedious index gymnastics!
+
+## Imports
+
 ```haskell
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
@@ -38,11 +65,25 @@ import PLFH.Part2.Untyped
   )
 ```
 
-In PLFA's **Substitution** chapter (used by **BigStep** and **Confluence**),
-simultaneous renamings and substitutions are organized into a clean algebra
-inspired by Abadi, Cardelli, Curien, and Lévy's **σ-calculus**.
-
 ## Renamings, Substitutions, and σ-calculus combinators
+
+A **renaming** `Rename m n` maps variables in scope depth `m` to variables in
+scope depth `n`, while a **substitution** `Subst m n` maps variables in depth
+`m` to arbitrary terms in depth `n`:
+
+- **`ids`**: the identity substitution mapping every variable `x` to `UVar x`.
+- **`shift`** (`↑`): the shift renaming `FS` incrementing every de Bruijn index
+  by `1` (weakening a term by inserting an unused binder at slot `0`).
+- **`ren`**: promotes any renaming `rho` to a substitution `\x -> UVar (rho x)`.
+- **`consSubst`** (`M • σ`): prepends a term `t` for variable `FZ` onto an
+  existing substitution `sigma` for all outer variables `FS x`.
+- **`seqSubst`** (`σ ⨟ τ`): sequential composition—first apply `σ` to variable
+  `x`, then apply `τ` to the resulting term via `substU`!
+
+Notice how single-variable substitution `substSingleU b w` from
+[Untyped](/Untyped/) is simply `substU (consSubst w ids) b` (`b [ w • ids ]`),
+and lifting a substitution under a binder (`extsU sigma`) is simply
+`consSubst (UVar FZ) (seqSubst sigma (ren shift))` (`0 • (σ ⨟ ren ↑)`)!
 
 ```haskell
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
@@ -55,8 +96,8 @@ type Subst (m :: Nat) (n :: Nat) = Fin m -> UTerm n
 ids :: Subst m m
 ids = UVar
 
--- | Shift renaming: increments every de Bruijn variable by one (`S_`).
-shift :: Rename m ('Succ m)
+-- | Shift renaming: increments every de Bruijn variable by one (`↑` / `S_`).
+shift :: Rename m (Succ m)
 shift = FS
 
 -- | Lift a renaming to a substitution.
@@ -64,7 +105,7 @@ ren :: Rename m n -> Subst m n
 ren rho x = UVar (rho x)
 
 -- | Extend a substitution with a new term for variable 0 (`M • σ`).
-consSubst :: UTerm n -> Subst m n -> Subst ('Succ m) n
+consSubst :: UTerm n -> Subst m n -> Subst (Succ m) n
 consSubst t _     FZ     = t
 consSubst _ sigma (FS x) = sigma x
 
@@ -75,8 +116,8 @@ seqSubst sigma tau x = substU tau (sigma x)
 
 ## Definitional σ-calculus laws
 
-Notice which laws hold by **pure computation / reflexivity** (even at the
-value level, and checked directly for arbitrary inputs):
+Several of the σ-calculus equations hold immediately by computation on
+variables and applications:
 
 ```haskell
 -- | Head law: `(t • σ) 0 = t`.
@@ -112,20 +153,35 @@ subSub :: foreach (s1 :: Subst m n) -&gt; foreach (s2 :: Subst n p)
        -&gt; substU s2 (substU s1 t) :~: substU (seqSubst s1 s2) t</code></pre>
 requires two capabilities already isolated by our yardstick:
 <ol>
-  <li><strong>R03/R04:</strong> <code>foreach</code> binders over composed
-      polymorphic functions (<code>Subst m n</code>) and non-uniform nested
+  <li><strong>R03/R04:</strong> <code>foreach</code> binders over opaque
+      composed functions (<code>Subst m n</code>) and non-uniform nested
       datatypes (<code>UTerm n</code>), tracked in
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>R04_ComposedIsoFields.hs</code></a>
       and
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_NestedDatatypeForEach.hs"><code>R03_NestedDatatypeForEach.hs</code></a>.</li>
   <li><strong>R13/R16:</strong> Open source equations for higher-order
       GADT-indexed functions (<code>substU</code>, <code>renameU</code>,
-      <code>extsU</code>), analogous to
+      <code>extsU</code>), tracked in
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>
+      and
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>.</li>
 </ol>
 All σ-calculus definitions and runtime combinators above compile cleanly with
 <code>-dcore-lint -dstg-lint</code>.
 </div>
+
+## Exercises
+
+#### Exercise `substSingle-as-cons` (practice)
+
+Check by hand that `substU (consSubst w ids) t` evaluates to the exact same
+result as `substSingleU t w` from [Untyped](/Untyped/) on every term `t`.
+
+#### Exercise `exts-as-sigma` (recommended)
+
+Verify on `FZ` and `FS x` that `extsU sigma` agrees pointwise with
+`consSubst (UVar FZ) (seqSubst sigma (ren shift))`, explaining why the
+σ-calculus eliminates `extsU` as a primitive combinator!
 
 ## Changes from PLFA
 
@@ -133,6 +189,7 @@ All σ-calculus definitions and runtime combinators above compile cleanly with
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Substitution.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `Rename`, `Subst`, `ids`, `shift`, `ren`,
-  `consSubst`, `seqSubst`, and the computational σ-calculus combinators.
+  `consSubst`, `seqSubst`, and the computational σ-calculus combinators with
+  zero promoted-constructor ticks.
 - Marked the equational substitution proofs (`sub-id`, `sub-sub`, `sub-dist`)
   with `[WIP NOTICE]` pointing to our tracked R03 and R13/R16 reproducers.

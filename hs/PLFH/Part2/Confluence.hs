@@ -4,7 +4,7 @@
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 15 "content/part2/Confluence.md" #-}
+{-# LINE 68 "content/part2/Confluence.md" #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1
@@ -34,36 +34,36 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 65 "content/part2/Confluence.md" #-}
+{-# LINE 104 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
 bsTrans (BCons s p) q = BCons s (bsTrans p q)
 
 -- | Congruence of multi-step β-reduction in function, argument, and lambda body.
-bsApp1 :: BetaSteps l l' -> BetaSteps ('UApp l m) ('UApp l' m)
+bsApp1 :: BetaSteps l l' -> BetaSteps (UApp l m) (UApp l' m)
 bsApp1 BRefl       = BRefl
 bsApp1 (BCons s p) = BCons (XiApp1 s) (bsApp1 p)
 
-bsApp2 :: BetaSteps m m' -> BetaSteps ('UApp l m) ('UApp l m')
+bsApp2 :: BetaSteps m m' -> BetaSteps (UApp l m) (UApp l m')
 bsApp2 BRefl       = BRefl
 bsApp2 (BCons s p) = BCons (XiApp2 s) (bsApp2 p)
 
-bsLam :: BetaSteps b b' -> BetaSteps ('ULam b) ('ULam b')
+bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 91 "content/part2/Confluence.md" #-}
+{-# LINE 138 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
-  PVar  :: Par ('UVar x) ('UVar x)
-  PLam  :: Par b b' -> Par ('ULam b) ('ULam b')
-  PApp  :: Par l l' -> Par m m' -> Par ('UApp l m) ('UApp l' m')
-  PBeta :: forall (n :: Nat) (b :: UTerm ('Succ n)) (b' :: UTerm ('Succ n))
+  PVar  :: Par (UVar x) (UVar x)
+  PLam  :: Par b b' -> Par (ULam b) (ULam b')
+  PApp  :: Par l l' -> Par m m' -> Par (UApp l m) (UApp l' m')
+  PBeta :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n))
                   (w :: UTerm n) (w' :: UTerm n) (r :: UTerm n).
-           Par b b' -> Par w w' -> SubstAtU 'FZ w' b' r
-        -> Par ('UApp ('ULam b) w) r
+           Par b b' -> Par w w' -> SubstAtU FZ w' b' r
+        -> Par (UApp (ULam b) w) r
 
 -- | Reflexive-transitive closure of parallel reduction (`_⇛*_`).
 type ParSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -93,8 +93,8 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 134 "content/part2/Confluence.md" #-}
--- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `n`.
+{-# LINE 194 "content/part2/Confluence.md" #-}
+-- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
   Join :: rel m1 k -> rel m2 k -> Joinable rel m1 m2

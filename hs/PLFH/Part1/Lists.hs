@@ -17,6 +17,11 @@ module PLFH.Part1.Lists
   , mapId
   , shunt
   , shuntAppend
+  , rev
+  , revAppend
+  , revInvolutive
+  , shuntRev
+  , reverses
   , downFrom
   , zeros
   , lengthDownFrom
@@ -40,7 +45,7 @@ module PLFH.Part1.Lists
   ) where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Type.Equality ((:~:) (Refl), gcastWith, sym)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
 import GHC.Types (List, Matchability)
@@ -49,7 +54,7 @@ import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 
-{-# LINE 103 "content/part1/Lists.md" #-}
+{-# LINE 108 "content/part1/Lists.md" #-}
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
 appendAssoc :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> foreach (zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
@@ -61,7 +66,7 @@ appendNilR :: forall a. foreach (xs :: List a) -> (xs ++ []) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 124 "content/part1/Lists.md" #-}
+{-# LINE 129 "content/part1/Lists.md" #-}
 -- | Length of append (reused directly from HaskLib.lengthAppend).
 lengthAppendLaw :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
@@ -77,7 +82,7 @@ lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 156 "content/part1/Lists.md" #-}
+{-# LINE 161 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -97,7 +102,7 @@ mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 202 "content/part1/Lists.md" #-}
+{-# LINE 207 "content/part1/Lists.md" #-}
 -- | Accumulating linear-time list reversal helper `shunt`.
 shunt :: List a -> List a -> List a
 shunt []     ys = ys
@@ -108,6 +113,43 @@ shuntAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> for
             -> shunt (xs ++ ys) zs :~: shunt ys (shunt xs zs)
 shuntAppend []     _  _  = Refl
 shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
+
+-- | Naive quadratic list reversal (`reverse` in PLFA).
+rev :: List a -> List a
+rev []     = []
+rev (x:xs) = rev xs ++ (x : [])
+
+-- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
+revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+          -> rev (xs ++ ys) :~: (rev ys ++ rev xs)
+revAppend []     ys = sym (appendNilR @a (rev ys))
+revAppend (x:xs) ys =
+  case revAppend xs ys of
+    Refl -> case appendAssoc (rev ys) (rev xs) (x : []) of
+      Refl -> Refl
+
+-- | Reversing a list twice returns the original list (`reverse-involutive`).
+revInvolutive :: forall a. foreach (xs :: List a) -> rev (rev xs) :~: xs
+revInvolutive []     = Refl
+revInvolutive (x:xs) =
+  case revAppend (rev xs) (x : []) of
+    Refl -> case revInvolutive xs of
+      Refl -> Refl
+
+-- | Relating `shunt` to naive `rev` (`shunt-reverse`): `shunt xs ys = rev xs ++ ys`.
+shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+         -> shunt xs ys :~: (rev xs ++ ys)
+shuntRev []     _  = Refl
+shuntRev (x:xs) ys =
+  case shuntRev xs (x : ys) of
+    Refl -> case appendAssoc (rev xs) (x : []) ys of
+      Refl -> Refl
+
+-- | Fast linear-time reversal `shunt xs []` agrees with naive `rev xs` (`reverses`)!
+reverses :: forall a. foreach (xs :: List a) -> shunt xs [] :~: rev xs
+reverses xs =
+  case shuntRev xs [] of
+    Refl -> appendNilR (rev xs)
 
 -- | Countdown list from `n - 1` down to `0` (`downFrom`).
 downFrom :: Nat -> List Nat
@@ -129,7 +171,7 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 273 "content/part1/Lists.md" #-}
+{-# LINE 313 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -148,7 +190,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 301 "content/part1/Lists.md" #-}
+{-# LINE 341 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -192,7 +234,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 352 "content/part1/Lists.md" #-}
+{-# LINE 392 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -219,7 +261,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 385 "content/part1/Lists.md" #-}
+{-# LINE 425 "content/part1/Lists.md" #-}
 -- | Decidability of universal list quantification `All p xs` (`All?`).
 decAll :: forall {a} {m :: Matchability} {p :: a %m -> Type}.
           (foreach (x :: a) -> Dec (p x)) -> foreach (xs :: List a) -> Dec (All p xs)

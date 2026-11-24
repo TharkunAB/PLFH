@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 14 "content/part2/Substitution.md" #-}
+{-# LINE 41 "content/part2/Substitution.md" #-}
 module PLFH.Part2.Substitution
   ( Rename
   , Subst
@@ -30,7 +30,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 48 "content/part2/Substitution.md" #-}
+{-# LINE 89 "content/part2/Substitution.md" #-}
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
 type Rename (m :: Nat) (n :: Nat) = Fin m -> Fin n
 
@@ -41,8 +41,8 @@ type Subst (m :: Nat) (n :: Nat) = Fin m -> UTerm n
 ids :: Subst m m
 ids = UVar
 
--- | Shift renaming: increments every de Bruijn variable by one (`S_`).
-shift :: Rename m ('Succ m)
+-- | Shift renaming: increments every de Bruijn variable by one (`↑` / `S_`).
+shift :: Rename m (Succ m)
 shift = FS
 
 -- | Lift a renaming to a substitution.
@@ -50,7 +50,7 @@ ren :: Rename m n -> Subst m n
 ren rho x = UVar (rho x)
 
 -- | Extend a substitution with a new term for variable 0 (`M • σ`).
-consSubst :: UTerm n -> Subst m n -> Subst ('Succ m) n
+consSubst :: UTerm n -> Subst m n -> Subst (Succ m) n
 consSubst t _     FZ     = t
 consSubst _ sigma (FS x) = sigma x
 
@@ -58,7 +58,7 @@ consSubst _ sigma (FS x) = sigma x
 seqSubst :: Subst m n -> Subst n p -> Subst m p
 seqSubst sigma tau x = substU tau (sigma x)
 
-{-# LINE 82 "content/part2/Substitution.md" #-}
+{-# LINE 123 "content/part2/Substitution.md" #-}
 -- | Head law: `(t • σ) 0 = t`.
 subHead :: UTerm n -> Subst m n -> UTerm n
 subHead t sigma = consSubst t sigma FZ

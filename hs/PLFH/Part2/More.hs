@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 13 "content/part2/More.md" #-}
+{-# LINE 36 "content/part2/More.md" #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -22,7 +22,7 @@ module PLFH.Part2.More
 
 import Data.Kind (Type)
 
-{-# LINE 48 "content/part2/More.md" #-}
+{-# LINE 76 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -37,34 +37,34 @@ data Ty
 data Ctx = CEmpty | CExt Ctx Ty
 
 data Lookup (g :: Ctx) (a :: Ty) where
-  Z :: Lookup ('CExt g a) a
-  S :: Lookup g a -> Lookup ('CExt g b) a
+  Z :: Lookup (CExt g a) a
+  S :: Lookup g a -> Lookup (CExt g b) a
 
 -- | Intrinsically typed terms for the extended simply-typed lambda calculus.
 data Term (g :: Ctx) (a :: Ty) where
   Var     :: Lookup g a -> Term g a
-  Lam     :: Term ('CExt g a) b -> Term g ('TArr a b)
-  App     :: Term g ('TArr a b) -> Term g a -> Term g b
-  Zero    :: Term g 'TNat
-  Suc     :: Term g 'TNat -> Term g 'TNat
-  CaseNat :: Term g 'TNat -> Term g a -> Term ('CExt g 'TNat) a -> Term g a
-  Mu      :: Term ('CExt g a) a -> Term g a
-  Let     :: Term g a -> Term ('CExt g a) b -> Term g b
-  TT      :: Term g 'TUnit
-  Pair    :: Term g a -> Term g b -> Term g ('TProd a b)
-  Fst     :: Term g ('TProd a b) -> Term g a
-  Snd     :: Term g ('TProd a b) -> Term g b
-  Inl     :: Term g a -> Term g ('TSum a b)
-  Inr     :: Term g b -> Term g ('TSum a b)
-  CaseSum :: Term g ('TSum a b) -> Term ('CExt g a) c -> Term ('CExt g b) c -> Term g c
-  Absurd  :: Term g 'TVoid -> Term g a
-  Nil     :: Term g ('TList a)
-  Cons    :: Term g a -> Term g ('TList a) -> Term g ('TList a)
-  CaseLst :: Term g ('TList a) -> Term g b -> Term ('CExt ('CExt g a) ('TList a)) b -> Term g b
+  Lam     :: Term (CExt g a) b -> Term g (TArr a b)
+  App     :: Term g (TArr a b) -> Term g a -> Term g b
+  Zero    :: Term g TNat
+  Suc     :: Term g TNat -> Term g TNat
+  CaseNat :: Term g TNat -> Term g a -> Term (CExt g TNat) a -> Term g a
+  Mu      :: Term (CExt g a) a -> Term g a
+  Let     :: Term g a -> Term (CExt g a) b -> Term g b
+  TT      :: Term g TUnit
+  Pair    :: Term g a -> Term g b -> Term g (TProd a b)
+  Fst     :: Term g (TProd a b) -> Term g a
+  Snd     :: Term g (TProd a b) -> Term g b
+  Inl     :: Term g a -> Term g (TSum a b)
+  Inr     :: Term g b -> Term g (TSum a b)
+  CaseSum :: Term g (TSum a b) -> Term (CExt g a) c -> Term (CExt g b) c -> Term g c
+  Absurd  :: Term g TVoid -> Term g a
+  Nil     :: Term g (TList a)
+  Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
+  CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 94 "content/part2/More.md" #-}
+{-# LINE 130 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
-    -> (forall a. Lookup ('CExt g b) a -> Lookup ('CExt d b) a)
+    -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
 ext r (S x) = S (r x)
 
@@ -90,7 +90,7 @@ rename r (Cons x xs)      = Cons (rename r x) (rename r xs)
 rename r (CaseLst xs n c) = CaseLst (rename r xs) (rename r n) (rename (ext (ext r)) c)
 
 exts :: (forall a. Lookup g a -> Term d a)
-     -> (forall a. Lookup ('CExt g b) a -> Term ('CExt d b) a)
+     -> (forall a. Lookup (CExt g b) a -> Term (CExt d b) a)
 exts _ Z     = Var Z
 exts s (S x) = rename S (s x)
 
@@ -115,30 +115,30 @@ subst _ Nil              = Nil
 subst s (Cons x xs)      = Cons (subst s x) (subst s xs)
 subst s (CaseLst xs n c) = CaseLst (subst s xs) (subst s n) (subst (exts (exts s)) c)
 
-substSingle :: Term ('CExt g a) b -> Term g a -> Term g b
+substSingle :: Term (CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-substDouble :: Term ('CExt ('CExt g a) b) c -> Term g a -> Term g b -> Term g c
+substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 156 "content/part2/More.md" #-}
+{-# LINE 197 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
-  VLam  :: Value ('Lam n)
-  VZero :: Value 'Zero
-  VSuc  :: Value v -> Value ('Suc v)
-  VTT   :: Value 'TT
-  VPair :: Value v -> Value w -> Value ('Pair v w)
-  VInl  :: Value v -> Value ('Inl v)
-  VInr  :: Value v -> Value ('Inr v)
-  VNil  :: Value 'Nil
-  VCons :: Value v -> Value vs -> Value ('Cons v vs)
+  VLam  :: Value (Lam n)
+  VZero :: Value Zero
+  VSuc  :: Value v -> Value (Suc v)
+  VTT   :: Value TT
+  VPair :: Value v -> Value w -> Value (Pair v w)
+  VInl  :: Value v -> Value (Inl v)
+  VInr  :: Value v -> Value (Inr v)
+  VNil  :: Value Nil
+  VCons :: Value v -> Value vs -> Value (Cons v vs)
 
 -- | Example: swap the components of a pair: λp. (snd p, fst p).
-swapPair :: Term g ('TArr ('TProd a b) ('TProd b a))
+swapPair :: Term g (TArr (TProd a b) (TProd b a))
 swapPair = Lam (Pair (Snd (Var Z)) (Fst (Var Z)))
 
 -- | Example: unwrap a `Sum Unit Nat` (Maybe Nat) defaulting to Zero.
-mapMaybeNat :: Term g ('TArr ('TSum 'TUnit 'TNat) 'TNat)
+mapMaybeNat :: Term g (TArr (TSum TUnit TNat) TNat)
 mapMaybeNat = Lam (CaseSum (Var Z) Zero (Var Z))

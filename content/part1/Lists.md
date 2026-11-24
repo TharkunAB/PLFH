@@ -44,6 +44,11 @@ module PLFH.Part1.Lists
   , mapId
   , shunt
   , shuntAppend
+  , rev
+  , revAppend
+  , revInvolutive
+  , shuntRev
+  , reverses
   , downFrom
   , zeros
   , lengthDownFrom
@@ -67,7 +72,7 @@ module PLFH.Part1.Lists
   ) where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Type.Equality ((:~:) (Refl), gcastWith, sym)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
 import GHC.Types (List, Matchability)
@@ -210,6 +215,43 @@ shuntAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a) -> for
 shuntAppend []     _  _  = Refl
 shuntAppend (x:xs) ys zs = shuntAppend xs ys (x : zs)
 
+-- | Naive quadratic list reversal (`reverse` in PLFA).
+rev :: List a -> List a
+rev []     = []
+rev (x:xs) = rev xs ++ (x : [])
+
+-- | Reversal distributes contravariantly over append (`reverse-++-distrib`).
+revAppend :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+          -> rev (xs ++ ys) :~: (rev ys ++ rev xs)
+revAppend []     ys = sym (appendNilR @a (rev ys))
+revAppend (x:xs) ys =
+  case revAppend xs ys of
+    Refl -> case appendAssoc (rev ys) (rev xs) (x : []) of
+      Refl -> Refl
+
+-- | Reversing a list twice returns the original list (`reverse-involutive`).
+revInvolutive :: forall a. foreach (xs :: List a) -> rev (rev xs) :~: xs
+revInvolutive []     = Refl
+revInvolutive (x:xs) =
+  case revAppend (rev xs) (x : []) of
+    Refl -> case revInvolutive xs of
+      Refl -> Refl
+
+-- | Relating `shunt` to naive `rev` (`shunt-reverse`): `shunt xs ys = rev xs ++ ys`.
+shuntRev :: forall a. foreach (xs :: List a) -> foreach (ys :: List a)
+         -> shunt xs ys :~: (rev xs ++ ys)
+shuntRev []     _  = Refl
+shuntRev (x:xs) ys =
+  case shuntRev xs (x : ys) of
+    Refl -> case appendAssoc (rev xs) (x : []) ys of
+      Refl -> Refl
+
+-- | Fast linear-time reversal `shunt xs []` agrees with naive `rev xs` (`reverses`)!
+reverses :: forall a. foreach (xs :: List a) -> shunt xs [] :~: rev xs
+reverses xs =
+  case shuntRev xs [] of
+    Refl -> appendNilR (rev xs)
+
 -- | Countdown list from `n - 1` down to `0` (`downFrom`).
 downFrom :: Nat -> List Nat
 downFrom Zero     = []
@@ -232,25 +274,23 @@ lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Quadratic <code>rev</code> (R13/R16), higher-order <code>foldr</code> (R03), &amp; default <code>-O2</code> <code>shunt</code>]</strong>
-Three classic PLFA Lists items remain open:
+<strong>[WIP NOTICE — Higher-order <code>foldr</code> (R03) &amp; default <code>-O2</code> list rewrite rules]</strong>
+Two classic PLFA Lists items remain open:
 <ol>
-  <li><strong>Quadratic <code>rev</code> (R13/R16):</strong>
-      PLFA's naive quadratic <code>rev [] = []; rev (x:xs) = app (rev xs) [x]</code>
-      fails open evaluation with <code>GHC-70565</code>—blocking
-      <code>shunt-reverse</code> and <code>reverses</code>. See
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>.</li>
   <li><strong>Higher-order <code>foldr</code> in retained arguments (R03):</strong>
       Passing <code>foldrL plus Zero xs</code> as a retained runtime argument
       to an associative lemma like <code>plusAssoc</code> fails with
       <code>GHC-83605</code> (<em>GHC cannot use this expression as a retained
       index</em>), blocking <code>foldr-monoid-++</code>. See
       <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FoldrRetainedIndex.hs"><code>reproducers/R03_FoldrRetainedIndex.hs</code></a>.</li>
-  <li><strong>Default <code>-O2</code> rewrite-rule check on <code>shuntAppend</code>:</strong>
+  <li><strong>Default <code>-O2</code> with rewrite rules enabled:</strong>
       Without <code>-fno-enable-rewrite-rules</code>, default <code>-O2</code>
-      rejects <code>shuntAppend</code> with <code>GHC-83605</code> at the
-      Prelude <code>(++)</code> rewrite-rule guard
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>).</li>
+      rejects <code>shuntAppend</code> and list-literal <code>rev</code> with
+      <code>GHC-83605</code> / <code>GHC-70565</code> at the Prelude list-fusion
+      rewrite-rule guard (see
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>
+      and
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_RevOpenEq.hs"><code>reproducers/R13_RevOpenEq.hs</code></a>).</li>
 </ol>
 </div>
 
@@ -449,10 +489,11 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
   unlocking PLFA's full inline type-lambda De Morgan theorem
   (`notAnyToAllNot`, `allNotToNotAny`, `notAnyIffAllNot`).
 - Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
-  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `downFrom`/`zeros`/
+  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
+  `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
   `lengthDownFrom`/`lengthZeros`, `All`, `Any`, `In`, `allAppend`/`Inv`,
   `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `decAll`, `decAny`,
   `zeroInList`, and `threeNotInList`.
-- Marked naive quadratic `rev`, `foldr` as a retained index, default `-O2`
-  `shunt` fusion rules, and multi-equation splitting after a retained function
-  with `[WIP NOTICE]` and minimal reproducers.
+- Marked `foldr` as a retained index, default `-O2` list rewrite rules on
+  `shunt`/`rev`, and multi-equation splitting after a retained function with
+  `[WIP NOTICE]` and minimal reproducers.

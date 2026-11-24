@@ -13,7 +13,7 @@ import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
-import PLFH.Part1.Lists (All (..), Any (..), decAll, downFrom, lengthDownFrom, lengthZeros, notAnyIffAllNot, shuntAppend)
+import PLFH.Part1.Lists (All (..), Any (..), decAll, downFrom, lengthDownFrom, lengthZeros, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
@@ -162,6 +162,14 @@ main = do
       zs1 = [3] :: [Nat]
   assertEq "Lists.shuntAppend [0,1] [2] [3]" True
     (case shuntAppend xs1 ys1 zs1 of Refl -> True)
+  assertEq "Lists.revAppend [0,1] [2]" True
+    (case revAppend xs1 ys1 of Refl -> True)
+  assertEq "Lists.revInvolutive [0,1]" True
+    (case revInvolutive xs1 of Refl -> True)
+  assertEq "Lists.shuntRev [0,1] [2]" True
+    (case shuntRev xs1 ys1 of Refl -> True)
+  assertEq "Lists.reverses [0,1]" True
+    (case reverses xs1 of Refl -> True)
   let odds = [1, 3] :: [Nat]
   assertEq "Lists.notAnyIffAllNot @Even [1,3]" True
     (case notAnyIffAllNot @Even odds of

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 13 "content/part2/Bisimulation.md" #-}
+{-# LINE 45 "content/part2/Bisimulation.md" #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
   , Leg (..)
@@ -14,23 +14,23 @@ module PLFH.Part2.Bisimulation
 import Data.Kind (Type)
 import PLFH.Part2.More (Ctx (..), Term (..), Ty (..), Value (..))
 
-{-# LINE 32 "content/part2/Bisimulation.md" #-}
+{-# LINE 69 "content/part2/Bisimulation.md" #-}
 -- | Structural simulation relation over promoted extended STLC terms.
 type SimRel :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data SimRel m m' where
   SimRefl :: SimRel m m
-  SimLam  :: SimRel n n' -> SimRel ('Lam n) ('Lam n')
-  SimApp  :: SimRel l l' -> SimRel m m' -> SimRel ('App l m) ('App l' m')
-  SimPair :: SimRel m m' -> SimRel n n' -> SimRel ('Pair m n) ('Pair m' n')
+  SimLam  :: SimRel n n' -> SimRel (Lam n) (Lam n')
+  SimApp  :: SimRel l l' -> SimRel m m' -> SimRel (App l m) (App l' m')
+  SimPair :: SimRel m m' -> SimRel n n' -> SimRel (Pair m n) (Pair m' n')
 
 -- | One leg of a simulation diagram for an arbitrary reduction relation `step`:
--- m' steps to n' with n ~ n'.
+-- `m'` steps to some `n'` with `n ~ n'`.
 type Leg :: forall (g :: Ctx) (a :: Ty). (Term g a -> Term g a -> Type) -> Term g a -> Term g a -> Type
 data Leg step m' n where
   MkLeg :: step m' n' -> SimRel n n' -> Leg step m' n
 
 -- | Simulation preserves lambda values cleanly.
-simValueLam :: SimRel ('Lam n) ('Lam n') -> Value ('Lam n) -> Value ('Lam n')
+simValueLam :: SimRel (Lam n) (Lam n') -> Value (Lam n) -> Value (Lam n')
 simValueLam _ VLam = VLam
 
 -- | General value preservation across promoted GADT indices (`~-val`).
