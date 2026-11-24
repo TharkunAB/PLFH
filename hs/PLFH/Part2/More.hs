@@ -16,14 +16,13 @@ module PLFH.Part2.More
   , substSingle
   , substDouble
   , Value (..)
-  , Step (..)
   , swapPair
   , mapMaybeNat
   ) where
 
 import Data.Kind (Type)
 
-{-# LINE 49 "content/part2/More.md" #-}
+{-# LINE 48 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -63,7 +62,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g ('TList a) -> Term g ('TList a)
   CaseLst :: Term g ('TList a) -> Term g b -> Term ('CExt ('CExt g a) ('TList a)) b -> Term g b
 
-{-# LINE 95 "content/part2/More.md" #-}
+{-# LINE 94 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup ('CExt g b) a -> Lookup ('CExt d b) a)
 ext _ Z     = Z
@@ -122,7 +121,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 substDouble :: Term ('CExt ('CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 157 "content/part2/More.md" #-}
+{-# LINE 156 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -135,18 +134,6 @@ data Value m where
   VInr  :: Value v -> Value ('Inr v)
   VNil  :: Value 'Nil
   VCons :: Value v -> Value vs -> Value ('Cons v vs)
-
--- | Call-by-value reduction rules for the extended calculus.
-type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
-data Step m n where
-  BetaLam  :: Value w -> Step ('App ('Lam n) w) (substSingle n w)
-  BetaLet  :: Value v -> Step ('Let v n) (substSingle n v)
-  BetaFst  :: Value v -> Value w -> Step ('Fst ('Pair v w)) v
-  BetaSnd  :: Value v -> Value w -> Step ('Snd ('Pair v w)) w
-  BetaInl  :: Value v -> Step ('CaseSum ('Inl v) l r) (substSingle l v)
-  BetaInr  :: Value v -> Step ('CaseSum ('Inr v) l r) (substSingle r v)
-  BetaNil  :: Step ('CaseLst 'Nil n c) n
-  BetaCons :: Value v -> Value vs -> Step ('CaseLst ('Cons v vs) n c) (substDouble c v vs)
 
 -- | Example: swap the components of a pair: λp. (snd p, fst p).
 swapPair :: Term g ('TArr ('TProd a b) ('TProd b a))

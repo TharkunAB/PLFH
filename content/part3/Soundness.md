@@ -59,7 +59,7 @@ denotPreserve _  (DVar _)      step = case step of {}
 denotPreserve bp (DElim d1 d2) step = case step of
   XiApp1 r -> DElim (denotPreserve bp d1 r) d2
   XiApp2 r -> DElim d1 (denotPreserve bp d2 r)
-  Beta     -> bp Beta (lamInversion d1) d2
+  Beta sub -> bp (Beta sub) (lamInversion d1) d2
 denotPreserve bp (DIntro d)    step = case step of
   XiLam r -> DIntro (denotPreserve bp d r)
 denotPreserve _  DBot          _    = DBot

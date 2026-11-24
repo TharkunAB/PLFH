@@ -13,8 +13,6 @@ plfaChapter: https://plfa.inf.ed.ac.uk/22.08/Properties/
 module PLFH.Part2.Properties
   ( Canonical (..)
   , canonical
-  , Progress (..)
-  , progress
   , extCtx
   , renameTyping
   , weakenTyping
@@ -30,7 +28,6 @@ import PLFH.Part2.Lambda
   , HasType (..)
   , Id
   , Lookup (..)
-  , Step (..)
   , Term (..)
   , Ty (..)
   , Value (..)
@@ -45,11 +42,12 @@ theorems due to Wright and Felleisen:
 2. **Preservation (Subject Reduction):** If a closed, well-typed term takes
    a step, the resulting term has the same type (`preserve`).
 
-In this chapter we prove **Canonical Forms**, **Progress**, and all of the
-structural context lemmas needed for **Preservation** (`ext`, `rename`,
-`weaken`, `drop`, `swap`) directly in Dependent Haskell—and pinpoint the
-exact R13/R16 compiler boundary that currently blocks the final substitution
-lemma and β-reduction cases of `preserve`.
+In this chapter we prove **Canonical Forms** (`canonical`) and all of the
+structural context lemmas needed for **Preservation** (`extCtx`,
+`renameTyping`, `weakenTyping`, `dropTyping`, `swapTyping`) directly in
+Dependent Haskell—and document the exact R13/R16 open-evaluation boundary for
+`Syntax.substTerm` that currently blocks sound `Step`-indexed `progress`,
+`substTyping`, and `preserve` on the published 590 compiler.
 
 ## Canonical forms
 
@@ -69,43 +67,6 @@ canonical (TLam tn)  VLam      = CLam tn
 canonical TZeroT     VZero     = CZero
 canonical (TSucT tv) (VSuc vv) = CSuc vv tv
 ```
-
-## Progress (checked direct port!)
-
-A closed term `m` makes *progress* if either there exists `n` such that
-`Step m n`, or `Value m`:
-
-```haskell
--- | Evidence that a closed term either steps or is already a value.
-data Progress (m :: Term) where
-  PStep :: Step m n -> Progress m
-  PDone :: Value m  -> Progress m
-
--- | Progress theorem: every closed well-typed term either steps or is a value.
-progress :: HasType 'CEmpty m a -> Progress m
-progress (TVar x) = case x of {}
-progress (TLam _) = PDone VLam
-progress (TApp tl tm) = case progress tl of
-  PStep s  -> PStep (XiApp1 s)
-  PDone vl -> case progress tm of
-    PStep s  -> PStep (XiApp2 vl s)
-    PDone vm -> case canonical tl vl of
-      CLam _ -> PStep (BetaLam vm)
-progress TZeroT = PDone VZero
-progress (TSucT tm) = case progress tm of
-  PStep s  -> PStep (XiSuc s)
-  PDone vm -> PDone (VSuc vm)
-progress (TCaseT tl _ _) = case progress tl of
-  PStep s  -> PStep (XiCase s)
-  PDone vl -> case canonical tl vl of
-    CZero    -> PStep BetaZero
-    CSuc v _ -> PStep (BetaSuc v)
-progress (TMuT _) = PStep BetaMu
-```
-
-Look how clean that is: `progress` has the **exact same statement, hypotheses,
-and proof structure** as PLFA `v22.08`—no singletons, no type families, no
-coercions—and passes GHC's Core Lint and STG Lint!
 
 ## Structural context lemmas for Preservation (`ext`, `rename`, `weaken`, `drop`, `swap`)
 
@@ -162,32 +123,30 @@ swapTyping xNeqY = renameTyping swapLookup
     swapLookup (LS zNeqY (LS zNeqX rest)) = LS zNeqX (LS zNeqY rest)
 ```
 
-## Substitution lemma and Preservation (`subst`, `preserve`)
+## Progress, Substitution Lemma, and Preservation (`progress`, `substTyping`, `preserve`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Preservation blocked on open evaluation of <code>substTerm</code> (R13/R16)]</strong>
-Every structural step of Preservation (<code>canonical</code>, <code>extCtx</code>,
-<code>renameTyping</code>, <code>weakenTyping</code>, <code>dropTyping</code>,
-<code>swapTyping</code>, and all five non-β cases of <code>preserve</code>:
-<code>XiApp1</code>, <code>XiApp2</code>, <code>XiSuc</code>, <code>XiCase</code>,
-<code>BetaZero</code>) checks directly!
+<strong>[WIP NOTICE — Progress &amp; Preservation wait on published open equations for <code>Syntax.substTerm</code> (R13/R16)]</strong>
+Every structural ingredient of Progress and Preservation (<code>canonical</code>,
+<code>extCtx</code>, <code>renameTyping</code>, <code>weakenTyping</code>,
+<code>dropTyping</code>, and <code>swapTyping</code>) checks directly on
+published GHC <code>1a02a866e7</code>!
 <br><br>
-The remaining ingredient is the substitution typing lemma:
-<pre class="wip"><code>substTyping :: HasType ('CExt g x a) n b
+An earlier revision of this chapter checked <code>progress</code> against a
+<code>Step</code> relation whose unqualified <code>substTerm</code> silently
+bound a fresh unconstrained type variable (see the soundness note in
+<a href="/Lambda/">Lambda</a>). Once the compiler team's split-module
+<code>Syntax.substTerm</code> support (verified on private
+<code>09bc6546ca</code>, where wrong <code>BetaMu</code> endpoints are rejected
+with <code>GHC-83865</code>) publishes to a normal compiler release, both
+<strong>Progress</strong> and full <strong>Preservation</strong>:
+<pre class="wip"><code>progress    :: HasType 'CEmpty m a -&gt; Progress m
+substTyping :: HasType ('CExt g x a) n b
             -&gt; HasType 'CEmpty v a
-            -&gt; HasType g (substTerm n x v) b</code></pre>
-and the three β-cases of <code>preserve</code> (<code>BetaLam</code>,
-<code>BetaSuc</code>, <code>BetaMu</code>) that call it.
-On GHC <code>db2586fdc2</code>, checking <code>substTyping</code> fails with
-<code>GHC-70565</code> because <code>substTerm</code> is an ordinary Haskell
-function containing <code>case eqId x y of</code> branches, which GHC's open
-source-equation evaluator (R13/R16) does not yet reduce on open inputs.
-<br><br>
-Per PLFH's yardstick policy, we do <em>not</em> duplicate <code>substTerm</code>
-as a separate type family. Once R13/R16 supports open equations for functions
-branching on a Boolean helper (<code>case eqId x y of</code>), <code>substTyping</code>
-and full <code>preserve</code> will slot straight in.
-See minimal reproducer
+            -&gt; HasType g (Syntax.substTerm n x v) b
+preserve    :: HasType 'CEmpty m a -&gt; Step m n -&gt; HasType 'CEmpty n a</code></pre>
+will slot directly into this chapter with zero workarounds and a sound
+<code>Step</code> interface. See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstTermOpenEq.hs"><code>reproducers/R13_SubstTermOpenEq.hs</code></a>.
 </div>
 
@@ -195,8 +154,10 @@ See minimal reproducer
 
 - Adapted from [Properties (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Properties/)
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Properties.lagda.md)).
-- `Canonical`, `canonical`, `Progress`, `progress` (full closed well-typed
-  progress theorem!), `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
-  and `swapTyping` are all **checked direct ports** passing `-dcore-lint -dstg-lint`.
-- `substTyping` and full `preserve` are marked `[WIP NOTICE]` pending R13/R16
-  open source equations for `substTerm` (`R13_SubstTermOpenEq.hs`).
+- `Canonical`, `canonical`, `extCtx`, `renameTyping`, `weakenTyping`,
+  `dropTyping`, and `swapTyping` are all **checked direct ports** passing
+  `-dcore-lint -dstg-lint`.
+- `progress`, `substTyping`, and `preserve` are marked `[WIP NOTICE]` on
+  published GHC `1a02a866e7` until `Syntax.substTerm` open equations publish
+  (`R13_SubstTermOpenEq.hs`), ensuring no checked theorem relies on the
+  unconstrained fresh-tyvar `Step` interface.

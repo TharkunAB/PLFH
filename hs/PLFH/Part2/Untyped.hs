@@ -12,19 +12,28 @@ module PLFH.Part2.Untyped
   , extsU
   , substU
   , substSingleU
+  , BumpFin (..)
+  , ShiftU (..)
+  , RemoveFin (..)
+  , SubstAtU (..)
   , Neutral (..)
   , Normal (..)
   , BetaStep (..)
   , BetaSteps (..)
+  , IdTerm
+  , SelfApp
+  , OmegaTerm
   , idTerm
   , idIsNormal
   , omegaTerm
+  , idAppStep
+  , omegaStep
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 
-{-# LINE 42 "content/part2/Untyped.md" #-}
+{-# LINE 51 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
 data Fin (n :: Nat) where
   FZ :: Fin ('Succ n)
@@ -47,7 +56,7 @@ omegaTerm = UApp selfApp selfApp
     selfApp :: UTerm 'Zero
     selfApp = ULam (UApp (UVar FZ) (UVar FZ))
 
-{-# LINE 68 "content/part2/Untyped.md" #-}
+{-# LINE 77 "content/part2/Untyped.md" #-}
 -- | Lift a variable renaming under a lambda binder.
 extU :: (Fin m -> Fin n) -> Fin ('Succ m) -> Fin ('Succ n)
 extU _   FZ     = FZ
@@ -74,7 +83,37 @@ substU sigma (UApp l m) = UApp (substU sigma l) (substU sigma m)
 substSingleU :: UTerm ('Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 
-{-# LINE 102 "content/part2/Untyped.md" #-}
+{-# LINE 128 "content/part2/Untyped.md" #-}
+-- | Shift a variable `x :: Fin n` up by one slot at cutoff `c :: Fin ('Succ n)`.
+type BumpFin :: forall (n :: Nat). Fin ('Succ n) -> Fin n -> Fin ('Succ n) -> Type
+data BumpFin c x y where
+  BumpZ  :: BumpFin 'FZ x ('FS x)
+  BumpSZ :: BumpFin ('FS c) 'FZ 'FZ
+  BumpSS :: BumpFin c x y -> BumpFin ('FS c) ('FS x) ('FS y)
+
+-- | Capture-avoiding weakening: shift all free variables >= `c` up by one.
+type ShiftU :: forall (n :: Nat). Fin ('Succ n) -> UTerm n -> UTerm ('Succ n) -> Type
+data ShiftU c m m' where
+  ShiftVar :: BumpFin c x y -> ShiftU c ('UVar x) ('UVar y)
+  ShiftLam :: ShiftU ('FS c) b b' -> ShiftU c ('ULam b) ('ULam b')
+  ShiftApp :: ShiftU c l l' -> ShiftU c m m' -> ShiftU c ('UApp l m) ('UApp l' m')
+
+-- | Remove slot `c` from any distinct variable `x /= c` in `Fin ('Succ n)`.
+type RemoveFin :: forall (n :: Nat). Fin ('Succ n) -> Fin ('Succ n) -> Fin n -> Type
+data RemoveFin c x y where
+  RemGt :: RemoveFin 'FZ ('FS y) y
+  RemLt :: RemoveFin ('FS c) 'FZ 'FZ
+  RemSS :: RemoveFin c x y -> RemoveFin ('FS c) ('FS x) ('FS y)
+
+-- | Deterministic relational single-variable substitution `m [ c := w ] ↦ m'`.
+type SubstAtU :: forall (n :: Nat). Fin ('Succ n) -> UTerm n -> UTerm ('Succ n) -> UTerm n -> Type
+data SubstAtU c w m m' where
+  SUEq  :: SubstAtU c w ('UVar c) w
+  SUNeq :: RemoveFin c x y -> SubstAtU c w ('UVar x) ('UVar y)
+  SULam :: ShiftU 'FZ w w' -> SubstAtU ('FS c) w' b b' -> SubstAtU c w ('ULam b) ('ULam b')
+  SUApp :: SubstAtU c w l l' -> SubstAtU c w m m' -> SubstAtU c w ('UApp l m) ('UApp l' m')
+
+{-# LINE 166 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
 type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
@@ -93,7 +132,8 @@ data BetaStep t t' where
   XiApp1 :: BetaStep l l' -> BetaStep ('UApp l m) ('UApp l' m)
   XiApp2 :: BetaStep m m' -> BetaStep ('UApp l m) ('UApp l m')
   XiLam  :: BetaStep b b' -> BetaStep ('ULam b) ('ULam b')
-  Beta   :: BetaStep ('UApp ('ULam b) w) (substSingleU b w)
+  Beta   :: forall (n :: Nat) (w :: UTerm n) (b :: UTerm ('Succ n)) (r :: UTerm n).
+            SubstAtU 'FZ w b r -> BetaStep ('UApp ('ULam b) w) r
 
 -- | Multi-step full β-reduction.
 type BetaSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -101,6 +141,19 @@ data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
 
+-- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
+type IdTerm    = ('ULam ('UVar 'FZ) :: UTerm 'Zero)
+type SelfApp   = ('ULam ('UApp ('UVar 'FZ) ('UVar 'FZ)) :: UTerm 'Zero)
+type OmegaTerm = ('UApp SelfApp SelfApp :: UTerm 'Zero)
+
 -- | Evidence that λx. x is in full normal form!
-idIsNormal :: Normal ('ULam ('UVar 'FZ) :: UTerm 'Zero)
+idIsNormal :: Normal IdTerm
 idIsNormal = NLam (NNeu NVar)
+
+-- | Concrete sound β-step: (λx. x) (λx. x) —→ (λx. x).
+idAppStep :: BetaStep ('UApp IdTerm IdTerm) IdTerm
+idAppStep = Beta SUEq
+
+-- | Concrete sound β-step: Ω —→ Ω!
+omegaStep :: BetaStep OmegaTerm OmegaTerm
+omegaStep = Beta (SUApp SUEq SUEq)

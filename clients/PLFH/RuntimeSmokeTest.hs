@@ -13,8 +13,10 @@ import PLFH.Part1.Lists (decAll)
 import PLFH.Part1.Naturals (fiveAtRuntime)
 import PLFH.Part1.Quantifiers (EvenWitness (..), evenToWitness)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), Odd (..), leToDiff)
+import PLFH.Part2.Confluence (Par (..), omegaPar, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
+import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, omegaStep)
 import PLFH.Part3.Adequacy (decAboveFun)
 import PLFH.Part3.Denotational (Sub (..), Value (..), arrSubArrInv)
 
@@ -72,6 +74,10 @@ main = do
 
   assertEq "Inference.check 2 TNat" True  (case check CEmpty rawTwo TNat of { Just _ -> True; Nothing -> False })
   assertEq "Inference.check 2 (Nat->Nat)" False (case check CEmpty rawTwo (TArr TNat TNat) of { Just _ -> True; Nothing -> False })
+
+  assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
+  assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
 
   -- Part 3: Denotational Semantics & Adequacy Decidability
   assertEq "Adequacy.decAboveFun Bot" False (case decAboveFun Bot of { Yes _ -> True; No _ -> False })

@@ -16,14 +16,12 @@ module PLFH.Part2.DeBruijn
   , substSingle
   , termTwo
   , Value (..)
-  , Step (..)
-  , Progress (..)
   , valZero
   ) where
 
 import Data.Kind (Type)
 
-{-# LINE 50 "content/part2/DeBruijn.md" #-}
+{-# LINE 48 "content/part2/DeBruijn.md" #-}
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
   deriving (Show)
@@ -36,7 +34,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
   Z :: Lookup ('CExt g a) a
   S :: Lookup g a -> Lookup ('CExt g b) a
 
-{-# LINE 66 "content/part2/DeBruijn.md" #-}
+{-# LINE 64 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
 data Term (g :: Ctx) (a :: Ty) where
   Var  :: Lookup g a -> Term g a
@@ -51,7 +49,7 @@ data Term (g :: Ctx) (a :: Ty) where
 termTwo :: Term g 'TNat
 termTwo = Suc (Suc Zero)
 
-{-# LINE 88 "content/part2/DeBruijn.md" #-}
+{-# LINE 86 "content/part2/DeBruijn.md" #-}
 -- | Extend a variable renaming under a binder.
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup ('CExt g b) a -> Lookup ('CExt d b) a)
@@ -88,7 +86,7 @@ subst sigma (Mu n)       = Mu (subst (exts sigma) n)
 substSingle :: Term ('CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-{-# LINE 133 "content/part2/DeBruijn.md" #-}
+{-# LINE 129 "content/part2/DeBruijn.md" #-}
 -- | Values indexed by promoted intrinsically-typed terms!
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -96,24 +94,6 @@ data Value m where
   VZero :: Value 'Zero
   VSuc  :: Value v -> Value ('Suc v)
 
--- | Type-preserving one-step reduction indexed by promoted `Term g a`.
-type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
-data Step m n where
-  XiApp1   :: Step l l' -> Step ('App l m) ('App l' m)
-  XiApp2   :: Value v -> Step m m' -> Step ('App v m) ('App v m')
-  BetaLam  :: Value w -> Step ('App ('Lam n) w) (substSingle n w)
-  XiSuc    :: Step m m' -> Step ('Suc m) ('Suc m')
-  XiCase   :: Step l l' -> Step ('Case l m n) ('Case l' m n)
-  BetaZero :: Step ('Case 'Zero m n) m
-  BetaSuc  :: Value v -> Step ('Case ('Suc v) m n) (substSingle n v)
-  BetaMu   :: Step ('Mu n) (substSingle n ('Mu n))
-
--- | Progress witness indexed by a closed intrinsically-typed term.
-type Progress :: forall (a :: Ty). Term 'CEmpty a -> Type
-data Progress m where
-  PStep :: Step m n -> Progress m
-  PDone :: Value m  -> Progress m
-
 -- | Concrete witness that `Zero` is already a value.
-valZero :: Progress ('Zero :: Term 'CEmpty 'TNat)
-valZero = PDone VZero
+valZero :: Value ('Zero :: Term 'CEmpty 'TNat)
+valZero = VZero

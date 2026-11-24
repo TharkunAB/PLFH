@@ -17,7 +17,7 @@ module PLFH.Part2.Bisimulation
   ) where
 
 import Data.Kind (Type)
-import PLFH.Part2.More (Ctx (..), Step (..), Term (..), Ty (..), Value (..))
+import PLFH.Part2.More (Ctx (..), Term (..), Ty (..), Value (..))
 ```
 
 In PLFA's **Bisimulation** chapter, we relate two reduction systems (such as
@@ -36,10 +36,11 @@ data SimRel m m' where
   SimApp  :: SimRel l l' -> SimRel m m' -> SimRel ('App l m) ('App l' m')
   SimPair :: SimRel m m' -> SimRel n n' -> SimRel ('Pair m n) ('Pair m' n')
 
--- | One leg of a simulation diagram: m' steps to n' with n ~ n'.
-type Leg :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
-data Leg m' n where
-  MkLeg :: Step m' n' -> SimRel n n' -> Leg m' n
+-- | One leg of a simulation diagram for an arbitrary reduction relation `step`:
+-- m' steps to n' with n ~ n'.
+type Leg :: forall (g :: Ctx) (a :: Ty). (Term g a -> Term g a -> Type) -> Term g a -> Term g a -> Type
+data Leg step m' n where
+  MkLeg :: step m' n' -> SimRel n n' -> Leg step m' n
 
 -- | Simulation preserves lambda values cleanly.
 simValueLam :: SimRel ('Lam n) ('Lam n') -> Value ('Lam n) -> Value ('Lam n')
@@ -56,11 +57,12 @@ simValue SimRefl         v           = v
 simValue (SimLam _)      VLam        = VLam
 simValue (SimPair s1 s2) (VPair v w) = VPair (simValue s1 v) (simValue s2 w)</code></pre>
 typechecks, but fails <strong>Core Lint immediately after Desugar</strong> on
-GHC <code>d15cbd41fe</code> with:
+published GHC <code>1a02a866e7</code> with:
 <pre class="wip"><code>*** Core Lint errors : in result of Desugar (before optimization) ***
   R11 mixed-kind coercion binder: 'Pair m n ~# ('Pair (v |&gt; ...) (w |&gt; ...) |&gt; ...)</code></pre>
 This directly exercises Serokell card <strong>R11 (Homogeneous equality)</strong>
-for GADT pattern matching on promoted indexed GADTs! See minimal reproducer
+for GADT pattern matching on promoted indexed GADTs! (Already fixed on the
+compiler team's queued 597 candidate.) See minimal reproducer
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R11_MixedKindCoercionCoreLint.hs"><code>reproducers/R11_MixedKindCoercionCoreLint.hs</code></a>.
 </div>
 
@@ -68,7 +70,8 @@ for GADT pattern matching on promoted indexed GADTs! See minimal reproducer
 
 - Adapted from [Bisimulation (v22.08)](https://plfa.inf.ed.ac.uk/22.08/Bisimulation/)
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Bisimulation.lagda.md)).
-- `SimRel`, `Leg`, and `simValueLam` compile with `-dcore-lint -dstg-lint`.
+- `SimRel`, `Leg` (parameterized cleanly over any reduction relation `step`),
+  and `simValueLam` compile with `-dcore-lint -dstg-lint`.
 - General `simValue` (and full `sim`) uncovered a real **R11 Core Lint error**
   in GHC's desugarer when matching two GADTs indexed by a promoted GADT (`Term g a`),
   tracked in `R11_MixedKindCoercionCoreLint.hs`.

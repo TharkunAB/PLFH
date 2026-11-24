@@ -225,12 +225,12 @@ plusSwap m n p =
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — <code>withEquality</code> on a retained call inside <code>trans</code>/<code>congSucc</code> (R03)]</strong>
-Using <code>withEquality (plusComm m n) Refl</code> inside a chain of
+<strong>[WIP NOTICE — <code>rewrite</code> on a retained call inside <code>trans</code>/<code>congSucc</code> (R03)]</strong>
+Using <code>rewrite (plusComm m n) Refl</code> inside a chain of
 <code>`trans`</code> calls (or inside <code>congSucc</code>) fails on GHC
-<code>db2586fdc2</code> because the retained application binds an implication
+<code>1a02a866e7</code> because the retained application binds an implication
 constraint that renders the surrounding meta-variables untouchable. Putting
-<code>withEquality</code> on the <em>outside</em> of the expression, or using
+<code>rewrite</code> on the <em>outside</em> of the expression, or using
 <code>congFirst</code>/<code>congSecond</code>, works cleanly. See
 <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_WithEqualityUnderTrans.hs"><code>reproducers/R03_WithEqualityUnderTrans.hs</code></a>.
 </div>
@@ -334,5 +334,5 @@ fromTo (Succ n) = fromInc (toBin n) `trans` congSucc (fromTo n)
 - Added an explicit negative control (`NegZeroSucc`) verifying GHC rejects
   `'Zero :~: 'Succ 'Zero` (`GHC-83865`).
 - Marked `monus` and `pow` exercises, second-column equation splitting,
-  `cong @(plus m)`, and nested `withEquality` under `trans` with `[WIP NOTICE]`
+  `cong @(plus m)`, and nested `rewrite` under `trans` with `[WIP NOTICE]`
   callouts and minimal reproducers.

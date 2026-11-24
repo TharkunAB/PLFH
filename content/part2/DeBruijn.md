@@ -22,8 +22,6 @@ module PLFH.Part2.DeBruijn
   , substSingle
   , termTwo
   , Value (..)
-  , Step (..)
-  , Progress (..)
   , valZero
   ) where
 
@@ -122,12 +120,10 @@ substSingle :: Term ('CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 ```
 
-## Promoting `Term g a`: Values, Reduction, and Progress!
+## Promoting `Term g a`: Values
 
-Remarkably, GHC (`db2586fdc2`) **accepts promoting the indexed GADT `Term g a`**
-as the kind of `Value`, `Step`, and `Progress` (using `StandaloneKindSignatures`),
-including calling our ordinary Haskell `substSingle` directly in the types of
-`BetaLam`, `BetaSuc`, and `BetaMu`!
+Remarkably, GHC (`1a02a866e7`) **accepts promoting the indexed GADT `Term g a`**
+as the kind of `Value` (using `StandaloneKindSignatures`):
 
 ```haskell
 -- | Values indexed by promoted intrinsically-typed terms!
@@ -137,51 +133,36 @@ data Value m where
   VZero :: Value 'Zero
   VSuc  :: Value v -> Value ('Suc v)
 
--- | Type-preserving one-step reduction indexed by promoted `Term g a`.
-type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
-data Step m n where
-  XiApp1   :: Step l l' -> Step ('App l m) ('App l' m)
-  XiApp2   :: Value v -> Step m m' -> Step ('App v m) ('App v m')
-  BetaLam  :: Value w -> Step ('App ('Lam n) w) (substSingle n w)
-  XiSuc    :: Step m m' -> Step ('Suc m) ('Suc m')
-  XiCase   :: Step l l' -> Step ('Case l m n) ('Case l' m n)
-  BetaZero :: Step ('Case 'Zero m n) m
-  BetaSuc  :: Value v -> Step ('Case ('Suc v) m n) (substSingle n v)
-  BetaMu   :: Step ('Mu n) (substSingle n ('Mu n))
-
--- | Progress witness indexed by a closed intrinsically-typed term.
-type Progress :: forall (a :: Ty). Term 'CEmpty a -> Type
-data Progress m where
-  PStep :: Step m n -> Progress m
-  PDone :: Value m  -> Progress m
-
 -- | Concrete witness that `Zero` is already a value.
-valZero :: Progress ('Zero :: Term 'CEmpty 'TNat)
-valZero = PDone VZero
+valZero :: Value ('Zero :: Term 'CEmpty 'TNat)
+valZero = VZero
 ```
 
-## Intrinsically-typed Progress (`progress :: foreach (m :: Term 'CEmpty a) -> Progress m`)
+## Intrinsically-typed Reduction (`Step`) and Progress (`progress`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — <code>foreach</code> over an indexed GADT domain (R03)]</strong>
-While GHC <code>db2586fdc2</code> accepts promoting <code>Term g a</code>
-and forming the exact signature of intrinsically-typed progress:
+<strong>[WIP NOTICE — Functional <code>Step</code> &amp; <code>foreach</code> over indexed GADT <code>Term g a</code> (R03/R13)]</strong>
+Two distinct Dependent Haskell frontiers currently meet here:
+<ol>
+  <li><strong>R13/R16 (Open equations for GADT-indexed higher-order <code>substSingle</code>):</strong>
+      Writing unqualified <code>substSingle</code> in <code>BetaLam</code>/<code>BetaSuc</code>/<code>BetaMu</code>
+      silently quantified <code>substSingle</code> as an unconstrained fresh type variable
+      (the same implicit-quantification pitfall documented in <a href="/Lambda/">Lambda</a>).
+      Writing qualified <code>Syntax.substSingle</code> from a separate syntax module honestly
+      fails with <code>GHC-70565</code> on published GHC <code>1a02a866e7</code> because
+      <code>substSingle</code> calls higher-order GADT-indexed <code>subst</code>.
+      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>.</li>
+  <li><strong>R03 (<code>foreach</code> over an indexed GADT domain):</strong>
+      Writing intrinsically-typed progress:
 <pre class="wip"><code>progress :: forall (a :: Ty). foreach (m :: Term 'CEmpty a) -&gt; Progress m</code></pre>
-pattern matching on a retained binder whose type is an <em>indexed GADT</em>
-(<code>Term 'CEmpty a</code>) is not yet supported:
-<ul>
-  <li>Matching in function equations fails with <code>GHC-83605</code>
-      (<code>foreach</code> currently requires a closed, unparameterized,
-      non-GADT algebraic domain).</li>
-  <li>Matching via <code>case m of</code> does not refine the type-level index
-      <code>m</code> to the matched constructor (<code>Couldn't match type
-      'Lam n0 with m</code>).</li>
-</ul>
-This cleanly marks the current R03 frontier for intrinsically-typed
-metatheory! See minimal reproducers
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>
-and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtCase.hs"><code>R03_ForEachGadtCase.hs</code></a>.
+      hits <code>GHC-83605</code> when matching in function equations (<code>foreach</code>
+      currently requires a closed, unparameterized, non-GADT algebraic domain),
+      and matching via <code>case m of</code> does not refine the type-level index
+      <code>m</code>. See
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>
+      and
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtCase.hs"><code>R03_ForEachGadtCase.hs</code></a>.</li>
+</ol>
 </div>
 
 ## Changes from PLFA `v22.08`
@@ -189,8 +170,9 @@ and
 - Adapted from [DeBruijn (v22.08)](https://plfa.inf.ed.ac.uk/22.08/DeBruijn/)
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/DeBruijn.lagda.md)).
 - `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
-  `substSingle`, and the GADT-promoted `Value`, `Step`, and `Progress`
-  definitions all compile cleanly with `-dcore-lint -dstg-lint`!
-- Intrinsically-typed `progress` (`foreach (m :: Term 'CEmpty a) -> Progress m`)
-  is marked `[WIP NOTICE]` as an R03 milestone blocker (retained quantification
-  and refinement over indexed GADT domains).
+  `substSingle`, and the GADT-promoted `Value` definition all compile cleanly
+  with `-dcore-lint -dstg-lint` and pass our `.hi` interface soundness audit.
+- Functional `Step` (`Syntax.substSingle`, R13/R16) and intrinsically-typed
+  `progress` (`foreach (m :: Term 'CEmpty a) -> Progress m`, R03) are marked
+  `[WIP NOTICE]` rather than leaving an unconstrained fresh-tyvar `Step`
+  constructor.

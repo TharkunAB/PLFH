@@ -7,8 +7,6 @@
 module PLFH.Part2.Properties
   ( Canonical (..)
   , canonical
-  , Progress (..)
-  , progress
   , extCtx
   , renameTyping
   , weakenTyping
@@ -24,13 +22,12 @@ import PLFH.Part2.Lambda
   , HasType (..)
   , Id
   , Lookup (..)
-  , Step (..)
   , Term (..)
   , Ty (..)
   , Value (..)
   )
 
-{-# LINE 60 "content/part2/Properties.md" #-}
+{-# LINE 58 "content/part2/Properties.md" #-}
 -- | Canonical form of a closed well-typed value.
 data Canonical (m :: Term) (a :: Ty) where
   CLam  :: HasType ('CExt 'CEmpty x a) n b -> Canonical ('Lam x n) ('TArr a b)
@@ -43,34 +40,7 @@ canonical (TLam tn)  VLam      = CLam tn
 canonical TZeroT     VZero     = CZero
 canonical (TSucT tv) (VSuc vv) = CSuc vv tv
 
-{-# LINE 79 "content/part2/Properties.md" #-}
--- | Evidence that a closed term either steps or is already a value.
-data Progress (m :: Term) where
-  PStep :: Step m n -> Progress m
-  PDone :: Value m  -> Progress m
-
--- | Progress theorem: every closed well-typed term either steps or is a value.
-progress :: HasType 'CEmpty m a -> Progress m
-progress (TVar x) = case x of {}
-progress (TLam _) = PDone VLam
-progress (TApp tl tm) = case progress tl of
-  PStep s  -> PStep (XiApp1 s)
-  PDone vl -> case progress tm of
-    PStep s  -> PStep (XiApp2 vl s)
-    PDone vm -> case canonical tl vl of
-      CLam _ -> PStep (BetaLam vm)
-progress TZeroT = PDone VZero
-progress (TSucT tm) = case progress tm of
-  PStep s  -> PStep (XiSuc s)
-  PDone vm -> PDone (VSuc vm)
-progress (TCaseT tl _ _) = case progress tl of
-  PStep s  -> PStep (XiCase s)
-  PDone vl -> case canonical tl vl of
-    CZero    -> PStep BetaZero
-    CSuc v _ -> PStep (BetaSuc v)
-progress (TMuT _) = PStep BetaMu
-
-{-# LINE 117 "content/part2/Properties.md" #-}
+{-# LINE 78 "content/part2/Properties.md" #-}
 -- | Extend a context inclusion under a newly bound variable `x : a`.
 extCtx :: (forall y b. Lookup g y b -> Lookup d y b)
        -> Lookup ('CExt g x a) y b

@@ -91,6 +91,14 @@ for mod in "${MODULES[@]}"; do
 done
 
 echo ""
+echo "--- Interface Soundness Audit (.hi files: no silent function tyvars) ---"
+if python3 "$SCRIPT_DIR/audit_ifaces.py" "$COMPILER" "$BUILD_DIR"; then
+  PASS=$((PASS + 1))
+else
+  FAIL=$((FAIL + 1))
+fi
+
+echo ""
 echo "--- Negative Controls (must fail with expected diagnostic) ---"
 mapfile -t NEGS < <(find "$PLFH_ROOT/hs/negative" -name '*.hs' 2>/dev/null | sort)
 for neg in "${NEGS[@]}"; do

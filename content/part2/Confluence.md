@@ -23,6 +23,7 @@ module PLFH.Part2.Confluence
   , psTrans
   , parToBetas
   , parsToBetas
+  , omegaPar
   , Joinable (..)
   , strip
   , parConfluence
@@ -33,8 +34,10 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( BetaStep (..)
   , BetaSteps (..)
+  , Fin (..)
+  , OmegaTerm
+  , SubstAtU (..)
   , UTerm (..)
-  , substSingleU
   )
 ```
 
@@ -52,7 +55,8 @@ the untyped lambda calculus via Tait and Martin-Löf's **parallel reduction**
    in `[WIP NOTICE]` below).
 
 Every one of those structural proofs compiles cleanly with `-dcore-lint -dstg-lint`
-over the promoted indexed GADT `UTerm n`!
+over the promoted indexed GADT `UTerm n` and passes our `.hi` interface
+soundness audit!
 
 ## Multi-step β-reduction congruence lemmas
 
@@ -78,6 +82,10 @@ bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
 ## Parallel reduction (`_⇛_`) and embedding into `_—↠_`
 
+As in [Untyped](/Untyped/), `PBeta` uses deterministic relational substitution
+`SubstAtU 'FZ w' b' r` with explicit `forall` binders so no unconstrained
+substitution function variable can slip into the interface:
+
 ```haskell
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -85,7 +93,10 @@ data Par t t' where
   PVar  :: Par ('UVar x) ('UVar x)
   PLam  :: Par b b' -> Par ('ULam b) ('ULam b')
   PApp  :: Par l l' -> Par m m' -> Par ('UApp l m) ('UApp l' m')
-  PBeta :: Par b b' -> Par w w' -> Par ('UApp ('ULam b) w) (substSingleU b' w')
+  PBeta :: forall (n :: Nat) (b :: UTerm ('Succ n)) (b' :: UTerm ('Succ n))
+                  (w :: UTerm n) (w' :: UTerm n) (r :: UTerm n).
+           Par b b' -> Par w w' -> SubstAtU 'FZ w' b' r
+        -> Par ('UApp ('ULam b) w) r
 
 -- | Reflexive-transitive closure of parallel reduction (`_⇛*_`).
 type ParSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -99,17 +110,21 @@ psTrans (PSCons x xs) ys = PSCons x (psTrans xs ys)
 
 -- | Every parallel reduction step is simulated by zero or more β-steps!
 parToBetas :: Par m n -> BetaSteps m n
-parToBetas PVar          = BRefl
-parToBetas (PLam p)      = bsLam (parToBetas p)
-parToBetas (PApp pl pm)  = bsTrans (bsApp1 (parToBetas pl)) (bsApp2 (parToBetas pm))
-parToBetas (PBeta pb pw) =
+parToBetas PVar              = BRefl
+parToBetas (PLam p)          = bsLam (parToBetas p)
+parToBetas (PApp pl pm)      = bsTrans (bsApp1 (parToBetas pl)) (bsApp2 (parToBetas pm))
+parToBetas (PBeta pb pw sub) =
   bsTrans (bsApp1 (bsLam (parToBetas pb)))
-    (bsTrans (bsApp2 (parToBetas pw)) (BCons Beta BRefl))
+    (bsTrans (bsApp2 (parToBetas pw)) (BCons (Beta sub) BRefl))
 
 -- | Multi-step parallel reduction embeds into multi-step β-reduction.
 parsToBetas :: ParSteps m n -> BetaSteps m n
 parsToBetas PSRefl       = BRefl
 parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
+
+-- | Concrete parallel reduction step: Ω ⇛ Ω.
+omegaPar :: Par OmegaTerm OmegaTerm
+omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 ```
 
 ## Joinability, Strip Lemma, and Confluence from Diamond
@@ -155,11 +170,13 @@ Church-Rosser confluence for <code>BetaSteps</code>:
       blocked by <strong>R03</strong> (<code>foreach</code> over indexed GADT
       <code>UTerm n</code>, same frontier as <a href="/DeBruijn/">DeBruijn</a>).</li>
   <li><code>substCommute</code> &amp; <code>parDiamond</code> (Takahashi's
-      complete development and substitution commutation for <code>substSingleU</code>):
+      complete development and substitution commutation):
       blocked by <strong>R13/R16</strong> (open equations for GADT-indexed
-      substitution <code>substU</code>) and <strong>R11</strong> (homogeneous
-      coercions when matching two GADTs indexed by promoted <code>UTerm</code>,
-      same frontier as <a href="/Bisimulation/">Bisimulation</a>).</li>
+      substitution <code>substU</code>,
+      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>)
+      and <strong>R11</strong> (homogeneous coercions when matching two GADTs
+      indexed by promoted <code>UTerm</code>, same frontier as
+      <a href="/Bisimulation/">Bisimulation</a>).</li>
 </ul>
 </div>
 
@@ -169,9 +186,12 @@ Church-Rosser confluence for <code>BetaSteps</code>:
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/Confluence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `bsTrans`/`bsApp1`/`bsApp2`/`bsLam`, `Par`,
-  `ParSteps`, `parToBetas`, `parsToBetas`, `Joinable`, `strip`, and
+  `ParSteps`, `parToBetas`, `parsToBetas`, `omegaPar`, `Joinable`, `strip`, and
   `parConfluence` (conditional on the one-step diamond premise) over promoted
   `UTerm n`.
+- Updated `PBeta` to use deterministic relational `SubstAtU` (matching
+  `Untyped.BetaStep.Beta`) so no unconstrained `substSingleU` type variable is
+  introduced in `Confluence.hi`.
 - Marked `parRefl`, `betaToPar`, and the unconditional one-step `parDiamond`
   proof with `[WIP NOTICE]` tracing directly back to our tracked R03, R11, and
   R13 reproducers.

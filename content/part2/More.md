@@ -22,7 +22,6 @@ module PLFH.Part2.More
   , substSingle
   , substDouble
   , Value (..)
-  , Step (..)
   , swapPair
   , mapMaybeNat
   ) where
@@ -39,9 +38,9 @@ programming constructs:
 - **Void (`TVoid`, `Absurd`)** and **Sums (`TSum`, `Inl`, `Inr`, `CaseSum`)**,
 - **Lists (`TList`, `Nil`, `Cons`, `CaseLst`)**.
 
-Everything in this chapter—types, contexts, intrinsically-typed terms,
-simultaneous renaming & substitution, promoted `Value`, and promoted
-type-preserving `Step`—compiles cleanly with `-dcore-lint -dstg-lint`!
+All extended types, contexts, intrinsically-typed terms, simultaneous renaming
+and single/double substitution, promoted `Value`, and example programs compile
+cleanly with `-dcore-lint -dstg-lint`!
 
 ## Extended types, contexts, and intrinsically-typed terms
 
@@ -151,7 +150,7 @@ substDouble :: Term ('CExt ('CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 ```
 
-## Values, one-step reduction, and example terms
+## Values and example terms
 
 ```haskell
 -- | Values indexed over promoted extended `Term g a`.
@@ -167,18 +166,6 @@ data Value m where
   VNil  :: Value 'Nil
   VCons :: Value v -> Value vs -> Value ('Cons v vs)
 
--- | Call-by-value reduction rules for the extended calculus.
-type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
-data Step m n where
-  BetaLam  :: Value w -> Step ('App ('Lam n) w) (substSingle n w)
-  BetaLet  :: Value v -> Step ('Let v n) (substSingle n v)
-  BetaFst  :: Value v -> Value w -> Step ('Fst ('Pair v w)) v
-  BetaSnd  :: Value v -> Value w -> Step ('Snd ('Pair v w)) w
-  BetaInl  :: Value v -> Step ('CaseSum ('Inl v) l r) (substSingle l v)
-  BetaInr  :: Value v -> Step ('CaseSum ('Inr v) l r) (substSingle r v)
-  BetaNil  :: Step ('CaseLst 'Nil n c) n
-  BetaCons :: Value v -> Value vs -> Step ('CaseLst ('Cons v vs) n c) (substDouble c v vs)
-
 -- | Example: swap the components of a pair: λp. (snd p, fst p).
 swapPair :: Term g ('TArr ('TProd a b) ('TProd b a))
 swapPair = Lam (Pair (Snd (Var Z)) (Fst (Var Z)))
@@ -188,12 +175,30 @@ mapMaybeNat :: Term g ('TArr ('TSum 'TUnit 'TNat) 'TNat)
 mapMaybeNat = Lam (CaseSum (Var Z) Zero (Var Z))
 ```
 
+## Extended call-by-value reduction (`Step`)
+
+<div class="wip-notice">
+<strong>[WIP NOTICE — Functional <code>Step</code> blocked on GADT-indexed <code>substSingle</code> / <code>substDouble</code> (R13/R16)]</strong>
+As in <a href="/DeBruijn/">DeBruijn</a>, writing unqualified <code>substSingle</code>
+and <code>substDouble</code> in the <code>BetaLam</code>, <code>BetaLet</code>,
+<code>BetaInl</code>, <code>BetaInr</code>, and <code>BetaCons</code> constructors
+of <code>Step</code> silently quantified fresh unconstrained type variables, while
+qualifying them from a split syntax module fails with <code>GHC-70565</code> on
+published GHC <code>1a02a866e7</code>. Functional <code>Step</code> and
+intrinsically-typed <code>progress</code> remain tracked as
+<code>[WIP NOTICE]</code> (see
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>
+and
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEquations.hs"><code>R03_ForEachGadtEquations.hs</code></a>).
+</div>
+
 ## Changes from PLFA `v22.08`
 
 - Adapted from [More (v22.08)](https://plfa.inf.ed.ac.uk/22.08/More/)
   ([source](https://github.com/plfa/plfa.github.io/blob/e2d545f3df0db4d4206c5448735665abde02d81f/src/plfa/part2/More.lagda.md)).
 - All extended constructs (`Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`),
   renaming, substitution (`substSingle`, `substDouble`), and GADT-promoted
-  `Value` and `Step` compile cleanly with `-dcore-lint -dstg-lint`.
-- Intrinsically-typed `progress` over `foreach (m :: Term 'CEmpty a)` shares
-  the R03 indexed-GADT domain boundary tracked in [DeBruijn](/DeBruijn/).
+  `Value` compile cleanly with `-dcore-lint -dstg-lint`.
+- Functional `Step` (`Syntax.substSingle` / `Syntax.substDouble`) and
+  intrinsically-typed `progress` are marked `[WIP NOTICE]` rather than leaving
+  unconstrained fresh-tyvar beta constructors.

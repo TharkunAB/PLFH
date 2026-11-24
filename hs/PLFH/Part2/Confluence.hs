@@ -15,6 +15,7 @@ module PLFH.Part2.Confluence
   , psTrans
   , parToBetas
   , parsToBetas
+  , omegaPar
   , Joinable (..)
   , strip
   , parConfluence
@@ -25,11 +26,13 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part2.Untyped
   ( BetaStep (..)
   , BetaSteps (..)
+  , Fin (..)
+  , OmegaTerm
+  , SubstAtU (..)
   , UTerm (..)
-  , substSingleU
   )
 
-{-# LINE 60 "content/part2/Confluence.md" #-}
+{-# LINE 64 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -48,14 +51,17 @@ bsLam :: BetaSteps b b' -> BetaSteps ('ULam b) ('ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 82 "content/part2/Confluence.md" #-}
+{-# LINE 90 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
   PVar  :: Par ('UVar x) ('UVar x)
   PLam  :: Par b b' -> Par ('ULam b) ('ULam b')
   PApp  :: Par l l' -> Par m m' -> Par ('UApp l m) ('UApp l' m')
-  PBeta :: Par b b' -> Par w w' -> Par ('UApp ('ULam b) w) (substSingleU b' w')
+  PBeta :: forall (n :: Nat) (b :: UTerm ('Succ n)) (b' :: UTerm ('Succ n))
+                  (w :: UTerm n) (w' :: UTerm n) (r :: UTerm n).
+           Par b b' -> Par w w' -> SubstAtU 'FZ w' b' r
+        -> Par ('UApp ('ULam b) w) r
 
 -- | Reflexive-transitive closure of parallel reduction (`_⇛*_`).
 type ParSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -69,19 +75,23 @@ psTrans (PSCons x xs) ys = PSCons x (psTrans xs ys)
 
 -- | Every parallel reduction step is simulated by zero or more β-steps!
 parToBetas :: Par m n -> BetaSteps m n
-parToBetas PVar          = BRefl
-parToBetas (PLam p)      = bsLam (parToBetas p)
-parToBetas (PApp pl pm)  = bsTrans (bsApp1 (parToBetas pl)) (bsApp2 (parToBetas pm))
-parToBetas (PBeta pb pw) =
+parToBetas PVar              = BRefl
+parToBetas (PLam p)          = bsLam (parToBetas p)
+parToBetas (PApp pl pm)      = bsTrans (bsApp1 (parToBetas pl)) (bsApp2 (parToBetas pm))
+parToBetas (PBeta pb pw sub) =
   bsTrans (bsApp1 (bsLam (parToBetas pb)))
-    (bsTrans (bsApp2 (parToBetas pw)) (BCons Beta BRefl))
+    (bsTrans (bsApp2 (parToBetas pw)) (BCons (Beta sub) BRefl))
 
 -- | Multi-step parallel reduction embeds into multi-step β-reduction.
 parsToBetas :: ParSteps m n -> BetaSteps m n
 parsToBetas PSRefl       = BRefl
 parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 
-{-# LINE 118 "content/part2/Confluence.md" #-}
+-- | Concrete parallel reduction step: Ω ⇛ Ω.
+omegaPar :: Par OmegaTerm OmegaTerm
+omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
+
+{-# LINE 133 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `n`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
