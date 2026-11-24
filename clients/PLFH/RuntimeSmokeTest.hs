@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE LambdaCase, ScopedTypeVariables, TypeApplications, TypeOperators #-}
 -- | Executable runtime smoke test exercising checked Dependent Haskell proofs
 -- across Part 1, Part 2, and Part 3 at real runtime inputs (including decimal Nat literals)!
@@ -22,7 +22,7 @@ import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
 import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
-import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp, evalKIdOmega, selfAppEval)
+import PLFH.Part2.BigStep (EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), evalBigIsLam, evalConstOmega, evalDeterm, evalFunDeterm, evalFunKIdOmega, evalIdApp, evalKIdOmega, selfAppEval)
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
 import qualified PLFH.Part2.BisimulationRenaming as BisimulationRenaming
@@ -37,9 +37,11 @@ import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
-import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
-import PLFH.Part3.Compositional (AppDen (..), congChain, denAppToAppDen, lamInversion)
-import PLFH.Part3.ContextualEquivalence (Terminates (..), terminatesLam, terminatesStep)
+import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun, reduceToCbn)
+import qualified PLFH.Part3.Compositional as C
+import PLFH.Part3.Compositional (AppDen (..), UCtx (..), congChain, denAppToAppDen, lamInversion)
+import PLFH.Part3.CompositionalPlug (checkCompositionality)
+import PLFH.Part3.ContextualEquivalence (Terminates (..), betaCtxBigStep, terminatesLam, terminatesStep)
 import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denEqRefl, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
@@ -103,6 +105,25 @@ checkBetaToPar t = case eqIdApp t of
     PBeta PVar (PLam PVar) _ -> True
     _                        -> False
   Nothing -> False
+
+plugHole :: forall (t :: U.UTerm Zero). foreach (c :: UCtx Zero Zero) -> Maybe (C.plug c t :~: t)
+plugHole CHole       = Just Refl
+plugHole (CLam _)    = Nothing
+plugHole (CAppL _ _) = Nothing
+plugHole (CAppR _ _) = Nothing
+
+checkBetaCtxHole :: foreach (c :: UCtx Zero Zero) -> Bool
+checkBetaCtxHole c =
+  case (plugHole @(U.UApp U.IdTerm U.IdTerm) c, plugHole @U.IdTerm c) of
+    (Just Refl, Just Refl) ->
+      case betaCtxBigStep @Zero @(U.UApp U.IdTerm U.IdTerm) @U.IdTerm
+             c (BCons idAppStep BRefl) (terminatesStep idAppStep terminatesLam) of
+        MkHaltsBig ELam -> True
+        _               -> False
+    _ -> False
+
+checkBetaCtxBigStep :: UCtx Zero Zero -> Bool
+checkBetaCtxBigStep c = checkBetaCtxHole c
 
 checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
 checkAllInRoundTrip xs x = case decAll decEven xs of
@@ -411,6 +432,8 @@ main = do
     (case letDesugarStepsInv of { MkLegInv (MP.StepsCons (MP.XiLet (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLet M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
   assertEq "BisimulationRenaming.observeRenamedListBody (2-binder CaseLst shift)" True
     BisimulationRenaming.observeRenamedListBody
+  assertEq "BisimulationRenaming.observeSubstLet (20-ctor simSubst + M.exts)" True
+    BisimulationRenaming.observeSubstLet
 
   let moreLet :: M.Term M.CEmpty M.TNat
       moreLet = M.Let M.Zero (M.Var M.Z)
@@ -466,6 +489,8 @@ main = do
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalKIdOmega (((\\x y. x) id) Omega => id)" True (case evalBigIsLam evalKIdOmega of MkIsLamClos -> True)
   assertEq "BigStep.evalDeterm evalIdApp evalIdApp" True (case evalDeterm evalIdApp evalIdApp of Refl -> True)
+  assertEq "BigStep.evalFunDeterm evalFunKIdOmega (same-module lookupEnv!)" True
+    (case evalFunDeterm evalFunKIdOmega evalFunKIdOmega of Refl -> True)
   assertEq "BigStep.selfAppEval SelfAppDirect" True (case selfAppEval SelfAppDirect ELam of Refl -> True)
   assertEq "BigStep.selfAppEval SelfAppVar (indirection)" True
     (case selfAppEval (SelfAppVar ELZ SelfAppDirect) (EVar ELZ ELam) of Refl -> True)
@@ -488,6 +513,8 @@ main = do
     (case lamInversion (MkValW (Arr Bot Bot)) denotId of { DVar _ -> True; _ -> False })
   assertEq "Compositional.congChain (Bot)" True
     (case fst (congChain @_ @(U.UVar U.FZ) denEqRefl (MkValW Bot)) (MkDen DBot) of { MkDen DBot -> True; _ -> True })
+  assertEq "CompositionalPlug.compositionality (UCtx plug induction!)" True
+    (checkCompositionality (CLam (CAppR (U.UVar U.FZ) CHole)))
   assertEq "Soundness.denotPreserve idAppStep" True
     (case denotPreserve (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) idAppStep of { DIntro _ -> True; _ -> False })
   assertEq "Soundness.denotReflect idAppStep" True
@@ -496,7 +523,11 @@ main = do
     (case adequacyIdApp of { MkHaltsBig (EApp _ _) -> True; _ -> False })
   assertEq "Adequacy.adequacyDelta (unconditional Delta halts!)" True
     (case adequacyDelta of { MkHaltsBig ELam -> True; _ -> False })
+  assertEq "Adequacy.reduceToCbn idAppStep (small-step -> big-step!)" True
+    (case reduceToCbn (BCons idAppStep BRefl) of { MkHaltsBig (EApp _ _) -> True; _ -> False })
   assertEq "ContextualEquivalence.terminatesStep idAppStep terminatesLam" True
     (case terminatesStep idAppStep terminatesLam of { MkTerminates (BCons _ BRefl) -> True; _ -> False })
+  assertEq "ContextualEquivalence.betaCtxBigStep CHole idAppStep (unconditional!)" True
+    (checkBetaCtxBigStep CHole)
 
   putStrLn "All runtime smoke tests passed."

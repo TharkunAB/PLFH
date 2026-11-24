@@ -90,7 +90,7 @@ substU sigma (UApp l m) = UApp (substU sigma l) (substU sigma m)
 substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 
-{-# LINE 179 "content/part2/Untyped.md" #-}
+{-# LINE 173 "content/part2/Untyped.md" #-}
 -- | Shift a variable `x :: Fin n` up by one slot at cutoff `c :: Fin (Succ n)`.
 type BumpFin :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Fin (Succ n) -> Type
 data BumpFin c x y where
@@ -120,7 +120,7 @@ data SubstAtU c w m m' where
   SULam :: ShiftU FZ w w' -> SubstAtU (FS c) w' b b' -> SubstAtU c w (ULam b) (ULam b')
   SUApp :: SubstAtU c w l l' -> SubstAtU c w m m' -> SubstAtU c w (UApp l m) (UApp l' m')
 
-{-# LINE 230 "content/part2/Untyped.md" #-}
+{-# LINE 224 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
 type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
@@ -148,7 +148,7 @@ data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
 
-{-# LINE 264 "content/part2/Untyped.md" #-}
+{-# LINE 258 "content/part2/Untyped.md" #-}
 -- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
 type IdTerm    = (ULam (UVar FZ) :: UTerm Zero)
 type SelfApp   = (ULam (UApp (UVar FZ) (UVar FZ)) :: UTerm Zero)

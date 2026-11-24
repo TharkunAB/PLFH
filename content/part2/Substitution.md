@@ -144,27 +144,20 @@ subApp sigma l m = substU sigma (UApp l m)
 ## Proving σ-calculus equational identities (`sub-id`, `sub-sub`, `sub-dist`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Equational σ-calculus proofs over GADT terms &amp; functions (R03/R13/R16)]</strong>
+<strong>[WIP NOTICE — Equational σ-calculus proofs over GADT terms &amp; functions (R04/R16 + Function Extensionality)]</strong>
 Stating PLFA's equational substitution identities directly as Dependent
 Haskell types, such as:
 <pre class="wip"><code>subId  :: foreach (t :: UTerm n) -&gt; substU ids t :~: t
 subSub :: foreach (s1 :: Subst m n) -&gt; foreach (s2 :: Subst n p)
        -&gt; foreach (t :: UTerm m)
        -&gt; substU s2 (substU s1 t) :~: substU (seqSubst s1 s2) t</code></pre>
-requires two capabilities already isolated by our yardstick:
-<ol>
-  <li><strong>R04/R16:</strong> Opaque function-valued aliases and abstract
-      higher-order renaming/substitution variables in types, tracked in
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>R04_ComposedIsoFields.hs</code></a>
-      and
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>.</li>
-  <li><strong>R13/R16:</strong> Open source equations for higher-order
-      GADT-indexed functions (<code>substU</code>, <code>renameU</code>,
-      <code>extsU</code>), tracked in
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>
-      and
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>R13_LookupEnvOpenEq.hs</code></a>.</li>
-</ol>
+requires both (1) reducing function-valued <code>foreach</code> binders and
+composed aliases in types (tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ComposedIsoFields.hs"><code>R04_ComposedIsoFields.hs</code></a>
+and
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>)
+and (2) function extensionality (which PLFA postulates via
+<code>extensionality</code> for the substitution-algebra equations).
 All σ-calculus definitions and runtime combinators above compile cleanly with
 <code>-dcore-lint -dstg-lint</code>.
 </div>

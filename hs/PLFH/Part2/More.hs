@@ -10,6 +10,7 @@ module PLFH.Part2.More
   , Ctx (..)
   , Lookup (..)
   , Term (..)
+  , weakenLookup
   , ext
   , rename
   , exts
@@ -29,7 +30,7 @@ module PLFH.Part2.More
 
 import Data.Kind (Type)
 
-{-# LINE 83 "content/part2/More.md" #-}
+{-# LINE 84 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -69,7 +70,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 137 "content/part2/More.md" #-}
+{-# LINE 138 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -96,10 +97,14 @@ rename _ Nil              = Nil
 rename r (Cons x xs)      = Cons (rename r x) (rename r xs)
 rename r (CaseLst xs n c) = CaseLst (rename r xs) (rename r n) (rename (ext (ext r)) c)
 
-exts :: (forall a. Lookup g a -> Term d a)
+weakenLookup :: forall d b a. Lookup d a -> Lookup (CExt d b) a
+weakenLookup x = S x
+
+exts :: forall g d b.
+        (forall a. Lookup g a -> Term d a)
      -> (forall a. Lookup (CExt g b) a -> Term (CExt d b) a)
 exts _ Z     = Var Z
-exts s (S x) = rename S (s x)
+exts s (S x) = rename weakenLookup (s x)
 
 subst :: (forall a. Lookup g a -> Term d a) -> Term g b -> Term d b
 subst s (Var x)          = s x
@@ -128,7 +133,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 204 "content/part2/More.md" #-}
+{-# LINE 209 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where

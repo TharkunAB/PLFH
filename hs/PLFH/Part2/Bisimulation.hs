@@ -2,9 +2,10 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 54 "content/part2/Bisimulation.md" #-}
+{-# LINE 55 "content/part2/Bisimulation.md" #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
   , simRefl
@@ -14,6 +15,10 @@ module PLFH.Part2.Bisimulation
   , valNoStep
   , Renaming
   , simRename
+  , SubstFn
+  , Compatible
+  , simExt
+  , simSubst
   , Leg (..)
   , LegInv (..)
   , SubstCompat (..)
@@ -32,7 +37,7 @@ import GHC.Exts (U)
 import qualified PLFH.Part2.More as M
 import qualified PLFH.Part2.MoreProgress as MP
 
-{-# LINE 97 "content/part2/Bisimulation.md" #-}
+{-# LINE 102 "content/part2/Bisimulation.md" #-}
 -- | Structural bisimulation relation relating `let x = m in n` to `(λx. n') m'`
 -- across all 19 constructors of `PLFH.Part2.More.Term`.
 type SimRel :: forall (g :: M.Ctx) (a :: M.Ty). M.Term g a -> M.Term g a -> Type
@@ -61,7 +66,7 @@ data SimRel m m' where
   SimCaseLst :: SimRel s s' -> SimRel n n' -> SimRel c c'
              -> SimRel (M.CaseLst s n c) (M.CaseLst s' n' c')
 
-{-# LINE 133 "content/part2/Bisimulation.md" #-}
+{-# LINE 138 "content/part2/Bisimulation.md" #-}
 -- | Reflexivity (`~-refl`): every extended STLC term is related to itself.
 simRefl :: forall (g :: M.Ctx) (a :: M.Ty). foreach (m :: M.Term g a) -> SimRel m m
 simRefl t = case t of
@@ -109,7 +114,7 @@ simTrans SimNil                 SimNil                  = SimNil
 simTrans (SimCons x1 xs1)       (SimCons x2 xs2)        = SimCons (simTrans x1 x2) (simTrans xs1 xs2)
 simTrans (SimCaseLst s1 n1 c1)  (SimCaseLst s2 n2 c2)   = SimCaseLst (simTrans s1 s2) (simTrans n1 n2) (simTrans c1 c2)
 
-{-# LINE 190 "content/part2/Bisimulation.md" #-}
+{-# LINE 195 "content/part2/Bisimulation.md" #-}
 -- | Forward value preservation (`~-val`): all 9 value constructors.
 simValue :: SimRel m m' -> M.Value m -> M.Value m'
 simValue rel val = case val of
@@ -149,7 +154,7 @@ valNoStep val st = case val of
   M.VNil       -> case st of {}
   M.VCons v vs -> case st of { MP.XiCons1 s -> valNoStep v s; MP.XiCons2 _ s -> valNoStep vs s }
 
-{-# LINE 242 "content/part2/Bisimulation.md" #-}
+{-# LINE 247 "content/part2/Bisimulation.md" #-}
 -- | A sort-preserving map between lookup contexts.
 type Renaming g d = forall x. M.Lookup g x %U -> M.Lookup d x
 
@@ -184,6 +189,101 @@ simRename (SimCaseLst xs n c) =
              (simRename @_ @_ @_ @(M.ext (M.ext r)) c)
 
 {-# LINE 291 "content/part2/Bisimulation.md" #-}
+-- | A sort-preserving simultaneous substitution callback between contexts.
+type SubstFn g d = forall a. M.Lookup g a %U -> M.Term d a
+
+-- | Pointwise simulation compatibility between two simultaneous substitutions.
+type Compatible :: forall g d. SubstFn g d -> SubstFn g d -> Type
+type Compatible @g @d p q = forall a. foreach (x :: M.Lookup g a) -> SimRel (p x) (q x)
+
+-- | Extending two compatible substitutions under a binder preserves compatibility (`~-exts`).
+simExt :: forall g d b (p :: SubstFn g d) (q :: SubstFn g d).
+          Compatible p q
+       -> Compatible @(M.CExt g b) @(M.CExt d b) (M.exts @g @d @b p) (M.exts @g @d @b q)
+simExt step index = case index of
+  M.Z   -> SimVar
+  M.S x -> simRename @d @(M.CExt d b) @_ @(M.weakenLookup @d @b) @(p x) @(q x) (step x)
+
+-- | Simultaneous substitution preserves `SimRel` across all 20 constructors (`~-subst`)!
+simSubst :: forall g d a (p :: SubstFn g d) (q :: SubstFn g d) (n :: M.Term g a).
+            foreach (m :: M.Term g a)
+         -> Compatible p q
+         -> SimRel m n
+         -> SimRel (M.subst p m) (M.subst q n)
+simSubst term = case term of
+  M.Var x -> \step rel -> case rel of
+    SimVar -> step x
+  M.Lam body -> \step rel -> case rel of
+    SimLam p0 ->
+      SimLam (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                body (simExt @g @d @_ @p @q step) p0)
+  M.App f x -> \step rel -> case rel of
+    SimApp p0 p1 ->
+      SimApp (simSubst @g @d @_ @p @q f step p0) (simSubst @g @d @_ @p @q x step p1)
+  M.Zero -> \_ rel -> case rel of
+    SimZero -> SimZero
+  M.Suc n -> \step rel -> case rel of
+    SimSuc p0 -> SimSuc (simSubst @g @d @_ @p @q n step p0)
+  M.CaseNat n z suc -> \step rel -> case rel of
+    SimCaseNat p0 p1 p2 ->
+      SimCaseNat (simSubst @g @d @_ @p @q n step p0)
+                 (simSubst @g @d @_ @p @q z step p1)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    suc (simExt @g @d @_ @p @q step) p2)
+  M.Mu body -> \step rel -> case rel of
+    SimMu p0 ->
+      SimMu (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+               body (simExt @g @d @_ @p @q step) p0)
+  M.Let x body -> \step rel -> case rel of
+    SimLet p0 p1 ->
+      SimLet (simSubst @g @d @_ @p @q x step p0)
+             (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                body (simExt @g @d @_ @p @q step) p1)
+    SimLetApp p0 p1 ->
+      SimLetApp (simSubst @g @d @_ @p @q x step p0)
+                (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                   body (simExt @g @d @_ @p @q step) p1)
+  M.TT -> \_ rel -> case rel of
+    SimTT -> SimTT
+  M.Pair x y -> \step rel -> case rel of
+    SimPair p0 p1 ->
+      SimPair (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q y step p1)
+  M.Fst x -> \step rel -> case rel of
+    SimFst p0 -> SimFst (simSubst @g @d @_ @p @q x step p0)
+  M.Snd x -> \step rel -> case rel of
+    SimSnd p0 -> SimSnd (simSubst @g @d @_ @p @q x step p0)
+  M.Inl x -> \step rel -> case rel of
+    SimInl p0 -> SimInl @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
+  M.Inr y -> \step rel -> case rel of
+    SimInr p0 -> SimInr @(M.subst p y) (simSubst @g @d @_ @p @q y step p0)
+  M.CaseSum x l r -> \step rel -> case rel of
+    SimCaseSum p0 p1 p2 ->
+      SimCaseSum (simSubst @g @d @_ @p @q x step p0)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    l (simExt @g @d @_ @p @q step) p1)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    r (simExt @g @d @_ @p @q step) p2)
+  M.Absurd x -> \step rel -> case rel of
+    SimAbsurd p0 -> SimAbsurd @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
+  M.Nil -> \_ rel -> case rel of
+    SimNil -> SimNil
+  M.Cons x xs -> \step rel -> case rel of
+    SimCons p0 p1 ->
+      SimCons (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q xs step p1)
+  M.CaseLst xs z body -> \step rel -> case rel of
+    SimCaseLst p0 p1 p2 ->
+      SimCaseLst (simSubst @g @d @_ @p @q xs step p0)
+                 (simSubst @g @d @_ @p @q z step p1)
+                 (simSubst @(M.CExt (M.CExt g _) _) @(M.CExt (M.CExt d _) _) @_
+                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ p))
+                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ q))
+                    body
+                    (simExt @(M.CExt g _) @(M.CExt d _) @_
+                       @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                       (simExt @g @d @_ @p @q step))
+                    p2)
+
+{-# LINE 401 "content/part2/Bisimulation.md" #-}
 -- | Forward simulation leg: `m' —→ n'` with `n ~ n'`.
 type Leg :: forall (g :: M.Ctx) (a :: M.Ty).
             (M.Term g a -> M.Term g a -> Type) -> M.Term g a -> M.Term g a -> Type
@@ -212,7 +312,7 @@ data SubstCompat where
        -> SimRel (M.substDouble c x xs) (M.substDouble c' x' xs'))
     -> SubstCompat
 
-{-# LINE 353 "content/part2/Bisimulation.md" #-}
+{-# LINE 468 "content/part2/Bisimulation.md" #-}
 -- | Complete forward lock-step simulation across all 27 rules of `MoreProgress.Step`.
 sim :: SubstCompat -> SimRel m m' -> MP.Step m n -> Leg MP.Step m' n
 sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
@@ -380,7 +480,7 @@ simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLegInv (MP.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
 
-{-# LINE 528 "content/part2/Bisimulation.md" #-}
+{-# LINE 643 "content/part2/Bisimulation.md" #-}
 -- | Multi-step forward simulation (`—↠`).
 simSteps :: SubstCompat -> SimRel m m' -> MP.Steps m n -> Leg MP.Steps m' n
 simSteps _  rel MP.StepsRefl        = MkLeg MP.StepsRefl rel

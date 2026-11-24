@@ -50,6 +50,11 @@ module PLFH.Part2.BigStep
   , selfAppEval
   , omegaLoopDiverges
   , omegaDiverges
+  , EvalFun (..)
+  , lookupEnvEvidence
+  , toEvalFun
+  , evalFunDeterm
+  , evalFunKIdOmega
   , idClos
   , evalIdApp
   , evalConstOmega
@@ -234,26 +239,55 @@ omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
 omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 ```
 
-## Functional lookup across a module boundary
+## Same-module functional lookup (`EvalFun`)
 
-The variable rule above carries an `EnvLookup` derivation (`ELZ` selects the
-first closure, `ELS` continues in the tail). Because `PLFH.Part2.BigStep`
-compiles with `-fwrite-source-equations`, GHC publishes checked equations for
-the ordinary `lookupEnv` function into `BigStep.hi`!
+The variable rule `EVar` above uses the inductive relation `EnvLookup`, which
+we use directly in [Adequacy](/Adequacy/). With `-fwrite-source-equations`, GHC
+also makes checked equations for the ordinary `lookupEnv` function available in
+**both the same module and downstream modules** (`PLFH.Part2.BigStepFunctional`),
+so we can state PLFA's functional variable rule directly right here in `BigStep`
+with zero promoted-constructor ticks:
 
-In the companion client module `PLFH.Part2.BigStepFunctional`
-(`clients/PLFH/Part2/BigStepFunctional.hs`), the variable rule constrains
-`B.lookupEnv e x` directly—matching PLFA's functional variable rule with zero
-promoted-constructor ticks:
+```haskell
+-- | Call-by-name big-step evaluation using ordinary `lookupEnv` in the same module!
+type EvalFun :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
+data EvalFun e t v where
+  EFVar :: (lookupEnv e x ~ MkClos m d) => EvalFun d m v -> EvalFun e (UVar x) v
+  EFLam :: EvalFun e (ULam b) (MkClos (ULam b) e)
+  EFApp :: EvalFun e l (MkClos (ULam b) d)
+        -> EvalFun (ECons (MkClos m e) d) b w
+        -> EvalFun e (UApp l m) w
 
-```{.haskell .spec}
-Var :: (B.lookupEnv e x ~ B.MkClos m d) => Eval d m v -> Eval e (UVar x) v
+-- | Relational `EnvLookup` agrees with functional `lookupEnv`.
+lookupEnvEvidence :: EnvLookup e x c -> lookupEnv e x :~: c
+lookupEnvEvidence ELZ     = Refl
+lookupEnvEvidence (ELS p) = lookupEnvEvidence p
+
+-- | Convert any relational `EvalBig` derivation to same-module functional `EvalFun`.
+toEvalFun :: EvalBig e t v -> EvalFun e t v
+toEvalFun (EVar lk ev) = case lookupEnvEvidence lk of
+  Refl -> EFVar (toEvalFun ev)
+toEvalFun ELam         = EFLam
+toEvalFun (EApp e1 e2) = EFApp (toEvalFun e1) (toEvalFun e2)
+
+-- | Determinism of same-module functional `EvalFun`: no lookup lemma needed!
+evalFunDeterm :: EvalFun e m c1 -> EvalFun e m c2 -> c1 :~: c2
+evalFunDeterm (EFVar e1)    (EFVar e2)    = evalFunDeterm e1 e2
+evalFunDeterm EFLam         EFLam         = Refl
+evalFunDeterm (EFApp l1 b1) (EFApp l2 b2) = case evalFunDeterm l1 l2 of
+  Refl -> evalFunDeterm b1 b2
+
+-- | Same-module functional lookup for `((λx y. x) id) Ω ⇓ <id, []>` at `FS FZ`!
+evalFunKIdOmega
+  :: EvalFun ENil
+       (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
+       (MkClos IdTerm ENil)
+evalFunKIdOmega = EFApp (EFApp EFLam EFLam) (EFVar EFLam)
 ```
 
-`PLFH.Part2.BigStepFunctional` proves `lookupEvidence :: EnvLookup e x c -> lookupEnv e x :~: c`,
-converts every relational derivation via `fromBigStep :: EvalBig e t v -> Eval e t v`,
-proves direct `evalDeterm`, and checks both `evalIdApp` (at `FZ`) and
-`evalKIdOmega` (at `FS FZ`).
+The companion client module `PLFH.Part2.BigStepFunctional`
+(`clients/PLFH/Part2/BigStepFunctional.hs`) verifies the exact same functional
+variable rule across the module boundary via `BigStep.hi`.
 
 ### Negative control: wrong functional lookup target is rejected
 
@@ -278,13 +312,13 @@ badLookup = App (App Lam Lam) (Var Lam)
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Same-module functional <code>lookupEnv</code> (R13/R21)]</strong>
-<code>-fwrite-source-equations</code> publishes checked equations for
-<code>lookupEnv</code> into the compiled interface for downstream modules such
-as <code>PLFH.Part2.BigStepFunctional</code>; using <code>lookupEnv</code>
-inside a datatype declared in the <em>same</em> module still reports
-<code>GHC-68947</code>. See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LookupEnvOpenEq.hs"><code>reproducers/R13_LookupEnvOpenEq.hs</code></a>.
+<strong>[WIP NOTICE — Big-step to small-step bridge (<code>cbn→reduce</code>)]</strong>
+The second half of PLFA's <code>BigStep</code> chapter proves
+<code>cbn→reduce</code> (every terminating call-by-name closure derivation
+reduces under full β-reduction to a lambda), using simultaneous σ-calculus
+substitution equations from <a href="/Substitution/">Substitution</a>. That
+bridge waits on the open σ-calculus substitution laws tracked in
+<a href="/Substitution/">Substitution</a>.
 </div>
 
 ## Exercises
@@ -309,9 +343,9 @@ problem—contradicting well-founded induction on `EvalBig`!
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
   `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `omegaDiverges`,
-  `evalIdApp`, `evalConstOmega`, and `evalKIdOmega`, plus functional
-  `B.lookupEnv` across the module boundary in `PLFH.Part2.BigStepFunctional`
-  (verified by negative control `NegBigStepBadLookup`), with zero
-  promoted-constructor ticks.
-- Same-module functional `lookupEnv e x` in `EVar` remains tracked in
-  `R13_LookupEnvOpenEq.hs`.
+  same-module functional `EvalFun`/`lookupEnvEvidence`/`toEvalFun`/`evalFunDeterm`/`evalFunKIdOmega`,
+  `evalIdApp`, `evalConstOmega`, and `evalKIdOmega`, plus cross-module
+  `B.lookupEnv` in `PLFH.Part2.BigStepFunctional` (verified by negative control
+  `NegBigStepBadLookup`), with zero promoted-constructor ticks.
+- Marks the big-step → small-step bridge (`cbn→reduce` / `⇓→—↠×𝔹`) with
+  `[WIP NOTICE]`.

@@ -35,6 +35,8 @@ module PLFH.Part3.Adequacy
   , fundamental
   , HaltsBig (..)
   , adequacyBigStep
+  , adequacy
+  , reduceToCbn
   , adequacyIdApp
   , adequacyDelta
   , omegaNotAboveFun
@@ -47,9 +49,11 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
-import PLFH.Part2.Untyped (Fin (..), OmegaTerm, UTerm (..))
+import PLFH.Part2.Untyped (BetaSteps (..), Fin (..), OmegaTerm, UTerm (..))
 import PLFH.Part3.Denotational
-  ( Denotes (..)
+  ( Den (..)
+  , DenEq
+  , Denotes (..)
   , Factor (..)
   , SomeArrMem (..)
   , Sub (..)
@@ -66,8 +70,9 @@ import PLFH.Part3.Denotational
   , unArrW
   , unJoinW
   )
+import PLFH.Part3.Soundness (denotEquivSteps)
 
-{-# LINE 129 "content/part3/Adequacy.md" #-}
+{-# LINE 134 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
   MkAboveFun :: Sub (Arr v w) u -> AboveFun u
@@ -123,7 +128,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 199 "content/part3/Adequacy.md" #-}
+{-# LINE 204 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
@@ -228,7 +233,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 314 "content/part3/Adequacy.md" #-}
+{-# LINE 319 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
@@ -277,6 +282,16 @@ data HaltsBig (e :: Env n) (m :: UTerm n) where
 adequacyBigStep :: ValW v -> Denotes VNil m v -> AboveFun v -> HaltsBig ENil m
 adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev
+
+-- | Denotational adequacy (`adequacy`): any closed term denotationally equal
+-- to a lambda abstraction halts under call-by-name big-step evaluation!
+adequacy :: DenEq (Den m) (Den (ULam b)) -> HaltsBig ENil m
+adequacy eq = case snd (eq (MkValW (Arr Bot Bot))) (MkDen (DIntro DBot)) of
+  MkDen d -> adequacyBigStep (MkValW (Arr Bot Bot)) d aboveFunArr
+
+-- | Small-step reduction to a lambda implies big-step termination (`reduce→cbn`)!
+reduceToCbn :: BetaSteps m (ULam b) -> HaltsBig ENil m
+reduceToCbn steps = adequacy (denotEquivSteps steps)
 
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!

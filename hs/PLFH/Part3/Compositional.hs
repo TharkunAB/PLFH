@@ -4,7 +4,8 @@
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
-{-# LINE 42 "content/part3/Compositional.md" #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
+{-# LINE 43 "content/part3/Compositional.md" #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -47,7 +48,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 97 "content/part3/Compositional.md" #-}
+{-# LINE 98 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -108,10 +109,11 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
     go eq' _   (LDJoin w1 w2 d1 d2) = LDJoin w1 w2 (go eq' w1 d1) (go eq' w2 d2)
 
 -- | Congruence for lambda abstraction (`lam-cong`): `ℰ b ≃ ℰ b'` implies `ℰ (λb) ≃ ℰ (λb')`.
-lamCong :: DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
+lamCong :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n)).
+           DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 172 "content/part3/Compositional.md" #-}
+{-# LINE 174 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
@@ -177,7 +179,8 @@ appDenCong e1 e2 wv = (go e1 e2 wv, go (denEqSym e1) (denEqSym e2) wv)
       ADApp wv' (fst (e1' (MkValW (Arr v w))) d1) (fst (e2' wv') d2)
 
 -- | Congruence for application (`app-cong`): `ℰ l ≃ ℰ l'` & `ℰ m ≃ ℰ m'` implies `ℰ (l·m) ≃ ℰ (l'·m')`!
-appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
+appCong :: forall (n :: Nat) (l :: UTerm n) (l' :: UTerm n) (m :: UTerm n) (m' :: UTerm n).
+           DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
         -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
 
@@ -187,11 +190,11 @@ congChain :: DenEq (Den m) (Den m')
           -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
 congChain eq = lamCong (appCong denEqRefl eq)
 
-{-# LINE 255 "content/part3/Compositional.md" #-}
+{-# LINE 258 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
-  CLam  :: UCtx (Succ m) (Succ n) -> UCtx (Succ m) n
+  CLam  :: UCtx m (Succ n) -> UCtx m n
   CAppL :: UCtx m n -> UTerm n -> UCtx m n
   CAppR :: UTerm n -> UCtx m n -> UCtx m n
 

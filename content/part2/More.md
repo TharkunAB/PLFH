@@ -39,6 +39,7 @@ module PLFH.Part2.More
   , Ctx (..)
   , Lookup (..)
   , Term (..)
+  , weakenLookup
   , ext
   , rename
   , exts
@@ -160,10 +161,14 @@ rename _ Nil              = Nil
 rename r (Cons x xs)      = Cons (rename r x) (rename r xs)
 rename r (CaseLst xs n c) = CaseLst (rename r xs) (rename r n) (rename (ext (ext r)) c)
 
-exts :: (forall a. Lookup g a -> Term d a)
+weakenLookup :: forall d b a. Lookup d a -> Lookup (CExt d b) a
+weakenLookup x = S x
+
+exts :: forall g d b.
+        (forall a. Lookup g a -> Term d a)
      -> (forall a. Lookup (CExt g b) a -> Term (CExt d b) a)
 exts _ Z     = Var Z
-exts s (S x) = rename S (s x)
+exts s (S x) = rename weakenLookup (s x)
 
 subst :: (forall a. Lookup g a -> Term d a) -> Term g b -> Term d b
 subst s (Var x)          = s x

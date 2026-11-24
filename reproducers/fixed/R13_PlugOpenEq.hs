@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
+{-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs #-}
 {-# LANGUAGE PolyKinds, StandaloneKindSignatures, TypeOperators #-}
 -- | Minimal reproducer (Serokell R13/R16):
 -- `ReproOpsPlug` compiles with `-fwrite-source-equations`, yet GHC does not

@@ -39,6 +39,7 @@ program!
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
 {-# LANGUAGE GADTs, Modifiers, PolyKinds, RankNTypes, ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneKindSignatures, TypeOperators #-}
+{-# OPTIONS_GHC -fwrite-source-equations #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -154,7 +155,8 @@ lamDenCong eq wv = (go eq wv, go (denEqSym eq) wv)
     go eq' _   (LDJoin w1 w2 d1 d2) = LDJoin w1 w2 (go eq' w1 d1) (go eq' w2 d2)
 
 -- | Congruence for lambda abstraction (`lam-cong`): `ℰ b ≃ ℰ b'` implies `ℰ (λb) ≃ ℰ (λb')`.
-lamCong :: DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
+lamCong :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n)).
+           DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 ```
 
@@ -234,7 +236,8 @@ appDenCong e1 e2 wv = (go e1 e2 wv, go (denEqSym e1) (denEqSym e2) wv)
       ADApp wv' (fst (e1' (MkValW (Arr v w))) d1) (fst (e2' wv') d2)
 
 -- | Congruence for application (`app-cong`): `ℰ l ≃ ℰ l'` & `ℰ m ≃ ℰ m'` implies `ℰ (l·m) ≃ ℰ (l'·m')`!
-appCong :: DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
+appCong :: forall (n :: Nat) (l :: UTerm n) (l' :: UTerm n) (m :: UTerm n) (m' :: UTerm n).
+           DenEq (Den l) (Den l') -> DenEq (Den m) (Den m')
         -> DenEq (Den (UApp l m)) (Den (UApp l' m'))
 appCong el em = denEqTrans appEquiv (denEqTrans (appDenCong el em) (denEqSym appEquiv))
 
@@ -255,7 +258,7 @@ containing a single hole `[]` at scope depth `m` into which any term
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
-  CLam  :: UCtx (Succ m) (Succ n) -> UCtx (Succ m) n
+  CLam  :: UCtx m (Succ n) -> UCtx m n
   CAppL :: UCtx m n -> UTerm n -> UCtx m n
   CAppR :: UTerm n -> UCtx m n -> UCtx m n
 
@@ -267,20 +270,29 @@ plug (CAppL c r) t = UApp (plug c t) r
 plug (CAppR l c) t = UApp l (plug c t)
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — General <code>compositionality</code> over <code>plug c m</code> (R13/R16)]</strong>
-Both structural congruence theorems (<code>lamCong</code> and
-<code>appCong</code>) and concrete context chains (<code>congChain</code>) are
-<strong>100% checked</strong>! Only the final induction over arbitrary
-one-hole contexts <code>UCtx m n</code>:
-<pre class="wip"><code>compositionality :: foreach (c :: UCtx m n)
-                 -&gt; DenEq (Den t) (Den t')
-                 -&gt; DenEq (Den (plug c t)) (Den (plug c t'))</code></pre>
-remains open because GHC does not yet publish checked source equations for the
-two-index GADT traversal <code>plug :: UCtx m n -&gt; UTerm m -&gt; UTerm n</code>
-even with <code>-fwrite-source-equations</code>. See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PlugOpenEq.hs"><code>reproducers/R13_PlugOpenEq.hs</code></a>.
-</div>
+Because `PLFH.Part3.Compositional` compiles with `-fwrite-source-equations`,
+GHC publishes checked equations for `plug` across all four constructors of the
+two-index GADT `UCtx m n` into `Compositional.hi`. In the companion client
+module `PLFH.Part3.CompositionalPlug` (`clients/PLFH/Part3/CompositionalPlug.hs`),
+**full compositionality** proves in **four lines** by structural induction on
+`foreach (c :: UCtx m n)`:
+
+```{.haskell .spec}
+compositionality
+  :: forall (m :: Nat) (n :: Nat) (t1 :: UTerm m) (t2 :: UTerm m).
+     foreach (c :: UCtx m n)
+  -> DenEq (Den t1) (Den t2)
+  -> DenEq (Den (C.plug c t1)) (Den (C.plug c t2))
+compositionality CHole       = \eq -> eq
+compositionality (CLam c)    = \eq -> lamCong (compositionality c eq)
+compositionality (CAppL c _) = \eq -> appCong (compositionality c eq) denEqRefl
+compositionality (CAppR _ c) = \eq -> appCong denEqRefl (compositionality c eq)
+```
+
+Look how clean that 4-line induction is: `CHole` returns `eq` unchanged, `CLam`
+applies `lamCong` to the induction hypothesis, and `CAppL`/`CAppR` combine
+`appCong` with `denEqRefl`—matching PLFA line-for-line—and feeds directly into
+open-term [ContextualEquivalence](/ContextualEquivalence/)!
 
 ## Exercises
 
@@ -301,10 +313,11 @@ extract a direct derivation of
 - Adapted from [Compositional](https://plfa.inf.ed.ac.uk/Compositional/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Compositional.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of both lambda compositionality (`LamDen`, `subLamDen`,
-  `denLamToF`, `lamInversion`, `fToDenLam`, `lamEquiv`, `lamDenCong`, `lamCong`)
-  and full application compositionality (`AppDen`, `subAppDen`, `joinAppDen`,
+- Checked direct ports of lambda compositionality (`LamDen`, `subLamDen`,
+  `denLamToF`, `lamInversion`, `fToDenLam`, `lamEquiv`, `lamDenCong`, `lamCong`),
+  application compositionality (`AppDen`, `subAppDen`, `joinAppDen`,
   `denAppToAppDen`, `appDenToDenApp`, `appEquiv`, `appDenCong`, `appCong`),
-  plus `UCtx` and `plug`, with zero promoted-constructor ticks.
-- Marked `compositionality` over `foreach (c :: UCtx m n)` / `plug c t` with
-  `[WIP NOTICE]` (R03/R13).
+  `UCtx`, `plug`, and **full `compositionality`** by induction on `UCtx m n`,
+  with zero promoted-constructor ticks.
+- Omitted PLFA's `var-inv`/`var-equiv` helper equations and recursive `⟦_⟧` /
+  `ℰ≃⟦⟧` section (all congruence lemmas operate directly on `Denotes` / `Den`).

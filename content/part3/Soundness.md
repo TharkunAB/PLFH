@@ -359,5 +359,5 @@ closed term denoting `Arr Bot Bot` *must* terminate at a lambda!
   `InsertEnv`, `denotShift`, `denotUnshift`, `denotSubst`, `denotSubstReflect`,
   `betaPres`, `betaReflect`, `denotPreserve`, `denotPreserveMulti`,
   `denotReflect`, `denotReflectMulti`, and `denotEquivSteps`.
-- Uses single-variable relational `SubstAtU` rather than functional simultaneous
-  `substU` (tracked separately in `R13_SubstSingleUOpenEq.hs`).
+- Uses single-variable relational `SubstAtU` rather than simultaneous functional
+  `substU` (matching [Untyped](/Untyped/) without needing σ-calculus equations).

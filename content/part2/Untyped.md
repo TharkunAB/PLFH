@@ -149,20 +149,14 @@ substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
 ## Relational capture-avoiding substitution (`SubstAtU`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Functional <code>substSingleU</code> in promoted-GADT types (R13/R16)]</strong>
+<strong>[WIP NOTICE — Relational <code>SubstAtU</code> vs. functional <code>substSingleU</code>]</strong>
 PLFA writes the β-rule directly using the function
-<code>substSingleU b w</code>. Writing qualified
-<code>Syntax.substSingleU</code> (or explicit constructor binders calling
-<code>substSingleU</code>) currently fails with
-<code>GHC-68947</code>/<code>GHC-70565</code> because <code>substSingleU</code>
-is a higher-order function on an indexed GADT (<code>UTerm n</code>). See
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>reproducers/R13_SubstSingleUOpenEq.hs</code></a>.
-<br><br>
-To keep <code>BetaStep</code>—and all downstream theorems in
-<a href="/Confluence/">Confluence</a>, <a href="/Soundness/">Soundness</a>,
-<a href="/Adequacy/">Adequacy</a>, and
+<code>substSingleU b w</code>. To keep <code>BetaStep</code>—and all
+downstream theorems in <a href="/Confluence/">Confluence</a>,
+<a href="/Soundness/">Soundness</a>, <a href="/Adequacy/">Adequacy</a>, and
 <a href="/ContextualEquivalence/">ContextualEquivalence</a>—<strong>100%
-mathematically sound</strong> with zero unconstrained type variables, we state
+mathematically sound</strong> with zero unconstrained type variables and
+explicit structural induction on substitution derivations, we state
 single-variable de Bruijn substitution inductively via <code>SubstAtU</code>
 below (verified by negative control <code>NegBadBetaStep</code>).
 </div>
@@ -331,13 +325,10 @@ By the Standardization Theorem, **normal-order** (leftmost-outermost) reduction
 is guaranteed to reach a normal form whenever one exists.
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R04/R13/R16)]</strong>
+<strong>[WIP NOTICE — Gas-bounded normal-order normalizer over promoted <code>UTerm n</code> (R04)]</strong>
 Writing PLFA's constructive normal-order β-normalizer
-<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> currently hits
-two tracked compiler gaps:
-(1) open source equations for functional <code>substSingleU</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>),
-and (2) packing a retained reduct <code>t' :: UTerm n</code> inside a data
+<code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> currently
+blocks on packing a retained reduct <code>t' :: UTerm n</code> inside a data
 constructor or <code>Sigma</code> <code>Pair</code>
 (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>,
 <code>GHC-83605</code>).
@@ -369,7 +360,6 @@ normal-order reduction terminates on terms where call-by-value diverges!
   `substU`, `substSingleU`, `Neutral`, `Normal`, `BetaStep`, `BetaSteps`,
   `idIsNormal`, `idAppStep`, `omegaTerm`, and `omegaStep`.
 - Uses deterministic relational `SubstAtU` in `Beta` (verified by negative
-  control `NegBadBetaStep`), marking functional `Syntax.substSingleU` in types
-  with `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs`).
+  control `NegBadBetaStep`) for structural induction in downstream chapters.
 - Marks gas-bounded normalization over `foreach (t :: UTerm n)` with
-  `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs`).
+  `[WIP NOTICE]` (`R04_IndexedForEachCtorField.hs`).

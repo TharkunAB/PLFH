@@ -80,6 +80,8 @@ module PLFH.Part3.Adequacy
   , fundamental
   , HaltsBig (..)
   , adequacyBigStep
+  , adequacy
+  , reduceToCbn
   , adequacyIdApp
   , adequacyDelta
   , omegaNotAboveFun
@@ -92,9 +94,11 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.BigStep (Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
-import PLFH.Part2.Untyped (Fin (..), OmegaTerm, UTerm (..))
+import PLFH.Part2.Untyped (BetaSteps (..), Fin (..), OmegaTerm, UTerm (..))
 import PLFH.Part3.Denotational
-  ( Denotes (..)
+  ( Den (..)
+  , DenEq
+  , Denotes (..)
   , Factor (..)
   , SomeArrMem (..)
   , Sub (..)
@@ -111,6 +115,7 @@ import PLFH.Part3.Denotational
   , unArrW
   , unJoinW
   )
+import PLFH.Part3.Soundness (denotEquivSteps)
 ```
 
 ## Being greater than or equal to a function (`AboveFun`) and its decidability
@@ -360,6 +365,16 @@ adequacyBigStep :: ValW v -> Denotes VNil m v -> AboveFun v -> HaltsBig ENil m
 adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev
 
+-- | Denotational adequacy (`adequacy`): any closed term denotationally equal
+-- to a lambda abstraction halts under call-by-name big-step evaluation!
+adequacy :: DenEq (Den m) (Den (ULam b)) -> HaltsBig ENil m
+adequacy eq = case snd (eq (MkValW (Arr Bot Bot))) (MkDen (DIntro DBot)) of
+  MkDen d -> adequacyBigStep (MkValW (Arr Bot Bot)) d aboveFunArr
+
+-- | Small-step reduction to a lambda implies big-step termination (`reduce→cbn`)!
+reduceToCbn :: BetaSteps m (ULam b) -> HaltsBig ENil m
+reduceToCbn steps = adequacy (denotEquivSteps steps)
+
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!
 adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -383,22 +398,13 @@ omegaNotAboveFun wv d af = case adequacyBigStep wv d af of
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — <code>foreach</code> + Type-Family Rewriting Bug (R03) &amp; Big-Step → Small-Step Bridge]</strong>
-<ul>
-  <li><strong>Open compiler bug uncovered while writing <code>subLogVLam</code>:</strong>
-      Matching a GADT equality (<code>u :~: v</code> or <code>u :~: Zero</code>)
-      under a retained <code>foreach (u :: Nat)</code> binder fails to rewrite
-      a closed type family <code>F u</code> (<code>GHC-05617</code>:
-      <em>Could not deduce <code>F v1 ~ F u2</code> from the context
-      <code>v1 ~ u2</code></em>), whereas erased <code>forall</code> succeeds.
-      Matching <code>Sub</code> before unpacking <code>ValW</code> keeps
-      <code>subLogVLam</code> completely clean. See minimal reproducer
-      <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_ForEachGadtEqTypeFamily.hs"><code>R03_ForEachGadtEqTypeFamily.hs</code></a>.</li>
-  <li><strong>Big-step → Small-step bridge:</strong> Relating
-      <code>HaltsBig</code> back to multi-step full β-reduction
-      (<code>BetaSteps m (ULam b)</code>) waits on R03/R13 substitution
-      lemmas for closing closures.</li>
-</ul>
+<strong>[WIP NOTICE — Big-Step → Small-Step Bridge (<code>cbn→reduce</code>)]</strong>
+The reverse bridge <code>reduceToCbn</code> (small-step β-reduction implies
+big-step termination) is already proved unconditionally above! Completing the
+forward bridge <code>cbn→reduce</code> (relating <code>HaltsBig</code> back to
+multi-step full β-reduction <code>BetaSteps m (ULam b)</code>) waits on the
+simultaneous σ-calculus substitution laws tracked in
+<a href="/Substitution/">Substitution</a> and <a href="/BigStep/">BigStep</a>.
 </div>
 
 ## Exercises
@@ -426,8 +432,6 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
   `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam`, `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
   (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
-  `BigStep.evalDeterm`), `omegaNotAboveFun` (via `BigStep.omegaDiverges`),
-  `adequacyDelta`, and executable `adequacyIdApp`, with zero
-  promoted-constructor ticks.
-- Uncovered and reported minimal R03 compiler bug
-  `reproducers/R03_ForEachGadtEqTypeFamily.hs`.
+  `BigStep.evalDeterm`), `adequacy`, `reduceToCbn`, `omegaNotAboveFun` (via
+  `BigStep.omegaDiverges`), `adequacyDelta`, and executable `adequacyIdApp`,
+  with zero promoted-constructor ticks.

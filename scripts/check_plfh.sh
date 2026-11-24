@@ -19,15 +19,29 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# whenever _build/current/verified.pass exists, falling back to _build/stage1/bin/ghc
-# (or explicit PLFH_GHC / PLFH_GHC_LIBDIR overrides).
+# once it advances past 844f309834, otherwise use the verified Wave 1 4-lane
+# consolidated component (`69a36b132f`) while two-stage qualification runs.
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
+CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
+WAVE1_GHC="$GHC_REPO/_build/on-demand/wave1-consolidated/component/ghc"
+WAVE1_LIB="$GHC_REPO/_build/on-demand/wave1-consolidated/component/lib"
+
+CURRENT_REV=""
+if [[ -f "$CURRENT_SRC" ]]; then
+  CURRENT_REV=$(cat "$CURRENT_SRC" 2>/dev/null || true)
+fi
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]]; then
+if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" && "$CURRENT_REV" != "844f309834979a6f604f032ebf27259bc6caa683" ]]; then
+  DEFAULT_COMPILER="$CURRENT_GHC"
+  DEFAULT_LIBDIR="$CURRENT_LIB"
+elif [[ -x "$WAVE1_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE1_GHC"
+  DEFAULT_LIBDIR="$WAVE1_LIB"
+elif [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]]; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
 elif [[ -x "$CURRENT_GHC" ]]; then
@@ -39,7 +53,7 @@ fi
 
 COMPILER=${PLFH_GHC:-$DEFAULT_COMPILER}
 GHC_LIBDIR=${PLFH_GHC_LIBDIR:-}
-if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$CURRENT_GHC" ]]; then
+if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$DEFAULT_COMPILER" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 

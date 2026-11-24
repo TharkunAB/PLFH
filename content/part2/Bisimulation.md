@@ -49,7 +49,8 @@ and prove with `-Werror=incomplete-patterns`:
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes, GADTs, Modifiers #-}
-{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions, TypeApplications #-}
+{-# LANGUAGE PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures, TypeAbstractions #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
@@ -60,6 +61,10 @@ module PLFH.Part2.Bisimulation
   , valNoStep
   , Renaming
   , simRename
+  , SubstFn
+  , Compatible
+  , simExt
+  , simSubst
   , Leg (..)
   , LegInv (..)
   , SubstCompat (..)
@@ -273,6 +278,111 @@ simRename (SimCaseLst xs n c) =
              (simRename @_ @_ @_ @(M.ext (M.ext r)) c)
 ```
 
+## Simultaneous substitution preserves the simulation (`~-exts` and `~-subst`)
+
+Just as `simRename` traverses all 20 constructors of `SimRel` under an abstract
+unmatchable renaming (`%U ->`), **`simExt`** (`~-exts`) and **`simSubst`**
+(`~-subst`) prove across **all 20 constructors of `SimRel`**—including
+`SimLetApp`, `SimCaseSum`, and double-binder `SimCaseLst`—that pointwise-related
+simultaneous substitutions preserve `SimRel` directly over `More`'s ordinary
+`M.weakenLookup`, `M.exts`, and `M.subst` functions (zero type families!):
+
+```haskell
+-- | A sort-preserving simultaneous substitution callback between contexts.
+type SubstFn g d = forall a. M.Lookup g a %U -> M.Term d a
+
+-- | Pointwise simulation compatibility between two simultaneous substitutions.
+type Compatible :: forall g d. SubstFn g d -> SubstFn g d -> Type
+type Compatible @g @d p q = forall a. foreach (x :: M.Lookup g a) -> SimRel (p x) (q x)
+
+-- | Extending two compatible substitutions under a binder preserves compatibility (`~-exts`).
+simExt :: forall g d b (p :: SubstFn g d) (q :: SubstFn g d).
+          Compatible p q
+       -> Compatible @(M.CExt g b) @(M.CExt d b) (M.exts @g @d @b p) (M.exts @g @d @b q)
+simExt step index = case index of
+  M.Z   -> SimVar
+  M.S x -> simRename @d @(M.CExt d b) @_ @(M.weakenLookup @d @b) @(p x) @(q x) (step x)
+
+-- | Simultaneous substitution preserves `SimRel` across all 20 constructors (`~-subst`)!
+simSubst :: forall g d a (p :: SubstFn g d) (q :: SubstFn g d) (n :: M.Term g a).
+            foreach (m :: M.Term g a)
+         -> Compatible p q
+         -> SimRel m n
+         -> SimRel (M.subst p m) (M.subst q n)
+simSubst term = case term of
+  M.Var x -> \step rel -> case rel of
+    SimVar -> step x
+  M.Lam body -> \step rel -> case rel of
+    SimLam p0 ->
+      SimLam (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                body (simExt @g @d @_ @p @q step) p0)
+  M.App f x -> \step rel -> case rel of
+    SimApp p0 p1 ->
+      SimApp (simSubst @g @d @_ @p @q f step p0) (simSubst @g @d @_ @p @q x step p1)
+  M.Zero -> \_ rel -> case rel of
+    SimZero -> SimZero
+  M.Suc n -> \step rel -> case rel of
+    SimSuc p0 -> SimSuc (simSubst @g @d @_ @p @q n step p0)
+  M.CaseNat n z suc -> \step rel -> case rel of
+    SimCaseNat p0 p1 p2 ->
+      SimCaseNat (simSubst @g @d @_ @p @q n step p0)
+                 (simSubst @g @d @_ @p @q z step p1)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    suc (simExt @g @d @_ @p @q step) p2)
+  M.Mu body -> \step rel -> case rel of
+    SimMu p0 ->
+      SimMu (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+               body (simExt @g @d @_ @p @q step) p0)
+  M.Let x body -> \step rel -> case rel of
+    SimLet p0 p1 ->
+      SimLet (simSubst @g @d @_ @p @q x step p0)
+             (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                body (simExt @g @d @_ @p @q step) p1)
+    SimLetApp p0 p1 ->
+      SimLetApp (simSubst @g @d @_ @p @q x step p0)
+                (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                   body (simExt @g @d @_ @p @q step) p1)
+  M.TT -> \_ rel -> case rel of
+    SimTT -> SimTT
+  M.Pair x y -> \step rel -> case rel of
+    SimPair p0 p1 ->
+      SimPair (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q y step p1)
+  M.Fst x -> \step rel -> case rel of
+    SimFst p0 -> SimFst (simSubst @g @d @_ @p @q x step p0)
+  M.Snd x -> \step rel -> case rel of
+    SimSnd p0 -> SimSnd (simSubst @g @d @_ @p @q x step p0)
+  M.Inl x -> \step rel -> case rel of
+    SimInl p0 -> SimInl @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
+  M.Inr y -> \step rel -> case rel of
+    SimInr p0 -> SimInr @(M.subst p y) (simSubst @g @d @_ @p @q y step p0)
+  M.CaseSum x l r -> \step rel -> case rel of
+    SimCaseSum p0 p1 p2 ->
+      SimCaseSum (simSubst @g @d @_ @p @q x step p0)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    l (simExt @g @d @_ @p @q step) p1)
+                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                    r (simExt @g @d @_ @p @q step) p2)
+  M.Absurd x -> \step rel -> case rel of
+    SimAbsurd p0 -> SimAbsurd @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
+  M.Nil -> \_ rel -> case rel of
+    SimNil -> SimNil
+  M.Cons x xs -> \step rel -> case rel of
+    SimCons p0 p1 ->
+      SimCons (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q xs step p1)
+  M.CaseLst xs z body -> \step rel -> case rel of
+    SimCaseLst p0 p1 p2 ->
+      SimCaseLst (simSubst @g @d @_ @p @q xs step p0)
+                 (simSubst @g @d @_ @p @q z step p1)
+                 (simSubst @(M.CExt (M.CExt g _) _) @(M.CExt (M.CExt d _) _) @_
+                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ p))
+                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ q))
+                    body
+                    (simExt @(M.CExt g _) @(M.CExt d _) @_
+                       @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
+                       (simExt @g @d @_ @p @q step))
+                    p2)
+```
+
 ## Simulation legs and substitution compatibility
 
 Each leg packages the existential matching target term together with its step
@@ -318,14 +428,19 @@ data SubstCompat where
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Proving simultaneous substitution compatibility internally (R16)]</strong>
-With 20-constructor <code>simRename</code> now proved directly above using an
-unmatchable callback (<code>%U -&gt;</code>), the remaining step to discharge
-<code>SubstCompat</code> internally is proving <code>simSubst</code> over an
-abstract simultaneous substitution callback and its binder extension
-<code>M.exts</code>. Meanwhile, the original default-arrow and
-implicit-application spelling of abstract renaming remains tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>reproducers/R16_AbstractRenamingInType.hs</code></a>.
+<strong>[WIP NOTICE — Connecting retained <code>simSubst</code> to erased <code>SubstCompat</code> (R04/R16)]</strong>
+Both 20-constructor <strong><code>simRename</code></strong> and 20-constructor
+<strong><code>simExt</code> / <code>simSubst</code></strong> now check directly
+above over ordinary <code>M.weakenLookup</code>, <code>M.exts</code>, and
+<code>M.subst</code> (with zero type families and <code>-Werror=incomplete-patterns</code>).
+Because <code>simSubst</code> takes a retained term <code>foreach (m :: M.Term g a)</code>
+while <code>SubstCompat</code> quantifies over erased <code>forall</code> terms inside
+<code>MP.Step</code>, bridging <code>simSubst</code> directly into
+<code>SubstCompat</code> without passing runtime terms waits on
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_IndexedForEachCtorField.hs"><code>R04_IndexedForEachCtorField.hs</code></a>;
+the default-arrow (<code>-&gt;</code> vs. <code>%U -&gt;</code>) spelling of
+abstract renaming also remains tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>.
 </div>
 
 ## Lock-step forward and backward bisimulation (`sim` and `simInv`)

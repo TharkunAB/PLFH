@@ -39,33 +39,41 @@ And by symmetry, if `C[N]` terminates then `C[M]` terminates too!
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DataKinds, EmptyCase, ExperimentalDependentTypes #-}
-{-# LANGUAGE GADTs, PolyKinds, RankNTypes, StandaloneKindSignatures, TypeOperators #-}
+{-# LANGUAGE GADTs, PolyKinds, RankNTypes, ScopedTypeVariables, StandaloneKindSignatures #-}
+{-# LANGUAGE TypeApplications, TypeOperators #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , terminatesLam
   , terminatesStep
-  , SoundnessProp
-  , AdequacyProp
-  , denotEqualTerminates
+  , CtxEquiv
+  , CbnToReduce
+  , denotEqualCtxBigStep
   , denotEqualCtxEquiv
-  , denotEqualCtxEquivFromSoundness
+  , betaCtxBigStep
   , betaCtxEquiv
   ) where
 
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
+import PLFH.Part2.BigStep (Env (..))
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
+import PLFH.Part3.Adequacy (HaltsBig (..), adequacy)
+import qualified PLFH.Part3.Compositional as C
+import PLFH.Part3.Compositional (UCtx (..))
+import PLFH.Part3.CompositionalPlug (compositionality)
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 ```
 
-## Termination and the contextual equivalence corollary
+## Termination and the contextual equivalence theorem
 
-Because [Soundness](/Soundness/) (`denotEquivSteps`) is proved
-**unconditionally**, `denotEqualCtxEquivFromSoundness` instantiates
-`SoundnessProp` directly with `Soundness.denotEquivSteps` (parameterized only
-by the small-step `AdequacyProp` bridge while big-step → small-step and
-`UCtx`/`plug` compositionality await our tracked R03/R13 blockers):
+With all three core pillars of Part 3—**`Compositional.compositionality`**
+(over arbitrary one-hole contexts `UCtx k Zero` and `C.plug`),
+**`Soundness.denotEquivSteps`**, and **`Adequacy.adequacy`**—proved
+**unconditionally**, **`denotEqualCtxBigStep`** composes all three in **one
+line** with zero unproved premises! Then **`denotEqualCtxEquiv`** derives full
+open-term contextual equivalence `CtxEquiv m n` (`M ≅ N`) parameterized only by
+`CbnToReduce` (`cbn→reduce` from [BigStep](/BigStep/)):
 
 ```haskell
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
@@ -82,70 +90,85 @@ terminatesStep :: forall (n :: Nat) (m :: UTerm n) (m' :: UTerm n).
                   BetaStep m m' -> Terminates m' -> Terminates m
 terminatesStep s (MkTerminates steps) = MkTerminates (BCons s steps)
 
--- | Soundness property: multi-step β-reduction preserves and reflects denotations.
-type SoundnessProp =
-  forall (n :: Nat) (t :: UTerm n) (t' :: UTerm n).
-    BetaSteps t t' -> DenEq (Den t) (Den t')
+-- | Open-term contextual equivalence (`M ≅ N`): for every closing one-hole
+-- context `c :: UCtx k Zero`, `plug c m` terminates iff `plug c n` terminates!
+type CtxEquiv (m :: UTerm k) (n :: UTerm k) =
+  foreach (c :: UCtx k Zero) ->
+    ( Terminates (C.plug c m) -> Terminates (C.plug c n)
+    , Terminates (C.plug c n) -> Terminates (C.plug c m)
+    )
 
--- | Adequacy property: a closed term denotationally equal to a lambda terminates.
-type AdequacyProp =
-  forall (u :: UTerm Zero) (b :: UTerm (Succ Zero)).
-    DenEq (Den u) (Den (ULam b)) -> Terminates u
-
--- | One direction (`denot-equal-terminates`): if `ℰ (C[M]) ≃ ℰ (C[N])` and
--- `C[M]` terminates (for closed plugged programs `cm`, `cn`), then `C[N]` terminates.
-denotEqualTerminates
+-- | Closed-term helper composing Soundness and Big-Step Adequacy directly.
+denotEqualClosedBigStep
   :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
-     SoundnessProp
-  -> AdequacyProp
-  -> DenEq (Den cm) (Den cn)
+     DenEq (Den cm) (Den cn)
   -> Terminates cm
-  -> Terminates cn
-denotEqualTerminates soundness adequacy eqC (MkTerminates cmToLam) =
-  adequacy (denEqTrans (denEqSym eqC) (soundness cmToLam))
+  -> HaltsBig ENil cn
+denotEqualClosedBigStep eqC (MkTerminates cmToLam) =
+  adequacy (denEqTrans (denEqSym eqC) (denotEquivSteps cmToLam))
 
--- | Both directions (`denot-equal-contex-equal`): denotational equality of
--- closed plugged contexts implies mutual termination (contextual equivalence).
+-- | Unconditional big-step contextual termination across all closing contexts `UCtx k Zero`:
+-- composes Compositionality + Soundness + Big-Step Adequacy in one line!
+denotEqualCtxBigStep
+  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
+     foreach (c :: UCtx k Zero)
+  -> DenEq (Den m) (Den n)
+  -> Terminates (C.plug c m)
+  -> HaltsBig ENil (C.plug c n)
+denotEqualCtxBigStep c eqM =
+  denotEqualClosedBigStep @(C.plug c m) @(C.plug c n)
+    (compositionality @k @Zero @m @n c eqM)
+
+-- | Big-step to small-step termination bridge (`cbn→reduce` from BigStep).
+type CbnToReduce =
+  forall (u :: UTerm Zero). HaltsBig ENil u -> Terminates u
+
+-- | Open-term Contextual Equivalence (`denot-equal-contex-equal`):
+-- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`!
 denotEqualCtxEquiv
-  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
-     SoundnessProp
-  -> AdequacyProp
-  -> DenEq (Den cm) (Den cn)
-  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
-denotEqualCtxEquiv soundness adequacy eqC =
-  ( denotEqualTerminates soundness adequacy eqC
-  , denotEqualTerminates soundness adequacy (denEqSym eqC)
-  )
+  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
+     CbnToReduce
+  -> DenEq (Den m) (Den n)
+  -> CtxEquiv m n
+denotEqualCtxEquiv cbnToRed eqM c =
+  let stepFwd :: Terminates (C.plug c m) -> HaltsBig ENil (C.plug c n)
+      stepFwd = denotEqualCtxBigStep @k @m @n c eqM
+      stepBwd :: Terminates (C.plug c n) -> HaltsBig ENil (C.plug c m)
+      stepBwd = denotEqualCtxBigStep @k @n @m c (denEqSym eqM)
+  in (\tm -> cbnToRed (stepFwd tm), \tn -> cbnToRed (stepBwd tn))
 
--- | Instantiate `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`!
-denotEqualCtxEquivFromSoundness
-  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
-     AdequacyProp
-  -> DenEq (Den cm) (Den cn)
-  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
-denotEqualCtxEquivFromSoundness = denotEqualCtxEquiv denotEquivSteps
+-- | Unconditional corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms!),
+-- then for any closing context `c`, `plug c m` terminating implies `plug c n` halts
+-- under call-by-name big-step evaluation!
+betaCtxBigStep
+  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
+     foreach (c :: UCtx k Zero)
+  -> BetaSteps m n
+  -> Terminates (C.plug c m)
+  -> HaltsBig ENil (C.plug c n)
+betaCtxBigStep c steps = denotEqualCtxBigStep @k @m @n c (denotEquivSteps steps)
 
--- | Corollary (`beta-ctx-equiv`): multi-step β-equivalent closed terms
--- terminate identically under any `AdequacyProp`.
+-- | Corollary (`beta-ctx-equiv`): multi-step β-equivalent open terms are
+-- contextually equivalent across all closing contexts `UCtx k Zero`!
 betaCtxEquiv
-  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
-     AdequacyProp
-  -> BetaSteps cm cn
-  -> (Terminates cm -> Terminates cn, Terminates cn -> Terminates cm)
-betaCtxEquiv adequacy steps =
-  denotEqualCtxEquivFromSoundness adequacy (denotEquivSteps steps)
+  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
+     CbnToReduce
+  -> BetaSteps m n
+  -> CtxEquiv m n
+betaCtxEquiv cbnToRed steps =
+  denotEqualCtxEquiv @k @m @n cbnToRed (denotEquivSteps steps)
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Unconditional Contextual Equivalence over <code>UCtx</code> / <code>plug</code>]</strong>
-The checked theorems above prove the exact logical reduction from
-compositionality, soundness, and adequacy to contextual equivalence—with
-<code>SoundnessProp</code> already discharged unconditionally via
-<code>Soundness.denotEquivSteps</code>. Obtaining the unconditional theorem
-quantified over arbitrary <code>UCtx m Zero</code> with <code>plug c m</code>
-awaits the remaining theorem blockers tracked in
-<a href="/Compositional/">Compositional</a> (<code>plug</code> open equations)
-and <a href="/Adequacy/">Adequacy</a> (big-step → small-step bridge).
+<strong>[WIP NOTICE — Discharging <code>CbnToReduce</code> (<code>cbn→reduce</code>)]</strong>
+All three Part 3 pillars—<code>Compositional.compositionality</code> over
+arbitrary <code>UCtx k Zero</code> / <code>plug</code>,
+<code>Soundness.denotEquivSteps</code>, and <code>Adequacy.adequacy</code>—are
+discharged <strong>unconditionally</strong> in <code>denotEqualCtxBigStep</code>
+and <code>denotEqualCtxEquiv</code>! Only the single big-step → small-step
+bridge <code>CbnToReduce</code> (<code>BigStep.cbn→reduce</code>) remains
+parameterized until the simultaneous σ-calculus substitution laws in
+<a href="/Substitution/">Substitution</a> are completed.
 </div>
 
 ## Exercises
@@ -153,23 +176,25 @@ and <a href="/Adequacy/">Adequacy</a> (big-step → small-step bridge).
 #### Exercise `beta-ctx-equiv` (practice)
 
 Using `denotEquivSteps` from [Soundness](/Soundness/) together with
-`denotEqualCtxEquivFromSoundness`, verify that whenever two closed terms satisfy
-`BetaSteps m n`, they terminate identically under any `AdequacyProp`.
+`denotEqualCtxBigStep`, trace how `betaCtxBigStep` proves unconditionally that
+for any open terms `m —↠ n` and any closing context `c :: UCtx k Zero`,
+termination of `plug c m` implies big-step halting of `plug c n`!
 
 #### Exercise `full-abstraction` (stretch)
 
 Our theorem proves *soundness* of denotational equality for contextual
-equivalence: `ℰ M ≃ ℰ N` implies `M ≃ᶜᵗˣ N`. Think about the converse
-(**full abstraction**): if `M ≃ᶜᵗˣ N`, must `ℰ M ≃ ℰ N`? (Hint: consider
+equivalence: `ℰ M ≃ ℰ N` implies `M ≅ N`. Think about the converse
+(**full abstraction**): if `M ≅ N`, must `ℰ M ≃ ℰ N`? (Hint: consider
 Plotkin's famous *parallel-or* question—is there a finite table in `Value` that
-no sequential λ-term can distinguish?)
+no sequential λ-term can define, distinguishing two contextually equivalent terms?)
 
 ## Changes from PLFA
 
 - Adapted from [ContextualEquivalence](https://plfa.inf.ed.ac.uk/ContextualEquivalence/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/ContextualEquivalence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of `Terminates`, `denotEqualTerminates`,
-  `denotEqualCtxEquiv`, and `denotEqualCtxEquivFromSoundness` (discharging
-  `SoundnessProp` unconditionally via `Soundness.denotEquivSteps`), with zero
-  promoted-constructor ticks.
+- Checked direct ports of `Terminates`, open-term `CtxEquiv` (`M ≅ N` over
+  `foreach (c :: UCtx k Zero)` and `C.plug`), unconditional
+  `denotEqualCtxBigStep` & `betaCtxBigStep` (discharging Compositionality,
+  Soundness, and Big-Step Adequacy unconditionally), and `denotEqualCtxEquiv`
+  (parameterized only by `CbnToReduce`), with zero promoted-constructor ticks.
