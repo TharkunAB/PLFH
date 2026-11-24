@@ -45,7 +45,7 @@ Comments, bug reports, and pull requests are welcome on
 - [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **8-rule functional `Step` (`substSingle`)**, and **complete unconditional `progress`** <span class="badge badge-pass">Checked</span>
 - [Inference](/Inference/): **Certified STLC type inference & checking** (`infer`, `check`) with inline GADT refinement returning `Term g a` <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep` <span class="badge badge-partial">Syntax/Beta ✓ · Eval WIP</span>
-- [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, promoted `Value` <span class="badge badge-partial">Syntax/Subst ✓ · Step WIP</span>
+- [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, **27-rule functional `Step`**, and **complete 19-branch `progress`** <span class="badge badge-pass">Checked</span>
 - [Bisimulation](/Bisimulation/): Relating reduction systems (`SimRel`, `Leg`, `simSym`/`simTrans`, full checked **`simValue`**) <span class="badge badge-partial">simValue ✓ · sim WIP</span>
 - [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, `(λx y. x) Ω`) <span class="badge badge-partial">Determ ✓ · R13 lookupEnv</span>
 - [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>

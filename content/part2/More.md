@@ -248,21 +248,64 @@ appendList =
       (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))
 ```
 
-## Extended call-by-value reduction (`Step`)
+## Extended call-by-value reduction (`Step`) and Complete Progress (`progress`)
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Double-binder source closures (<code>ext (ext r)</code> / <code>exts (exts s)</code> &amp; <code>substDouble</code>, R13/R16)]</strong>
-Whereas <a href="/DeBruijn/">DeBruijn</a>'s single-binder <code>substSingle</code>
-publishes checked closure equations under <code>-fwrite-source-equations</code>,
-<code>More</code>'s <code>CaseLst</code> binds <em>two</em> variables at once
-(lifting via <code>ext (ext r)</code> and <code>exts (exts s)</code>) and
-contracts via <code>substDouble</code>. On the current compiler, iterated binder
-lifts suppress source-closure synthesis for both <code>substSingle</code> and
-<code>substDouble</code> (<code>GHC-70565</code>). Functional <code>Step</code>
-and intrinsically-typed <code>progress</code> for <code>More</code> remain
-tracked in minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_DoubleBinderSubstClosure.hs"><code>reproducers/R13_DoubleBinderSubstClosure.hs</code></a>.
-</div>
+Compiling `PLFH.Part2.More` with `{-# OPTIONS_GHC -fwrite-source-equations #-}`
+publishes checked source-closure equations for **both** single-variable
+`substSingle` and two-variable `substDouble` (lifting through double binders
+`ext (ext r)` and `exts (exts s)` for `CaseLst`!) into `More.hi`.
+
+Our checked companion module
+[`PLFH.Part2.MoreProgress`](https://github.com/Tritlo/PLFH/blob/main/clients/PLFH/Part2/MoreProgress.hs)
+reads that native interface and proves:
+
+1. All **27 intrinsically-typed call-by-value reduction rules** (`Step`:
+   `XiApp1`..`BetaLam`, `XiSuc`..`BetaMu`, `XiLet`/`BetaLet`,
+   `XiPair1`..`BetaSnd`, `XiInl`..`BetaInr`, `XiAbsurd`, and
+   `XiCons1`..`BetaCons` using real `M.substSingle` and `M.substDouble`!);
+2. **Complete, unconditional `progress`** across all **19 constructors** of
+   `More.Term` (checked with `-Werror=incomplete-patterns`, where `absurdProgress`
+   discharges `PDone v -> case v of {}` statically because `TVoid` has no value
+   constructors!);
+3. Concrete double-substitution witness `listCaseBoth` proving `BetaCons` routes
+   the head to `S Z` and the tail to `Z`.
+
+```{.haskell .ignore}
+-- Excerpt from checked client module PLFH.Part2.MoreProgress:
+BetaLet  :: forall g a b (m :: M.Term g a) (body :: M.Term (M.CExt g a) b).
+            M.Value m -> Step (M.Let m body) (M.substSingle body m)
+BetaInl  :: forall g a b c (l :: M.Term (M.CExt g a) c)
+                   (r :: M.Term (M.CExt g b) c) (x :: M.Term g a).
+            M.Value x -> Step (M.CaseSum (M.Inl x) l r) (M.substSingle l x)
+BetaCons :: forall g a b (n :: M.Term g b)
+                   (c :: M.Term (M.CExt (M.CExt g a) (M.TList a)) b)
+                   (x :: M.Term g a) (xs :: M.Term g (M.TList a)).
+            M.Value x -> M.Value xs
+         -> Step (M.CaseLst (M.Cons x xs) n c) (M.substDouble c x xs)
+
+progress :: forall (a :: M.Ty). foreach (m :: M.Term M.CEmpty a) -> Progress m
+```
+
+### Negative control: forged `BetaCons` double-substitution target is rejected
+
+In `listCaseBoth`, `CaseLst (Cons (Suc Zero) (Cons Zero Nil)) ... (Pair (Var (S Z)) (Var Z))`
+substitutes `Suc Zero` for `S Z` and `Cons Zero Nil` for `Z`. Claiming the head
+became `Zero` instead of `Suc Zero` is rejected by GHC with `GHC-83865`:
+
+```{.haskell .fail name="NegMoreConsTarget" expect="GHC-83865"}
+{-# LANGUAGE DataKinds, ExperimentalDependentTypes, TypeApplications #-}
+module NegMoreConsTarget (wrongHead) where
+
+import qualified PLFH.Part2.More as M
+import PLFH.Part2.MoreProgress (Step (..))
+
+wrongHead :: Step @M.CEmpty @(M.TProd M.TNat (M.TList M.TNat))
+                  (M.CaseLst (M.Cons (M.Suc M.Zero) (M.Cons M.Zero M.Nil))
+                             (M.Pair M.Zero M.Nil)
+                             (M.Pair (M.Var (M.S M.Z)) (M.Var M.Z)))
+                  (M.Pair M.Zero (M.Cons M.Zero M.Nil))
+wrongHead = BetaCons (M.VSuc M.VZero) (M.VCons M.VZero M.VNil)
+```
 
 ## Exercises
 
@@ -293,5 +336,8 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   renaming, substitution (`substSingle`, `substDouble`), GADT-promoted `Value`,
   and example programs compile cleanly with `-dcore-lint -dstg-lint` and zero
   promoted-constructor ticks.
-- Functional `Step` (`substSingle` / `substDouble`) and intrinsically-typed
-  `progress` are marked `[WIP NOTICE]` (`R13_DoubleBinderSubstClosure.hs`).
+- With `-fwrite-source-equations`, our checked client module
+  `PLFH.Part2.MoreProgress` checks all 27 intrinsically-typed `Step` rules
+  (using real `substSingle` and `substDouble`), complete unconditional 19-branch
+  `progress` (`-Werror=incomplete-patterns`), and concrete `listCaseBoth`
+  (guarded by negative control `NegMoreConsTarget`) with zero `[WIP NOTICE]` gaps!

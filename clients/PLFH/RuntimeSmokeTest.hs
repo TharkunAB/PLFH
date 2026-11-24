@@ -29,6 +29,7 @@ import qualified PLFH.Part2.DeBruijnProgress as DBP
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
+import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, idIsNormal, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
@@ -340,6 +341,45 @@ main = do
     (case simValue (SimPair SimRefl SimRefl) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
   assertEq "Bisimulation.simTrans / simSym" True
     (case simValue (simTrans (simSym (SimPair SimRefl SimRefl)) (SimPair SimRefl SimRefl)) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
+
+  let moreLet :: M.Term M.CEmpty M.TNat
+      moreLet = M.Let M.Zero (M.Var M.Z)
+      morePair :: M.Term M.CEmpty (M.TProd M.TNat M.TUnit)
+      morePair = M.Pair M.Zero M.TT
+      morePairLeft :: M.Term M.CEmpty (M.TProd M.TNat M.TUnit)
+      morePairLeft = M.Pair moreLet M.TT
+      moreInl, moreInr :: M.Term M.CEmpty M.TBool
+      moreInl = M.Inl M.TT
+      moreInr = M.Inr M.TT
+      moreNil :: M.Term M.CEmpty (M.TList M.TNat)
+      moreNil = M.Nil
+      moreFirst, moreCaseLeft, moreCaseRight, moreCaseNil :: M.Term M.CEmpty M.TNat
+      moreFirst = M.Fst morePair
+      moreCaseLeft = M.CaseSum moreInl M.Zero (M.Suc M.Zero)
+      moreCaseRight = M.CaseSum moreInr M.Zero (M.Suc M.Zero)
+      moreCaseNil = M.CaseLst moreNil M.Zero (M.Var (M.S M.Z))
+      moreSecond :: M.Term M.CEmpty M.TUnit
+      moreSecond = M.Snd morePair
+      moreAbsurd :: M.Term M.CEmpty M.TNat
+      moreAbsurd = M.Absurd (M.Mu (M.Var M.Z))
+  assertEq "MoreProgress.progress Let -> BetaLet" True
+    (case MP.progress moreLet of { MP.PStep MP.BetaLet{} -> True; _ -> False })
+  assertEq "MoreProgress.progress Pair -> XiPair1" True
+    (case MP.progress morePairLeft of { MP.PStep MP.XiPair1{} -> True; _ -> False })
+  assertEq "MoreProgress.progress Fst -> BetaFst" True
+    (case MP.progress moreFirst of { MP.PStep MP.BetaFst{} -> True; _ -> False })
+  assertEq "MoreProgress.progress Snd -> BetaSnd" True
+    (case MP.progress moreSecond of { MP.PStep MP.BetaSnd{} -> True; _ -> False })
+  assertEq "MoreProgress.progress CaseSum Inl -> BetaInl" True
+    (case MP.progress moreCaseLeft of { MP.PStep MP.BetaInl{} -> True; _ -> False })
+  assertEq "MoreProgress.progress CaseSum Inr -> BetaInr" True
+    (case MP.progress moreCaseRight of { MP.PStep MP.BetaInr{} -> True; _ -> False })
+  assertEq "MoreProgress.progress CaseLst Nil -> BetaNil" True
+    (case MP.progress moreCaseNil of { MP.PStep MP.BetaNil -> True; _ -> False })
+  assertEq "MoreProgress.listCaseBoth (BetaCons substDouble!)" True
+    (case MP.listCaseBoth of { MP.BetaCons (M.VSuc M.VZero) (M.VCons M.VZero M.VNil) -> True })
+  assertEq "MoreProgress.progress Absurd (Mu ...) -> XiAbsurd BetaMu" True
+    (case MP.progress moreAbsurd of { MP.PStep (MP.XiAbsurd MP.BetaMu) -> True; _ -> False })
 
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })

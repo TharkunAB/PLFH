@@ -18,7 +18,7 @@ type Step :: forall (g :: M.Ctx) (a :: M.Ty). M.Term g a -> M.Term g a -> Type
 data Step m n where
   BetaSingle :: forall g a b (n :: M.Term (M.CExt g a) b) (w :: M.Term g a).
                 Step (M.App (M.Lam n) w) (M.substSingle n w)
-  BetaDouble :: forall g a b (xs :: M.Term g (M.TList a)) (n :: M.Term g b)
+  BetaDouble :: forall g a b (n :: M.Term g b)
                        (c :: M.Term (M.CExt (M.CExt g a) (M.TList a)) b)
                        (v :: M.Term g a) (vs :: M.Term g (M.TList a)).
-                Step (M.CaseLst xs n c) (M.substDouble c v vs)
+                Step (M.CaseLst (M.Cons v vs) n c) (M.substDouble c v vs)

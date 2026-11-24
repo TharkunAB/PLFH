@@ -17,6 +17,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Lam     :: Term (CExt g a) b -> Term g (TArr a b)
   App     :: Term g (TArr a b) -> Term g a -> Term g b
   Zero    :: Term g TNat
+  Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b
           -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
@@ -30,6 +31,7 @@ rename r (Var x)          = Var (r x)
 rename r (Lam n)          = Lam (rename (ext r) n)
 rename r (App l m)        = App (rename r l) (rename r m)
 rename _ Zero             = Zero
+rename r (Cons x xs)      = Cons (rename r x) (rename r xs)
 rename r (CaseLst xs n c) = CaseLst (rename r xs) (rename r n) (rename (ext (ext r)) c)
 
 exts :: (forall a. Lookup g a -> Term d a)
@@ -42,6 +44,7 @@ subst s (Var x)          = s x
 subst s (Lam n)          = Lam (subst (exts s) n)
 subst s (App l m)        = App (subst s l) (subst s m)
 subst _ Zero             = Zero
+subst s (Cons x xs)      = Cons (subst s x) (subst s xs)
 subst s (CaseLst xs n c) = CaseLst (subst s xs) (subst s n) (subst (exts (exts s)) c)
 
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
