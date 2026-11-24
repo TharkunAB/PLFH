@@ -19,8 +19,9 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the latest verified published component binary on dependent-haskell:
-#   0b2ad262df (symbolic membership equations 5ff3e67e13 + bytecode GHCi closures e2c16be23d + 744122325d),
-#   falling back to 744122325d, 056871faa9, 4570cbe2f8, 8632606465, fb64eaff81, ad1a979ead, 2deac8b91e, 9d310102c7, 35916907b9, da06279b7a, f0bc12e601, 6c8ab7f7de, 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+#   0452d7d17c (recursive witness encoding + retained nonuniform UTerm cases + 0b2ad262df),
+#   falling back to 0b2ad262df, 744122325d, 056871faa9, 4570cbe2f8, 8632606465, fb64eaff81, ad1a979ead, 2deac8b91e, 9d310102c7, 35916907b9, da06279b7a, f0bc12e601, 6c8ab7f7de, 3326acd9b1, e7a798a060, c97f70ecdc, 2e4fbb752a, 1f873969e5, 63e2f0974b, 9cc4065fab, or 590.
+COMP_045="$GHC_REPO/_build/on-demand/plfh-nonuniform-legacy-distinct-20261124/relink.sNapGu/component/ghc"
 COMP_0B2="$GHC_REPO/_build/on-demand/plfh-breakpoint-closures-619.XXXzWovw/checked.QCEaXAtY/component/ghc"
 COMP_744="$GHC_REPO/_build/on-demand/plfh-wildcard-open-equation-20261124/complete-first.cFaM8I/component/ghc"
 COMP_056="$GHC_REPO/_build/on-demand/plfh-more-witness-integration-20261124/joint.heqcOi/component/ghc"
@@ -46,7 +47,10 @@ LEGACY_590="$GHC_REPO/_build/on-demand/r17-schema-transformer-post-588-20261124/
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
-if [[ -x "$COMP_0B2" ]]; then
+if [[ -x "$COMP_045" ]]; then
+  DEFAULT_COMPILER="$COMP_045"
+  DEFAULT_LIBDIR="$COMP_LIB"
+elif [[ -x "$COMP_0B2" ]]; then
   DEFAULT_COMPILER="$COMP_0B2"
   DEFAULT_LIBDIR="$COMP_LIB"
 elif [[ -x "$COMP_744" ]]; then
@@ -149,7 +153,9 @@ if [[ -n "$GHC_LIBDIR" ]]; then
   echo "Libdir:   $GHC_LIBDIR"
 fi
 echo "Version:  $VERSION"
-if [[ "$COMPILER" == "$COMP_0B2" ]]; then
+if [[ "$COMPILER" == "$COMP_045" ]]; then
+  echo "Commit:   0452d7d17c744f764b15290250ad87c3b1895850 / a3b684aaf1 (verified component; base libdir seed: $COMMIT)"
+elif [[ "$COMPILER" == "$COMP_0B2" ]]; then
   echo "Commit:   0b2ad262dff9ae506700e10d4561f46444d10697 / efb66ab19f (verified component; base libdir seed: $COMMIT)"
 elif [[ "$COMPILER" == "$COMP_744" ]]; then
   echo "Commit:   744122325df4b96c87a98d0b1a52be6380a71036 / 143779210d (verified component; base libdir seed: $COMMIT)"

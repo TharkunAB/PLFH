@@ -339,7 +339,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 512 "content/part1/Lists.md" #-}
+{-# LINE 518 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.

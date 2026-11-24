@@ -303,9 +303,7 @@ is guaranteed to reach a normal form whenever one exists.
 Writing PLFA's functional normal-order β-normalizer
 <code>eval :: Gas -&gt; foreach (t :: UTerm n) -&gt; Steps t</code> still
 depends on open source equations for <code>substSingleU</code>
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>)
-and retained induction over non-uniform nested datatypes
-(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_NestedDatatypeForEach.hs"><code>R03_NestedDatatypeForEach.hs</code></a>).
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
 All well-scoped syntax, renaming, substitution, relational <code>SubstAtU</code>,
 and promoted <code>Neutral</code>/<code>Normal</code>/<code>BetaStep</code>
 relations compile cleanly with <code>-dcore-lint -dstg-lint</code>.
@@ -337,4 +335,4 @@ normal-order reduction terminates on terms where call-by-value diverges!
   control `NegBadBetaStep`), marking functional `Syntax.substSingleU` in types
   with `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs`).
 - Marks gas-bounded normalization over `foreach (t :: UTerm n)` with
-  `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs` and `R03_NestedDatatypeForEach.hs`).
+  `[WIP NOTICE]` (`R13_SubstSingleUOpenEq.hs`).

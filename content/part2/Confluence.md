@@ -71,6 +71,8 @@ module PLFH.Part2.Confluence
   , bsApp2
   , bsLam
   , Par (..)
+  , parRefl
+  , betaToPar
   , ParSteps (..)
   , psTrans
   , parToBetas
@@ -279,35 +281,50 @@ uniqueNormalForm b2p diamond bs1 bs2 nm1 nm2 =
       (Refl, Refl) -> Refl
 ```
 
-## Remaining Church–Rosser ingredients (`par-refl`, `beta-par`, `par-diamond`)
+## Reflexivity of parallel reduction (`par-refl`) and β-embedding (`beta-par`)
 
-```{.haskell .wip}
--- Intended reflexivity & β-embedding over retained `UTerm n`:
+Every well-scoped untyped term `m :: UTerm n` reduces to itself in one parallel
+step—including traversing under a lambda binder where the scope index shifts
+from `n` to `Succ n`! And from `parRefl` we immediately embed any single
+β-reduction step `BetaStep l r` into parallel reduction `Par l r`:
+
+```haskell
+-- | Parallel reduction is reflexive across the non-uniform scope index `n`.
 parRefl :: forall (n :: Nat). foreach (m :: UTerm n) -> Par m m
 parRefl (UVar _)   = PVar
 parRefl (ULam b)   = PLam (parRefl b)
 parRefl (UApp l m) = PApp (parRefl l) (parRefl m)
+
+-- | Build a parallel β-step from reflexive proofs on the operator and argument.
+mkBetaPar :: Par (ULam b) (ULam b) -> Par w w -> SubstAtU FZ w b r -> Par (UApp (ULam b) w) r
+mkBetaPar (PLam pb) pw su = PBeta pb pw su
+
+-- | Every single β-step is a parallel reduction step (`—→-to-⇒`).
+betaToPar :: forall (n :: Nat) (r :: UTerm n).
+             foreach (l :: UTerm n) -> BetaStep l r -> Par l r
+betaToPar (UVar _)   = \s -> case s of {}
+betaToPar (ULam b)   = \s -> case s of
+  XiLam sb -> PLam (betaToPar b sb)
+betaToPar (UApp l m) =
+  let pl = parRefl l
+      pm = parRefl m
+  in \s -> case s of
+    XiApp1 sl -> PApp (betaToPar l sl) pm
+    XiApp2 sm -> PApp pl (betaToPar m sm)
+    Beta su   -> mkBetaPar pl pm su
 ```
 
+## Remaining Church–Rosser ingredient (`par-diamond`)
+
 <div class="wip-notice">
-<strong>[WIP NOTICE — Reflexivity &amp; Diamond of Parallel Reduction (R03/R11/R13)]</strong>
-Three final ingredients connect <code>parConfluence</code> to unconditional
-Church–Rosser confluence for <code>BetaSteps</code>:
-<ul>
-  <li><code>parRefl :: foreach (m :: UTerm n) -&gt; Par m m</code> (and
-      <code>betaToPar</code>): while indexed GADTs whose constructors refine a
-      return index (like <code>DeBruijn.Term</code>) support retained
-      <code>foreach</code> matching, the non-uniform nested datatype
-      <code>UTerm n</code> (where every constructor returns uniform
-      <code>UTerm n</code> and <code>ULam :: UTerm (Succ n) -&gt; UTerm n</code>
-      shifts the parameter) fails both <code>case m of</code>
-      (<code>GHC-83865</code>) and direct equations (<code>GHC-83605</code>).
-      See <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_NestedDatatypeForEach.hs"><code>reproducers/R03_NestedDatatypeForEach.hs</code></a>.</li>
-  <li><code>substCommute</code> &amp; <code>parDiamond</code> (Takahashi's
-      complete development and substitution commutation): wait on
-      <strong>R13/R16</strong>
-      (<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).</li>
-</ul>
+<strong>[WIP NOTICE — One-Step Diamond of Parallel Reduction (R13/R16)]</strong>
+With <code>parRefl</code>, <code>betaToPar</code>, <code>strip</code>,
+<code>parConfluence</code>, <code>churchRosser</code>, and
+<code>uniqueNormalForm</code> all verified, the remaining ingredient to
+discharge the diamond premise unconditionally is Takahashi's complete
+development and substitution commutation (<code>substCommute</code> &amp;
+<code>parDiamond</code>), which waits on <strong>R13/R16</strong>
+(<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleUOpenEq.hs"><code>R13_SubstSingleUOpenEq.hs</code></a>).
 </div>
 
 ## Exercises
@@ -329,12 +346,12 @@ for any binary relation `rel`.
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Confluence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `bsTrans`/`bsApp1`/`bsApp2`/`bsLam`, `Par`,
-  `ParSteps`, `parToBetas`, `parsToBetas`, `omegaPar`, `Joinable`, `strip`,
-  `parConfluence`, `betasToPars`, and `churchRosser` over promoted `UTerm n`
-  with zero promoted-constructor ticks.
+  `parRefl`, `betaToPar`, `ParSteps`, `parToBetas`, `parsToBetas`, `omegaPar`,
+  `Joinable`, `joinSym`, `strip`, `parConfluence`, `betasToPars`,
+  `churchRosser`, `normalNoBetaSteps`, and `uniqueNormalForm` over promoted
+  `UTerm n` with zero promoted-constructor ticks.
 - Uses deterministic relational `SubstAtU` in `PBeta` (matching
   `Untyped.BetaStep.Beta`) so no unconstrained `substSingleU` type variable is
   introduced in `Confluence.hi`.
-- Marked `parRefl`, `betaToPar`, and the unconditional one-step `parDiamond`
-  proof with `[WIP NOTICE]` tracing directly back to our tracked R03 and R13
-  reproducers.
+- Marked the unconditional one-step `parDiamond` proof with `[WIP NOTICE]`
+  (`R13_SubstSingleUOpenEq.hs`).

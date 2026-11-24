@@ -496,12 +496,18 @@ memberValue (_ : xs) (There r)   = memberValue xs r
 ```
 
 Because `PLFH.Part1.Lists` compiles with `-fwrite-source-equations`, GHC
-publishes checked equations for `witnessToAny` into `Lists.hi`! Downstream
-proofs in `PLFH.Part1.ListsProof` (`clients/PLFH/Part1/ListsProof.hs`) verify
-both polymorphic head/tail decoding (`witnessToAnyHere`, `witnessToAnyThere`)
-and retained-`foreach` tail preservation (`witnessToAnyEvenThere`) when the
-membership tail is symbolic—confirming `witnessToAny` preserves the exact
-selected occurrence and predicate evidence without needing any leading `'` ticks!
+publishes checked equations for `witnessToAny` and `anyToWitness` into
+`Lists.hi`! Downstream clients prove both:
+
+- `PLFH.Part1.ListsProof` (`clients/PLFH/Part1/ListsProof.hs`): polymorphic
+  head/tail decoding (`witnessToAnyHere`, `witnessToAnyThere`) and
+  retained-`foreach` tail preservation (`witnessToAnyEvenThere`) with zero
+  promoted-constructor ticks; and
+- `PLFH.Part1.AnyWitnessIso` (`clients/PLFH/Part1/AnyWitnessIso.hs`): the
+  **full polymorphic isomorphism** `anyIsoWitness :: Iso (Any p xs) (AnyWitness p xs)`
+  proving *both* inverse laws (`witnessToAny (anyToWitness r) :~: r` and
+  `anyToWitness (witnessToAny w) :~: w`) directly over the ordinary `Lists`
+  converters!
 
 ### Decidability of `All` and `Any` (`All?`, `Any?`), and concrete examples
 

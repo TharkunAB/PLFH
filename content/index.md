@@ -49,7 +49,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` (`SimRel`, `simRefl`/`simTrans`, bidirectional `simValue`/`simValueInv`, `valNoStep`, **27-rule `sim` & `simInv`**, `simSteps`/`simStepsInv`) <span class="badge badge-partial">27-rule Bisim ✓ · SubstCompat WIP</span>
 - [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, `(λx y. x) Ω`) <span class="badge badge-partial">Determ ✓ · R13 lookupEnv</span>
 - [Substitution](/Substitution/): σ-calculus simultaneous renaming & substitution combinators <span class="badge badge-partial">Algebra ✓ · Eqs WIP</span>
-- [Confluence](/Confluence/): Parallel reduction, `parToBetas`, **Strip Lemma**, **Par Confluence**, **Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-partial">CR ✓ · Diamond WIP</span>
+- [Confluence](/Confluence/): Parallel reduction, **`parRefl`**, **`betaToPar`**, `parToBetas`, **Strip Lemma**, **Par Confluence**, **Church-Rosser**, and **`uniqueNormalForm`** <span class="badge badge-partial">parRefl/betaToPar/CR ✓ · Diamond WIP</span>
 
 ## Part 3: Denotational Semantics
 

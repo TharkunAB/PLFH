@@ -11,6 +11,8 @@ module PLFH.Part2.Confluence
   , bsApp2
   , bsLam
   , Par (..)
+  , parRefl
+  , betaToPar
   , ParSteps (..)
   , psTrans
   , parToBetas
@@ -44,7 +46,7 @@ import PLFH.Part2.Untyped
   , UTerm (..)
   )
 
-{-# LINE 114 "content/part2/Confluence.md" #-}
+{-# LINE 116 "content/part2/Confluence.md" #-}
 -- | Transitivity of multi-step β-reduction.
 bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
 bsTrans BRefl       q = q
@@ -63,7 +65,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 148 "content/part2/Confluence.md" #-}
+{-# LINE 150 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -103,7 +105,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar)) (SUApp SUEq SUEq)
 
-{-# LINE 204 "content/part2/Confluence.md" #-}
+{-# LINE 206 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -180,3 +182,28 @@ uniqueNormalForm b2p diamond bs1 bs2 nm1 nm2 =
   case churchRosser b2p diamond bs1 bs2 of
     Join r1 r2 -> case (normalNoBetaSteps nm1 r1, normalNoBetaSteps nm2 r2) of
       (Refl, Refl) -> Refl
+
+{-# LINE 292 "content/part2/Confluence.md" #-}
+-- | Parallel reduction is reflexive across the non-uniform scope index `n`.
+parRefl :: forall (n :: Nat). foreach (m :: UTerm n) -> Par m m
+parRefl (UVar _)   = PVar
+parRefl (ULam b)   = PLam (parRefl b)
+parRefl (UApp l m) = PApp (parRefl l) (parRefl m)
+
+-- | Build a parallel β-step from reflexive proofs on the operator and argument.
+mkBetaPar :: Par (ULam b) (ULam b) -> Par w w -> SubstAtU FZ w b r -> Par (UApp (ULam b) w) r
+mkBetaPar (PLam pb) pw su = PBeta pb pw su
+
+-- | Every single β-step is a parallel reduction step (`—→-to-⇒`).
+betaToPar :: forall (n :: Nat) (r :: UTerm n).
+             foreach (l :: UTerm n) -> BetaStep l r -> Par l r
+betaToPar (UVar _)   = \s -> case s of {}
+betaToPar (ULam b)   = \s -> case s of
+  XiLam sb -> PLam (betaToPar b sb)
+betaToPar (UApp l m) =
+  let pl = parRefl l
+      pm = parRefl m
+  in \s -> case s of
+    XiApp1 sl -> PApp (betaToPar l sl) pm
+    XiApp2 sm -> PApp pl (betaToPar m sm)
+    Beta su   -> mkBetaPar pl pm su

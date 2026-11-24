@@ -14,6 +14,7 @@ import PLFH.Part1.Equality (evenComm)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
+import PLFH.Part1.AnyWitnessIso (anyIsoWitness)
 import PLFH.Part1.Lists (All (..), Any (..), AnyWitness (..), In, allToIn, anyIffWitness, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, memberValue, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
 import PLFH.Part1.ListsProof (decodeHeadEven, decodeSecondEven, sampleTailMem, witnessToAnyEvenThere)
 import qualified PLFH.Part1.Naturals as N
@@ -23,7 +24,7 @@ import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness,
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (EvalBig (..), IsLamClos (..), evalBigIsLam, evalConstOmega, evalDeterm, evalIdApp)
 import PLFH.Part2.Bisimulation (Leg (..), LegInv (..), SimRel (..), letDesugarSim, letDesugarSteps, letDesugarStepsInv, simRefl, simTrans, simValue, simValueInv)
-import PLFH.Part2.Confluence (Par (..), normalNoBetaSteps, omegaPar, parToBetas)
+import PLFH.Part2.Confluence (Par (..), betaToPar, normalNoBetaSteps, omegaPar, parRefl, parToBetas)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
 import qualified PLFH.Part2.DeBruijnProgress as DBP
@@ -32,6 +33,7 @@ import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
 import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
+import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), idAppStep, idIsNormal, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun)
 import PLFH.Part3.Compositional (AppDen (..), denAppToAppDen, lamInversion)
@@ -61,6 +63,44 @@ checkAnyWitness xs proof = case anyIffWitness @Even @xs of
         There (There (There (Here (EvenS (OddS EvenZ))))) -> True
         _ -> False)
     _ -> (0, False)
+
+checkMembershipRoundTrips :: foreach (xs :: [Nat]) -> Any Even xs -> AnyWitness Even xs -> Bool
+checkMembershipRoundTrips xs position witness = case anyIsoWitness @Even @xs of
+  MkIso _ _ fromTo toFrom -> case fromTo position of
+    Refl -> case toFrom witness of Refl -> True
+
+checkParallel :: U.UTerm Zero -> Bool
+checkParallel term = case parRefl term of
+  PApp (PLam PVar) (PLam PVar) -> True
+  _                            -> False
+
+eqFinZ :: foreach (x :: U.Fin (Succ Zero)) -> Maybe (x :~: U.FZ)
+eqFinZ U.FZ     = Just Refl
+eqFinZ (U.FS x) = case x of {}
+
+eqIdBody :: foreach (b :: U.UTerm (Succ Zero)) -> Maybe (b :~: U.UVar U.FZ)
+eqIdBody (U.UVar x)   = case eqFinZ x of { Just Refl -> Just Refl; Nothing -> Nothing }
+eqIdBody (U.ULam _)   = Nothing
+eqIdBody (U.UApp _ _) = Nothing
+
+eqId :: foreach (t :: U.UTerm Zero) -> Maybe (t :~: U.IdTerm)
+eqId (U.UVar x)   = case x of {}
+eqId (U.ULam b)   = case eqIdBody b of { Just Refl -> Just Refl; Nothing -> Nothing }
+eqId (U.UApp _ _) = Nothing
+
+eqIdApp :: foreach (t :: U.UTerm Zero) -> Maybe (t :~: U.UApp U.IdTerm U.IdTerm)
+eqIdApp (U.UVar x)   = case x of {}
+eqIdApp (U.ULam _)   = Nothing
+eqIdApp (U.UApp l m) = case (eqId l, eqId m) of
+  (Just Refl, Just Refl) -> Just Refl
+  _                      -> Nothing
+
+checkBetaToPar :: U.UTerm Zero -> Bool
+checkBetaToPar t = case eqIdApp t of
+  Just Refl -> case betaToPar t idAppStep of
+    PBeta PVar (PLam PVar) _ -> True
+    _                        -> False
+  Nothing -> False
 
 checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
 checkAllInRoundTrip xs x = case decAll decEven xs of
@@ -235,6 +275,10 @@ main = do
     (case foldrTimesSeed twoThree fourN of Refl -> True)
   assertEq "Lists.foldrTimesAppend [2,3] [4]" True
     (case foldrTimesAppend twoThree fourList of Refl -> True)
+  assertEq "Lists.anyIsoWitness preserves fourth occurrence in both directions" True
+    (checkMembershipRoundTrips [1, 2, 1, 2]
+      (There (There (There (Here (EvenS (OddS EvenZ))))))
+      (MkAnyWitness (There (There (There (Here Refl)))) (EvenS (OddS EvenZ))))
   assertEq "Lists.anyIffWitness preserves fourth occurrence" (2, True)
     (checkAnyWitness [1, 2, 1, 2] (There (There (There (Here (EvenS (OddS EvenZ)))))))
   let memTwo = sampleTailMem
@@ -406,6 +450,10 @@ main = do
 
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Confluence.parRefl traverses both lambdas" True
+    (checkParallel (U.UApp U.idTerm U.idTerm))
+  assertEq "Confluence.betaToPar idAppStep" True
+    (checkBetaToPar (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
   assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
   assertEq "BigStep.evalBigIsLam evalConstOmega" True (case evalBigIsLam evalConstOmega of MkIsLamClos -> True)
