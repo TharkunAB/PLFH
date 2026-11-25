@@ -49,10 +49,10 @@ core inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`, `plusComm`,
 Source: [on-site `HaskLib.hs`](/Source/hasklib/HaskLib/) ·
 [GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib.hs)
 
-Umbrella module re-exporting `HaskLib.Equality`, `HaskLib.Fin`, `HaskLib.List`,
-`HaskLib.Sigma`, `HaskLib.Vec`, and the core `HaskLib.Nat` laws (`eqSize`,
-`eqSizeRefl`, `natToInt`, `plusZero`, `plusSucc`, `plusComm`, `plusAssoc`,
-`congSucc`, `congFirst`).
+Umbrella module re-exporting `HaskLib.Equality`, `HaskLib.Exists`,
+`HaskLib.Fin`, `HaskLib.List`, `HaskLib.Sigma`, `HaskLib.Vec`, and the core
+`HaskLib.Nat` laws (`eqSize`, `eqSizeRefl`, `natToInt`, `plusZero`, `plusSucc`,
+`plusComm`, `plusAssoc`, `congSucc`, `congFirst`).
 
 ### `HaskLib.Equality` {#hasklibequality}
 
@@ -67,6 +67,23 @@ Source: [on-site `HaskLib/Equality.hs`](/Source/hasklib/HaskLib/Equality/) ·
 | `rewrite` | `(a :~: b) -> ((a ~ b) => r) -> r` (alias for `gcastWith`) |
 | `withEquality` | Compatibility alias for `rewrite` |
 | `Matchability (..)`, `M`, `U` | Re-exported from `GHC.Matchability` |
+
+### `HaskLib.Exists` {#hasklibexists}
+
+Source: [on-site `HaskLib/Exists.hs`](/Source/hasklib/HaskLib/Exists/) ·
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Exists.hs)
+
+Erased existential packages, constraint pairing, and witness combinators
+(re-exported from `GHC.Exists`, GHC Proposal `#473`):
+
+| Symbol | Type / Role |
+| --- | --- |
+| `Exists` | `type Exists p = exists x \| p x` (erased existential package) |
+| `pattern Pack` | Construct and match erased existential packages (`Pack (type x) payload`) |
+| `type (/\) (MkCPair)` | Pair a `Constraint` dictionary with a value (`c /\ a`) |
+| `withEvidence`, `discardEvidence` | Open or drop the paired constraint dictionary |
+| `Witness (Witness)` | Erased witness token `Witness (a :: k)` |
+| `withExists`, `mapExists`, `uncurryExists` | Open, transform, and unpack nested erased existential packages |
 
 ### `HaskLib.Nat` {#hasklibnat}
 

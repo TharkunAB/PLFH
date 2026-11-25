@@ -25,10 +25,15 @@ HASKLIB_REF_DIR = ROOT / "reference" / "hasklib"
 
 HASKLIB_FILES = (
     ("hasklib", "HaskLib.hs"),
-    ("hasklib", "HaskLib/Nat.hs"),
+    ("hasklib", "HaskLib/Equality.hs"),
+    ("hasklib", "HaskLib/Exists.hs"),
+    ("hasklib", "HaskLib/Fin.hs"),
     ("hasklib", "HaskLib/List.hs"),
-    ("hasklib", "HaskLib/Size.hs"),
     ("hasklib", "HaskLib/List/Prefix.hs"),
+    ("hasklib", "HaskLib/Nat.hs"),
+    ("hasklib", "HaskLib/Sigma.hs"),
+    ("hasklib", "HaskLib/Size.hs"),
+    ("hasklib", "HaskLib/Vec.hs"),
     ("examples/open-evaluation", "PreludeMapLengthSize.hs"),
     ("examples/open-evaluation", "PreludeZipRuntime.hs"),
     ("examples/open-evaluation", "PreludeZipMapRuntime.hs"),

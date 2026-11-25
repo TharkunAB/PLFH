@@ -4,7 +4,7 @@
 {-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
 {-# LINE 37 "content/part1/Quantifiers.md" #-}
 module PLFH.Part1.Quantifiers
-  ( Exists (..)
+  ( Exists
   , SumPred (..)
   , existsDistribSum
   , existsCurryTo
@@ -36,17 +36,14 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
 import HaskLib (rewrite)
+import HaskLib.Exists (Exists, data Pack, mapExists, withExists)
 import HaskLib.Nat (Nat (..), plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
 
-{-# LINE 128 "content/part1/Quantifiers.md" #-}
--- | Erased existential: there exists some type-level `x :: a` satisfying `p x`.
-data Exists (p :: a -> Type) where
-  Witness :: p x -> Exists p
-
+{-# LINE 129 "content/part1/Quantifiers.md" #-}
 -- | Pointwise disjunction of predicates.
 data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
   InL :: p x -> SumPred p q x
@@ -54,21 +51,37 @@ data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
 
 -- | Existentials distribute over disjunction (`∃-distrib-⊎`):
 -- (∃ x. P x ∨ Q x) ⇔ (∃ x. P x) ∨ (∃ x. Q x).
-existsDistribSum :: Iff (Exists (SumPred p q)) (Either (Exists p) (Exists q))
+existsDistribSum
+  :: forall a (p :: a -> Type) (q :: a -> Type).
+     Iff (Exists (SumPred p q)) (Either (Exists p) (Exists q))
 existsDistribSum = Iff toF fromF
   where
-    toF (Witness (InL px)) = Left (Witness px)
-    toF (Witness (InR qx)) = Right (Witness qx)
+    packP :: forall (x :: a). p x -> Exists p
+    packP px = Pack (type x) px
 
-    fromF (Left (Witness px))  = Witness (InL px)
-    fromF (Right (Witness qx)) = Witness (InR qx)
+    packQ :: forall (x :: a). q x -> Exists q
+    packQ qx = Pack (type x) qx
+
+    toF :: Exists (SumPred p q) -> Either (Exists p) (Exists q)
+    toF pkg = case pkg of
+      Pack (type _) s -> case s of
+        InL px -> Left (packP px)
+        InR qx -> Right (packQ qx)
+
+    fromF :: Either (Exists p) (Exists q) -> Exists (SumPred p q)
+    fromF (Left pkg)  = mapExists (\_ px -> InL px) pkg
+    fromF (Right pkg) = mapExists (\_ qx -> InR qx) pkg
 
 -- | Currying for existentials (`∀∃-currying`): ((∃ x. P x) -> C) ⇔ (∀ x. P x -> C).
-existsCurryTo :: (Exists p -> c) -> (forall x. p x -> c)
-existsCurryTo f px = f (Witness px)
+existsCurryTo
+  :: forall a (p :: a -> Type) c.
+     (Exists p -> c) -> (forall x. p x -> c)
+existsCurryTo f (px :: p x) = f (Pack (type x) px)
 
-existsCurryFrom :: (forall x. p x -> c) -> (Exists p -> c)
-existsCurryFrom g (Witness px) = g px
+existsCurryFrom
+  :: forall a (p :: a -> Type) c.
+     (forall x. p x -> c) -> (Exists p -> c)
+existsCurryFrom g pkg = withExists pkg $ \_ px -> g px
 
 -- | First-class wrapper for universal quantification and pointwise conjunction.
 newtype Forall (p :: a -> Type) = MkForall { unForall :: forall x. p x }
@@ -84,13 +97,17 @@ forallDistribProd =
       (\(fp, fq) -> MkForall (MkProdPred (unForall fp, unForall fq)))
 
 -- | De Morgan for quantifiers: ¬(∃ x. P x) ⇔ ∀ x. ¬(P x).
-notExistsToForallNot :: Not (Exists p) -> (forall x. Not (p x))
-notExistsToForallNot ne px = ne (Witness px)
+notExistsToForallNot
+  :: forall a (p :: a -> Type).
+     Not (Exists p) -> (forall x. Not (p x))
+notExistsToForallNot ne (px :: p x) = ne (Pack (type x) px)
 
-forallNotToNotExists :: (forall x. Not (p x)) -> Not (Exists p)
-forallNotToNotExists fn (Witness px) = fn px
+forallNotToNotExists
+  :: forall a (p :: a -> Type).
+     (forall x. Not (p x)) -> Not (Exists p)
+forallNotToNotExists fn pkg = withExists pkg $ \_ px -> fn px
 
-{-# LINE 193 "content/part1/Quantifiers.md" #-}
+{-# LINE 210 "content/part1/Quantifiers.md" #-}
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -106,7 +123,7 @@ type SumSigma (n :: Nat) = some (m k :: Nat) | plus m k :~: n
 sumSigmaTwo :: SumSigma 2
 sumSigmaTwo = Pair 1 (Pair 1 Refl)
 
-{-# LINE 215 "content/part1/Quantifiers.md" #-}
+{-# LINE 232 "content/part1/Quantifiers.md" #-}
 -- | Retained existential witness that `n` is double some runtime `k`.
 data EvenWitness (n :: Nat) where
   MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n

@@ -19,23 +19,23 @@ quantifiers:
 
 1. **Universals:** erased `forall (x :: a). p x` vs. retained
    `foreach (x :: a) -> p x`.
-2. **Existentials:** erased `Exists p` (a GADT hiding a type-level witness
-   `x :: a` erased at runtime) vs. retained dependent pairs
-   `GHC.Sigma.Sigma` (`some (x :: a) | p x`, or a GADT constructor carrying
-   `foreach (x :: a) -> ...`), where the witness is available both at runtime
-   and in types!
+2. **Existentials:** erased `HaskLib.Exists.Exists p` (native Proposal `#473`
+   `exists x | p x`, hiding a type-level witness `x :: a` erased at runtime) vs.
+   retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`, or a GADT
+   constructor carrying `foreach (x :: a) -> ...`), where the witness is
+   available both at runtime and in types!
 
 ## Imports
 
-We import `Type`, `(:~:)`, `GHC.Sigma`, `HaskLib.rewrite`, `Nat` and addition
-helpers, unified `cong` from [Induction](/Induction/), `Not` from
-[Decidable](/Decidable/), `Iff` from [Isomorphism](/Isomorphism/), and
+We import `Type`, `(:~:)`, `GHC.Sigma`, `HaskLib.Exists`, `HaskLib.rewrite`,
+`Nat` and addition helpers, unified `cong` from [Induction](/Induction/), `Not`
+from [Decidable](/Decidable/), `Iff` from [Isomorphism](/Isomorphism/), and
 `Even`/`Odd` from [Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
 module PLFH.Part1.Quantifiers
-  ( Exists (..)
+  ( Exists
   , SumPred (..)
   , existsDistribSum
   , existsCurryTo
@@ -67,6 +67,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
 import HaskLib (rewrite)
+import HaskLib.Exists (Exists, data Pack, mapExists, withExists)
 import HaskLib.Nat (Nat (..), plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Induction (cong)
@@ -125,10 +126,6 @@ directly:
   `¬(∃ x. P x) ⇔ ∀ x. ¬(P x)`.
 
 ```haskell
--- | Erased existential: there exists some type-level `x :: a` satisfying `p x`.
-data Exists (p :: a -> Type) where
-  Witness :: p x -> Exists p
-
 -- | Pointwise disjunction of predicates.
 data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
   InL :: p x -> SumPred p q x
@@ -136,21 +133,37 @@ data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
 
 -- | Existentials distribute over disjunction (`∃-distrib-⊎`):
 -- (∃ x. P x ∨ Q x) ⇔ (∃ x. P x) ∨ (∃ x. Q x).
-existsDistribSum :: Iff (Exists (SumPred p q)) (Either (Exists p) (Exists q))
+existsDistribSum
+  :: forall a (p :: a -> Type) (q :: a -> Type).
+     Iff (Exists (SumPred p q)) (Either (Exists p) (Exists q))
 existsDistribSum = Iff toF fromF
   where
-    toF (Witness (InL px)) = Left (Witness px)
-    toF (Witness (InR qx)) = Right (Witness qx)
+    packP :: forall (x :: a). p x -> Exists p
+    packP px = Pack (type x) px
 
-    fromF (Left (Witness px))  = Witness (InL px)
-    fromF (Right (Witness qx)) = Witness (InR qx)
+    packQ :: forall (x :: a). q x -> Exists q
+    packQ qx = Pack (type x) qx
+
+    toF :: Exists (SumPred p q) -> Either (Exists p) (Exists q)
+    toF pkg = case pkg of
+      Pack (type _) s -> case s of
+        InL px -> Left (packP px)
+        InR qx -> Right (packQ qx)
+
+    fromF :: Either (Exists p) (Exists q) -> Exists (SumPred p q)
+    fromF (Left pkg)  = mapExists (\_ px -> InL px) pkg
+    fromF (Right pkg) = mapExists (\_ qx -> InR qx) pkg
 
 -- | Currying for existentials (`∀∃-currying`): ((∃ x. P x) -> C) ⇔ (∀ x. P x -> C).
-existsCurryTo :: (Exists p -> c) -> (forall x. p x -> c)
-existsCurryTo f px = f (Witness px)
+existsCurryTo
+  :: forall a (p :: a -> Type) c.
+     (Exists p -> c) -> (forall x. p x -> c)
+existsCurryTo f (px :: p x) = f (Pack (type x) px)
 
-existsCurryFrom :: (forall x. p x -> c) -> (Exists p -> c)
-existsCurryFrom g (Witness px) = g px
+existsCurryFrom
+  :: forall a (p :: a -> Type) c.
+     (forall x. p x -> c) -> (Exists p -> c)
+existsCurryFrom g pkg = withExists pkg $ \_ px -> g px
 
 -- | First-class wrapper for universal quantification and pointwise conjunction.
 newtype Forall (p :: a -> Type) = MkForall { unForall :: forall x. p x }
@@ -166,11 +179,15 @@ forallDistribProd =
       (\(fp, fq) -> MkForall (MkProdPred (unForall fp, unForall fq)))
 
 -- | De Morgan for quantifiers: ¬(∃ x. P x) ⇔ ∀ x. ¬(P x).
-notExistsToForallNot :: Not (Exists p) -> (forall x. Not (p x))
-notExistsToForallNot ne px = ne (Witness px)
+notExistsToForallNot
+  :: forall a (p :: a -> Type).
+     Not (Exists p) -> (forall x. Not (p x))
+notExistsToForallNot ne (px :: p x) = ne (Pack (type x) px)
 
-forallNotToNotExists :: (forall x. Not (p x)) -> Not (Exists p)
-forallNotToNotExists fn (Witness px) = fn px
+forallNotToNotExists
+  :: forall a (p :: a -> Type).
+     (forall x. Not (p x)) -> Not (Exists p)
+forallNotToNotExists fn pkg = withExists pkg $ \_ px -> fn px
 ```
 
 ## An existential example: `Even` and `Odd` as doubles
@@ -283,7 +300,8 @@ inspected at runtime!) behaves like the 3-way sum
 - Adapted from [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Quantifiers.lagda.md)),
   licensed under CC BY 4.0.
-- Contrasts erased `Exists` GADTs with retained `GHC.Sigma` (`some ... | ...`)
+- Contrasts native Proposal `#473` erased existentials (`HaskLib.Exists.Exists`)
+  with retained `GHC.Sigma` (`some ... | ...`)
   and `foreach`-carrying GADT witnesses (`EvenWitness`, `OddWitness`).
 - Checked direct ports of `existsDistribSum`, `existsCurryTo`/`From`,
   `forallDistribProd`, quantifier De Morgan (`notExistsToForallNot`,
