@@ -14,9 +14,10 @@ available to import.
 
 - Pick an example below or write your own module, then press **`Ctrl/Cmd+Enter`**
   or click **Check & Load in GHCi**.
-- **Try Agda-mode typed holes:** replace any proof expression with `_qed` (or
-  select the **Agda-mode Typed Hole** preset) and click a suggested valid hole
-  fit chip to refine and re-check automatically.
+- **Try Agda-mode typed holes:** select the **Agda-mode Case Split & Holes**
+  preset (or replace any proof with `_`) to split stuck equations across
+  constructors, refine proof subgoals step-by-step (`cong Succ _`), or fill
+  goals directly via 1-step synthesis (`cong Succ (plusAssoc m n p)`).
 - Use the **`ghci>`** prompt below the editor for `:t`, `:k!`, `:i`,
   `:browse HaskLib.Nat`, or runtime evaluation.
 

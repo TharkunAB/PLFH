@@ -445,12 +445,12 @@ function buildModuleSource(
   if (modMatch) {
     const modName = modMatch[1];
     const relPath = modName.replace(/\./g, "/") + ".hs";
+    const hasDep = code.includes("DependentTypes");
     return {
       filePath: `/tmp/work/${relPath}`,
       modName,
-      fullSource: code.includes("DependentTypes")
-        ? code
-        : `{-# LANGUAGE DependentTypes #-}\n${code}`,
+      lineOffset: hasDep ? 0 : 1,
+      fullSource: hasDep ? code : `{-# LANGUAGE DependentTypes #-}\n${code}`,
     };
   }
 
@@ -495,7 +495,7 @@ function buildModuleSource(
   const hasSigma = /\bGHC\.Sigma\b/.test(allImportsText);
   const hasHaskLibNat = /\bHaskLib\.Nat\b/.test(allImportsText);
 
-  const header = [
+  const headerPrefix = [
     "{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, LambdaCase #-}",
     ...chapterPragmas,
     ...snippetPragmas,
@@ -509,13 +509,18 @@ function buildModuleSource(
     ...(chapterModule ? [`import ${chapterModule}${chapterHiding}`] : []),
     ...snippetImports,
     "",
-    declBody,
-    "",
   ].join("\n");
+
+  const header = `${headerPrefix}\n${declBody}\n`;
+  const exactOffset =
+    snippetPragmas.length === 0 && snippetImports.length === 0
+      ? headerPrefix.split("\n").length
+      : null;
 
   return {
     filePath: "/tmp/work/PlfhInteractive.hs",
     modName: "PlfhInteractive",
+    lineOffset: exactOffset,
     fullSource: header,
   };
 }
@@ -582,7 +587,7 @@ self.addEventListener("message", (ev) => {
           interactiveMode = false;
           drainOutput();
 
-          const { filePath, modName, fullSource } = buildModuleSource(
+          const { filePath, modName, lineOffset, fullSource } = buildModuleSource(
             msg.code,
             msg.chapterModule || currentChapter,
             msg.chapterPragmas || [],
@@ -599,6 +604,7 @@ self.addEventListener("message", (ev) => {
             status,
             stdout,
             stderr,
+            lineOffset,
             elapsedMs: Math.round(performance.now() - t0),
           });
           return;

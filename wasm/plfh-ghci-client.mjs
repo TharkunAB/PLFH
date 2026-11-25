@@ -254,81 +254,502 @@ function wireEditorKeys(editor, onRun) {
   });
 }
 
-// Parse GHC typed-hole diagnostics ([GHC-88464]) into structured goals and valid fits
-// so the browser UI can render Agda-mode clickable refinement chips.
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function splitTopLevelTypeSig(text) {
+  let depth = 0;
+  for (let i = 0; i < text.length - 3; i++) {
+    const ch = text[i];
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+    else if (depth === 0 && text.slice(i, i + 4) === " :: ") {
+      return {
+        expr: text.slice(0, i).trim(),
+        typeSig: text.slice(i + 4).trim(),
+      };
+    }
+  }
+  return { expr: text.trim(), typeSig: "" };
+}
+
+function sanitizeRefinementFit(expr) {
+  let out = "";
+  const subgoals = [];
+  let i = 0;
+  while (i < expr.length) {
+    const sub = expr.slice(i);
+    const m = sub.match(/^\(\s*(_[A-Za-z0-9_']*)\s*::\s*/);
+    if (m) {
+      let depth = 1;
+      let j = i + m[0].length;
+      while (j < expr.length && depth > 0) {
+        if (expr[j] === "(") depth++;
+        else if (expr[j] === ")") depth--;
+        j++;
+      }
+      const innerType = expr
+        .slice(i + m[0].length, j - 1)
+        .replace(/\s+/g, " ")
+        .trim();
+      subgoals.push(innerType);
+      out += m[1];
+      i = j;
+    } else {
+      out += expr[i];
+      i++;
+    }
+  }
+  return { cleanExpr: out.replace(/\s+/g, " ").trim(), subgoals };
+}
+
+// Parse GHC typed-hole diagnostics ([GHC-88464]) into structured goals, direct fits,
+// subgoal-splitting refinement fits, and pattern-match case-split suggestions.
 function parseTypedHoles(diagText) {
   if (!diagText || !diagText.includes("Found hole:")) return [];
   const holes = [];
   const sections = diagText.split(/(?=^[^\n]*error:\s*\[GHC-88464\])/m);
-  const skipFits = new Set(["undefined", "error", "errorWithoutStackTrace"]);
+  const skipFits = new Set([
+    "undefined",
+    "error",
+    "errorWithoutStackTrace",
+    "errorCallWithCallStackException",
+  ]);
 
   for (const sec of sections) {
     if (!sec.includes("Found hole:")) continue;
+    const locMatch = sec.match(/^[^\n]*?:(\d+):(\d+):\s*error:\s*\[GHC-88464\]/m);
+    const line = locMatch ? Number(locMatch[1]) : null;
+    const col = locMatch ? Number(locMatch[2]) : null;
+
     const goalMatch = sec.match(
       /Found hole:\s+(_[A-Za-z0-9_']*)\s+::\s+([\s\S]*?)(?=\n\s*(?:Or perhaps|Where:|•|\|)|$)/
     );
     if (!goalMatch) continue;
     const name = goalMatch[1];
     const goalType = goalMatch[2].replace(/\s+/g, " ").trim();
+
+    const eqMatch = sec.match(/In an equation for [‘']([^’']+)[’']:\s*([^\n]+)/);
+    const fnName = eqMatch ? eqMatch[1].trim() : null;
+    const equationText = eqMatch ? eqMatch[2].trim() : null;
+
     const fits = [];
     const seen = new Set();
 
-    const extractFitsBlock = (headerRe, isRefinement) => {
-      const m = sec.match(headerRe);
-      if (!m) return;
-      const lines = m[1].split("\n");
-      for (const line of lines) {
-        // GHC indents fit entries with 8 spaces: "        Refl :: forall ..."
-        const fm = line.match(/^\s{6,10}([^\s(][^:]*?)\s+::\s+(.*)$/);
-        if (!fm) continue;
-        const expr = fm[1].trim();
-        const typeSig = fm[2].trim();
-        if (!expr || skipFits.has(expr) || seen.has(expr)) continue;
-        seen.add(expr);
-        fits.push({ expr, typeSig, refinement: isRefinement });
+    const parseFitEntries = (rawInline, rawBlock, isRefinement) => {
+      const rawItems = [];
+      if (rawInline && rawInline.trim()) {
+        rawItems.push(rawInline.trim());
+      }
+      if (rawBlock) {
+        const blockLines = rawBlock.split("\n").filter((l) => l.trim().length > 0);
+        let baseIndent = null;
+        let current = null;
+        for (const l of blockLines) {
+          const indent = l.match(/^(\s*)/)[1].length;
+          const trimmed = l.trim();
+          if (baseIndent === null) {
+            baseIndent = indent;
+            current = [trimmed];
+          } else if (
+            indent <= baseIndent &&
+            !trimmed.startsWith("::") &&
+            !trimmed.startsWith("with ") &&
+            !trimmed.startsWith("where ")
+          ) {
+            if (current) rawItems.push(current.join("\n"));
+            current = [trimmed];
+          } else {
+            if (current) current.push(trimmed);
+          }
+        }
+        if (current) rawItems.push(current.join("\n"));
+      }
+
+      for (const item of rawItems) {
+        const lines = item.split("\n");
+        const headLines = [];
+        const metaLines = [];
+        let inMeta = false;
+        for (const l of lines) {
+          if (/^(?:where|with)\s+/.test(l)) inMeta = true;
+          if (inMeta) metaLines.push(l);
+          else headLines.push(l);
+        }
+        const headJoined = headLines.join(" ").replace(/\s+/g, " ").trim();
+        const metaJoined = metaLines.join(" ").replace(/\s+/g, " ").trim();
+        if (!headJoined) continue;
+
+        if (isRefinement) {
+          const { cleanExpr, subgoals } = sanitizeRefinementFit(headJoined);
+          if (!cleanExpr || skipFits.has(cleanExpr) || seen.has(`ref:${cleanExpr}`)) {
+            continue;
+          }
+          seen.add(`ref:${cleanExpr}`);
+          fits.push({
+            expr: cleanExpr,
+            typeSig: subgoals.length > 0 ? `Subgoal: ${subgoals.join(", ")}` : metaJoined,
+            fullTooltip: [headJoined, metaJoined].filter(Boolean).join("\n"),
+            refinement: true,
+          });
+        } else {
+          const { expr, typeSig } = splitTopLevelTypeSig(headJoined);
+          if (!expr || skipFits.has(expr) || seen.has(`fit:${expr}`)) continue;
+          seen.add(`fit:${expr}`);
+          fits.push({
+            expr,
+            typeSig: typeSig || metaJoined,
+            fullTooltip: [headJoined, metaJoined].filter(Boolean).join("\n"),
+            refinement: false,
+          });
+        }
       }
     };
 
-    extractFitsBlock(
-      /Valid hole fits include\n([\s\S]*?)(?=\n\s*(?:Valid refinement hole fits include|\(Some hole fits suppressed|\|)|$)/,
-      false
+    const directM = sec.match(
+      /Valid hole fits include(?:[ \t]+([^\n]+)|\n([\s\S]*?))(?=\n\s*(?:Valid refinement hole fits include|Suggested fixes:|\(Some hole fits suppressed|\|)|$)/
     );
-    extractFitsBlock(
-      /Valid refinement hole fits include\n([\s\S]*?)(?=\n\s*(?:\(Some refinement hole fits suppressed|\|)|$)/,
-      true
-    );
+    if (directM) parseFitEntries(directM[1], directM[2], false);
 
-    holes.push({ name, goalType, fits });
+    const refM = sec.match(
+      /Valid refinement hole fits include(?:[ \t]+([^\n]+)|\n([\s\S]*?))(?=\n\s*(?:Suggested fixes:|\(Some refinement hole fits suppressed|\|)|$)/
+    );
+    if (refM) parseFitEntries(refM[1], refM[2], true);
+
+    const splits = [];
+    const fixM = sec.match(/Suggested fixes:\n([\s\S]*?)(?=\n\s*\||$)/);
+    if (fixM) {
+      const items = fixM[1].split(/^\s*•\s+/m).filter((s) => s.trim().length > 0);
+      for (const rawItem of items) {
+        const flat = rawItem.replace(/\s+/g, " ").trim();
+        const pm = flat.match(
+          /Pattern-match on [‘']([^’']+)[’']\s*\(constructors:\s*([^)]+)\)\s*to reduce [‘']([^’']+)[’']/
+        );
+        if (!pm) continue;
+        const varName = pm[1].trim();
+        const constructors = [...pm[2].matchAll(/[‘']([^’']+)[’']/g)].map((cm) =>
+          cm[1].trim()
+        );
+        const stuckFn = pm[3].trim();
+        if (varName && constructors.length > 0) {
+          splits.push({ varName, constructors, stuckFn });
+        }
+      }
+    }
+
+    holes.push({ line, col, name, goalType, fnName, equationText, fits, splits });
   }
   return holes;
 }
 
-// Replace the first standalone occurrence of `holeName` (`_`, `_qed`, ...) in `code`.
-function applyHoleFit(code, holeName, fitExpr) {
-  const escaped = holeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(^|[^A-Za-z0-9_'])(${escaped})(?![A-Za-z0-9_'])`);
-  return code.replace(re, (match, prefix, _tok, offset) => {
-    const needsParens = /\s/.test(fitExpr) && !/^\(.*\)$/.test(fitExpr);
-    const before = code.slice(0, offset + prefix.length);
-    const insideApp = /[A-Za-z0-9_')\]]\s+$/.test(before);
-    const replacement = needsParens && insideApp ? `(${fitExpr})` : fitExpr;
-    return `${prefix}${replacement}`;
+function findTopLevelEquals(line) {
+  let depth = 0;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+    else if (
+      depth === 0 &&
+      ch === "=" &&
+      line[i - 1] !== "=" &&
+      line[i - 1] !== "/" &&
+      line[i - 1] !== "<" &&
+      line[i - 1] !== ">" &&
+      line[i + 1] !== "=" &&
+      line[i + 1] !== ">"
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function extractLhsBinders(line, fnName) {
+  const vars = new Set();
+  if (!line) return vars;
+  const eqPos = findTopLevelEquals(line);
+  const lhs = eqPos === -1 ? line : line.slice(0, eqPos);
+  const tokens = lhs.match(/\b[a-z][A-Za-z0-9_']*\b/g) || [];
+  let skippedFn = false;
+  for (const tok of tokens) {
+    if (!skippedFn && fnName && tok === fnName) {
+      skippedFn = true;
+      continue;
+    }
+    vars.add(tok);
+  }
+  return vars;
+}
+
+// Map renamed GHC skolem suffixes (e.g. `n1` -> `n`) back to the source LHS binder
+// when the base binder is in scope on the equation LHS and the suffixed token is not.
+function normalizeSkolemVars(expr, lhsVars, code) {
+  if (!lhsVars || lhsVars.size === 0) return expr;
+  return expr.replace(/\b([a-z][A-Za-z0-9_']*?)(\d+)\b/g, (full, base) => {
+    if (lhsVars.has(full) || !lhsVars.has(base)) return full;
+    if (code && new RegExp(`\\b${escapeRegex(full)}\\b`).test(code)) return full;
+    return base;
   });
 }
 
-// Inject refinement-level hole-fit flags when the opt-in toggle is active and a hole exists.
-function maybeWithRefinementPragmas(code, refinementEnabled) {
-  if (!refinementEnabled) return code;
-  if (!/(^|[^A-Za-z0-9_'])_[A-Za-z0-9_']*/.test(code)) return code;
-  if (/-frefinement-level-hole-fits/.test(code)) return code;
-  return (
-    "{-# OPTIONS_GHC -frefinement-level-hole-fits=1 -fmax-refinement-hole-fits=6 -funclutter-valid-hole-fits #-}\n" +
-    code
+function findHoleLineIndex(lines, hole, lineOffset) {
+  const holeRe = new RegExp(
+    `(^|[^A-Za-z0-9_'])${escapeRegex(hole.name)}(?![A-Za-z0-9_'])`
   );
+  if (hole.line != null && lineOffset != null) {
+    const idx = hole.line - 1 - lineOffset;
+    if (idx >= 0 && idx < lines.length && holeRe.test(lines[idx])) {
+      return idx;
+    }
+  }
+  if (hole.equationText) {
+    const normEq = hole.equationText.replace(/\s+/g, " ").trim();
+    const exactIdx = lines.findIndex(
+      (l) => l.replace(/\s+/g, " ").trim() === normEq
+    );
+    if (exactIdx !== -1) return exactIdx;
+
+    const eqPos = findTopLevelEquals(normEq);
+    if (eqPos !== -1) {
+      const lhsPrefix = normEq.slice(0, eqPos).trim();
+      const lhsIdx = lines.findIndex((l) => {
+        const nl = l.replace(/\s+/g, " ").trim();
+        return nl.startsWith(lhsPrefix) && holeRe.test(l);
+      });
+      if (lhsIdx !== -1) return lhsIdx;
+    }
+  }
+  return lines.findIndex((l) => holeRe.test(l));
 }
 
-// Render interactive Agda-mode hole goal & clickable fit buttons above the raw diagnostic log.
-function renderHolePanel(panelEl, diagText, onFill) {
+// Replace the hole occurrence on the diagnostic's target line in `code`.
+function applyHoleFit(code, hole, rawFitExpr, lineOffset = null) {
+  const lines = code.split("\n");
+  const idx = findHoleLineIndex(lines, hole, lineOffset);
+  if (idx === -1) return code;
+
+  const targetLine = lines[idx];
+  const lhsVars = extractLhsBinders(targetLine, hole.fnName);
+  const fitExpr = normalizeSkolemVars(rawFitExpr, lhsVars, code);
+  const eqPos = findTopLevelEquals(targetLine);
+  const searchStart = eqPos !== -1 ? eqPos : 0;
+
+  const re = new RegExp(
+    `(^|[^A-Za-z0-9_'])(${escapeRegex(hole.name)})(?![A-Za-z0-9_'])`,
+    "g"
+  );
+  re.lastIndex = searchStart;
+  let chosen = null;
+  let m;
+  while ((m = re.exec(targetLine)) !== null) {
+    const tokCol = m.index + m[1].length + 1; // 1-based column
+    if (!chosen || (hole.col != null && Math.abs(tokCol - hole.col) < Math.abs(chosen.tokCol - hole.col))) {
+      chosen = { index: m.index, prefix: m[1], tok: m[2], tokCol };
+    }
+  }
+  if (!chosen && searchStart > 0) {
+    re.lastIndex = 0;
+    while ((m = re.exec(targetLine)) !== null) {
+      const tokCol = m.index + m[1].length + 1;
+      if (!chosen || (hole.col != null && Math.abs(tokCol - hole.col) < Math.abs(chosen.tokCol - hole.col))) {
+        chosen = { index: m.index, prefix: m[1], tok: m[2], tokCol };
+      }
+    }
+  }
+  if (!chosen) return code;
+
+  const tokStart = chosen.index + chosen.prefix.length;
+  const tokEnd = tokStart + chosen.tok.length;
+  const before = targetLine.slice(0, tokStart);
+  const needsParens = /\s/.test(fitExpr) && !/^\(.*\)$/.test(fitExpr);
+  const insideApp = /[A-Za-z0-9_')\]]\s+$/.test(before);
+  const replacement = needsParens && insideApp ? `(${fitExpr})` : fitExpr;
+  lines[idx] = before + replacement + targetLine.slice(tokEnd);
+  return lines.join("\n");
+}
+
+function inferLocalCtorArities(code) {
+  const arities = new Map();
+  for (const rawLine of code.split("\n")) {
+    const line = rawLine.replace(/--.*$/, "").trim();
+    if (!line) continue;
+    // GADT constructor: `C :: a -> b -> T ...`
+    const gadtM = line.match(/^([A-Z][A-Za-z0-9_']*)\s*::\s*(.*)$/);
+    if (gadtM) {
+      const ctor = gadtM[1];
+      let sig = gadtM[2].replace(/^forall\b[^.]*\.\s*/, "");
+      // Count top-level `->` arrows outside parens.
+      let depth = 0;
+      let arrows = 0;
+      for (let i = 0; i < sig.length - 1; i++) {
+        const ch = sig[i];
+        if (ch === "(" || ch === "[" || ch === "{") depth++;
+        else if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+        else if (depth === 0 && sig[i] === "-" && sig[i + 1] === ">") {
+          arrows++;
+          i++;
+        }
+      }
+      arities.set(ctor, arrows);
+      continue;
+    }
+    // H98 ADT line: `data Foo a = Bar | Baz a (Foo a)` or `| Baz a (Foo a)`
+    const adtM = line.match(/^(?:data|newtype)\s+[^=]+=\s*(.*)$/) || line.match(/^\|\s*(.*)$/);
+    if (adtM) {
+      for (const alt of adtM[1].split("|")) {
+        const cleaned = alt.replace(/\bderiving\b.*$/, "").trim();
+        const cm = cleaned.match(/^([A-Z][A-Za-z0-9_']*)(?:\s+(.*))?$/);
+        if (!cm) continue;
+        const ctor = cm[1];
+        const rest = (cm[2] || "").trim();
+        if (!rest) {
+          arities.set(ctor, 0);
+        } else {
+          // Count top-level whitespace-separated type arguments.
+          let depth = 0;
+          let args = 0;
+          let inTok = false;
+          for (const ch of rest) {
+            if (ch === "(" || ch === "[" || ch === "{") {
+              if (depth === 0 && !inTok) {
+                args++;
+                inTok = true;
+              }
+              depth++;
+            } else if (ch === ")" || ch === "]" || ch === "}") {
+              depth = Math.max(0, depth - 1);
+            } else if (/\s/.test(ch) && depth === 0) {
+              inTok = false;
+            } else if (depth === 0 && !inTok) {
+              args++;
+              inTok = true;
+            }
+          }
+          arities.set(ctor, args);
+        }
+      }
+    }
+  }
+  return arities;
+}
+
+function pickFreshVar(base, used) {
+  if (!used.has(base)) {
+    used.add(base);
+    return base;
+  }
+  for (let i = 1; i < 20; i++) {
+    const cand = `${base}${i}`;
+    if (!used.has(cand)) {
+      used.add(cand);
+      return cand;
+    }
+  }
+  return `${base}_`;
+}
+
+function buildCtorPattern(ctor, varName, otherVars, localArities) {
+  const used = new Set(otherVars);
+  used.delete(varName);
+  const recursiveArg = varName;
+
+  if (ctor === "[]") return "[]";
+  if (ctor === ":" || ctor === "(:)") {
+    const headBase = varName.endsWith("s") && varName.length > 1 ? varName.slice(0, -1) : "x";
+    const head = pickFreshVar(headBase, new Set([...used, recursiveArg]));
+    return `(${head} : ${recursiveArg})`;
+  }
+  if (ctor === "()") return "()";
+
+  const nullary = new Set([
+    "Zero", "True", "False", "Nothing", "Refl", "ReflP", "Nil", "One",
+    "FZ", "Z", "LZ", "LTZ", "EQ", "LT", "GT", "CEmpty", "TNat",
+  ]);
+  if (nullary.has(ctor)) return ctor;
+
+  const unaryRecursive = new Set(["Succ", "Suc", "X0", "X1", "Inc", "FS", "S", "LS", "LTS"]);
+  if (unaryRecursive.has(ctor)) return `(${ctor} ${recursiveArg})`;
+
+  if (ctor === "Just") return `(Just ${pickFreshVar("x", used)})`;
+  if (ctor === "Left") return `(Left ${pickFreshVar("x", used)})`;
+  if (ctor === "Right") return `(Right ${pickFreshVar("y", used)})`;
+  if (ctor === "Yes") return `(Yes ${pickFreshVar("p", used)})`;
+  if (ctor === "No") return `(No ${pickFreshVar("np", used)})`;
+  if (ctor === "Pair") {
+    const a = pickFreshVar("x", used);
+    const b = pickFreshVar("y", used);
+    return `(Pair ${a} ${b})`;
+  }
+
+  const arity = localArities.get(ctor) ?? 0;
+  if (arity <= 0) return ctor;
+  const args = [];
+  for (let i = 0; i < arity; i++) {
+    args.push(pickFreshVar(i === 0 ? "x" : `x${i + 1}`, used));
+  }
+  return `(${ctor} ${args.join(" ")})`;
+}
+
+// Agda-mode case split: split the hole's equation line across constructors of `split.varName`.
+function applyCaseSplit(code, hole, split, lineOffset = null) {
+  const lines = code.split("\n");
+  const idx = findHoleLineIndex(lines, hole, lineOffset);
+  if (idx === -1) return code;
+
+  const line = lines[idx];
+  const eqPos = findTopLevelEquals(line);
+  if (eqPos === -1) return code;
+
+  const lhs = line.slice(0, eqPos);
+  const rhs = line.slice(eqPos + 1);
+  const localArities = inferLocalCtorArities(code);
+  const otherVars = extractLhsBinders(line, hole.fnName);
+
+  // Locate `split.varName` in LHS after the function name.
+  const fnPrefixLen = hole.fnName ? Math.max(0, lhs.indexOf(hole.fnName) + hole.fnName.length) : 0;
+  const lhsHead = lhs.slice(0, fnPrefixLen);
+  const lhsArgs = lhs.slice(fnPrefixLen);
+  const varRe = new RegExp(`(^|[^A-Za-z0-9_'])(${escapeRegex(split.varName)})(?![A-Za-z0-9_'])`);
+  const vm = lhsArgs.match(varRe);
+  if (!vm) return code;
+
+  const varStart = vm.index + vm[1].length;
+  const varEnd = varStart + vm[2].length;
+  const beforeVar = lhsHead + lhsArgs.slice(0, varStart);
+  const afterVar = lhsArgs.slice(varEnd);
+
+  const pats = split.constructors.map((ctor) =>
+    buildCtorPattern(ctor, split.varName, otherVars, localArities)
+  );
+  const maxPatLen = Math.max(...pats.map((p) => p.length));
+
+  const newLines = split.constructors.map((ctor, i) => {
+    const pat = pats[i];
+    const pad = " ".repeat(Math.max(0, maxPatLen - pat.length));
+    let branchRhs = rhs;
+    if (hole.name !== "_") {
+      const safeSuffix = ctor.replace(/[^A-Za-z0-9_]/g, "") || String(i + 1);
+      const holeRe = new RegExp(
+        `(^|[^A-Za-z0-9_'])${escapeRegex(hole.name)}(?![A-Za-z0-9_'])`
+      );
+      branchRhs = rhs.replace(holeRe, `$1${hole.name}_${safeSuffix}`);
+    }
+    return `${beforeVar}${pat}${pad}${afterVar}=${branchRhs}`;
+  });
+
+  lines.splice(idx, 1, ...newLines);
+  return lines.join("\n");
+}
+
+// Wave 6B enables fast pruned refinement hole fits by default under -XDependentTypes.
+// Only pass an override flag when the user explicitly unchecks refinement fits.
+function refinementExtraGhcArgs(refinementEnabled) {
+  return refinementEnabled ? "" : "-fmax-refinement-hole-fits=0";
+}
+
+// Render interactive Agda-mode hole goals, case-split buttons, and clickable fit chips.
+function renderHolePanel(panelEl, diagText, { code = "", lineOffset = null, onFill, onSplit }) {
   const holes = parseTypedHoles(diagText);
   panelEl.innerHTML = "";
   if (holes.length === 0) {
@@ -339,34 +760,96 @@ function renderHolePanel(panelEl, diagText, onFill) {
 
   const heading = document.createElement("div");
   heading.className = "plfh-hole-heading";
-  heading.textContent = "Typed Holes (Agda-mode — click a fit to refine & re-check):";
+  heading.textContent =
+    "Typed Holes (Agda-mode — click a case split or fit to refine & re-check):";
   panelEl.append(heading);
+
+  const codeLines = code ? code.split("\n") : [];
 
   for (const hole of holes) {
     const card = document.createElement("div");
     card.className = "plfh-hole-card";
+
+    const lineIdx = codeLines.length > 0 ? findHoleLineIndex(codeLines, hole, lineOffset) : -1;
+    const lhsVars = extractLhsBinders(
+      lineIdx !== -1 ? codeLines[lineIdx] : hole.equationText,
+      hole.fnName
+    );
+
+    if (hole.equationText) {
+      const eqBadge = document.createElement("div");
+      eqBadge.className = "plfh-hole-eq";
+      eqBadge.innerHTML = `<code>${escapeHtml(hole.equationText)}</code>`;
+      card.append(eqBadge);
+    }
 
     const goal = document.createElement("div");
     goal.className = "plfh-hole-goal";
     goal.innerHTML = `<code>${escapeHtml(hole.name)} :: ${escapeHtml(hole.goalType)}</code>`;
     card.append(goal);
 
-    if (hole.fits.length > 0) {
-      const fitsRow = document.createElement("div");
-      fitsRow.className = "plfh-hole-fits";
-      for (const fit of hole.fits.slice(0, 10)) {
+    if (hole.splits.length > 0 && onSplit) {
+      const splitRow = document.createElement("div");
+      splitRow.className = "plfh-hole-fits";
+      const lbl = document.createElement("span");
+      lbl.className = "plfh-hole-row-label";
+      lbl.textContent = "Case split:";
+      splitRow.append(lbl);
+      for (const sp of hole.splits) {
         const btn = document.createElement("button");
         btn.type = "button";
-        btn.className = fit.refinement
-          ? "plfh-hole-fit-btn plfh-hole-fit-btn--refine"
-          : "plfh-hole-fit-btn";
-        btn.textContent = fit.expr;
-        btn.title = `${fit.expr} :: ${fit.typeSig}`;
-        btn.addEventListener("click", () => onFill(hole.name, fit.expr));
+        btn.className = "plfh-hole-fit-btn plfh-hole-fit-btn--split";
+        btn.textContent = `Split on ${sp.varName} (${sp.constructors.join(" | ")})`;
+        btn.title = `Pattern-match on '${sp.varName}' to reduce '${sp.stuckFn}'`;
+        btn.addEventListener("click", () => onSplit(hole, sp));
+        splitRow.append(btn);
+      }
+      card.append(splitRow);
+    }
+
+    const directFits = hole.fits.filter((f) => !f.refinement);
+    const refFits = hole.fits.filter((f) => f.refinement);
+
+    if (directFits.length > 0) {
+      const fitsRow = document.createElement("div");
+      fitsRow.className = "plfh-hole-fits";
+      const lbl = document.createElement("span");
+      lbl.className = "plfh-hole-row-label";
+      lbl.textContent = "Fill:";
+      fitsRow.append(lbl);
+      for (const fit of directFits.slice(0, 8)) {
+        const displayExpr = normalizeSkolemVars(fit.expr, lhsVars, code);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "plfh-hole-fit-btn";
+        btn.textContent = displayExpr;
+        btn.title = fit.fullTooltip || `${displayExpr} :: ${fit.typeSig}`;
+        btn.addEventListener("click", () => onFill(hole, fit.expr));
         fitsRow.append(btn);
       }
       card.append(fitsRow);
     }
+
+    if (refFits.length > 0) {
+      const refRow = document.createElement("div");
+      refRow.className = "plfh-hole-fits";
+      const lbl = document.createElement("span");
+      lbl.className = "plfh-hole-row-label";
+      lbl.textContent = "Refine subgoal:";
+      refRow.append(lbl);
+      for (const fit of refFits.slice(0, 8)) {
+        const displayExpr = normalizeSkolemVars(fit.expr, lhsVars, code);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "plfh-hole-fit-btn plfh-hole-fit-btn--refine";
+        btn.textContent = displayExpr;
+        btn.title = fit.fullTooltip || `${displayExpr} (${fit.typeSig})`;
+        btn.addEventListener("click", () => onFill(hole, fit.expr));
+        refRow.append(btn);
+      }
+      card.append(refRow);
+    }
+
     panelEl.append(card);
   }
 }
@@ -405,7 +888,7 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
   const refineLabel = document.createElement("label");
   refineLabel.className = "plfh-refinement-toggle";
   refineLabel.title =
-    "Enable -frefinement-level-hole-fits=1 when checking snippets with typed holes (_) — experimental while GHC valid hole fits are being refined";
+    "Enable Dependent Haskell refinement hole fits & subgoal splitting (on by default under -XDependentTypes)";
   const refineCheckbox = document.createElement("input");
   refineCheckbox.type = "checkbox";
   refineCheckbox.checked = uiState.refinementFits;
@@ -527,11 +1010,12 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
     holePanel.hidden = true;
     statusSpan.textContent = client.booted ? "Checking scratchpad..." : "Starting GHCi Wasm...";
     const res = await client.checkBlock({
-      code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
+      code: scratchEditor.value,
       chapterModule,
       chapterPragmas: ctx.chapterPragmas,
       chapterImports: ctx.chapterImports,
       chapterExports: ctx.chapterExports,
+      extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
     });
     scratchBtn.disabled = false;
     output.hidden = false;
@@ -549,11 +1033,22 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
         ? "Ok, scratchpad typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
     if (hasHoles) {
-      renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
-        scratchWrap.open = true;
-        scratchEditor.value = applyHoleFit(scratchEditor.value, holeName, fitExpr);
-        scratchEditor.focus();
-        runScratch();
+      const lineOffset = res.lineOffset ?? null;
+      renderHolePanel(holePanel, combined, {
+        code: scratchEditor.value,
+        lineOffset,
+        onFill: (hole, fitExpr) => {
+          scratchWrap.open = true;
+          scratchEditor.value = applyHoleFit(scratchEditor.value, hole, fitExpr, lineOffset);
+          scratchEditor.focus();
+          runScratch();
+        },
+        onSplit: (hole, split) => {
+          scratchWrap.open = true;
+          scratchEditor.value = applyCaseSplit(scratchEditor.value, hole, split, lineOffset);
+          scratchEditor.focus();
+          runScratch();
+        },
       });
     }
   };
@@ -610,17 +1105,22 @@ natToInt (Succ n) = 1 + natToInt n
   },
   {
     id: "holes",
-    label: "Agda-mode Typed Hole",
-    replHint: ":t twoPlusThree",
+    label: "Agda-mode Case Split & Holes",
+    replHint: ":t plusAssoc",
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
 import Data.Type.Equality ((:~:) (Refl))
 import HaskLib.Nat (Nat (..), plus)
+import PLFH.Part1.Induction (cong)
 
--- Click "Check & Load in GHCi", then click the \`Refl\` chip below!
-twoPlusThree :: plus 2 3 :~: 5
-twoPlusThree = _qed
+-- Interactive Agda-mode proof in 3 clicks:
+-- 1. Click "Check & Load in GHCi" -> GHC suggests splitting on \`m\`.
+-- 2. Click "Split on m (Zero | Succ)" -> GHC generates both cases.
+-- 3. Click \`Refl\`, then \`cong Succ (plusAssoc m n p)\` (or refine via \`cong Succ _\`)!
+plusAssoc :: foreach (m n p :: Nat)
+          -> plus (plus m n) p :~: plus m (plus n p)
+plusAssoc m n p = _
 `,
   },
   {
@@ -675,7 +1175,7 @@ extractHalf = case halfOfFour of
   {
     id: "debruijn",
     label: "Intrinsically-Typed STLC",
-    replHint: "isTwoValue",
+    replHint: "evalTwoPlusTwo",
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
@@ -692,13 +1192,19 @@ shiftUnderLam
      :~: DB.Lam (DB.Lam (DB.Var (DB.S (DB.S DB.Z))))
 shiftUnderLam = Refl
 
-isTwoValue :: Bool
-isTwoValue =
-  let t :: DB.Term DB.CEmpty DB.TNat
-      t = DB.termTwo
-  in case DB.checkValue t of
-       DB.YesVal _ -> True
-       DB.NotVal   -> False
+termToInt :: DB.Term DB.CEmpty DB.TNat -> Int
+termToInt DB.Zero    = 0
+termToInt (DB.Suc n) = 1 + termToInt n
+termToInt _          = -1
+
+-- Run PLFH's intrinsically-typed STLC evaluator on \`2 + 2\` with 40 steps of gas:
+evalTwoPlusTwo :: Int
+evalTwoPlusTwo =
+  let prog :: DB.Term DB.CEmpty DB.TNat
+      prog = DB.App (DB.App DB.plusTerm DB.termTwo) DB.termTwo
+  in case DB.eval (DB.MkGas 40) prog of
+       DB.Done v _ _   -> termToInt v
+       DB.OutOfGas _ _ -> -1
 `,
   },
   {
@@ -777,7 +1283,7 @@ function mountStandalonePlayground(mountEl, client, uiState) {
   const refineLabel = document.createElement("label");
   refineLabel.className = "plfh-refinement-toggle";
   refineLabel.title =
-    "Enable -frefinement-level-hole-fits=1 when checking snippets with typed holes (_) — experimental while GHC valid hole fits are being refined";
+    "Enable Dependent Haskell refinement hole fits & subgoal splitting (on by default under -XDependentTypes)";
   const refineCheckbox = document.createElement("input");
   refineCheckbox.type = "checkbox";
   refineCheckbox.checked = uiState.refinementFits;
@@ -830,8 +1336,9 @@ function mountStandalonePlayground(mountEl, client, uiState) {
       ? "Checking..."
       : "Starting Dependent GHCi Wasm...";
     const res = await client.checkBlock({
-      code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
+      code: editor.value,
       chapterModule: null,
+      extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
     });
     checkBtn.disabled = false;
     output.hidden = false;
@@ -849,10 +1356,20 @@ function mountStandalonePlayground(mountEl, client, uiState) {
         ? "Ok, module typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
     if (hasHoles) {
-      renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
-        editor.value = applyHoleFit(editor.value, holeName, fitExpr);
-        editor.focus();
-        runCheck();
+      const lineOffset = res.lineOffset ?? null;
+      renderHolePanel(holePanel, combined, {
+        code: editor.value,
+        lineOffset,
+        onFill: (hole, fitExpr) => {
+          editor.value = applyHoleFit(editor.value, hole, fitExpr, lineOffset);
+          editor.focus();
+          runCheck();
+        },
+        onSplit: (hole, split) => {
+          editor.value = applyCaseSplit(editor.value, hole, split, lineOffset);
+          editor.focus();
+          runCheck();
+        },
       });
     }
   };
@@ -888,7 +1405,7 @@ export function enhancePlfhPage({
   const blocks = [...document.querySelectorAll(selector)];
   const chapterCtx = scrapeChapterContext(blocks);
 
-  const uiState = { refinementFits: false };
+  const uiState = { refinementFits: true };
   const standaloneMount = document.getElementById("plfh-standalone-playground");
   if (standaloneMount) {
     mountStandalonePlayground(standaloneMount, client, uiState);
@@ -1024,11 +1541,12 @@ export function enhancePlfhPage({
         : "Starting GHCi Wasm...";
       const rawCode = editor.hidden ? initialCode : editor.value;
       const res = await client.checkBlock({
-        code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
+        code: rawCode,
         chapterModule: blockMod,
         chapterPragmas: chapterCtx.chapterPragmas,
         chapterImports: chapterCtx.chapterImports,
         chapterExports: chapterCtx.chapterExports,
+        extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
       });
       statusSpan.dataset.active = "0";
       checkBtn.disabled = false;
@@ -1068,16 +1586,30 @@ export function enhancePlfhPage({
         output.dataset.state = hasHoles ? "warn" : "err";
         output.textContent = combined || res.status;
         if (hasHoles) {
-          renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
+          const lineOffset = res.lineOffset ?? null;
+          const revealEditor = () => {
             if (editor.hidden) {
               editor.hidden = false;
               container.hidden = true;
               resetBtn.hidden = false;
               editBtn.textContent = "View Highlighted";
             }
-            editor.value = applyHoleFit(editor.value, holeName, fitExpr);
-            editor.focus();
-            runCheck();
+          };
+          renderHolePanel(holePanel, combined, {
+            code: editor.value,
+            lineOffset,
+            onFill: (hole, fitExpr) => {
+              revealEditor();
+              editor.value = applyHoleFit(editor.value, hole, fitExpr, lineOffset);
+              editor.focus();
+              runCheck();
+            },
+            onSplit: (hole, split) => {
+              revealEditor();
+              editor.value = applyCaseSplit(editor.value, hole, split, lineOffset);
+              editor.focus();
+              runCheck();
+            },
           });
         }
       }

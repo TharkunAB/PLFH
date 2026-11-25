@@ -46,10 +46,10 @@ With `-XDependentTypes`, terms and types move toward a single unified language:
   non-termination and partiality. Dependent Haskell preserves System FC type
   soundness by checking value-carrying proofs explicitly (Weirich et al., ICFP
   2017) rather than assuming every term terminates.
-- **Interactive Agda-mode via Typed Holes:** GHC's typed holes (`_`, `_qed`)
-  and valid hole fits (Gissurarson, Haskell 2018) inspect goals and suggest
-  proof terms directly in the [browser Playground](/Playground/) and on every
-  chapter page.
+- **Interactive Agda-mode via Typed Holes:** GHC's dependent typed holes (`_`,
+  `_qed`), subgoal-splitting refinement fits, 1-step proof synthesis, and
+  pattern-match case splits (extending Gissurarson, Haskell 2018) run directly
+  in the [browser Playground](/Playground/) and on every chapter page.
 
 ## Try it live in your browser {#try-it}
 
@@ -78,7 +78,8 @@ follows a strict four-tier specification hierarchy
 4. **Agda and PLFA** inform surface ergonomics where GHC proposals are silent.
 
 See the [Yardstick Status Ledger](/Status/) for the live chapter-by-chapter
-tally, 48 fixed regression reproducers, and the remaining open compiler gaps.
+tally (all 25/25 chapters checked), 54 fixed regression reproducers, and the
+remaining tracked follow-ups.
 
 ## Key GHC Proposals
 

@@ -528,6 +528,12 @@ tr:nth-child(even) td {
   border-top: 1px solid #fde68a;
 }
 
+.plfh-hole-eq {
+  font-size: 0.78rem;
+  color: #6b7280;
+  margin-bottom: 3px;
+}
+
 .plfh-hole-goal {
   font-size: 0.86rem;
   margin-bottom: 6px;
@@ -537,7 +543,19 @@ tr:nth-child(even) td {
 .plfh-hole-fits {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+.plfh-hole-fits + .plfh-hole-fits {
+  margin-top: 5px;
+}
+
+.plfh-hole-row-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #78350f;
+  margin-right: 2px;
 }
 
 .plfh-hole-fit-btn {
@@ -563,6 +581,17 @@ tr:nth-child(even) td {
 
 .plfh-hole-fit-btn--refine:hover {
   background-color: #ccfbf1;
+}
+
+.plfh-hole-fit-btn--split {
+  border-color: #8b5cf6;
+  color: #5b21b6;
+  background-color: #faf5ff;
+}
+
+.plfh-hole-fit-btn--split:hover {
+  background-color: #ede9fe;
+  border-color: #7c3aed;
 }
 
 /* Overview landing CTAs & Standalone Playground */
