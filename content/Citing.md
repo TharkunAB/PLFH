@@ -52,7 +52,7 @@ made in translation to Dependent Haskell (`-XDependentTypes` in
 ```bibtex
 @Misc{plfh2026,
   title        = {Programming Language Foundations in {H}askell},
-  howpublished = {\url{https://github.mpg.is/PLFH/}},
+  howpublished = {\url{https://plfh.tharkun.se/}},
   note         = {Adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek,
                   \emph{Programming Language Foundations in Agda} (CC BY 4.0),
                   for Dependent Haskell in GHC},

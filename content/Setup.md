@@ -146,9 +146,10 @@ cabal run plfh-site -- build
 cabal run plfh-site -- watch   # local live preview at http://localhost:8000
 ```
 
-To test the exact GitHub Pages project-site URLs (`/PLFH/...`):
+To test root-domain URLs (matching [`https://plfh.tharkun.se/`](https://plfh.tharkun.se/), the default) or a subpath prefix (such as `/PLFH`):
 
 ```bash
+PLFH_BASEURL="" cabal run plfh-site -- rebuild
 PLFH_BASEURL=/PLFH cabal run plfh-site -- rebuild
 ```
 
@@ -164,11 +165,12 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
 - **No `SharedArrayBuffer` required:** Streaming decompression uses the standard
   `DecompressionStream("gzip")` API, so the bundle works on plain static HTTPS
   hosts without custom COOP/COEP headers.
-- **Persistent browser cache:** The worker caches `rootfs.tar.gz` in the browser
-  Cache API (`plfh-wasm-rootfs-v1`), so readers download the compiler bundle
-  once across chapters.
-- **Precompiled chapters:** `rootfs.tar.gz` ships `libplfh_ghci.so` alongside a
-  precompiled `plfh-book-0.1` package (`HaskLib` and all 34 checked `PLFH.*`
+- **Persistent browser cache:** The worker caches the content-addressed bundle
+  in the browser Cache API (`plfh-wasm-rootfs-v1`) and prunes superseded
+  versions, so readers download the compiler bundle once across chapters and
+  automatically receive updates when a new bundle ships.
+- **Precompiled chapters:** The bundle ships `libplfh_ghci.so` alongside a
+  precompiled `plfh-book-0.1` package (`HaskLib` and the checked `PLFH.*`
   modules), so individual edits, exercises, `:t`, `:k!`, and negative controls
   check directly against the chapter module.
 
@@ -177,31 +179,26 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
 Do not commit `rootfs.tar.gz` to Git (`.gitignore` excludes `wasm/*.tar.gz`).
 Instead:
 
-1. **Local preview:** Stage a built `plfh-browser-bundle/` into `wasm/` and run
-   Hakyll locally (or pass `?rootfs=http://...` in the page URL):
+1. **Cloudflare R2 CDN (production on `plfh.tharkun.se`):** Run `./release.sh`
+   from the repository root to upload a content-hashed
+   `plfh/rootfs-<sha256-12>.tar.gz` to the `tharkun-cdn` R2 bucket
+   (`https://cdn.tharkun.se/`), verify HTTPS reachability and CORS headers, and
+   update the `PLFH_WASM_ROOTFS_URL` repository variable:
+
+   ```bash
+   ./release.sh /path/to/plfh-browser-bundle          # upload + update PLFH_WASM_ROOTFS_URL
+   ./release.sh /path/to/plfh-browser-bundle --deploy # also trigger GitHub Pages rebuild
+   ```
+
+2. **Local preview:** Stage a built `plfh-browser-bundle/` into `wasm/` and run
+   Hakyll locally (or pass `?rootfs=https://...` in the page URL):
 
    ```bash
    bash scripts/stage_wasm_bundle.sh /path/to/plfh-browser-bundle
    cabal run plfh-site -- watch
    ```
 
-2. **GitHub Pages (default):** Publish `rootfs.tar.gz` as a release asset on the
-   `wasm-latest` GitHub Release (`bash scripts/stage_wasm_bundle.sh --publish-release`).
-   The Pages workflow (`.github/workflows/pages.yml`) downloads it into
-   `_site/wasm/rootfs.tar.gz` at deploy time, serving it same-origin with zero
-   CORS configuration.
-
-3. **External object storage (recommended for high traffic):** Upload a
-   versioned `rootfs-<rev>.tar.gz` to Cloudflare R2 (or S3/CDN with CORS
-   allowing your site origin) and set the `PLFH_WASM_ROOTFS_URL` repository
-   variable. Hakyll embeds that URL directly in every chapter page and skips the
-   release download step.
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — First <code>rootfs.tar.gz</code> build in progress]</strong>
-The interactive chapter UI, Web Worker, dynamic linker shims, and deployment
-hooks are live, while the initial <code>wasm32-wasi</code> Stage-2
-<code>libghc</code> + <code>plfh-book-0.1</code> bundle build completes.
-You can edit blocks now; clicking <strong>Check</strong> will activate live
-in-browser typechecking as soon as <code>rootfs.tar.gz</code> is uploaded.
-</div>
+3. **GitHub Pages fallback:** When `PLFH_WASM_ROOTFS_URL` is unset,
+   `.github/workflows/pages.yml` falls back to downloading `rootfs.tar.gz` from
+   the `wasm-latest` GitHub Release (`bash scripts/stage_wasm_bundle.sh --publish-release`)
+   into `_site/wasm/rootfs.tar.gz`.

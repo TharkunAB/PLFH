@@ -8,7 +8,7 @@ serving as both a readable textbook and a practical yardstick for the
 experimental Dependent Haskell fork of GHC
 ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
 
-- **Live book (GitHub Pages):** <https://github.mpg.is/PLFH/>
+- **Live book (GitHub Pages):** <https://plfh.tharkun.se/>
 - **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
 
 ## Repository layout

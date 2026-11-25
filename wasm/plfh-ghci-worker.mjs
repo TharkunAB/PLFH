@@ -9,8 +9,10 @@ const CACHE_NAME = "plfh-wasm-rootfs-v1";
 let runCmd = null;
 let hsSearchDir = null;
 let currentChapter = null;
+let interactiveMode = false;
 const defaultFlags =
-  "-XDependentTypes -package-env - -package plfh-book -i/tmp/work -outputdir /tmp/out";
+  "-package-env - -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
+const replFlags = `-XDependentTypes ${defaultFlags}`;
 
 const stdoutLines = [];
 const stderrLines = [];
@@ -94,6 +96,15 @@ async function fetchRootfsResponse(rootfsUrl, onProgress) {
 
   if (cache) {
     try {
+      // Prune superseded rootfs versions so browser storage stays bounded to one bundle.
+      cache
+        .keys()
+        .then((keys) => {
+          for (const req of keys) {
+            if (req.url !== rootfsUrl) cache.delete(req).catch(() => {});
+          }
+        })
+        .catch(() => {});
       // Cache asynchronously so streaming decompression starts immediately.
       cache.put(rootfsUrl, resp.clone()).catch(() => {});
     } catch {
@@ -128,24 +139,49 @@ async function fetchAndExtractTarGz(rootfsUrl, onProgress) {
     .pipeThrough(new DecompressionStream("gzip"));
   const reader = gunzipStream.getReader();
 
-  let buf = new Uint8Array(0);
+  // O(N) chunk-queue reader: avoids O(N^2) reallocation on large .so members.
+  const chunks = [];
+  let headIdx = 0;
+  let headOff = 0;
+  let buffered = 0;
+
   async function readExact(n) {
-    while (buf.length < n) {
+    while (buffered < n) {
       const { done, value } = await reader.read();
-      if (done) {
-        if (buf.length === 0) return null;
-        const tail = buf;
-        buf = new Uint8Array(0);
-        return tail;
+      if (done) break;
+      if (value && value.byteLength > 0) {
+        chunks.push(value);
+        buffered += value.byteLength;
       }
-      const next = new Uint8Array(buf.length + value.length);
-      next.set(buf, 0);
-      next.set(value, buf.length);
-      buf = next;
     }
-    const out = buf.subarray(0, n);
-    buf = buf.subarray(n);
+    if (buffered === 0) return null;
+    const take = Math.min(n, buffered);
+    const out = new Uint8Array(take);
+    let written = 0;
+    while (written < take) {
+      const cur = chunks[headIdx];
+      const avail = cur.byteLength - headOff;
+      const step = Math.min(avail, take - written);
+      out.set(cur.subarray(headOff, headOff + step), written);
+      written += step;
+      headOff += step;
+      if (headOff === cur.byteLength) {
+        chunks[headIdx] = null;
+        headIdx += 1;
+        headOff = 0;
+      }
+    }
+    buffered -= take;
+    if (headIdx > 64) {
+      chunks.splice(0, headIdx);
+      headIdx = 0;
+    }
     return out;
+  }
+
+  async function skipExact(n) {
+    if (n <= 0) return;
+    await readExact(n);
   }
 
   const rootDir = new Directory([]);
@@ -170,11 +206,8 @@ async function fetchAndExtractTarGz(rootfsUrl, onProgress) {
     const typeFlag = hdr[156] === 0 ? "0" : String.fromCharCode(hdr[156]);
     const prefix = decodeCString(hdr.subarray(345, 500));
     const paddedSize = Math.ceil(size / 512) * 512;
-    const payloadPadded =
-      paddedSize > 0 ? await readExact(paddedSize) : new Uint8Array(0);
-    const payload = payloadPadded
-      ? payloadPadded.slice(0, size)
-      : new Uint8Array(0);
+    const payload = size > 0 ? (await readExact(size)) || new Uint8Array(0) : new Uint8Array(0);
+    await skipExact(paddedSize - size);
 
     if (typeFlag === "L") {
       pendingLongName = decodeCString(payload);
@@ -542,6 +575,7 @@ self.addEventListener("message", (ev) => {
         if (msg.type === "checkBlock") {
           const extra = msg.extraGhcArgs ? ` ${msg.extraGhcArgs}` : "";
           await runCmd("setflags", `${defaultFlags}${extra}`, "");
+          interactiveMode = false;
           drainOutput();
 
           const { filePath, modName, fullSource } = buildModuleSource(
@@ -567,6 +601,11 @@ self.addEventListener("message", (ev) => {
         }
 
         if (msg.type === "repl") {
+          if (!interactiveMode) {
+            await runCmd("setflags", replFlags, "");
+            interactiveMode = true;
+            drainOutput();
+          }
           const { status, stdout, stderr } = await handleRepl(msg.line);
           self.postMessage({
             id: msg.id,

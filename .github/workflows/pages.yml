@@ -49,7 +49,7 @@ jobs:
 
       - name: Generate static book site
         env:
-          PLFH_BASEURL: /PLFH
+          PLFH_BASEURL: ""
           PLFH_WASM_ROOTFS_URL: ${{ vars.PLFH_WASM_ROOTFS_URL }}
         run: |
           cabal run plfh-site -- rebuild
