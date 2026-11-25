@@ -562,6 +562,24 @@ async function handleRepl(line) {
   return { status, stdout, stderr };
 }
 
+function parseSemanticTokens(raw, lineOffset = null) {
+  if (!raw || raw.startsWith("ERR:") || lineOffset === null) return null;
+  const out = [];
+  for (const line of raw.split("\n")) {
+    if (!line) continue;
+    const parts = line.split(":");
+    if (parts.length !== 4) continue;
+    const lineIdx = Number(parts[0]) - 1 - lineOffset;
+    const startCol = Number(parts[1]) - 1;
+    const endCol = Number(parts[2]) - 1;
+    const kind = parts[3];
+    if (lineIdx >= 0 && startCol >= 0 && endCol > startCol) {
+      out.push([lineIdx, startCol, endCol, kind]);
+    }
+  }
+  return out.length > 0 ? out : null;
+}
+
 let queue = Promise.resolve();
 
 self.addEventListener("message", (ev) => {
@@ -602,6 +620,12 @@ self.addEventListener("message", (ev) => {
           const mode = msg.typecheckOnly ? "typecheck" : "load";
           const status = await runCmd(mode, filePath, modName);
           const { stdout, stderr } = drainOutput();
+          let semanticTokens = null;
+          if (status === "OK" && lineOffset !== null) {
+            const rawToks = await runCmd("tokens", filePath, "");
+            drainOutput();
+            semanticTokens = parseSemanticTokens(rawToks, lineOffset);
+          }
           self.postMessage({
             id: msg.id,
             ok: status === "OK",
@@ -609,6 +633,7 @@ self.addEventListener("message", (ev) => {
             stdout,
             stderr,
             lineOffset,
+            semanticTokens,
             elapsedMs: Math.round(performance.now() - t0),
           });
           return;

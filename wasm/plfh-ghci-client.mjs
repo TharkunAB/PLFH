@@ -1024,11 +1024,59 @@ const AGDA_KNOWN_TYCONS = new Set([
   "SizedVec",
 ]);
 
-function highlightHaskellLine(line, lineIdx, { inBlockComment, isTypeLine, holeSpans }) {
+const VALID_SEMANTIC_KINDS = new Set([
+  "datacon",
+  "tycon",
+  "tyvar",
+  "fn",
+  "local",
+]);
+
+function normalizeGhcLineTokens(line, rawTokens) {
+  if (!rawTokens || rawTokens.length === 0) return [];
+  const n = line.length;
+  const out = [];
+  for (const raw of rawTokens) {
+    let s = Math.max(0, Math.min(raw.startCol, n));
+    let e = Math.max(s, Math.min(raw.endCol, n));
+    if (e <= s || !VALID_SEMANTIC_KINDS.has(raw.kind)) continue;
+    // Strip surrounding parens/backticks when GHC spans `(op)` or `` `fn` ``.
+    if (
+      e - s >= 3 &&
+      ((line[s] === "(" && line[e - 1] === ")") ||
+        (line[s] === "`" && line[e - 1] === "`"))
+    ) {
+      s += 1;
+      e -= 1;
+    }
+    if (e > s) {
+      out.push({ startCol: s, endCol: e, kind: raw.kind });
+    }
+  }
+  out.sort((a, b) => a.startCol - b.startCol || b.endCol - a.endCol);
+  // Deduplicate overlapping starts, keeping the most specific span.
+  const dedup = [];
+  let lastEnd = -1;
+  for (const tok of out) {
+    if (tok.startCol >= lastEnd) {
+      dedup.push(tok);
+      lastEnd = tok.endCol;
+    }
+  }
+  return dedup;
+}
+
+function highlightHaskellLine(
+  line,
+  lineIdx,
+  { inBlockComment, isTypeLine, holeSpans, ghcLineTokens }
+) {
   // Hole spans on this line take precedence for Agda-green goal boxes.
   const holesHere = (holeSpans || []).filter((h) => h.lineIdx === lineIdx);
   const findHoleAt = (col) =>
     holesHere.find((h) => col >= h.startCol && col < h.endCol);
+  const ghcToks = normalizeGhcLineTokens(line, ghcLineTokens);
+  const ghcTokByStart = new Map(ghcToks.map((t) => [t.startCol, t]));
 
   let out = "";
   let i = 0;
@@ -1110,6 +1158,17 @@ function highlightHaskellLine(line, lineIdx, { inBlockComment, isTypeLine, holeS
       if (charM) {
         out += `<span class="plfh-tok-str">${escapeHtml(charM[0])}</span>`;
         i += charM[0].length;
+        continue;
+      }
+    }
+
+    // Compiler-exact GHC RenamedSource semantic token span (takes precedence over heuristics).
+    const ghcTok = ghcTokByStart.get(i);
+    if (ghcTok && ghcTok.endCol <= n) {
+      const text = line.slice(i, ghcTok.endCol);
+      if (!AGDA_KEYWORDS.has(text)) {
+        out += `<span class="plfh-tok-${ghcTok.kind}">${escapeHtml(text)}</span>`;
+        i = ghcTok.endCol;
         continue;
       }
     }
@@ -1199,7 +1258,13 @@ function renderErrorLine(line, spansHere) {
 // when compiled by GHC, green goal boxes on typed holes, and red spans on errors.
 function highlightDependentHaskell(
   code,
-  { state = "unverified", holes = [], errors = [], lineOffset = null } = {}
+  {
+    state = "unverified",
+    holes = [],
+    errors = [],
+    lineOffset = null,
+    semanticTokens = null,
+  } = {}
 ) {
   if (state === "unverified" || state === "checking") {
     return escapeHtml(code) + "\n";
@@ -1217,6 +1282,15 @@ function highlightDependentHaskell(
         .map((line, idx) => renderErrorLine(line, byLine.get(idx)))
         .join("\n") + "\n"
     );
+  }
+
+  // Group GHC RenamedSource semantic tokens by 0-based line index when available.
+  const ghcByLine = new Map();
+  if (Array.isArray(semanticTokens)) {
+    for (const [li, sc, ec, kind] of semanticTokens) {
+      if (!ghcByLine.has(li)) ghcByLine.set(li, []);
+      ghcByLine.get(li).push({ startCol: sc, endCol: ec, kind });
+    }
   }
 
   // Verified ("ok") or verified-with-holes ("holes"): compute exact hole spans.
@@ -1258,6 +1332,7 @@ function highlightDependentHaskell(
       inBlockComment,
       isTypeLine: startsSig,
       holeSpans,
+      ghcLineTokens: ghcByLine.get(idx) || null,
     });
     inBlockComment = res.inBlockComment;
     prevWasSigCont =
@@ -1310,7 +1385,18 @@ function createAgdaEditor({
 
   const render = () => {
     root.dataset.state = state;
+    const hasGhcTokens =
+      Array.isArray(lastMeta.semanticTokens) && lastMeta.semanticTokens.length > 0;
+    root.dataset.semanticSource =
+      state === "ok" || state === "holes"
+        ? hasGhcTokens
+          ? "ghc"
+          : "lexer"
+        : "";
     badge.textContent = AGDA_BADGE_LABELS[state] || "";
+    badge.title = hasGhcTokens
+      ? "Semantic highlighting from GHC RenamedSource"
+      : "";
     codeEl.innerHTML = highlightDependentHaskell(textarea.value, {
       state,
       ...lastMeta,
@@ -1354,9 +1440,9 @@ function createAgdaEditor({
       lastMeta = {};
       render();
     },
-    setVerified({ holes = [], lineOffset = null } = {}) {
+    setVerified({ holes = [], lineOffset = null, semanticTokens = null } = {}) {
       state = holes && holes.length > 0 ? "holes" : "ok";
-      lastMeta = { holes, lineOffset };
+      lastMeta = { holes, lineOffset, semanticTokens };
       render();
     },
     setErrors({ errors = [], lineOffset = null } = {}) {
@@ -1543,7 +1629,11 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
         ? "Ok, scratchpad typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
     if (res.ok) {
-      scratchEditor.setVerified({ holes: [], lineOffset });
+      scratchEditor.setVerified({
+        holes: [],
+        lineOffset,
+        semanticTokens: res.semanticTokens ?? null,
+      });
     } else if (hasHoles) {
       const parsedHoles = parseTypedHoles(combined);
       scratchEditor.setVerified({ holes: parsedHoles, lineOffset });
@@ -1954,7 +2044,11 @@ function mountStandalonePlayground(mountEl, client, uiState) {
         ? "Ok, module typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
     if (res.ok) {
-      editor.setVerified({ holes: [], lineOffset });
+      editor.setVerified({
+        holes: [],
+        lineOffset,
+        semanticTokens: res.semanticTokens ?? null,
+      });
     } else if (hasHoles) {
       const parsedHoles = parseTypedHoles(combined);
       editor.setVerified({ holes: parsedHoles, lineOffset });
@@ -2007,6 +2101,7 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
 
   const groups = [...document.querySelectorAll(".plfh-showcase-group")];
   const completeEntries = cardEntries.filter((e) => !e.isHole);
+  const holeEntries = cardEntries.filter((e) => e.isHole);
   let activeTab = groups[0]?.dataset.showcaseTab || "all";
 
   const hashMatch = window.location.hash.match(/^#tab=([a-z0-9-]+)$/i);
@@ -2025,7 +2120,11 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
 
   const label = document.createElement("span");
   label.className = "plfh-chapter-bar-title";
-  label.innerHTML = `<strong>Roadmap Showcase (Wasm):</strong> ${completeEntries.length} complete cards + 1 Agda-mode hole`;
+  const holeSuffix =
+    holeEntries.length > 0
+      ? ` + ${holeEntries.length} Agda-mode hole${holeEntries.length === 1 ? "" : "s"}`
+      : "";
+  label.innerHTML = `<strong>Roadmap Showcase (Wasm):</strong> ${completeEntries.length} complete cards${holeSuffix}`;
 
   const actions = document.createElement("div");
   actions.className = "plfh-chapter-bar-actions";
@@ -2365,7 +2464,11 @@ export function enhancePlfhPage({
           [res.stdout, res.stderr].filter(Boolean).join("\n") ||
           "Ok, module typechecked and loaded into GHCi (-XDependentTypes).";
         setContainerState("ok");
-        editor.setVerified({ holes: [], lineOffset });
+        editor.setVerified({
+          holes: [],
+          lineOffset,
+          semanticTokens: res.semanticTokens ?? null,
+        });
         return true;
       } else {
         const hasHoles = combined.includes("Found hole:");

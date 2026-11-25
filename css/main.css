@@ -849,8 +849,10 @@ div.sourceCode[hidden] {
 /* Agda-mode semantic token palette (lit only after GHC verifies!) */
 .plfh-tok-kw       { color: #b55900; font-weight: 600; }
 .plfh-tok-tycon    { color: #0000cd; }
+.plfh-tok-tyvar    { color: #7e22ce; }
 .plfh-tok-datacon  { color: #008000; font-weight: 500; }
 .plfh-tok-fn       { color: #0b3d91; }
+.plfh-tok-local    { color: #1e293b; }
 .plfh-tok-op       { color: #6d28d9; }
 .plfh-tok-lit      { color: #9f1239; }
 .plfh-tok-str      { color: #a31515; }

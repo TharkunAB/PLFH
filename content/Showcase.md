@@ -184,6 +184,97 @@ demoDefaults :: (Maybe Int, Maybe Bool, Maybe String, Maybe Double)
 demoDefaults = (defaultVal Int, defaultVal Bool, defaultVal String, defaultVal Double)
 ```
 
+## Erased Existentials (`HaskLib.Exists`: `Exists`, `Pack`, `(/\)`, `Witness`)
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/473">#473 Existential Types</a>
+  (Richard A. Eisenberg) &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#existential-types">R22 Existential types</a> &middot;
+  <a href="/HaskLib/"><code>HaskLib.Exists</code></a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+</div>
+
+Unlike retained `Sigma` pairs, Proposal `#473` erased existentials (`Exists p =
+exists x | p x`) hide a compile-time witness erased at runtime. `HaskLib.Exists`
+pairs `Pack (type x)` with `mapExists`, `withExists`, constraint pairing `(/\)`
+(`withEvidence`), and erased `Witness` tokens.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module ShowcaseExists where
+
+import Data.Char (toUpper)
+import HaskLib.Exists
+  ( Exists
+  , Witness (Witness)
+  , data Pack
+  , mapExists
+  , type (/\) (MkCPair)
+  , withEvidence
+  , withExists
+  )
+import HaskLib.Nat (Nat (..))
+import HaskLib.Vec (Vec (..), mapVec, toListVec)
+
+hiddenWord :: Exists (Vec Char)
+hiddenWord = Pack (type (Succ (Succ Zero))) (VCons 'o' (VCons 'k' VNil))
+
+shoutWord :: Exists (Vec Char)
+shoutWord = mapExists (\_ xs -> mapVec toUpper xs) hiddenWord
+
+existsDemo :: (Bool, String)
+existsDemo =
+  let paired :: Show Bool /\ Bool
+      paired = MkCPair True
+      witOk  = case Witness @Nat of Witness -> True
+  in ( withEvidence paired (\b -> b && witOk)
+     , withExists shoutWord (\_ xs -> toListVec xs) )
+```
+
+## Linear `foreach` Binders (`foreach (x %1 :: a)`)
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0111-linear-types.html">#111 Linear Types</a>
+  (Jean-Philippe Bernardy et al., <a href="https://doi.org/10.1145/3158093">POPL 2018</a>) &middot;
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">#378 §4.4 Quantifiers</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+</div>
+
+Dependent `foreach` binders compose with `-XLinearTypes`: a linear retained
+argument (`%1`) is consumed exactly once at runtime while appearing freely any
+number of times in erased type indices.
+
+```haskell
+{-# LANGUAGE DependentTypes, LinearTypes, ListTuplePuns #-}
+module ShowcaseLinearForEach where
+
+import HaskLib.Nat (Nat (..), natToInt)
+
+data SingBool (b :: Bool) where
+  STrue  :: SingBool True
+  SFalse :: SingBool False
+
+data SamePair (m :: Nat) (n :: Nat) = SamePair
+
+-- Consume a linear Bool once at runtime while refining the result index:
+linearSingBool :: foreach (b %1 :: Bool) -> SingBool b
+linearSingBool True  = STrue
+linearSingBool False = SFalse
+
+-- Mention `n` twice in the erased type `SamePair n n`, yet consume `n` once at runtime:
+dupInTypeLinear :: foreach (n %1 :: Nat) -> SamePair n n -> Nat
+dupInTypeLinear n SamePair = n
+
+linearDemo :: (Bool, Int)
+linearDemo =
+  let bOk = case linearSingBool True of STrue -> True
+      nOk = natToInt (dupInTypeLinear (Succ Zero) SamePair)
+  in (bOk, nOk)
+```
+
 :::
 
 ::: {.plfh-showcase-group data-showcase-tab="promotion" data-showcase-label="Promotion & Open Evaluation"}
@@ -321,6 +412,46 @@ demoTagVals :: (Int, Bool, String)
 demoTagVals = (defaultForTag TInt, defaultForTag TBool, defaultForTag TStr)
 ```
 
+## Local `type` Synonyms in `let` & `where` (`#523` Extended `let`)
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/523">#523 Extended <code>let</code></a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#local-type-synonyms">R18 Local type synonyms</a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+</div>
+
+Non-recursive local `type` synonyms bind directly inside `let` and `where`
+blocks, and can even capture retained `foreach` variables in scope to name
+local dependent vector shapes cleanly.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module ShowcaseLocalTypeSyn where
+
+import HaskLib.Nat (Nat (..))
+import HaskLib.Vec (Vec (..))
+
+localTypeSynDemo :: Int
+localTypeSynDemo =
+  let type PairOf a = (a, a)
+      p :: PairOf Int
+      p = (20, 22)
+  in addPair (Succ Zero) p
+  where
+    addPair :: foreach (n :: Nat) -> (Int, Int) -> Int
+    addPair n (u, v) =
+      let v1 :: LocalVec Int
+          v1 = VCons (u + v) (replicateZero n)
+      in case v1 of
+           VCons total _ -> total
+      where
+        type LocalVec b = Vec b (Succ n)
+        replicateZero :: foreach (m :: Nat) -> Vec Int m
+        replicateZero Zero     = VNil
+        replicateZero (Succ k) = VCons 0 (replicateZero k)
+```
+
 :::
 
 ::: {.plfh-showcase-group data-showcase-tab="libraries" data-showcase-label="Indexed Libraries (HaskLib)"}
@@ -380,6 +511,44 @@ packAndRead xs = case packListVec xs of
 
 firstAndPacked :: (String, (Int, String))
 firstAndPacked = (headVec combined, packAndRead "plfh")
+```
+
+## Off-Diagonal GADT Branch Refutation (`zipEqualVec`)
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-pattern-match">#378 §4.5 Dependent Pattern-Match</a>
+  (Richard A. Eisenberg) &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a>,
+  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11 Homogeneous equality</a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+</div>
+
+When two independent `foreach` lengths are equated by `m :~: n`, GHC's
+dependent pattern-match checker automatically refutes impossible off-diagonal
+cases (`Zero`/`Succ` and `Succ`/`Zero`)—leaving only the two diagonal clauses
+with zero dummy `error` branches.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module ShowcaseRefute where
+
+import Data.Type.Equality ((:~:) (Refl))
+import HaskLib.Nat (Nat (..))
+import HaskLib.Vec (Vec (..), toListVec)
+
+zipEqualVec :: foreach (m n :: Nat)
+            -> Vec a m -> Vec b n -> (m :~: n) -> Vec (a, b) m
+zipEqualVec Zero      Zero      VNil         VNil         Refl = VNil
+zipEqualVec (Succ m') (Succ n') (VCons x xs) (VCons y ys) Refl =
+  VCons (x, y) (zipEqualVec m' n' xs ys Refl)
+
+zippedDemo :: [(Int, Char)]
+zippedDemo =
+  let two = Succ (Succ Zero)
+      xs  = VCons (1 :: Int) (VCons 2 VNil)
+      ys  = VCons 'a' (VCons 'b' VNil)
+  in toListVec (zipEqualVec two two xs ys Refl)
 ```
 
 :::
@@ -455,10 +624,7 @@ and GHC community:
   Csongor Kiss et al. ([ICFP 2019](https://doi.org/10.1145/3341706)),
   Matth&iacute;as P&aacute;ll Gissurarson ([Haskell 2018](https://doi.org/10.1145/3242744.3242760)),
   and Philip Wadler, Wen Kokke, &amp; Jeremy G. Siek ([PLFA](https://plfa.inf.ed.ac.uk/), CC BY 4.0).
-- **Coming in the Wave 12–13 Wasm refreshes:**
-  Proposal [`#473`](https://github.com/ghc-proposals/ghc-proposals/pull/473) erased existentials
-  (`GHC.Exists` / `Exists`, `Pack`, `(/\)`, `Witness`, `withExists`, `mapExists`),
-  linear `foreach (b %1 :: Bool)` binders, GADT off-diagonal branch refutation
-  (`zipEqualVec`), Proposal [`#523`](https://github.com/ghc-proposals/ghc-proposals/pull/523)
-  local `type` synonyms, and [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
-  (including dependent function composition `(.)`).
+- **Coming in the Wave 13–14 Wasm refreshes:**
+  [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
+  (replacing `HaskLib` with first-class `Data.*.Dependent` modules, including
+  dependent function composition `(.)`) and observational equality.
