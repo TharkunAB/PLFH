@@ -20,7 +20,7 @@ and **type-level lambdas**.
 
 ## Imports
 
-We import `Type` from `Data.Kind`, `Matchability` from `GHC.Types`, `U` from
+We import `Type` from `Data.Kind`, `Matchability` from `HaskLib`, `U` from
 `GHC.Exts`, `(:~:)` from `Data.Type.Equality`, `Nat` and `plus` from
 `HaskLib.Nat`, `cong` and `plusComm` from [Induction](/Induction/), and
 `Even` from [Relations](/Relations/).
@@ -46,6 +46,7 @@ module PLFH.Part1.Equality
   , eqToLeibniz
   , leibnizToEq
   , LeibnizU
+  , leibnizUSymAt
   , leibnizUSym
   , leibnizUToEq
   , evenComm
@@ -54,7 +55,7 @@ module PLFH.Part1.Equality
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Exts (U)
-import GHC.Types (Matchability)
+import HaskLib (Matchability)
 import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Induction (cong, plusComm)
 import PLFH.Part1.Relations (Even (..))
@@ -273,25 +274,27 @@ partially-applied constructor `EqP x` (whose kind is `a -> Type`), feed it
 `ReflP :: EqP x x`, and out pops `EqP x y`!
 
 What about **symmetry** of Leibniz equality (`LeibnizU x y -> LeibnizU y x`)?
-In PLFA, `sym-≐` is proved purely inside Leibniz equality without touching
-Martin-Löf equality at all, by instantiating `xy` with the predicate
-`Q z = P z → P x` and feeding it `refl-≐ P`. In Dependent Haskell today,
-capturing an unmatchable predicate variable `p :: a %U -> Type` inside an
-inline type-level lambda triggers `GHC-27185`; instead, we prove `leibnizUSym`
-using the inline type-level lambda `\z -> EqP z x` (placing the bound variable
-on the *left* of `EqP`), feeding it `ReflP :: EqP x x` to obtain `EqP y x`,
-and matching on `ReflP`. Because `\z -> EqP z x` is a **type-level lambda**
-(unmatchable, `a %U -> Type`), we state symmetry over `LeibnizU` using
-Dependent Haskell's **type-level lambdas** and **unmatchable arrows (`%U`)**:
+Just as in PLFA's `sym-≐`, we prove symmetry **purely inside Leibniz equality**
+without touching Martin-Löf equality at all: given a predicate `p :: a %U -> Type`,
+we instantiate `xy` with the inline type-level lambda `@(\z -> p z -> p x)`
+(capturing `p` and `x`) and feed it the identity `\px -> px :: p x -> p x`!
+Because `\z -> p z -> p x` is a **type-level lambda** (unmatchable, `a %U -> Type`),
+we state symmetry over `LeibnizU` using Dependent Haskell's **type-level lambdas**
+and **unmatchable arrows (`%U`)**:
 
 ```haskell
 -- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
 type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 
--- | Symmetry of LeibnizU using an inline type-level lambda `\z -> EqP z x`.
+-- | Pure impredicative symmetry of LeibnizU at a given predicate `p` (`sym-≐`):
+-- instantiates `xy` with `@(\z -> p z -> p x)` and passes `\px -> px` (no `EqP` detour!).
+leibnizUSymAt :: forall {a} (x :: a) (y :: a) (p :: a %U -> Type).
+                 LeibnizU x y -> p y -> p x
+leibnizUSymAt xy = xy @(\z -> p z -> p x) (\px -> px)
+
+-- | Symmetry of LeibnizU (`sym-≐`).
 leibnizUSym :: forall {a} (x :: a) (y :: a). LeibnizU x y -> LeibnizU y x
-leibnizUSym xy = case xy @(\z -> EqP z x) ReflP of
-  ReflP -> \px -> px
+leibnizUSym xy = leibnizUSymAt @x @y xy
 
 -- | Recovering EqP from LeibnizU via an inline type-level lambda.
 leibnizUToEq :: forall {a} (x :: a) (y :: a). LeibnizU x y -> EqP x y

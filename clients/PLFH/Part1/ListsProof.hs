@@ -14,7 +14,8 @@ module PLFH.Part1.ListsProof
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
-import GHC.Types (List, Matchability)
+import GHC.Types (List)
+import HaskLib (Matchability)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Lists (Any (..), AnyWitness (..), In, witnessToAny)
 import PLFH.Part1.Relations (Even (..))

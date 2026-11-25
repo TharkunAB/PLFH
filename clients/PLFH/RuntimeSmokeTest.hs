@@ -29,12 +29,10 @@ import qualified PLFH.Part2.Confluence as Conf
 import PLFH.Part2.Confluence (Par (..), ParSteps (..), betaToPar, churchRosser, normalNoBetaSteps, normalPar, normalParSteps, omegaPar, parDiamond, parRefl, parToBetas, uniqueNormalForm)
 import PLFH.Part2.DeBruijn (Ctx (..), Ty (..))
 import qualified PLFH.Part2.DeBruijn as DB
-import qualified PLFH.Part2.DeBruijnProgress as DBP
 import qualified PLFH.Part2.Inference as Inf
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
-import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
@@ -42,9 +40,8 @@ import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAbov
 import qualified PLFH.Part3.Adequacy as Adq
 import qualified PLFH.Part3.Compositional as C
 import PLFH.Part3.Compositional (AppDen (..), UCtx (..), congChain, denAppToAppDen, lamInversion)
-import PLFH.Part3.CompositionalPlug (checkCompositionality)
 import PLFH.Part3.ContextualEquivalence (Terminates (..), betaCtxBigStep, betaCtxEquiv, terminatesLam, terminatesStep)
-import PLFH.Part3.Denotational (Den (..), Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denEqRefl, denotId, denotIdAppId)
+import PLFH.Part3.Denotational (Den (..), DenEq, Denotes (..), Sub (..), ValW (..), Value (..), arrSubArrInv, denEqRefl, denotId, denotIdAppId)
 import PLFH.Part3.Soundness (denotPreserve, denotReflect)
 
 natToInt :: Nat -> Int
@@ -130,6 +127,16 @@ checkUniqueNormalForm t = case eqIdApp t of
   Just Refl -> case uniqueNormalForm t (BCons idAppStep BRefl) (BCons idAppStep BRefl) idIsNormal idIsNormal of
     Refl -> True
   Nothing -> False
+
+evalBotComp :: forall (a :: U.UTerm Zero) (b :: U.UTerm Zero). DenEq (Den a) (Den b) -> Bool
+evalBotComp eq = case fst (eq (MkValW Bot)) (MkDen DBot) of
+  MkDen DBot -> True
+  _          -> True
+
+checkCompositionality :: foreach (c :: UCtx (Succ Zero) Zero) -> Bool
+checkCompositionality c =
+  evalBotComp @(C.plug c (U.UVar U.FZ)) @(C.plug c (U.UVar U.FZ))
+    (C.compositionality @(Succ Zero) @Zero @(U.UVar U.FZ) @(U.UVar U.FZ) c denEqRefl)
 
 plugHole :: forall (t :: U.UTerm Zero). foreach (c :: UCtx Zero Zero) -> Maybe (C.plug c t :~: t)
 plugHole CHole       = Just Refl
@@ -422,16 +429,16 @@ main = do
     (case DB.checkValue dbSuc of { DB.YesVal _ -> True; DB.NotVal -> False })
   assertEq "DeBruijn.checkValue (App (Lam (Var Z)) Zero)" False
     (case DB.checkValue dbApp of { DB.YesVal _ -> True; DB.NotVal -> False })
-  assertEq "DeBruijnProgress.betaIdStep ((lam. 0) 0 -> 0)" True
-    (case DBP.betaIdStep of { DBP.BetaLam DB.VZero -> True })
-  assertEq "DeBruijnProgress.betaCaptureAvoid ((lam. lam. 1) 0 -> lam. 0)" True
-    (case DBP.betaCaptureAvoid of { DBP.BetaLam DB.VZero -> True })
-  assertEq "DeBruijnProgress.betaShiftUnderLam (open shift under binder!)" True
-    (case DBP.betaShiftUnderLam of { DBP.BetaLam DB.VLam -> True })
-  let betaMuZero :: DBP.Step (DB.Mu DB.Zero) DB.Zero
-      betaMuZero = DBP.BetaMu
-  assertEq "DeBruijnProgress.BetaMu (mu. 0 -> 0)" True
-    (case betaMuZero of { DBP.BetaMu -> True })
+  assertEq "DeBruijn.betaIdStep ((lam. 0) 0 -> 0)" True
+    (case DB.betaIdStep of { DB.BetaLam DB.VZero -> True })
+  assertEq "DeBruijn.betaCaptureAvoid ((lam. lam. 1) 0 -> lam. 0)" True
+    (case DB.betaCaptureAvoid of { DB.BetaLam DB.VZero -> True })
+  assertEq "DeBruijn.betaShiftUnderLam (open shift under binder!)" True
+    (case DB.betaShiftUnderLam of { DB.BetaLam DB.VLam -> True })
+  let betaMuZero :: DB.Step (DB.Mu DB.Zero) DB.Zero
+      betaMuZero = DB.BetaMu
+  assertEq "DeBruijn.BetaMu (mu. 0 -> 0)" True
+    (case betaMuZero of { DB.BetaMu -> True })
   let dbLam :: DB.Term DB.CEmpty (DB.TArr DB.TNat DB.TNat)
       dbLam = DB.Lam (DB.Var DB.Z)
       dbSucApp :: DB.Term DB.CEmpty DB.TNat
@@ -444,20 +451,20 @@ main = do
       dbMuZ = DB.Mu DB.Zero
       dbPlus22 :: DB.Term DB.CEmpty DB.TNat
       dbPlus22 = DB.App (DB.App DB.plusTerm DB.termTwo) DB.termTwo
-  assertEq "DeBruijnProgress.progress (Lam (Var Z)) -> PDone VLam" True
-    (case DBP.progress dbLam of { DBP.PDone DB.VLam -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress ((lam. 0) 0) -> BetaLam" True
-    (case DBP.progress dbApp of { DBP.PStep (DBP.BetaLam DB.VZero) -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress (Suc ((lam. 0) 0)) -> XiSuc" True
-    (case DBP.progress dbSucApp of { DBP.PStep (DBP.XiSuc (DBP.BetaLam DB.VZero)) -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress (Case Zero Zero (Var Z)) -> BetaZero" True
-    (case DBP.progress dbCaseZ of { DBP.PStep DBP.BetaZero -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress (Case (Suc Zero) Zero (Var Z)) -> BetaSuc" True
-    (case DBP.progress dbCaseS of { DBP.PStep (DBP.BetaSuc DB.VZero) -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress (Mu Zero) -> BetaMu" True
-    (case DBP.progress dbMuZ of { DBP.PStep DBP.BetaMu -> True; _ -> False })
-  assertEq "DeBruijnProgress.progress (plusTerm 2 2) -> XiApp1 (XiApp1 BetaMu)" True
-    (case DBP.progress dbPlus22 of { DBP.PStep (DBP.XiApp1 (DBP.XiApp1 DBP.BetaMu)) -> True; _ -> False })
+  assertEq "DeBruijn.progress (Lam (Var Z)) -> PDone VLam" True
+    (case DB.progress dbLam of { DB.PDone DB.VLam -> True; _ -> False })
+  assertEq "DeBruijn.progress ((lam. 0) 0) -> BetaLam" True
+    (case DB.progress dbApp of { DB.PStep (DB.BetaLam DB.VZero) -> True; _ -> False })
+  assertEq "DeBruijn.progress (Suc ((lam. 0) 0)) -> XiSuc" True
+    (case DB.progress dbSucApp of { DB.PStep (DB.XiSuc (DB.BetaLam DB.VZero)) -> True; _ -> False })
+  assertEq "DeBruijn.progress (Case Zero Zero (Var Z)) -> BetaZero" True
+    (case DB.progress dbCaseZ of { DB.PStep DB.BetaZero -> True; _ -> False })
+  assertEq "DeBruijn.progress (Case (Suc Zero) Zero (Var Z)) -> BetaSuc" True
+    (case DB.progress dbCaseS of { DB.PStep (DB.BetaSuc DB.VZero) -> True; _ -> False })
+  assertEq "DeBruijn.progress (Mu Zero) -> BetaMu" True
+    (case DB.progress dbMuZ of { DB.PStep DB.BetaMu -> True; _ -> False })
+  assertEq "DeBruijn.progress (plusTerm 2 2) -> XiApp1 (XiApp1 BetaMu)" True
+    (case DB.progress dbPlus22 of { DB.PStep (DB.XiApp1 (DB.XiApp1 DB.BetaMu)) -> True; _ -> False })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)
@@ -501,9 +508,9 @@ main = do
   assertEq "Bisimulation.letDesugarSim (SimLetApp)" True
     (case letDesugarSim of { SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc SimVar) -> True })
   assertEq "Bisimulation.letDesugarSteps (XiApp2 + BetaLam)" True
-    (case letDesugarSteps of { MkLeg (MP.StepsCons (MP.XiApp2 M.VLam (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLam M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
+    (case letDesugarSteps of { MkLeg (M.StepsCons (M.XiApp2 M.VLam (M.BetaFst M.VZero (M.VSuc M.VZero))) (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl)) (SimSuc SimZero) -> True })
   assertEq "Bisimulation.letDesugarStepsInv (XiLet + BetaLet)" True
-    (case letDesugarStepsInv of { MkLegInv (MP.StepsCons (MP.XiLet (MP.BetaFst M.VZero (M.VSuc M.VZero))) (MP.StepsCons (MP.BetaLet M.VZero) MP.StepsRefl)) (SimSuc SimZero) -> True })
+    (case letDesugarStepsInv of { MkLegInv (M.StepsCons (M.XiLet (M.BetaFst M.VZero (M.VSuc M.VZero))) (M.StepsCons (M.BetaLet M.VZero) M.StepsRefl)) (SimSuc SimZero) -> True })
   assertEq "BisimulationRenaming.observeRenamedListBody (2-binder CaseLst shift)" True
     BisimulationRenaming.observeRenamedListBody
   assertEq "BisimulationRenaming.observeSubstLet (20-ctor simSubst + M.exts)" True
@@ -529,24 +536,24 @@ main = do
       moreSecond = M.Snd morePair
       moreAbsurd :: M.Term M.CEmpty M.TNat
       moreAbsurd = M.Absurd (M.Mu (M.Var M.Z))
-  assertEq "MoreProgress.progress Let -> BetaLet" True
-    (case MP.progress moreLet of { MP.PStep MP.BetaLet{} -> True; _ -> False })
-  assertEq "MoreProgress.progress Pair -> XiPair1" True
-    (case MP.progress morePairLeft of { MP.PStep MP.XiPair1{} -> True; _ -> False })
-  assertEq "MoreProgress.progress Fst -> BetaFst" True
-    (case MP.progress moreFirst of { MP.PStep MP.BetaFst{} -> True; _ -> False })
-  assertEq "MoreProgress.progress Snd -> BetaSnd" True
-    (case MP.progress moreSecond of { MP.PStep MP.BetaSnd{} -> True; _ -> False })
-  assertEq "MoreProgress.progress CaseSum Inl -> BetaInl" True
-    (case MP.progress moreCaseLeft of { MP.PStep MP.BetaInl{} -> True; _ -> False })
-  assertEq "MoreProgress.progress CaseSum Inr -> BetaInr" True
-    (case MP.progress moreCaseRight of { MP.PStep MP.BetaInr{} -> True; _ -> False })
-  assertEq "MoreProgress.progress CaseLst Nil -> BetaNil" True
-    (case MP.progress moreCaseNil of { MP.PStep MP.BetaNil -> True; _ -> False })
-  assertEq "MoreProgress.listCaseBoth (BetaCons substDouble!)" True
-    (case MP.listCaseBoth of { MP.BetaCons (M.VSuc M.VZero) (M.VCons M.VZero M.VNil) -> True })
-  assertEq "MoreProgress.progress Absurd (Mu ...) -> XiAbsurd BetaMu" True
-    (case MP.progress moreAbsurd of { MP.PStep (MP.XiAbsurd MP.BetaMu) -> True; _ -> False })
+  assertEq "More.progress Let -> BetaLet" True
+    (case M.progress moreLet of { M.PStep M.BetaLet{} -> True; _ -> False })
+  assertEq "More.progress Pair -> XiPair1" True
+    (case M.progress morePairLeft of { M.PStep M.XiPair1{} -> True; _ -> False })
+  assertEq "More.progress Fst -> BetaFst" True
+    (case M.progress moreFirst of { M.PStep M.BetaFst{} -> True; _ -> False })
+  assertEq "More.progress Snd -> BetaSnd" True
+    (case M.progress moreSecond of { M.PStep M.BetaSnd{} -> True; _ -> False })
+  assertEq "More.progress CaseSum Inl -> BetaInl" True
+    (case M.progress moreCaseLeft of { M.PStep M.BetaInl{} -> True; _ -> False })
+  assertEq "More.progress CaseSum Inr -> BetaInr" True
+    (case M.progress moreCaseRight of { M.PStep M.BetaInr{} -> True; _ -> False })
+  assertEq "More.progress CaseLst Nil -> BetaNil" True
+    (case M.progress moreCaseNil of { M.PStep M.BetaNil -> True; _ -> False })
+  assertEq "More.listCaseBoth (BetaCons substDouble!)" True
+    (case M.listCaseBoth of { M.BetaCons (M.VSuc M.VZero) (M.VCons M.VZero M.VNil) -> True })
+  assertEq "More.progress Absurd (Mu ...) -> XiAbsurd BetaMu" True
+    (case M.progress moreAbsurd of { M.PStep (M.XiAbsurd M.BetaMu) -> True; _ -> False })
 
   assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
   assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
@@ -605,7 +612,7 @@ main = do
     (case lamInversion (MkValW (Arr Bot Bot)) denotId of { DVar _ -> True; _ -> False })
   assertEq "Compositional.congChain (Bot)" True
     (case fst (congChain @_ @(U.UVar U.FZ) denEqRefl (MkValW Bot)) (MkDen DBot) of { MkDen DBot -> True; _ -> True })
-  assertEq "CompositionalPlug.compositionality (UCtx plug induction!)" True
+  assertEq "Compositional.compositionality (same-module UCtx plug induction!)" True
     (checkCompositionality (CLam (CAppR (U.UVar U.FZ) CHole)))
   assertEq "Soundness.denotPreserve idAppStep" True
     (case denotPreserve (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) idAppStep of { DIntro _ -> True; _ -> False })

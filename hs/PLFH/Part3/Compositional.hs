@@ -23,6 +23,7 @@ module PLFH.Part3.Compositional
   , congChain
   , UCtx (..)
   , plug
+  , compositionality
   ) where
 
 import Data.Kind (Type)
@@ -45,7 +46,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 95 "content/part3/Compositional.md" #-}
+{-# LINE 96 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -110,7 +111,7 @@ lamCong :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n)).
            DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 171 "content/part3/Compositional.md" #-}
+{-# LINE 172 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
@@ -187,7 +188,7 @@ congChain :: DenEq (Den m) (Den m')
           -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
 congChain eq = lamCong (appCong denEqRefl eq)
 
-{-# LINE 255 "content/part3/Compositional.md" #-}
+{-# LINE 256 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
@@ -201,3 +202,20 @@ plug CHole       t = t
 plug (CLam c)    t = ULam (plug c t)
 plug (CAppL c r) t = UApp (plug c t) r
 plug (CAppR l c) t = UApp l (plug c t)
+
+{-# LINE 277 "content/part3/Compositional.md" #-}
+-- | Full compositionality theorem (`compositionality`): plugging two
+-- denotationally equal terms into any one-hole context `UCtx m n` produces
+-- denotationally equal programs!
+compositionality
+  :: forall (m :: Nat) (n :: Nat) (t1 :: UTerm m) (t2 :: UTerm m).
+     foreach (c :: UCtx m n)
+  -> DenEq (Den t1) (Den t2)
+  -> DenEq (Den (plug c t1)) (Den (plug c t2))
+compositionality CHole       = \eq -> eq
+compositionality (CLam c)    = \eq ->
+  lamCong @n @(plug c t1) @(plug c t2) (compositionality @m @(Succ n) @t1 @t2 c eq)
+compositionality (CAppL c r) = \eq ->
+  appCong @n @(plug c t1) @(plug c t2) @r @r (compositionality @m @n @t1 @t2 c eq) denEqRefl
+compositionality (CAppR l c) = \eq ->
+  appCong @n @l @l @(plug c t1) @(plug c t2) denEqRefl (compositionality @m @n @t1 @t2 c eq)

@@ -57,6 +57,7 @@ module PLFH.Part3.Compositional
   , congChain
   , UCtx (..)
   , plug
+  , compositionality
   ) where
 
 import Data.Kind (Type)
@@ -267,24 +268,27 @@ plug (CAppL c r) t = UApp (plug c t) r
 plug (CAppR l c) t = UApp l (plug c t)
 ```
 
-Because `PLFH.Part3.Compositional` compiles with `-XDependentTypes`,
-GHC automatically publishes checked equations for `plug` across all four
-constructors of the two-index GADT `UCtx m n` into `Compositional.hi`. In the
-companion client
-module `PLFH.Part3.CompositionalPlug` (`clients/PLFH/Part3/CompositionalPlug.hs`),
-**full compositionality** proves in **four lines** by structural induction on
+With `-XDependentTypes`, GHC evaluates `plug` across all four constructors of
+the two-index GADT `UCtx m n` directly inside this module—so **full
+compositionality** proves in **four clean lines** by structural induction on
 `foreach (c :: UCtx m n)`:
 
-```{.haskell .spec}
+```haskell
+-- | Full compositionality theorem (`compositionality`): plugging two
+-- denotationally equal terms into any one-hole context `UCtx m n` produces
+-- denotationally equal programs!
 compositionality
   :: forall (m :: Nat) (n :: Nat) (t1 :: UTerm m) (t2 :: UTerm m).
      foreach (c :: UCtx m n)
   -> DenEq (Den t1) (Den t2)
-  -> DenEq (Den (C.plug c t1)) (Den (C.plug c t2))
+  -> DenEq (Den (plug c t1)) (Den (plug c t2))
 compositionality CHole       = \eq -> eq
-compositionality (CLam c)    = \eq -> lamCong (compositionality c eq)
-compositionality (CAppL c _) = \eq -> appCong (compositionality c eq) denEqRefl
-compositionality (CAppR _ c) = \eq -> appCong denEqRefl (compositionality c eq)
+compositionality (CLam c)    = \eq ->
+  lamCong @n @(plug c t1) @(plug c t2) (compositionality @m @(Succ n) @t1 @t2 c eq)
+compositionality (CAppL c r) = \eq ->
+  appCong @n @(plug c t1) @(plug c t2) @r @r (compositionality @m @n @t1 @t2 c eq) denEqRefl
+compositionality (CAppR l c) = \eq ->
+  appCong @n @l @l @(plug c t1) @(plug c t2) denEqRefl (compositionality @m @n @t1 @t2 c eq)
 ```
 
 Look how clean that 4-line induction is: `CHole` returns `eq` unchanged, `CLam`

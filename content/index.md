@@ -36,13 +36,13 @@ Comments, bug reports, and pull requests are welcome on
 - [Negation](/Negation/): Intuitionistic negation, De Morgan, order-negation laws, and classical equivalences (EM ⇔ DNE ⇔ Peirce ⇔ ImpOr ⇔ DeMorganNot) <span class="badge badge-pass">Checked</span>
 - [Quantifiers](/Quantifiers/): Erased `Exists`, retained `Sigma` (`some`), and `Even`/`Odd` existential witnesses <span class="badge badge-pass">Checked</span>
 - [Decidable](/Decidable/): Negation, decidable equality/ordering/parity/`Bin`, `Reflects`, and inline `Sigma` (`plusExists`) <span class="badge badge-pass">Checked</span>
-- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses`, `downFrom`, **`foldrPlusSeed`/`foldrPlusAppend`** (`GHC.Internal.List.foldr`), matchability-poly `All`/`Any`/`In`, `notAnyIffAllNot`, `allToIn`/`inToAll`, **`anyIsoWitness`** (`Iso (Any p xs) (AnyWitness p xs)`), `decAll`/`decAny`/`decIn` <span class="badge badge-pass">Checked</span>
+- [Lists](/Lists/): Prelude `List a`, `(++)`, `map`, `HaskLib` length laws, `shunt`, `rev`/`revAppend`/`revInvolutive`/`shuntRev`/`reverses`, `downFrom`, **`foldrPlusSeed`/`foldrPlusAppend`** (`HaskLib.List.foldr`), matchability-poly `All`/`Any`/`In`, `notAnyIffAllNot`, `allToIn`/`inToAll`, **`anyIsoWitness`** (`Iso (Any p xs) (AnyWitness p xs)`), `decAll`/`decAny`/`decIn` <span class="badge badge-pass">Checked</span>
 
 ## Part 2: Programming Language Foundations
 
 - [Lambda](/Lambda/): Simply-typed lambda calculus syntax, values, same-module `substTerm`, reduction (`Step`/`Steps`), and typing <span class="badge badge-pass">Checked</span>
 - [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, and **verified evaluator `eval`** <span class="badge badge-pass">Checked</span>
-- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **8-rule functional `Step` (`substSingle`)**, and **complete unconditional `progress`** <span class="badge badge-pass">Checked</span>
+- [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **same-module 8-rule `Step` (`substSingle`)**, and **unconditional `progress`** <span class="badge badge-pass">Checked</span>
 - [Inference](/Inference/): **Sound & complete bidirectional `Dec`-based STLC type inference** (`synthesize`, `inherit`, `eraseSynth`/`eraseInherit`, `synthUnique`, plus `infer`/`check`) <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep`, and **constructive normal-order `stepNormal`/`evalNormal`** <span class="badge badge-pass">Checked</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `substSingle`/`substDouble`, **27-rule functional `Step`**, and **complete 19-branch `progress`** <span class="badge badge-pass">Checked</span>
@@ -56,7 +56,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Denotational](/Denotational/): Filter model (GADT `Value`, `Sub`, `dom`/`cod`, nested `subInvDist`, **`subInv`**, **`arrSubArrInv`**, `Denotes`, `envSubMono`) <span class="badge badge-pass">Checked</span>
 - [Compositional](/Compositional/): Semantic curry & application (**`lamEquiv`/`lamCong`**, **`appEquiv`/`appCong`**), `UCtx`/`plug`, and **full `compositionality`** <span class="badge badge-pass">Checked</span>
 - [Soundness](/Soundness/): **100% unconditional** weakening, strengthening, substitution, forward preservation, subject expansion, and **`denotEquivSteps`** <span class="badge badge-pass">Checked</span>
-- [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`/`adequacy`/`reduceToCbn`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Big-Step ✓</span>
+- [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`/`adequacy`/`reduceToCbn`/`cbnToReduce`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Checked</span>
 - [ContextualEquivalence](/ContextualEquivalence/): Open-term **`CtxEquiv`** (`UCtx`/`plug`), **unconditional `denotEqualCtxBigStep`**, **unconditional `denotEqualCtxEquiv`**, and **unconditional `betaCtxEquiv`** <span class="badge badge-pass">Checked</span>
 
 ## Yardstick & Backmatter

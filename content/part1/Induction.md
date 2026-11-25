@@ -44,8 +44,7 @@ module PLFH.Part1.Induction
   ) where
 
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
-import GHC.Types (Matchability)
-import HaskLib (rewrite)
+import HaskLib (Matchability, rewrite)
 import HaskLib.Nat (Nat (..), congFirst, plus, plusSucc, plusZero, type (+))
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, pow, times, toBin)
 ```

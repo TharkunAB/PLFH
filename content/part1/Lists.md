@@ -81,13 +81,13 @@ module PLFH.Part1.Lists
   , threeNotInList
   ) where
 
+import Prelude hiding (foldr)
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Void (Void)
-import qualified GHC.Internal.List as List
 import GHC.Tuple (Tuple2)
-import GHC.Types (List, Matchability)
-import HaskLib (lengthAppend, lengthMap, lengthReverse, rewrite, size)
+import GHC.Types (List)
+import HaskLib (Matchability, foldr, lengthAppend, lengthMap, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus, plusZero)
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
@@ -275,7 +275,8 @@ lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
 ### Right folds and monoid homomorphisms (`foldr`)
 
-Using the standard library's own `GHC.Internal.List.foldr`, we prove PLFA's
+Using `HaskLib.List.foldr` (re-exported by `HaskLib` over the standard
+library's list `foldr`), we prove PLFA's
 monoid-homomorphism fold laws (`foldr-monoid-++`) for both `(Nat, plus, 0)`
 and `(Nat, times, 1)`—moving the seed outside a right fold (`foldrPlusSeed`,
 `foldrTimesSeed`) and proving that folding a concatenated list equals combining
@@ -286,37 +287,37 @@ from [Induction](/Induction/):
 ```haskell
 -- | Move the seed to the right of the zero-seeded fold.
 foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
-              -> List.foldr plus z xs :~: plus (List.foldr plus Zero xs) z
+              -> foldr plus z xs :~: plus (foldr plus Zero xs) z
 foldrPlusSeed []       _ = Refl
 foldrPlusSeed (x : xs) z =
   trans (cong (plus x) (foldrPlusSeed xs z))
-        (sym (plusAssoc x (List.foldr plus Zero xs) z))
+        (sym (plusAssoc x (foldr plus Zero xs) z))
 
 -- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
 foldrPlusAppend :: foreach (xs ys :: List Nat)
-                -> List.foldr plus Zero (xs ++ ys)
-               :~: plus (List.foldr plus Zero xs) (List.foldr plus Zero ys)
+                -> foldr plus Zero (xs ++ ys)
+               :~: plus (foldr plus Zero xs) (foldr plus Zero ys)
 foldrPlusAppend []       _  = Refl
 foldrPlusAppend (x : xs) ys =
   trans (cong (plus x) (foldrPlusAppend xs ys))
-        (sym (plusAssoc x (List.foldr plus Zero xs) (List.foldr plus Zero ys)))
+        (sym (plusAssoc x (foldr plus Zero xs) (foldr plus Zero ys)))
 
 -- | Move the seed to the right of a multiplicative right fold.
 foldrTimesSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
-               -> List.foldr times z xs :~: times (List.foldr times 1 xs) z
+               -> foldr times z xs :~: times (foldr times 1 xs) z
 foldrTimesSeed []       z = sym (plusZero z)
 foldrTimesSeed (x : xs) z =
   trans (cong (times x) (foldrTimesSeed xs z))
-        (sym (timesAssoc x (List.foldr times 1 xs) z))
+        (sym (timesAssoc x (foldr times 1 xs) z))
 
 -- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
 foldrTimesAppend :: foreach (xs ys :: List Nat)
-                 -> List.foldr times 1 (xs ++ ys)
-                :~: times (List.foldr times 1 xs) (List.foldr times 1 ys)
-foldrTimesAppend []       ys = sym (plusZero (List.foldr times 1 ys))
+                 -> foldr times 1 (xs ++ ys)
+                :~: times (foldr times 1 xs) (foldr times 1 ys)
+foldrTimesAppend []       ys = sym (plusZero (foldr times 1 ys))
 foldrTimesAppend (x : xs) ys =
   trans (cong (times x) (foldrTimesAppend xs ys))
-        (sym (timesAssoc x (List.foldr times 1 xs) (List.foldr times 1 ys)))
+        (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
 ```
 
 <div class="wip-notice">
@@ -607,7 +608,7 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
   `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
   `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
   `lengthDownFrom`/`lengthZeros`, `foldrPlusSeed`/`foldrPlusAppend` over
-  installed `GHC.Internal.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
+  `HaskLib.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
   `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
   `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
 - Marked default `-O2` Prelude `(++)`/`map` list-fusion rewrite-rule guards

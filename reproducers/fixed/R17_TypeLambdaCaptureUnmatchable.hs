@@ -19,4 +19,4 @@ leibnizUSymAt :: forall {a} (x :: a) (y :: a) (p :: a %U -> Type).
 leibnizUSymAt xy = xy @(\z -> p z -> p x) (\px -> px)
 
 leibnizUSym :: forall {a} (x :: a) (y :: a). LeibnizU x y -> LeibnizU y x
-leibnizUSym xy = leibnizUSymAt @a @x @y xy
+leibnizUSym xy = leibnizUSymAt @x @y xy

@@ -2,7 +2,8 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes #-}
-{-# LINE 35 "content/part2/More.md" #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
+{-# LINE 36 "content/part2/More.md" #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -24,11 +25,16 @@ module PLFH.Part2.More
   , ifThenElse
   , swapSum
   , appendList
+  , Step (..)
+  , Steps (..)
+  , Progress (..)
+  , progress
+  , listCaseBoth
   ) where
 
 import Data.Kind (Type)
 
-{-# LINE 82 "content/part2/More.md" #-}
+{-# LINE 88 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -68,7 +74,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 136 "content/part2/More.md" #-}
+{-# LINE 142 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -131,7 +137,7 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
 
-{-# LINE 207 "content/part2/More.md" #-}
+{-# LINE 213 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -177,3 +183,165 @@ appendList =
     (CaseLst (Var (S Z))
       (Var Z)
       (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))
+
+{-# LINE 272 "content/part2/More.md" #-}
+-- | Intrinsically type-preserving call-by-value reduction for extended STLC (27 rules!).
+type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
+data Step before after where
+  XiApp1    :: Step f f' -> Step (App f x) (App f' x)
+  XiApp2    :: Value f -> Step x x' -> Step (App f x) (App f x')
+  BetaLam   :: forall g a b (body :: Term (CExt g a) b) (v :: Term g a).
+               Value v -> Step (App (Lam body) v) (substSingle body v)
+
+  XiSuc     :: Step n n' -> Step (Suc n) (Suc n')
+  XiCaseNat :: Step n n' -> Step (CaseNat n z s) (CaseNat n' z s)
+  BetaZero  :: Step (CaseNat Zero z s) z
+  BetaSuc   :: forall g a (z :: Term g a) (s :: Term (CExt g TNat) a)
+                      (v :: Term g TNat).
+               Value v -> Step (CaseNat (Suc v) z s) (substSingle s v)
+  BetaMu    :: forall g a (body :: Term (CExt g a) a).
+               Step (Mu body) (substSingle body (Mu body))
+
+  XiLet     :: Step m m' -> Step (Let m body) (Let m' body)
+  BetaLet   :: forall g a b (m :: Term g a) (body :: Term (CExt g a) b).
+               Value m -> Step (Let m body) (substSingle body m)
+
+  XiPair1   :: Step l l' -> Step (Pair l r) (Pair l' r)
+  XiPair2   :: Value l -> Step r r' -> Step (Pair l r) (Pair l r')
+  XiFst     :: Step p p' -> Step (Fst p) (Fst p')
+  XiSnd     :: Step p p' -> Step (Snd p) (Snd p')
+  BetaFst   :: Value l -> Value r -> Step (Fst (Pair l r)) l
+  BetaSnd   :: Value l -> Value r -> Step (Snd (Pair l r)) r
+
+  XiInl     :: Step x x' -> Step (Inl x) (Inl x')
+  XiInr     :: Step y y' -> Step (Inr y) (Inr y')
+  XiCaseSum :: Step s s' -> Step (CaseSum s l r) (CaseSum s' l r)
+  BetaInl   :: forall g a b c (l :: Term (CExt g a) c)
+                      (r :: Term (CExt g b) c) (x :: Term g a).
+               Value x -> Step (CaseSum (Inl x) l r) (substSingle l x)
+  BetaInr   :: forall g a b c (l :: Term (CExt g a) c)
+                      (r :: Term (CExt g b) c) (y :: Term g b).
+               Value y -> Step (CaseSum (Inr y) l r) (substSingle r y)
+  XiAbsurd  :: Step m m' -> Step (Absurd m) (Absurd m')
+
+  XiCons1   :: Step x x' -> Step (Cons x xs) (Cons x' xs)
+  XiCons2   :: Value x -> Step xs xs' -> Step (Cons x xs) (Cons x xs')
+  XiCaseLst :: Step s s' -> Step (CaseLst s n c) (CaseLst s' n c)
+  BetaNil   :: Step (CaseLst Nil n c) n
+  BetaCons  :: forall g a b (n :: Term g b)
+                      (c :: Term (CExt (CExt g a) (TList a)) b)
+                      (x :: Term g a) (xs :: Term g (TList a)).
+               Value x -> Value xs
+            -> Step (CaseLst (Cons x xs) n c) (substDouble c x xs)
+
+-- | Reflexive-transitive closure of extended STLC reduction (`M —↠ N`).
+type Steps :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
+data Steps m n where
+  StepsRefl :: Steps m m
+  StepsCons :: Step l m -> Steps m n -> Steps l n
+
+-- | A closed term in the extended language either steps or is a value.
+type Progress :: forall (a :: Ty). Term CEmpty a -> Type
+data Progress m where
+  PStep :: Step m n -> Progress m
+  PDone :: Value m -> Progress m
+
+-- | Complete, unconditional Progress theorem across all 19 constructors of `Term`!
+progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
+progress t = case t of
+  Var x         -> case x of {}
+  Lam _         -> PDone VLam
+  App f x       -> appProgress (progress f) (progress x)
+  Zero          -> PDone VZero
+  Suc n         -> sucProgress (progress n)
+  CaseNat n z s -> natCaseProgress @a @n @z @s (progress n)
+  Mu body       -> PStep (BetaMu @CEmpty @a @body)
+  Let m body    -> letProgress @_ @a @m @body (progress m)
+  TT            -> PDone VTT
+  Pair l r      -> pairProgress (progress l) (progress r)
+  Fst p         -> fstProgress (progress p)
+  Snd p         -> sndProgress (progress p)
+  Inl x         -> inlProgress (progress x)
+  Inr y         -> inrProgress (progress y)
+  CaseSum s l r -> sumCaseProgress @_ @_ @a @s @l @r (progress s)
+  Absurd m      -> absurdProgress (progress m)
+  Nil           -> PDone VNil
+  Cons x xs     -> consProgress (progress x) (progress xs)
+  CaseLst s n c -> listCaseProgress @_ @a @s @n @c (progress s)
+
+appProgress :: forall a b (f :: Term CEmpty (TArr a b)) (x :: Term CEmpty a).
+               Progress f -> Progress x -> Progress (App f x)
+appProgress (PStep s) _                    = PStep (XiApp1 s)
+appProgress (PDone v) (PStep s)            = PStep (XiApp2 v s)
+appProgress (PDone (VLam @body)) (PDone v) = PStep (BetaLam @CEmpty @a @b @body @x v)
+
+sucProgress :: Progress n -> Progress (Suc n)
+sucProgress (PStep s) = PStep (XiSuc s)
+sucProgress (PDone v) = PDone (VSuc v)
+
+natCaseProgress :: forall a (n :: Term CEmpty TNat) (z :: Term CEmpty a)
+                          (s :: Term (CExt CEmpty TNat) a).
+                   Progress n -> Progress (CaseNat n z s)
+natCaseProgress (PStep step)          = PStep (XiCaseNat step)
+natCaseProgress (PDone VZero)         = PStep BetaZero
+natCaseProgress (PDone (VSuc @v val)) = PStep (BetaSuc @CEmpty @a @z @s @v val)
+
+letProgress :: forall a b (m :: Term CEmpty a) (body :: Term (CExt CEmpty a) b).
+               Progress m -> Progress (Let m body)
+letProgress (PStep s) = PStep (XiLet s)
+letProgress (PDone v) = PStep (BetaLet @CEmpty @a @b @m @body v)
+
+pairProgress :: Progress l -> Progress r -> Progress (Pair l r)
+pairProgress (PStep s) _         = PStep (XiPair1 s)
+pairProgress (PDone v) (PStep s) = PStep (XiPair2 v s)
+pairProgress (PDone v) (PDone w) = PDone (VPair v w)
+
+fstProgress :: Progress p -> Progress (Fst p)
+fstProgress (PStep s)             = PStep (XiFst s)
+fstProgress (PDone (VPair v w))   = PStep (BetaFst v w)
+
+sndProgress :: Progress p -> Progress (Snd p)
+sndProgress (PStep s)             = PStep (XiSnd s)
+sndProgress (PDone (VPair v w))   = PStep (BetaSnd v w)
+
+inlProgress :: Progress x -> Progress (Inl x)
+inlProgress (PStep s) = PStep (XiInl s)
+inlProgress (PDone v) = PDone (VInl v)
+
+inrProgress :: Progress y -> Progress (Inr y)
+inrProgress (PStep s) = PStep (XiInr s)
+inrProgress (PDone v) = PDone (VInr v)
+
+sumCaseProgress :: forall a b c (s :: Term CEmpty (TSum a b))
+                          (l :: Term (CExt CEmpty a) c)
+                          (r :: Term (CExt CEmpty b) c).
+                   Progress s -> Progress (CaseSum s l r)
+sumCaseProgress (PStep step)        = PStep (XiCaseSum step)
+sumCaseProgress (PDone (VInl @x v)) = PStep (BetaInl @CEmpty @a @b @c @l @r @x v)
+sumCaseProgress (PDone (VInr @y v)) = PStep (BetaInr @CEmpty @a @b @c @l @r @y v)
+
+absurdProgress :: Progress m -> Progress (Absurd m)
+absurdProgress (PStep s) = PStep (XiAbsurd s)
+absurdProgress (PDone v) = case v of {}
+
+consProgress :: Progress x -> Progress xs -> Progress (Cons x xs)
+consProgress (PStep s) _          = PStep (XiCons1 s)
+consProgress (PDone v) (PStep s)  = PStep (XiCons2 v s)
+consProgress (PDone v) (PDone vs) = PDone (VCons v vs)
+
+listCaseProgress :: forall a b (s :: Term CEmpty (TList a)) (n :: Term CEmpty b)
+                           (c :: Term (CExt (CExt CEmpty a) (TList a)) b).
+                    Progress s -> Progress (CaseLst s n c)
+listCaseProgress (PStep step)                 = PStep (XiCaseLst step)
+listCaseProgress (PDone VNil)                 = PStep BetaNil
+listCaseProgress (PDone (VCons @x @xs v vs))  = PStep (BetaCons @CEmpty @a @b @n @c @x @xs v vs)
+
+-- | Concrete `BetaCons` witness exercising `substDouble`:
+-- `S Z` receives the head (`Suc Zero`) and `Z` receives the tail (`Cons Zero Nil`)!
+listCaseBoth
+  :: Step @CEmpty @(TProd TNat (TList TNat))
+          (CaseLst (Cons (Suc Zero) (Cons Zero Nil))
+                   (Pair Zero Nil)
+                   (Pair (Var (S Z)) (Var Z)))
+          (Pair (Suc Zero) (Cons Zero Nil))
+listCaseBoth = BetaCons (VSuc VZero) (VCons VZero VNil)

@@ -41,7 +41,7 @@ and prove with `-Werror=incomplete-patterns`:
 
 1. **`simRefl`** (`~-refl`) and **`simTrans`** across all 19 term constructors;
 2. **`simValue`** (`~-val`) and **`simValueInv`** (`~-val⁻¹`) across all 9 value forms;
-3. **`valNoStep`** (no value can ever take a step in `MoreProgress.Step`);
+3. **`valNoStep`** (no value can ever take a step in `More.Step`);
 4. Complete 27-rule **lock-step forward simulation `sim`** and **backward simulation `simInv`** (PLFA Exercise `sim⁻¹`), plus multi-step **`simSteps`** and **`simStepsInv`**;
 5. Assumption-free concrete closed bisimulation witnesses (`letDesugarSim`, `letDesugarSteps`, `letDesugarStepsInv`) stepping `let x = fst (0, 1) in suc x` alongside `(λ x. suc x) (fst (0, 1))` through both `XiLet` ↔ `XiApp2 VLam` and `BetaLet` ↔ `BetaLam`!
 
@@ -79,7 +79,6 @@ import Data.Kind (Type)
 import Data.Void (Void, absurd)
 import GHC.Exts (U)
 import qualified PLFH.Part2.More as M
-import qualified PLFH.Part2.MoreProgress as MP
 ```
 
 ## The bisimulation relation (`_~_`)
@@ -217,17 +216,17 @@ simValueInv rel val = case val of
   M.VCons v1 v2 -> case rel of { SimCons s1 s2 -> M.VCons (simValueInv s1 v1) (simValueInv s2 v2) }
 
 -- | Values never step in extended call-by-value STLC.
-valNoStep :: M.Value m -> MP.Step m n -> Void
+valNoStep :: M.Value m -> M.Step m n -> Void
 valNoStep val st = case val of
   M.VLam       -> case st of {}
   M.VZero      -> case st of {}
-  M.VSuc v     -> case st of { MP.XiSuc s -> valNoStep v s }
+  M.VSuc v     -> case st of { M.XiSuc s -> valNoStep v s }
   M.VTT        -> case st of {}
-  M.VPair v w  -> case st of { MP.XiPair1 s -> valNoStep v s; MP.XiPair2 _ s -> valNoStep w s }
-  M.VInl v     -> case st of { MP.XiInl s -> valNoStep v s }
-  M.VInr v     -> case st of { MP.XiInr s -> valNoStep v s }
+  M.VPair v w  -> case st of { M.XiPair1 s -> valNoStep v s; M.XiPair2 _ s -> valNoStep w s }
+  M.VInl v     -> case st of { M.XiInl s -> valNoStep v s }
+  M.VInr v     -> case st of { M.XiInr s -> valNoStep v s }
   M.VNil       -> case st of {}
-  M.VCons v vs -> case st of { MP.XiCons1 s -> valNoStep v s; MP.XiCons2 _ s -> valNoStep vs s }
+  M.VCons v vs -> case st of { M.XiCons1 s -> valNoStep v s; M.XiCons2 _ s -> valNoStep vs s }
 ```
 
 ## Simulation commutes with renaming (`~-rename`)
@@ -446,211 +445,211 @@ alongside <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_Abst
 Look at the `SimLetApp` cases—the centerpiece of PLFA's **Bisimulation** chapter:
 
 1. **Forward (`sim`)**:
-   - When `let x = m in n` steps via `MP.XiLet stM`, induction gives `m' —→ m1'`,
-     so `(λ x. n') m'` matches lock-step via **`MP.XiApp2 M.VLam stM'`**!
-   - When `let x = v in n` steps via `MP.BetaLet vm` to `M.substSingle n v`,
-     `(λ x. n') v'` matches lock-step via **`MP.BetaLam (simValue sm vm)`** to
+   - When `let x = m in n` steps via `M.XiLet stM`, induction gives `m' —→ m1'`,
+     so `(λ x. n') m'` matches lock-step via **`M.XiApp2 M.VLam stM'`**!
+   - When `let x = v in n` steps via `M.BetaLet vm` to `M.substSingle n v`,
+     `(λ x. n') v'` matches lock-step via **`M.BetaLam (simValue sm vm)`** to
      `M.substSingle n' v'`!
 2. **Backward (`simInv`, PLFA Exercise `sim⁻¹`)**:
-   - Can `(λ x. n') m'` step via `MP.XiApp1 stLam`? **No!** `valNoStep M.VLam stLam`
+   - Can `(λ x. n') m'` step via `M.XiApp1 stLam`? **No!** `valNoStep M.VLam stLam`
      discharges the branch statically via `absurd`!
-   - When `(λ x. n') m'` steps via `MP.XiApp2 _ stM'`, `let x = m in n` matches
-     lock-step via **`MP.XiLet`**!
-   - When `(λ x. n') v'` steps via `MP.BetaLam vm'`, `let x = v in n` matches
-     lock-step via **`MP.BetaLet (simValueInv sm vm')`**!
+   - When `(λ x. n') m'` steps via `M.XiApp2 _ stM'`, `let x = m in n` matches
+     lock-step via **`M.XiLet`**!
+   - When `(λ x. n') v'` steps via `M.BetaLam vm'`, `let x = v in n` matches
+     lock-step via **`M.BetaLet (simValueInv sm vm')`**!
 
 Every single one of the **27 reduction rules** in both directions is checked
 exhaustively under `-Werror=incomplete-patterns`:
 
 ```haskell
--- | Complete forward lock-step simulation across all 27 rules of `MoreProgress.Step`.
-sim :: SubstCompat -> SimRel m m' -> MP.Step m n -> Leg MP.Step m' n
+-- | Complete forward lock-step simulation across all 27 rules of `More.Step`.
+sim :: SubstCompat -> SimRel m m' -> M.Step m n -> Leg M.Step m' n
 sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
-  MP.XiApp1 stL -> case rel of
+  M.XiApp1 stL -> case rel of
     SimApp sl sm -> case sim sc sl stL of
-      MkLeg stL' sl' -> MkLeg (MP.XiApp1 stL') (SimApp sl' sm)
-  MP.XiApp2 vl stM -> case rel of
+      MkLeg stL' sl' -> MkLeg (M.XiApp1 stL') (SimApp sl' sm)
+  M.XiApp2 vl stM -> case rel of
     SimApp sl sm -> case sim sc sm stM of
-      MkLeg stM' sm' -> MkLeg (MP.XiApp2 (simValue sl vl) stM') (SimApp sl sm')
-  MP.BetaLam vm -> case rel of
-    SimApp (SimLam sn) sm -> MkLeg (MP.BetaLam (simValue sm vm)) (sc1 sn sm)
+      MkLeg stM' sm' -> MkLeg (M.XiApp2 (simValue sl vl) stM') (SimApp sl sm')
+  M.BetaLam vm -> case rel of
+    SimApp (SimLam sn) sm -> MkLeg (M.BetaLam (simValue sm vm)) (sc1 sn sm)
 
-  MP.XiSuc stM -> case rel of
+  M.XiSuc stM -> case rel of
     SimSuc sm -> case sim sc sm stM of
-      MkLeg stM' sm' -> MkLeg (MP.XiSuc stM') (SimSuc sm')
-  MP.XiCaseNat stN -> case rel of
+      MkLeg stM' sm' -> MkLeg (M.XiSuc stM') (SimSuc sm')
+  M.XiCaseNat stN -> case rel of
     SimCaseNat sn sz ss -> case sim sc sn stN of
-      MkLeg stN' sn' -> MkLeg (MP.XiCaseNat stN') (SimCaseNat sn' sz ss)
-  MP.BetaZero -> case rel of
-    SimCaseNat SimZero sz _ -> MkLeg MP.BetaZero sz
-  MP.BetaSuc vv -> case rel of
-    SimCaseNat (SimSuc sv) _ ss -> MkLeg (MP.BetaSuc (simValue sv vv)) (sc1 ss sv)
-  MP.BetaMu -> case rel of
-    SimMu sn -> MkLeg MP.BetaMu (sc1 sn (SimMu sn))
+      MkLeg stN' sn' -> MkLeg (M.XiCaseNat stN') (SimCaseNat sn' sz ss)
+  M.BetaZero -> case rel of
+    SimCaseNat SimZero sz _ -> MkLeg M.BetaZero sz
+  M.BetaSuc vv -> case rel of
+    SimCaseNat (SimSuc sv) _ ss -> MkLeg (M.BetaSuc (simValue sv vv)) (sc1 ss sv)
+  M.BetaMu -> case rel of
+    SimMu sn -> MkLeg M.BetaMu (sc1 sn (SimMu sn))
 
-  MP.XiLet stM -> case rel of
+  M.XiLet stM -> case rel of
     SimLet sm sn -> case sim sc sm stM of
-      MkLeg stM' sm' -> MkLeg (MP.XiLet stM') (SimLet sm' sn)
+      MkLeg stM' sm' -> MkLeg (M.XiLet stM') (SimLet sm' sn)
     SimLetApp sm sn -> case sim sc sm stM of
-      MkLeg stM' sm' -> MkLeg (MP.XiApp2 M.VLam stM') (SimLetApp sm' sn)
-  MP.BetaLet vm -> case rel of
-    SimLet sm sn    -> MkLeg (MP.BetaLet (simValue sm vm)) (sc1 sn sm)
-    SimLetApp sm sn -> MkLeg (MP.BetaLam (simValue sm vm)) (sc1 sn sm)
+      MkLeg stM' sm' -> MkLeg (M.XiApp2 M.VLam stM') (SimLetApp sm' sn)
+  M.BetaLet vm -> case rel of
+    SimLet sm sn    -> MkLeg (M.BetaLet (simValue sm vm)) (sc1 sn sm)
+    SimLetApp sm sn -> MkLeg (M.BetaLam (simValue sm vm)) (sc1 sn sm)
 
-  MP.XiPair1 stL -> case rel of
+  M.XiPair1 stL -> case rel of
     SimPair sl sr -> case sim sc sl stL of
-      MkLeg stL' sl' -> MkLeg (MP.XiPair1 stL') (SimPair sl' sr)
-  MP.XiPair2 vl stR -> case rel of
+      MkLeg stL' sl' -> MkLeg (M.XiPair1 stL') (SimPair sl' sr)
+  M.XiPair2 vl stR -> case rel of
     SimPair sl sr -> case sim sc sr stR of
-      MkLeg stR' sr' -> MkLeg (MP.XiPair2 (simValue sl vl) stR') (SimPair sl sr')
-  MP.XiFst stP -> case rel of
+      MkLeg stR' sr' -> MkLeg (M.XiPair2 (simValue sl vl) stR') (SimPair sl sr')
+  M.XiFst stP -> case rel of
     SimFst sp -> case sim sc sp stP of
-      MkLeg stP' sp' -> MkLeg (MP.XiFst stP') (SimFst sp')
-  MP.XiSnd stP -> case rel of
+      MkLeg stP' sp' -> MkLeg (M.XiFst stP') (SimFst sp')
+  M.XiSnd stP -> case rel of
     SimSnd sp -> case sim sc sp stP of
-      MkLeg stP' sp' -> MkLeg (MP.XiSnd stP') (SimSnd sp')
-  MP.BetaFst vl vr -> case rel of
-    SimFst (SimPair sl sr) -> MkLeg (MP.BetaFst (simValue sl vl) (simValue sr vr)) sl
-  MP.BetaSnd vl vr -> case rel of
-    SimSnd (SimPair sl sr) -> MkLeg (MP.BetaSnd (simValue sl vl) (simValue sr vr)) sr
+      MkLeg stP' sp' -> MkLeg (M.XiSnd stP') (SimSnd sp')
+  M.BetaFst vl vr -> case rel of
+    SimFst (SimPair sl sr) -> MkLeg (M.BetaFst (simValue sl vl) (simValue sr vr)) sl
+  M.BetaSnd vl vr -> case rel of
+    SimSnd (SimPair sl sr) -> MkLeg (M.BetaSnd (simValue sl vl) (simValue sr vr)) sr
 
-  MP.XiInl stX -> case rel of
+  M.XiInl stX -> case rel of
     SimInl sx -> case sim sc sx stX of
-      MkLeg stX' sx' -> MkLeg (MP.XiInl stX') (SimInl sx')
-  MP.XiInr stY -> case rel of
+      MkLeg stX' sx' -> MkLeg (M.XiInl stX') (SimInl sx')
+  M.XiInr stY -> case rel of
     SimInr sy -> case sim sc sy stY of
-      MkLeg stY' sy' -> MkLeg (MP.XiInr stY') (SimInr sy')
-  MP.XiCaseSum stS -> case rel of
+      MkLeg stY' sy' -> MkLeg (M.XiInr stY') (SimInr sy')
+  M.XiCaseSum stS -> case rel of
     SimCaseSum ss sl sr -> case sim sc ss stS of
-      MkLeg stS' ss' -> MkLeg (MP.XiCaseSum stS') (SimCaseSum ss' sl sr)
-  MP.BetaInl vx -> case rel of
-    SimCaseSum (SimInl sx) sl _ -> MkLeg (MP.BetaInl (simValue sx vx)) (sc1 sl sx)
-  MP.BetaInr vy -> case rel of
-    SimCaseSum (SimInr sy) _ sr -> MkLeg (MP.BetaInr (simValue sy vy)) (sc1 sr sy)
-  MP.XiAbsurd stM -> case rel of
+      MkLeg stS' ss' -> MkLeg (M.XiCaseSum stS') (SimCaseSum ss' sl sr)
+  M.BetaInl vx -> case rel of
+    SimCaseSum (SimInl sx) sl _ -> MkLeg (M.BetaInl (simValue sx vx)) (sc1 sl sx)
+  M.BetaInr vy -> case rel of
+    SimCaseSum (SimInr sy) _ sr -> MkLeg (M.BetaInr (simValue sy vy)) (sc1 sr sy)
+  M.XiAbsurd stM -> case rel of
     SimAbsurd sm -> case sim sc sm stM of
-      MkLeg stM' sm' -> MkLeg (MP.XiAbsurd stM') (SimAbsurd sm')
+      MkLeg stM' sm' -> MkLeg (M.XiAbsurd stM') (SimAbsurd sm')
 
-  MP.XiCons1 stX -> case rel of
+  M.XiCons1 stX -> case rel of
     SimCons sx sxs -> case sim sc sx stX of
-      MkLeg stX' sx' -> MkLeg (MP.XiCons1 stX') (SimCons sx' sxs)
-  MP.XiCons2 vx stXs -> case rel of
+      MkLeg stX' sx' -> MkLeg (M.XiCons1 stX') (SimCons sx' sxs)
+  M.XiCons2 vx stXs -> case rel of
     SimCons sx sxs -> case sim sc sxs stXs of
-      MkLeg stXs' sxs' -> MkLeg (MP.XiCons2 (simValue sx vx) stXs') (SimCons sx sxs')
-  MP.XiCaseLst stS -> case rel of
+      MkLeg stXs' sxs' -> MkLeg (M.XiCons2 (simValue sx vx) stXs') (SimCons sx sxs')
+  M.XiCaseLst stS -> case rel of
     SimCaseLst ss sn scons -> case sim sc ss stS of
-      MkLeg stS' ss' -> MkLeg (MP.XiCaseLst stS') (SimCaseLst ss' sn scons)
-  MP.BetaNil -> case rel of
-    SimCaseLst SimNil sn _ -> MkLeg MP.BetaNil sn
-  MP.BetaCons vx vxs -> case rel of
+      MkLeg stS' ss' -> MkLeg (M.XiCaseLst stS') (SimCaseLst ss' sn scons)
+  M.BetaNil -> case rel of
+    SimCaseLst SimNil sn _ -> MkLeg M.BetaNil sn
+  M.BetaCons vx vxs -> case rel of
     SimCaseLst (SimCons sx sxs) _ scons ->
-      MkLeg (MP.BetaCons (simValue sx vx) (simValue sxs vxs)) (sc2 scons sx sxs)
+      MkLeg (M.BetaCons (simValue sx vx) (simValue sxs vxs)) (sc2 scons sx sxs)
 
 -- | Complete backward lock-step simulation (`sim⁻¹`) across all 27 rules!
-simInv :: SubstCompat -> SimRel m m' -> MP.Step m' n' -> LegInv MP.Step m n'
+simInv :: SubstCompat -> SimRel m m' -> M.Step m' n' -> LegInv M.Step m n'
 simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
-  MP.XiApp1 stL' -> case rel of
+  M.XiApp1 stL' -> case rel of
     SimApp sl sm -> case simInv sc sl stL' of
-      MkLegInv stL sl' -> MkLegInv (MP.XiApp1 stL) (SimApp sl' sm)
+      MkLegInv stL sl' -> MkLegInv (M.XiApp1 stL) (SimApp sl' sm)
     SimLetApp _ _ -> absurd (valNoStep M.VLam stL')
-  MP.XiApp2 vl' stM' -> case rel of
+  M.XiApp2 vl' stM' -> case rel of
     SimApp sl sm -> case simInv sc sm stM' of
-      MkLegInv stM sm' -> MkLegInv (MP.XiApp2 (simValueInv sl vl') stM) (SimApp sl sm')
+      MkLegInv stM sm' -> MkLegInv (M.XiApp2 (simValueInv sl vl') stM) (SimApp sl sm')
     SimLetApp sm sn -> case simInv sc sm stM' of
-      MkLegInv stM sm' -> MkLegInv (MP.XiLet stM) (SimLetApp sm' sn)
-  MP.BetaLam vm' -> case rel of
-    SimApp (SimLam sn) sm -> MkLegInv (MP.BetaLam (simValueInv sm vm')) (sc1 sn sm)
-    SimLetApp sm sn       -> MkLegInv (MP.BetaLet (simValueInv sm vm')) (sc1 sn sm)
+      MkLegInv stM sm' -> MkLegInv (M.XiLet stM) (SimLetApp sm' sn)
+  M.BetaLam vm' -> case rel of
+    SimApp (SimLam sn) sm -> MkLegInv (M.BetaLam (simValueInv sm vm')) (sc1 sn sm)
+    SimLetApp sm sn       -> MkLegInv (M.BetaLet (simValueInv sm vm')) (sc1 sn sm)
 
-  MP.XiSuc stM' -> case rel of
+  M.XiSuc stM' -> case rel of
     SimSuc sm -> case simInv sc sm stM' of
-      MkLegInv stM sm' -> MkLegInv (MP.XiSuc stM) (SimSuc sm')
-  MP.XiCaseNat stN' -> case rel of
+      MkLegInv stM sm' -> MkLegInv (M.XiSuc stM) (SimSuc sm')
+  M.XiCaseNat stN' -> case rel of
     SimCaseNat sn sz ss -> case simInv sc sn stN' of
-      MkLegInv stN sn' -> MkLegInv (MP.XiCaseNat stN) (SimCaseNat sn' sz ss)
-  MP.BetaZero -> case rel of
-    SimCaseNat SimZero sz _ -> MkLegInv MP.BetaZero sz
-  MP.BetaSuc vv' -> case rel of
-    SimCaseNat (SimSuc sv) _ ss -> MkLegInv (MP.BetaSuc (simValueInv sv vv')) (sc1 ss sv)
-  MP.BetaMu -> case rel of
-    SimMu sn -> MkLegInv MP.BetaMu (sc1 sn (SimMu sn))
+      MkLegInv stN sn' -> MkLegInv (M.XiCaseNat stN) (SimCaseNat sn' sz ss)
+  M.BetaZero -> case rel of
+    SimCaseNat SimZero sz _ -> MkLegInv M.BetaZero sz
+  M.BetaSuc vv' -> case rel of
+    SimCaseNat (SimSuc sv) _ ss -> MkLegInv (M.BetaSuc (simValueInv sv vv')) (sc1 ss sv)
+  M.BetaMu -> case rel of
+    SimMu sn -> MkLegInv M.BetaMu (sc1 sn (SimMu sn))
 
-  MP.XiLet stM' -> case rel of
+  M.XiLet stM' -> case rel of
     SimLet sm sn -> case simInv sc sm stM' of
-      MkLegInv stM sm' -> MkLegInv (MP.XiLet stM) (SimLet sm' sn)
-  MP.BetaLet vm' -> case rel of
-    SimLet sm sn -> MkLegInv (MP.BetaLet (simValueInv sm vm')) (sc1 sn sm)
+      MkLegInv stM sm' -> MkLegInv (M.XiLet stM) (SimLet sm' sn)
+  M.BetaLet vm' -> case rel of
+    SimLet sm sn -> MkLegInv (M.BetaLet (simValueInv sm vm')) (sc1 sn sm)
 
-  MP.XiPair1 stL' -> case rel of
+  M.XiPair1 stL' -> case rel of
     SimPair sl sr -> case simInv sc sl stL' of
-      MkLegInv stL sl' -> MkLegInv (MP.XiPair1 stL) (SimPair sl' sr)
-  MP.XiPair2 vl' stR' -> case rel of
+      MkLegInv stL sl' -> MkLegInv (M.XiPair1 stL) (SimPair sl' sr)
+  M.XiPair2 vl' stR' -> case rel of
     SimPair sl sr -> case simInv sc sr stR' of
-      MkLegInv stR sr' -> MkLegInv (MP.XiPair2 (simValueInv sl vl') stR) (SimPair sl sr')
-  MP.XiFst stP' -> case rel of
+      MkLegInv stR sr' -> MkLegInv (M.XiPair2 (simValueInv sl vl') stR) (SimPair sl sr')
+  M.XiFst stP' -> case rel of
     SimFst sp -> case simInv sc sp stP' of
-      MkLegInv stP sp' -> MkLegInv (MP.XiFst stP) (SimFst sp')
-  MP.XiSnd stP' -> case rel of
+      MkLegInv stP sp' -> MkLegInv (M.XiFst stP) (SimFst sp')
+  M.XiSnd stP' -> case rel of
     SimSnd sp -> case simInv sc sp stP' of
-      MkLegInv stP sp' -> MkLegInv (MP.XiSnd stP) (SimSnd sp')
-  MP.BetaFst vl' vr' -> case rel of
-    SimFst (SimPair sl sr) -> MkLegInv (MP.BetaFst (simValueInv sl vl') (simValueInv sr vr')) sl
-  MP.BetaSnd vl' vr' -> case rel of
-    SimSnd (SimPair sl sr) -> MkLegInv (MP.BetaSnd (simValueInv sl vl') (simValueInv sr vr')) sr
+      MkLegInv stP sp' -> MkLegInv (M.XiSnd stP) (SimSnd sp')
+  M.BetaFst vl' vr' -> case rel of
+    SimFst (SimPair sl sr) -> MkLegInv (M.BetaFst (simValueInv sl vl') (simValueInv sr vr')) sl
+  M.BetaSnd vl' vr' -> case rel of
+    SimSnd (SimPair sl sr) -> MkLegInv (M.BetaSnd (simValueInv sl vl') (simValueInv sr vr')) sr
 
-  MP.XiInl stX' -> case rel of
+  M.XiInl stX' -> case rel of
     SimInl sx -> case simInv sc sx stX' of
-      MkLegInv stX sx' -> MkLegInv (MP.XiInl stX) (SimInl sx')
-  MP.XiInr stY' -> case rel of
+      MkLegInv stX sx' -> MkLegInv (M.XiInl stX) (SimInl sx')
+  M.XiInr stY' -> case rel of
     SimInr sy -> case simInv sc sy stY' of
-      MkLegInv stY sy' -> MkLegInv (MP.XiInr stY) (SimInr sy')
-  MP.XiCaseSum stS' -> case rel of
+      MkLegInv stY sy' -> MkLegInv (M.XiInr stY) (SimInr sy')
+  M.XiCaseSum stS' -> case rel of
     SimCaseSum ss sl sr -> case simInv sc ss stS' of
-      MkLegInv stS ss' -> MkLegInv (MP.XiCaseSum stS) (SimCaseSum ss' sl sr)
-  MP.BetaInl vx' -> case rel of
-    SimCaseSum (SimInl sx) sl _ -> MkLegInv (MP.BetaInl (simValueInv sx vx')) (sc1 sl sx)
-  MP.BetaInr vy' -> case rel of
-    SimCaseSum (SimInr sy) _ sr -> MkLegInv (MP.BetaInr (simValueInv sy vy')) (sc1 sr sy)
-  MP.XiAbsurd stM' -> case rel of
+      MkLegInv stS ss' -> MkLegInv (M.XiCaseSum stS) (SimCaseSum ss' sl sr)
+  M.BetaInl vx' -> case rel of
+    SimCaseSum (SimInl sx) sl _ -> MkLegInv (M.BetaInl (simValueInv sx vx')) (sc1 sl sx)
+  M.BetaInr vy' -> case rel of
+    SimCaseSum (SimInr sy) _ sr -> MkLegInv (M.BetaInr (simValueInv sy vy')) (sc1 sr sy)
+  M.XiAbsurd stM' -> case rel of
     SimAbsurd sm -> case simInv sc sm stM' of
-      MkLegInv stM sm' -> MkLegInv (MP.XiAbsurd stM) (SimAbsurd sm')
+      MkLegInv stM sm' -> MkLegInv (M.XiAbsurd stM) (SimAbsurd sm')
 
-  MP.XiCons1 stX' -> case rel of
+  M.XiCons1 stX' -> case rel of
     SimCons sx sxs -> case simInv sc sx stX' of
-      MkLegInv stX sx' -> MkLegInv (MP.XiCons1 stX) (SimCons sx' sxs)
-  MP.XiCons2 vx' stXs' -> case rel of
+      MkLegInv stX sx' -> MkLegInv (M.XiCons1 stX) (SimCons sx' sxs)
+  M.XiCons2 vx' stXs' -> case rel of
     SimCons sx sxs -> case simInv sc sxs stXs' of
-      MkLegInv stXs sxs' -> MkLegInv (MP.XiCons2 (simValueInv sx vx') stXs) (SimCons sx sxs')
-  MP.XiCaseLst stS' -> case rel of
+      MkLegInv stXs sxs' -> MkLegInv (M.XiCons2 (simValueInv sx vx') stXs) (SimCons sx sxs')
+  M.XiCaseLst stS' -> case rel of
     SimCaseLst ss sn scons -> case simInv sc ss stS' of
-      MkLegInv stS ss' -> MkLegInv (MP.XiCaseLst stS) (SimCaseLst ss' sn scons)
-  MP.BetaNil -> case rel of
-    SimCaseLst SimNil sn _ -> MkLegInv MP.BetaNil sn
-  MP.BetaCons vx' vxs' -> case rel of
+      MkLegInv stS ss' -> MkLegInv (M.XiCaseLst stS) (SimCaseLst ss' sn scons)
+  M.BetaNil -> case rel of
+    SimCaseLst SimNil sn _ -> MkLegInv M.BetaNil sn
+  M.BetaCons vx' vxs' -> case rel of
     SimCaseLst (SimCons sx sxs) _ scons ->
-      MkLegInv (MP.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
+      MkLegInv (M.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
 ```
 
 ### Multi-step bisimulation (`—↠`) and concrete `let`-desugaring witnesses
 
 Composing one-step simulation lifts immediately to multi-step reduction
-sequences (`MP.Steps`), and on concrete closed terms GHC evaluates
+sequences (`M.Steps`), and on concrete closed terms GHC evaluates
 `M.substSingle` directly without needing `SubstCompat` at all:
 
 ```haskell
 -- | Multi-step forward simulation (`—↠`).
-simSteps :: SubstCompat -> SimRel m m' -> MP.Steps m n -> Leg MP.Steps m' n
-simSteps _  rel MP.StepsRefl        = MkLeg MP.StepsRefl rel
-simSteps sc rel (MP.StepsCons s ss) = case sim sc rel s of
+simSteps :: SubstCompat -> SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
+simSteps _  rel M.StepsRefl        = MkLeg M.StepsRefl rel
+simSteps sc rel (M.StepsCons s ss) = case sim sc rel s of
   MkLeg s' rel1 -> case simSteps sc rel1 ss of
-    MkLeg ss' rel2 -> MkLeg (MP.StepsCons s' ss') rel2
+    MkLeg ss' rel2 -> MkLeg (M.StepsCons s' ss') rel2
 
 -- | Multi-step backward simulation (`—↠`).
-simStepsInv :: SubstCompat -> SimRel m m' -> MP.Steps m' n' -> LegInv MP.Steps m n'
-simStepsInv _  rel MP.StepsRefl        = MkLegInv MP.StepsRefl rel
-simStepsInv sc rel (MP.StepsCons s ss) = case simInv sc rel s of
+simStepsInv :: SubstCompat -> SimRel m m' -> M.Steps m' n' -> LegInv M.Steps m n'
+simStepsInv _  rel M.StepsRefl        = MkLegInv M.StepsRefl rel
+simStepsInv sc rel (M.StepsCons s ss) = case simInv sc rel s of
   MkLegInv s' rel1 -> case simStepsInv sc rel1 ss of
-    MkLegInv ss' rel2 -> MkLegInv (MP.StepsCons s' ss') rel2
+    MkLegInv ss' rel2 -> MkLegInv (M.StepsCons s' ss') rel2
 
 -- | Concrete closed lock-step bisimulation witnesses (zero assumptions!):
 -- `let x = fst (0, 1) in suc x` simulates `(λx. suc x) (fst (0, 1))`
@@ -662,29 +661,29 @@ letDesugarSim
 letDesugarSim = SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc SimVar)
 
 letDesugarSteps
-  :: Leg @M.CEmpty @M.TNat MP.Steps
+  :: Leg @M.CEmpty @M.TNat M.Steps
          (M.App (M.Lam (M.Suc (M.Var M.Z))) (M.Fst (M.Pair M.Zero (M.Suc M.Zero))))
          (M.Suc M.Zero)
 letDesugarSteps =
   MkLeg
-    (MP.StepsCons (MP.XiApp2 M.VLam (MP.BetaFst M.VZero (M.VSuc M.VZero)))
-      (MP.StepsCons (MP.BetaLam M.VZero) MP.StepsRefl))
+    (M.StepsCons (M.XiApp2 M.VLam (M.BetaFst M.VZero (M.VSuc M.VZero)))
+      (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl))
     (SimSuc SimZero)
 
 letDesugarStepsInv
-  :: LegInv @M.CEmpty @M.TNat MP.Steps
+  :: LegInv @M.CEmpty @M.TNat M.Steps
             (M.Let (M.Fst (M.Pair M.Zero (M.Suc M.Zero))) (M.Suc (M.Var M.Z)))
             (M.Suc M.Zero)
 letDesugarStepsInv =
   MkLegInv
-    (MP.StepsCons (MP.XiLet (MP.BetaFst M.VZero (M.VSuc M.VZero)))
-      (MP.StepsCons (MP.BetaLet M.VZero) MP.StepsRefl))
+    (M.StepsCons (M.XiLet (M.BetaFst M.VZero (M.VSuc M.VZero)))
+      (M.StepsCons (M.BetaLet M.VZero) M.StepsRefl))
     (SimSuc SimZero)
 ```
 
 ### Negative control: forging a wrong bisimulation target
 
-To verify that GHC genuinely checks `M.substSingle` inside `MP.BetaLam` and
+To verify that GHC genuinely checks `M.substSingle` inside `M.BetaLam` and
 `SimRel`, trying to claim `(λ x. suc x) 0` simulates to `Zero` (instead of
 `Suc Zero`) must be rejected with `GHC-83865`:
 
@@ -693,29 +692,28 @@ To verify that GHC genuinely checks `M.substSingle` inside `MP.BetaLam` and
 module NegBisimBadTarget where
 
 import qualified PLFH.Part2.More as M
-import qualified PLFH.Part2.MoreProgress as MP
 import PLFH.Part2.Bisimulation (Leg (..), SimRel (..))
 
 -- MUST FAIL: `(λx. suc x) 0` reduces to `Suc Zero`, NOT `Zero`!
-badLetDesugar :: Leg @M.CEmpty @M.TNat MP.Step (M.App (M.Lam (M.Suc (M.Var M.Z))) M.Zero) M.Zero
-badLetDesugar = MkLeg (MP.BetaLam M.VZero) SimZero
+badLetDesugar :: Leg @M.CEmpty @M.TNat M.Step (M.App (M.Lam (M.Suc (M.Var M.Z))) M.Zero) M.Zero
+badLetDesugar = MkLeg (M.BetaLam M.VZero) SimZero
 ```
 
 ## Exercises
 
 #### Exercise `sim⁻¹` (practice) {#sim-inv}
 
-Verify that `simInv` above handles every case of `MP.Step` in the reverse
+Verify that `simInv` above handles every case of `M.Step` in the reverse
 direction—especially observing why `valNoStep M.VLam` is required in the
-`SimLetApp` / `MP.XiApp1` case and how `SimLetApp` maps `MP.XiApp2` back to
-`MP.XiLet` and `MP.BetaLam` back to `MP.BetaLet`.
+`SimLetApp` / `M.XiApp1` case and how `SimLetApp` maps `M.XiApp2` back to
+`M.XiLet` and `M.BetaLam` back to `M.BetaLet`.
 
 #### Exercise `products` (practice) {#products-bisim}
 
 In [More](/More/), products can be formulated either with projections
 (`Fst`/`Snd`) or with a pattern-matching eliminator (`case p of (x, y) => n`).
 Explain why the simulation between the two formulations of products is *weak*
-(multi-step `—↠`) rather than lock-step (`—→`), and how `Leg MP.Steps` already
+(multi-step `—↠`) rather than lock-step (`—→`), and how `Leg M.Steps` already
 accommodates weak simulations directly!
 
 ## Changes from PLFA

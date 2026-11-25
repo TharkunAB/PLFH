@@ -19,12 +19,17 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# once it supports Proposal #378 `-XDependentTypes` (Wave 4 Track A+),
-# otherwise use the verified Wave 4 Track A preview component (`c5dbff62fb`,
-# merged atop Wave 2 consolidated `bce571b213`) until `_build/current` advances.
+# once it supports Proposal #378 `-XDependentTypes` AND Wave 3+4A HaskLib
+# (`HaskLib.List.foldr`), otherwise use the verified Wave 3 + Wave 4A
+# consolidated component (`ae37d20205`) until `_build/current` advances.
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
+CURRENT_HASKLIB="$GHC_REPO/_build/current/source/docs/dependent-haskell/hasklib"
+WAVE34A_GHC="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/component/ghc"
+WAVE34A_LIB="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/component/lib"
+WAVE34A_HASKLIB="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/source/docs/dependent-haskell/hasklib"
+WAVE34A_OPENEVAL="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/source/docs/dependent-haskell/examples/open-evaluation"
 WAVE4_GHC="$GHC_REPO/_build/on-demand/wave4-preview/component/ghc"
 WAVE4_LIB="$GHC_REPO/_build/on-demand/wave4-preview/component/lib"
 WAVE2C_GHC="$GHC_REPO/_build/on-demand/wave2-consolidated/component/ghc"
@@ -36,10 +41,18 @@ WAVE1_LIB="$GHC_REPO/_build/on-demand/wave1-consolidated/component/lib"
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
+DEFAULT_HASKLIB=""
+DEFAULT_OPENEVAL=""
 if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]] \
-   && "$CURRENT_GHC" --supported-extensions 2>/dev/null | grep -qx "DependentTypes"; then
+   && "$CURRENT_GHC" --supported-extensions 2>/dev/null | grep -qx "DependentTypes" \
+   && grep -q "List\.foldr" "$CURRENT_HASKLIB/HaskLib/List.hs" 2>/dev/null; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
+elif [[ -x "$WAVE34A_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE34A_GHC"
+  DEFAULT_LIBDIR="$WAVE34A_LIB"
+  DEFAULT_HASKLIB="$WAVE34A_HASKLIB"
+  DEFAULT_OPENEVAL="$WAVE34A_OPENEVAL"
 elif [[ -x "$WAVE4_GHC" ]]; then
   DEFAULT_COMPILER="$WAVE4_GHC"
   DEFAULT_LIBDIR="$WAVE4_LIB"
@@ -70,7 +83,7 @@ fi
 
 if [[ "${PLFH_NO_PUEUE:-0}" != "1" ]] && [[ -x "$GHC_REPO/docs/dependent-haskell/tools/ghc-build-job" ]]; then
   jid=$(cd "$GHC_REPO" && CAPPED_MEM=5G docs/dependent-haskell/tools/ghc-build-job plfh-suite \
-    /usr/bin/env "PLFH_NO_PUEUE=1" "PLFH_GHC=$COMPILER" "PLFH_GHC_LIBDIR=$GHC_LIBDIR" "PLFH_GHC_REPO=$GHC_REPO" \
+    /usr/bin/env "PLFH_NO_PUEUE=1" "PLFH_GHC=$COMPILER" "PLFH_GHC_LIBDIR=$GHC_LIBDIR" "PLFH_GHC_REPO=$GHC_REPO" "PLFH_HASKLIB=${PLFH_HASKLIB:-}" \
     bash "$SCRIPT_DIR/check_plfh.sh" "$@")
   echo "Submitted PLFH verification suite as pueue job $jid"
   env -u XDG_RUNTIME_DIR pueue wait -q "$jid"
@@ -122,7 +135,12 @@ trap 'rm -rf -- "$WORK"' EXIT
 HASKLIB_SRC=${PLFH_HASKLIB:-}
 OPEN_EVAL_SRC="$GHC_REPO/docs/dependent-haskell/examples/open-evaluation"
 if [[ -z "$HASKLIB_SRC" ]]; then
-  if [[ "$COMPILER" == *r17-schema-transformer-post-588* ]] && [[ -d "$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib" ]]; then
+  if [[ -n "$DEFAULT_HASKLIB" && "$COMPILER" == "$DEFAULT_COMPILER" && -d "$DEFAULT_HASKLIB" ]]; then
+    HASKLIB_SRC="$DEFAULT_HASKLIB"
+    if [[ -d "$DEFAULT_OPENEVAL" ]]; then
+      OPEN_EVAL_SRC="$DEFAULT_OPENEVAL"
+    fi
+  elif [[ "$COMPILER" == *r17-schema-transformer-post-588* ]] && [[ -d "$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib" ]]; then
     HASKLIB_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/hasklib"
     OPEN_EVAL_SRC="$GHC_REPO/_build/on-demand/hasklib-book-nat-rewrite-20261124/source/docs/dependent-haskell/examples/open-evaluation"
   else

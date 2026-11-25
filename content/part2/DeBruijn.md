@@ -37,6 +37,7 @@ to a kind**!
 
 ```haskell
 {-# LANGUAGE DependentTypes #-}
+{-# OPTIONS_GHC -Werror=incomplete-patterns #-}
 module PLFH.Part2.DeBruijn
   ( Ty (..)
   , Ctx (..)
@@ -54,6 +55,14 @@ module PLFH.Part2.DeBruijn
   , valZero
   , IsVal (..)
   , checkValue
+  , Step (..)
+  , Steps (..)
+  , Progress (..)
+  , progress
+  , appProgress
+  , betaIdStep
+  , betaCaptureAvoid
+  , betaShiftUnderLam
   ) where
 
 import Data.Kind (Type)
@@ -249,62 +258,142 @@ In the intrinsically-typed representation, `Step` has kind
 holds automatically** by the very type of `Step`! Every reduction step connects
 two terms of the *exact same* type `a` in the *exact same* context `g`.
 
-Compiling this syntax module with `-XDependentTypes` automatically
-publishes the checked equations for `rename`, `subst`, and `substSingle` into
-its compiled interface (`DeBruijn.hi`). Our companion checked module
-[`PLFH.Part2.DeBruijnProgress`](https://github.com/Tritlo/PLFH/blob/main/clients/PLFH/Part2/DeBruijnProgress.hs)
-reads that native interface and defines all eight intrinsically-typed reduction
-rules (`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
-`BetaMu`) using real functional `D.substSingle`, concrete capture-avoiding beta
-witnesses (`betaIdStep`, `betaCaptureAvoid`, `betaShiftUnderLam`), and the
-**complete, unconditional `progress` theorem** covering every term constructor
-(`Var`, `Lam`, `App`, `Zero`, `Suc`, `Case`, `Mu`):
-
-```{.haskell .ignore}
--- Excerpt from checked client module PLFH.Part2.DeBruijnProgress:
-type Step :: forall (g :: D.Ctx) (a :: D.Ty). D.Term g a -> D.Term g a -> Type
-data Step m n where
-  XiApp1   :: Step l l' -> Step (D.App l m) (D.App l' m)
-  XiApp2   :: D.Value l -> Step m m' -> Step (D.App l m) (D.App l m')
-  XiSuc    :: Step m m' -> Step (D.Suc m) (D.Suc m')
-  XiCase   :: Step l l' -> Step (D.Case l m n) (D.Case l' m n)
-  BetaLam  :: forall g a b (n :: D.Term (D.CExt g a) b) (w :: D.Term g a).
-              D.Value w -> Step (D.App (D.Lam n) w) (D.substSingle n w)
-  BetaZero :: forall g a (m :: D.Term g a) (n :: D.Term (D.CExt g D.TNat) a).
-              Step (D.Case D.Zero m n) m
-  BetaSuc  :: forall g a (m :: D.Term g a) (n :: D.Term (D.CExt g D.TNat) a)
-                         (v :: D.Term g D.TNat).
-              D.Value v -> Step (D.Case (D.Suc v) m n) (D.substSingle n v)
-  BetaMu   :: forall g a (n :: D.Term (D.CExt g a) a).
-              Step (D.Mu n) (D.substSingle n (D.Mu n))
-
-progress :: forall (a :: D.Ty). foreach (m :: D.Term D.CEmpty a) -> Progress m
-progress t = case t of
-  D.Var x      -> case x of {}
-  D.Lam _      -> PDone D.VLam
-  D.App l m    -> case progress l of ...
-  D.Zero       -> PDone D.VZero
-  D.Suc n      -> case progress n of ...
-  D.Case l m n -> case progress l of ...
-  D.Mu n       -> muStep @a @n
-```
+With `-XDependentTypes`, all eight intrinsically-typed reduction rules
+(`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
+`BetaMu`) use our ordinary functional `substSingle` directly in this module,
+and **`progress`** proves unconditionally across all seven term constructors
+that every closed well-typed term is either a value or takes a type-preserving
+step!
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Intrinsically-typed gas-bounded evaluator <code>eval</code> (R04)]</strong>
-In PLFA, <code>progress</code> feeds directly into a gas-bounded evaluator
-<code>eval :: Gas -&gt; foreach (m :: Term CEmpty a) -&gt; Finished m</code>
-that steps a closed term repeatedly and returns a multi-step derivation
-<code>Steps m n</code>. Packing a retained <code>foreach (n :: Term CEmpty a)</code>
-field inside <code>Progress m</code> now works for vanilla indexed GADTs
-(as in <a href="/Untyped/">Untyped</a>'s constructive <code>evalNormal</code>!),
-but passing a GADT constructor with an <em>existential</em> type variable
-(<code>App :: Term g (TArr a b) -&gt; Term g a -&gt; Term g b</code>) as a
-retained operand still fails with <code>GHC-83605</code>; see minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R04_ExistentialGadtRetainedArg.hs"><code>reproducers/R04_ExistentialGadtRetainedArg.hs</code></a>.
-(Our extrinsic chapter <a href="/Properties/">Properties</a> already proves and
-runs the full verified <code>eval</code> evaluator using a structural witness
-<code>TermW m</code>.)
+<strong>[WIP NOTICE — Intrinsically-typed gas-bounded <code>eval</code>]</strong>
+PLFA's 6-line gas-bounded evaluator <code>eval</code> upgrades
+<code>PStep</code> to carry a retained <code>foreach (n :: Term CEmpty a)</code>
+target alongside <code>Step m n</code>. Constructing
+<code>PStep (substSingle body m) (BetaLam w)</code> after matching
+<code>l :: Term CEmpty (TArr a b)</code> against <code>Lam body</code> requires
+casting <code>m</code> by the GADT equality coercion
+<code>TArr a b ~ TArr a' b'</code>: GHC's typechecker rejects that cast inside
+a retained source call (<code>GHC-83605</code>), and factoring it through a
+helper causes Desugar inlining to fail Core Lint
+(<code>Unsupported retained runtime argument</code>). Tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_RetainedSourceCallGadtCastCoreLint.hs"><code>R03_RetainedSourceCallGadtCastCoreLint.hs</code></a>.
 </div>
+
+```haskell
+-- | Intrinsically type-preserving call-by-value reduction (`M —→ N`).
+-- Preservation holds automatically by the kind of `Step`!
+type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
+data Step m n where
+  XiApp1   :: Step l l' -> Step (App l m) (App l' m)
+  XiApp2   :: Value l -> Step m m' -> Step (App l m) (App l m')
+  XiSuc    :: Step m m' -> Step (Suc m) (Suc m')
+  XiCase   :: Step l l' -> Step (Case l m n) (Case l' m n)
+  BetaLam  :: forall g a b (n :: Term (CExt g a) b) (w :: Term g a).
+              Value w -> Step (App (Lam n) w) (substSingle n w)
+  BetaZero :: forall g a (m :: Term g a) (n :: Term (CExt g TNat) a).
+              Step (Case Zero m n) m
+  BetaSuc  :: forall g a (m :: Term g a) (n :: Term (CExt g TNat) a)
+                         (v :: Term g TNat).
+              Value v -> Step (Case (Suc v) m n) (substSingle n v)
+  BetaMu   :: forall g a (n :: Term (CExt g a) a).
+              Step (Mu n) (substSingle n (Mu n))
+
+-- | Reflexive-transitive closure of intrinsically-typed reduction (`M —↠ N`).
+type Steps :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
+data Steps m n where
+  StepsRefl :: Steps m m
+  StepsCons :: Step l m -> Steps m n -> Steps l n
+
+-- | Intrinsically-typed progress witness for closed terms.
+type Progress :: forall (a :: Ty). Term CEmpty a -> Type
+data Progress m where
+  PStep :: Step m n -> Progress m
+  PDone :: Value m -> Progress m
+
+-- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
+-- every closed well-typed term is either a value or takes a type-preserving step!
+progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
+progress t = case t of
+  Var x -> case x of {}
+  Lam _ -> PDone VLam
+  App l m -> case progress l of
+    PStep s -> appLeft s
+    PDone v -> case progress m of
+      PStep s -> appRight v s
+      PDone w -> appBeta v w
+  Zero -> PDone VZero
+  Suc n -> case progress n of
+    PStep s -> sucStep s
+    PDone v -> PDone (VSuc v)
+  Case l m n -> case progress l of
+    PStep s -> caseStep @a @l @_ @m @n s
+    PDone v -> caseBeta @a @l @m @n v
+  Mu n -> muStep @a @n
+
+-- | Application case factored out as a standalone helper given subterm progress.
+appProgress
+  :: forall (a :: Ty).
+     (forall (b :: Ty). foreach (m :: Term CEmpty b) -> Progress m)
+  -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
+appProgress recProg t = case t of
+  App l m -> case recProg l of
+    PStep s -> Just (appLeft s)
+    PDone v -> case recProg m of
+      PStep s -> Just (appRight v s)
+      PDone w -> Just (appBeta v w)
+  _ -> Nothing
+
+appLeft :: forall a b (l :: Term CEmpty (TArr a b))
+                      (l' :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
+           Step l l' -> Progress (App l m)
+appLeft s = PStep (XiApp1 s)
+
+appRight :: forall a b (l :: Term CEmpty (TArr a b))
+                       (m :: Term CEmpty a) (m' :: Term CEmpty a).
+            Value l -> Step m m' -> Progress (App l m)
+appRight v s = PStep (XiApp2 v s)
+
+appBeta :: forall a b (l :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
+           Value l -> Value m -> Progress (App l m)
+appBeta (VLam @n) w = PStep (BetaLam @CEmpty @a @b @n @m w)
+
+sucStep :: forall (n :: Term CEmpty TNat) (n' :: Term CEmpty TNat).
+           Step n n' -> Progress (Suc n)
+sucStep s = PStep (XiSuc s)
+
+caseStep :: forall a (l :: Term CEmpty TNat) (l' :: Term CEmpty TNat)
+                     (m :: Term CEmpty a) (n :: Term (CExt CEmpty TNat) a).
+            Step l l' -> Progress (Case l m n)
+caseStep s = PStep (XiCase s)
+
+caseBeta :: forall a (l :: Term CEmpty TNat) (m :: Term CEmpty a)
+                     (n :: Term (CExt CEmpty TNat) a).
+            Value l -> Progress (Case l m n)
+caseBeta VZero       = PStep (BetaZero @CEmpty @a @m @n)
+caseBeta (VSuc @v w) = PStep (BetaSuc @CEmpty @a @m @n @v w)
+
+muStep :: forall a (n :: Term (CExt CEmpty a) a). Progress (Mu n)
+muStep = PStep (BetaMu @CEmpty @a @n)
+
+-- | Concrete β-reduction: (λ. 0) 0 —→ 0.
+betaIdStep :: Step (App (Lam (Var Z)) Zero) Zero
+betaIdStep = BetaLam VZero
+
+-- | Concrete substitution under a binder: (λ. λ. 1) 0 —→ λ. 0.
+betaCaptureAvoid :: Step (App (Lam (Lam (Var (S Z)))) Zero) (Lam Zero)
+betaCaptureAvoid = BetaLam VZero
+
+-- | Capture-avoiding substitution of an open value under a binder:
+-- in context (∅, Nat), substituting `w = λ. Var (S Z)` (which references the
+-- free outer Nat) into `λ. Var (S Z)` shifts `w`'s free variable to `S (S Z)`!
+betaShiftUnderLam
+  :: Step @(CExt CEmpty TNat)
+          @(TArr TNat (TArr TNat TNat))
+          (App (Lam (Lam (Var (S Z)))) (Lam (Var (S Z))))
+          (Lam (Lam (Var (S (S Z)))))
+betaShiftUnderLam = BetaLam VLam
+```
 
 ### Negative control: forged variable capture is rejected
 
@@ -318,14 +407,13 @@ by GHC with `GHC-83865`:
 module NegDeBruijnBadCapture (badCapture) where
 
 import qualified PLFH.Part2.DeBruijn as D
-import PLFH.Part2.DeBruijnProgress (Step (..))
 
 badCapture
-  :: Step @(D.CExt D.CEmpty D.TNat)
-          @(D.TArr D.TNat (D.TArr D.TNat D.TNat))
-          (D.App (D.Lam (D.Lam (D.Var (D.S D.Z)))) (D.Lam (D.Var (D.S D.Z))))
-          (D.Lam (D.Lam (D.Var (D.S D.Z))))
-badCapture = BetaLam D.VLam
+  :: D.Step @(D.CExt D.CEmpty D.TNat)
+            @(D.TArr D.TNat (D.TArr D.TNat D.TNat))
+            (D.App (D.Lam (D.Lam (D.Var (D.S D.Z)))) (D.Lam (D.Var (D.S D.Z))))
+            (D.Lam (D.Lam (D.Var (D.S D.Z))))
+badCapture = D.BetaLam D.VLam
 ```
 
 ## Exercises
@@ -358,11 +446,11 @@ in context `CExt CEmpty TNat`?
   `IsVal`/`checkValue` over retained `foreach (m :: Term CEmpty a)` all
   compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
   soundness audit.
-- With `-XDependentTypes` publishing checked source equations automatically,
-  our checked client module `PLFH.Part2.DeBruijnProgress` defines all eight
-  intrinsically-typed `Step`
-  rules using real functional `substSingle`, concrete capture-avoiding beta
-  witnesses (guarded by negative control `NegDeBruijnBadCapture`), and the
-  **complete, unconditional `progress` theorem** across all 7 term constructors;
-  intrinsic gas-bounded `eval` is tracked under `[WIP NOTICE]` via
-  `R04_ExistentialGadtRetainedArg.hs`.
+- All eight intrinsically-typed `Step` rules (using real functional
+  `substSingle` directly in the same module), concrete capture-avoiding beta
+  witnesses (guarded by negative control `NegDeBruijnBadCapture`), and complete
+  unconditional `progress` across all 7 term constructors all compile inline in
+  `PLFH.Part2.DeBruijn` with `-Werror=incomplete-patterns` and
+  `-dcore-lint -dstg-lint`. PLFA's 6-line intrinsic `eval` (requiring a
+  retained `foreach` target inside `PStep`) is tracked in
+  `reproducers/R03_RetainedSourceCallGadtCastCoreLint.hs`.

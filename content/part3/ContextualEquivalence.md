@@ -59,8 +59,7 @@ import PLFH.Part2.Confluence (TermW (..), mkTermW)
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacy, cbnToReduceW)
 import qualified PLFH.Part3.Compositional as C
-import PLFH.Part3.Compositional (UCtx (..))
-import PLFH.Part3.CompositionalPlug (compositionality)
+import PLFH.Part3.Compositional (UCtx (..), compositionality)
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivSteps)
 ```

@@ -34,7 +34,10 @@ defined by structural recursion on the finite `Value` `v`:
   `LogE v d m`, evaluating `b` with `(m, d)` pushed onto `e` satisfies
   `LogE w`! (Notice `LogE v` sits in a **negative** position—which is why
   `LogVLam` must be defined by **large elimination** on `Value`, i.e., a
-  3-line closed type family over promoted `Value`, rather than an inductive GADT!)
+  3-line closed type family over promoted `Value`, rather than an inductive GADT;
+  term-to-`Type` large elimination with `Nat`-kinded `forall` and GADT-indexed
+  carried arguments `Env n`/`UTerm (Succ n)` is tracked in
+  [`R13_LargeElimIndexedArgs.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LargeElimIndexedArgs.hs)!)
 - `LogVLam (Join u v) e b = (LogVLam u e b, LogVLam v e b)`: a pair of proofs!
 
 With `BigStep.evalDeterm` proved unconditionally, the **entire Big-Step Adequacy
