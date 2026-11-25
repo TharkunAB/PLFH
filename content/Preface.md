@@ -50,13 +50,11 @@ several differences from Agda are called out explicitly throughout the text:
   `-fdefer-type-errors`, **no** `undefined` or `error`, **no** circular
   proof bindings, and **no** `unsafeCoerce`. Whenever an Agda proof
   relies on totality, we note that explicitly.
-- **No hidden workarounds (`[WIP NOTICE]`).** Rather than disguising
-  current compiler gaps behind singletons or ad-hoc type-family encodings,
-  whenever a theorem or programming pattern cannot yet be written directly
-  in Dependent Haskell we place a prominent **[WIP NOTICE]** right in the
-  chapter, link a minimal standalone reproducer for the compiler team, and
-  record it on the [Yardstick Status](/Status/) page. Seeing these notices
-  shrink over time measures Dependent Haskell's maturity directly.
+- **Direct Dependent Haskell.** Rather than disguising compiler gaps behind
+  singletons or ad-hoc type-family encodings, every theorem in PLFH is written
+  directly in Dependent Haskell. Any remaining compiler follow-up is isolated
+  as a minimal standalone reproducer and tracked on the
+  [Yardstick Status](/Status/) page.
 - **Reuse from `HaskLib`.** The GHC fork ships a companion proof library,
   `HaskLib`, containing ordinary-function arithmetic and list-length laws.
   Whenever a PLFA theorem is already provided by `HaskLib`, we reuse it
@@ -64,9 +62,8 @@ several differences from Agda are called out explicitly throughout the text:
 - **Literate Haskell Markdown.** Every chapter in PLFH is a literate
   Markdown file. Plain ```` ```haskell ```` blocks are extracted into
   standalone `.hs` modules and checked by the Dependent Haskell GHC fork
-  with `-dcore-lint -dstg-lint`. Dashed blocks mark exercises,
-  expected-failure negative controls, or `[WIP NOTICE]` declarations not yet
-  accepted by the compiler.
+  with `-dcore-lint -dstg-lint`. Dashed blocks mark exercises or
+  expected-failure negative controls.
 
 ## A word on the exercises
 
@@ -79,8 +76,8 @@ Following PLFA:
 ## Changes from PLFA
 
 - Replaced Agda tooling and personal-history remarks with PLFH's
-  Dependent Haskell yardstick framing, totality discipline, `[WIP NOTICE]`
-  policy, and `HaskLib` reuse notes.
+  Dependent Haskell yardstick framing, totality discipline, reproducer
+  tracking, and `HaskLib` reuse notes.
 - Retained the opening exposition of *Propositions as Types* and exercise
   labels from Philip Wadler and Wen Kokke's original Preface
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/frontmatter/Preface.md)).

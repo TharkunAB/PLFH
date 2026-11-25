@@ -323,7 +323,7 @@ and right identity, and verify that `eqToLeibniz . leibnizToEq` and
   `Leibniz` (with pure impredicative `leibnizSym` via inline type-level lambda
   `@(\z -> p z -> p x)` and direct matchable instantiation
   `leibnizToEq f = f @(EqP x) ReflP`) port directly and pass
-  `-dcore-lint -dstg-lint` with zero `[WIP NOTICE]` boxes.
+  `-dcore-lint -dstg-lint`.
 - All promoted constructors (`Zero`, `Succ`) are written without leading `'`
   ticks under `-XDataKinds`.
 - PLFA's universe-polymorphic `_≡′_` corresponds to GHC's `-XPolyKinds`,

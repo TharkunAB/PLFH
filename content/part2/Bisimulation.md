@@ -701,4 +701,4 @@ accommodates weak simulations directly!
   unconditional multi-step `simSteps`/`simStepsInv` (computing
   `letDesugarSteps`/`letDesugarStepsInv` directly!), and negative control
   `NegBisimBadTarget` under `-Werror=incomplete-patterns -dcore-lint -dstg-lint`
-  with zero promoted-constructor ticks and zero `[WIP NOTICE]` boxes.
+  with zero promoted-constructor ticks.

@@ -449,5 +449,4 @@ carry structured diagnostic messages alongside their formal refutation proofs.
   checker** (`TermPos`/`TermNeg`, `LookupAt`/`lookupDec`, `Synth`/`Inherit`,
   `eraseSynth`/`eraseInherit`, `synthUnique`, `synthesize`, and `inherit`)
   over de Bruijn STLC terms, compiled with `-Werror=incomplete-patterns`,
-  `-dcore-lint -dstg-lint`, zero promoted-constructor ticks, and zero
-  `[WIP NOTICE]` boxes.
+  `-dcore-lint -dstg-lint`, and zero promoted-constructor ticks.

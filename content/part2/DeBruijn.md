@@ -471,5 +471,4 @@ in context `CExt CEmpty TNat`?
   unconditional `progress` across all 7 term constructors (carrying retained
   `foreach n` inside `PStep`), and PLFA's 6-line intrinsically-typed evaluator
   `eval` (`Gas`, `Finished`) all compile inline in `PLFH.Part2.DeBruijn` with
-  `-Werror=incomplete-patterns`, `-dcore-lint -dstg-lint`, and zero
-  `[WIP NOTICE]` boxes.
+  `-Werror=incomplete-patterns` and `-dcore-lint -dstg-lint`.

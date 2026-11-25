@@ -12,10 +12,9 @@ adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 
 Every plain Haskell code block in this book is extracted into a standalone
-`.hs` module and checked with GHC's Core Lint and STG Lint. Where Dependent
-Haskell cannot yet express a PLFA theorem directly without workarounds,
-we mark it with a **[WIP NOTICE]** and publish a minimal reproducer for the
-compiler team.
+`.hs` module and checked with GHC's Core Lint and STG Lint. Remaining compiler
+follow-ups and intentional soundness guards are tracked as minimal standalone
+reproducers on the [Yardstick Status](/Status/) page.
 
 Comments, bug reports, and pull requests are welcome on
 [GitHub](https://github.com/Tritlo/PLFH).
@@ -46,7 +45,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, **verified evaluator `eval`**, and **well-typed terms don't get stuck (`wttdgs`)** <span class="badge badge-pass">Checked</span>
 - [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **same-module 8-rule `Step` (`substSingle`)**, **unconditional `progress`**, and **6-line intrinsic `eval`** <span class="badge badge-pass">Checked</span>
 - [Inference](/Inference/): **Sound & complete bidirectional `Dec`-based STLC type inference** (`synthesize`, `inherit`, `eraseSynth`/`eraseInherit`, `synthUnique`, plus `infer`/`check`) <span class="badge badge-pass">Checked</span>
-- [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep`, and **constructive normal-order `stepNormal`/`evalNormal`** <span class="badge badge-pass">Checked</span>
+- [Untyped](/Untyped/): Well-scoped untyped lambda calculus, functional `substSingleU`, promoted `Neutral`/`Normal`/`BetaStep`, and **constructive normal-order `stepNormal`/`evalNormal`** <span class="badge badge-pass">Checked</span>
 - [More](/More/): Extended STLC (`let`, `Unit`, `Prod`, `Sum`, `Void`, `List`), `singleSubst`/`doubleSubst`, **27-rule functional `Step`**, and **complete 19-branch `progress`** <span class="badge badge-pass">Checked</span>
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` (`SimRel`, `simRefl`/`simTrans`, bidirectional `simValue`/`simValueInv`, `valNoStep`, **20-constructor `simRename`**, **20-constructor `simExt`/`simSubst`**, **unconditional `simSubstSingle`/`simSubstDouble`**, and **unconditional 27-rule `sim` & `simInv`**) <span class="badge badge-pass">Checked</span>
 - [BigStep](/BigStep/): Call-by-name big-step semantics (`Env`, `Clos`, `EvalBig`, **`evalDeterm`**, **`omegaDiverges`**, **same-module functional `EvalFun` (`lookupEnv`)**, **unconditional `cbnToReduce`**) <span class="badge badge-pass">Checked</span>

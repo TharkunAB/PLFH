@@ -493,5 +493,5 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   `substSingle` and `substDouble` directly in the same module), complete
   unconditional 19-branch `progress` (`-Werror=incomplete-patterns`), and
   concrete `listCaseBoth` (guarded by negative control `NegMoreConsTarget`)
-  compile inline in `PLFH.Part2.More` with `-dcore-lint -dstg-lint`, zero
-  promoted-constructor ticks, and zero `[WIP NOTICE]` gaps!
+  compile inline in `PLFH.Part2.More` with `-dcore-lint -dstg-lint` and zero
+  promoted-constructor ticks.
