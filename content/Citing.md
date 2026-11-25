@@ -7,7 +7,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 
 ## Licence
 
-&copy; 2026 **Tharkun AB**. *Programming Language Foundations in Haskell* (PLFH)
+&copy; 2026 [**Tharkun AB**](https://tharkun.se/). *Programming Language Foundations in Haskell* (PLFH)
 and its original Dependent Haskell chapters, Roadmap Showcase, and interactive
 tooling are licensed under the
 [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).

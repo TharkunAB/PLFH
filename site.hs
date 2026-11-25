@@ -25,6 +25,10 @@ main = do
       route idRoute
       compile compressCssCompiler
 
+    match "images/*" $ do
+      route idRoute
+      compile copyFileCompiler
+
     match "wasm/*" $ do
       route idRoute
       compile copyFileCompiler

@@ -319,6 +319,33 @@ tr:nth-child(even) td {
   margin: 6px 0;
 }
 
+.footer-brand {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+}
+
+.footer-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155 !important;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.footer-brand-link:hover {
+  color: var(--text-color) !important;
+  text-decoration: underline;
+}
+
+.footer-brand-logo {
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+
 /* Interactive Dependent Haskell GHCi (WebAssembly) widgets */
 .plfh-chapter-bar {
   display: none;
