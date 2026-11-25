@@ -6,7 +6,7 @@ Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 ([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit `c0885696578474ebcfe7bb3d7a592224567d9754`)
 serving as both a readable textbook and a practical yardstick for the
 experimental Dependent Haskell fork of GHC
-([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
+([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 - **Live book (GitHub Pages):** <https://plfh.tharkun.se/>
 - **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)

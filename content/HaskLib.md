@@ -6,7 +6,7 @@ src: content/HaskLib.md
 ---
 
 `HaskLib` is the prototype Dependent Haskell standard library shipped alongside
-[`Tritlo/ghc` (`dependent-haskell`)](https://github.com/Tritlo/ghc/tree/dependent-haskell).
+[`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell).
 Every module in `HaskLib` is precompiled into the browser WebAssembly bundle and
 available automatically in PLFH's interactive GHCi sessions.
 
@@ -47,7 +47,7 @@ core inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`, `plusComm`,
 ### `HaskLib` {#hasklib}
 
 Source: [on-site `HaskLib.hs`](/Source/hasklib/HaskLib/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib.hs)
 
 Umbrella module re-exporting `HaskLib.Equality`, `HaskLib.Fin`, `HaskLib.List`,
 `HaskLib.Sigma`, `HaskLib.Vec`, and the core `HaskLib.Nat` laws (`eqSize`,
@@ -57,7 +57,7 @@ Umbrella module re-exporting `HaskLib.Equality`, `HaskLib.Fin`, `HaskLib.List`,
 ### `HaskLib.Equality` {#hasklibequality}
 
 Source: [on-site `HaskLib/Equality.hs`](/Source/hasklib/HaskLib/Equality/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Equality.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Equality.hs)
 
 | Symbol | Type / Role |
 | --- | --- |
@@ -71,7 +71,7 @@ Source: [on-site `HaskLib/Equality.hs`](/Source/hasklib/HaskLib/Equality/) ·
 ### `HaskLib.Nat` {#hasklibnat}
 
 Source: [on-site `HaskLib/Nat.hs`](/Source/hasklib/HaskLib/Nat/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Nat.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Nat.hs)
 
 | Symbol | Type / Role |
 | --- | --- |
@@ -91,7 +91,7 @@ Source: [on-site `HaskLib/Nat.hs`](/Source/hasklib/HaskLib/Nat/) ·
 ### `HaskLib.Vec` {#hasklibvec}
 
 Source: [on-site `HaskLib/Vec.hs`](/Source/hasklib/HaskLib/Vec/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Vec.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Vec.hs)
 
 Length-indexed vectors and ordinary-list boundary adapters:
 
@@ -106,7 +106,7 @@ Length-indexed vectors and ordinary-list boundary adapters:
 ### `HaskLib.Fin` {#hasklibfin}
 
 Source: [on-site `HaskLib/Fin.hs`](/Source/hasklib/HaskLib/Fin/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Fin.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Fin.hs)
 
 | Symbol | Type / Role |
 | --- | --- |
@@ -117,7 +117,7 @@ Source: [on-site `HaskLib/Fin.hs`](/Source/hasklib/HaskLib/Fin/) ·
 ### `HaskLib.Sigma` {#hasklibsigma}
 
 Source: [on-site `HaskLib/Sigma.hs`](/Source/hasklib/HaskLib/Sigma/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Sigma.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Sigma.hs)
 
 | Symbol | Type / Role |
 | --- | --- |
@@ -128,7 +128,7 @@ Source: [on-site `HaskLib/Sigma.hs`](/Source/hasklib/HaskLib/Sigma/) ·
 ### `HaskLib.List` {#haskliblist}
 
 Source: [on-site `HaskLib/List.hs`](/Source/hasklib/HaskLib/List/) ·
-[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/List.hs)
+[GitHub (`TharkunAB/ghc`)](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/List.hs)
 
 Laws over stock `Prelude` lists (`[a]`, `(++)`, `map`, `reverse`, `zip`, `zipWith`, `foldr`):
 
@@ -148,10 +148,10 @@ Laws over stock `Prelude` lists (`[a]`, `(++)`, `map`, `reverse`, `zip`, `zipWit
 
 ### Underlying Runtime & Compatibility Modules
 
-| Module | On-site Source | Upstream (`Tritlo/ghc`) | Role |
+| Module | On-site Source | Upstream (`TharkunAB/ghc`) | Role |
 | --- | --- | --- | --- |
-| `PreludeMapLengthSize` | [`PreludeMapLengthSize.hs`](/Source/hasklib/PreludeMapLengthSize/) | [GitHub](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeMapLengthSize.hs) | Defines `Nat`, `ToPeano`, `FromNatural Nat`, `Num Nat`, `plus`, `size`, `minSize`, `eqSize` |
-| `HaskLib.Size` | [`HaskLib/Size.hs`](/Source/hasklib/HaskLib/Size/) | [GitHub](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Size.hs) | Legacy compatibility re-exports for `Size` and `Nat` |
-| `HaskLib.List.Prefix` | [`HaskLib/List/Prefix.hs`](/Source/hasklib/HaskLib/List/Prefix/) | [GitHub](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/List/Prefix.hs) | Defines structural `takeSize` |
-| `PreludeZipRuntime` | [`PreludeZipRuntime.hs`](/Source/hasklib/PreludeZipRuntime/) | [GitHub](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeZipRuntime.hs) | Defines `lengthZip` and `lengthZipWith` |
-| `PreludeZipMapRuntime` | [`PreludeZipMapRuntime.hs`](/Source/hasklib/PreludeZipMapRuntime/) | [GitHub](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeZipMapRuntime.hs) | Defines `lengthZipMap` |
+| `PreludeMapLengthSize` | [`PreludeMapLengthSize.hs`](/Source/hasklib/PreludeMapLengthSize/) | [GitHub](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeMapLengthSize.hs) | Defines `Nat`, `ToPeano`, `FromNatural Nat`, `Num Nat`, `plus`, `size`, `minSize`, `eqSize` |
+| `HaskLib.Size` | [`HaskLib/Size.hs`](/Source/hasklib/HaskLib/Size/) | [GitHub](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Size.hs) | Legacy compatibility re-exports for `Size` and `Nat` |
+| `HaskLib.List.Prefix` | [`HaskLib/List/Prefix.hs`](/Source/hasklib/HaskLib/List/Prefix/) | [GitHub](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/List/Prefix.hs) | Defines structural `takeSize` |
+| `PreludeZipRuntime` | [`PreludeZipRuntime.hs`](/Source/hasklib/PreludeZipRuntime/) | [GitHub](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeZipRuntime.hs) | Defines `lengthZip` and `lengthZipWith` |
+| `PreludeZipMapRuntime` | [`PreludeZipMapRuntime.hs`](/Source/hasklib/PreludeZipMapRuntime/) | [GitHub](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/PreludeZipMapRuntime.hs) | Defines `lengthZipMap` |

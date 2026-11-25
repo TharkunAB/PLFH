@@ -5,7 +5,7 @@ src: content/index.md
 
 This book is an introduction to programming language theory using
 **Dependent Haskell** (`-XDependentTypes` in
-[`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)),
+[`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)),
 adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
 ([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit `c088569657`,
@@ -24,7 +24,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Dependent Haskell Overview](/Overview/): Core concepts, GHC proposals (`#378`, `#281`, `#242`, ...), foundational papers, and the Serokell roadmap
 - [Interactive Playground](/Playground/): Try Dependent Haskell, typed-hole refinement, and GHCi directly in your browser (WebAssembly)
 - [Preface](/Preface/): Propositions as Types, totality discipline, and yardstick goals
-- [Setup](/Setup/): Compiling `Tritlo/ghc`, `shell.nix`, flags, GHCi, and Hakyll preview
+- [Setup](/Setup/): Compiling `TharkunAB/ghc`, `shell.nix`, flags, GHCi, and Hakyll preview
 
 ## Part 1: Logical Foundations
 

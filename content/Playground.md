@@ -7,7 +7,7 @@ playground: true
 ---
 
 Experiment with **Dependent Haskell** (`-XDependentTypes`, GHC `10.1` from
-[`Tritlo/ghc`](https://github.com/Tritlo/ghc/tree/dependent-haskell)) directly
+[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)) directly
 in your browser via WebAssembly—zero server backend required. All of
 [`HaskLib`](/HaskLib/) and every precompiled `PLFH.*` chapter module is
 available to import.

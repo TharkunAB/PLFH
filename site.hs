@@ -207,8 +207,8 @@ sourceDisplayPath path
   | "reference/hasklib/" `isPrefixOf` path =
       let rel = drop 18 path
       in if "Prelude" `isPrefixOf` rel
-           then "Tritlo/ghc: docs/dependent-haskell/examples/open-evaluation/" ++ rel
-           else "Tritlo/ghc: docs/dependent-haskell/hasklib/" ++ rel
+           then "TharkunAB/ghc: docs/dependent-haskell/examples/open-evaluation/" ++ rel
+           else "TharkunAB/ghc: docs/dependent-haskell/hasklib/" ++ rel
   | otherwise = path
 
 sourceGitHubUrl :: FilePath -> String
@@ -216,8 +216,8 @@ sourceGitHubUrl path
   | "reference/hasklib/" `isPrefixOf` path =
       let rel = drop 18 path
       in if "Prelude" `isPrefixOf` rel
-           then "https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/" ++ rel
-           else "https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/" ++ rel
+           then "https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/" ++ rel
+           else "https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/" ++ rel
   | otherwise = "https://github.com/TharkunAB/PLFH/blob/main/" ++ path
 
 -- | Standalone supporting client modules under hs/PLFH/ that are not chapters.
@@ -251,7 +251,7 @@ buildSourceIndexMarkdown
 buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds fixedReproIds =
   unlines $
     [ "Browse every verified Haskell module extracted from PLFH, its supporting"
-    , "client modules, the `HaskLib` reference library from `Tritlo/ghc`, all"
+    , "client modules, the `HaskLib` reference library from `TharkunAB/ghc`, all"
     , "negative controls, and every compiler reproducer directly on this site."
     , ""
     , "## Chapter Modules (" ++ show (length chapMods) ++ ")"

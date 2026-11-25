@@ -30,7 +30,7 @@ It serves a dual purpose:
 1. **A readable introduction** to programming language theory and formal
    proofs in Dependent Haskell, following PLFA's structure and prose closely.
 2. **A live yardstick** for the experimental Dependent Haskell branch of GHC
-   ([`Tritlo/ghc`, branch `dependent-haskell`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
+   ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
    For every definition and theorem in PLFA (Parts 1, 2, and 3), we ask whether
    a Haskell programmer can state and prove it directly with the same hypotheses
    using `-XDependentTypes`.

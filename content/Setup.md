@@ -6,7 +6,7 @@ src: content/Setup.md
 ---
 
 PLFH requires the experimental Dependent Haskell fork of GHC
-([`Tritlo/ghc`](https://github.com/Tritlo/ghc/tree/dependent-haskell),
+([`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
 branch `dependent-haskell`, compiler version `10.1.20261115.1` and up),
 which adds the Proposal `#378` `-XDependentTypes` umbrella extension and
 native dependent Core support.
@@ -36,7 +36,7 @@ Clone the `dependent-haskell` branch **with its Git submodules**, then
 configure and build with Hadrian:
 
 ```bash
-git clone --recursive -b dependent-haskell https://github.com/Tritlo/ghc.git
+git clone --recursive -b dependent-haskell https://github.com/TharkunAB/ghc.git
 cd ghc
 ./boot
 ./configure

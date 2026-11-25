@@ -22,7 +22,7 @@ Haskell code.
 
 This site hosts [*Programming Language Foundations in Haskell*](/) (PLFH), a
 25-chapter interactive textbook and live compiler yardstick built against the
-experimental [`Tritlo/ghc` (`dependent-haskell`)](https://github.com/Tritlo/ghc/tree/dependent-haskell)
+experimental [`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
 fork—and compiled to `wasm32-wasi` so every proof, typed hole, and GHCi
 expression runs directly in your browser.
 
@@ -67,9 +67,9 @@ browser—or open the dedicated [Playground](/Playground/) for a full-page view.
 
 ## Design Authority & Roadmap
 
-Compiler work on [`Tritlo/ghc` (`dependent-haskell`)](https://github.com/Tritlo/ghc/tree/dependent-haskell)
+Compiler work on [`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
 follows a strict four-tier specification hierarchy
-([`docs/dependent-haskell/ROADMAP.md`](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)):
+([`docs/dependent-haskell/ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)):
 
 1. **GHC Proposal `#378` (*Design for Dependent Types*)** takes precedence on
    syntax, extension bundling (`-XDependentTypes`), and quantifier design.
@@ -154,5 +154,5 @@ fixed regression reproducers, and the remaining tracked follow-ups.
 - **[HaskLib Reference](/HaskLib/) & [Source Browser](/Source/):** Inspect
   the precompiled `HaskLib` definitions, every extracted chapter `.hs` file,
   negative controls, and minimal compiler reproducers.
-- **[Setup](/Setup/):** Build `Tritlo/ghc` locally or host your own Wasm GHCi
+- **[Setup](/Setup/):** Build `TharkunAB/ghc` locally or host your own Wasm GHCi
   bundle.

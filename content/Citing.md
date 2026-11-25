@@ -25,7 +25,7 @@ which is licensed under
 All 25 adapted chapters across Parts 1, 2, and 3 carry an attribution banner
 linking to the corresponding upstream PLFA chapter and document the changes
 made in translation to Dependent Haskell (`-XDependentTypes` in
-[`Tritlo/ghc`](https://github.com/Tritlo/ghc/tree/dependent-haskell)).
+[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 ### Citing the original PLFA
 

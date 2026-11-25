@@ -7,9 +7,9 @@
 # verification suite as ONE job to the shared pueue queue so it completes in a single slot.
 #
 # Environment variables:
-#   PLFH_GHC        Path to stage1/bin/ghc (or verified component ghc) from Tritlo/ghc
+#   PLFH_GHC        Path to stage1/bin/ghc (or verified component ghc) from TharkunAB/ghc
 #   PLFH_GHC_LIBDIR Optional -B<libdir> when running a relinked component compiler
-#   PLFH_GHC_REPO   Path to Tritlo/ghc checkout (for HaskLib & ghc-build-job)
+#   PLFH_GHC_REPO   Path to TharkunAB/ghc checkout (for HaskLib & ghc-build-job)
 #   PLFH_NO_PUEUE   Set to 1 to run ghc directly instead of via ghc-build-job / pueue
 set -euo pipefail
 export LC_ALL=C

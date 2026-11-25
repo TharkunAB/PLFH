@@ -4,7 +4,7 @@ pkgs.mkShell {
   name = "plfh-dev";
 
   buildInputs = with pkgs; [
-    # Bootstrap toolchain for building Tritlo/ghc (dependent-haskell)
+    # Bootstrap toolchain for building TharkunAB/ghc (dependent-haskell)
     # and for building the PLFH Hakyll static site.
     haskell.compiler.ghc912
     cabal-install
@@ -37,7 +37,7 @@ pkgs.mkShell {
     echo ""
     echo "Quick commands:"
     echo "  1. Build Dependent Haskell GHC fork:"
-    echo "       git clone --recursive -b dependent-haskell https://github.com/Tritlo/ghc.git"
+    echo "       git clone --recursive -b dependent-haskell https://github.com/TharkunAB/ghc.git"
     echo "       cd ghc && ./boot && ./configure && hadrian/build -j --flavour=quick --docs=none"
     echo "  2. Extract & verify PLFH chapters:"
     echo "       python3 scripts/extract_and_sync.py"
