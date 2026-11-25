@@ -743,10 +743,13 @@ function applyCaseSplit(code, hole, split, lineOffset = null) {
   return lines.join("\n");
 }
 
-// Wave 6B enables fast pruned refinement hole fits by default under -XDependentTypes.
-// Only pass an override flag when the user explicitly unchecks refinement fits.
+// Enable abstract refinement hole fits alongside Dependent Haskell's default
+// refinement fits so combinators like `trans :: (a :~: b) -> (b :~: c) -> a :~: c`
+// with un-unified intermediate type variables are suggested.
 function refinementExtraGhcArgs(refinementEnabled) {
-  return refinementEnabled ? "" : "-fmax-refinement-hole-fits=0";
+  return refinementEnabled
+    ? "-fabstract-refinement-hole-fits"
+    : "-fmax-refinement-hole-fits=0";
 }
 
 // Render interactive Agda-mode hole goals, case-split buttons, and clickable fit chips.
