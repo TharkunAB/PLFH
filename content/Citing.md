@@ -9,7 +9,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 
 *Programming Language Foundations in Haskell* (PLFH) is licensed under the
 [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-See [`LICENSE`](https://github.com/Tritlo/PLFH/blob/main/LICENSE) in the
+See [`LICENSE`](https://github.com/TharkunAB/PLFH/blob/main/LICENSE) in the
 repository for the complete legal text.
 
 ## Attribution to PLFA

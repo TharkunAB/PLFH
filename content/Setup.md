@@ -13,13 +13,13 @@ native dependent Core support.
 
 ## Quick start with Nix (`shell.nix`)
 
-If you use Nix, the repository includes a [`shell.nix`](https://github.com/Tritlo/PLFH/blob/main/shell.nix)
+If you use Nix, the repository includes a [`shell.nix`](https://github.com/TharkunAB/PLFH/blob/main/shell.nix)
 that provides all bootstrap tools required both to build the GHC fork
 (GHC, Cabal, Alex, Happy, Autoconf, GCC, GMP, libffi, ncurses, Python 3)
 and to build this book with Hakyll:
 
 ```bash
-git clone https://github.com/Tritlo/PLFH.git
+git clone https://github.com/TharkunAB/PLFH.git
 cd PLFH
 nix-shell
 ```

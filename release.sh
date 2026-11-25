@@ -17,7 +17,7 @@ DEFAULT_SOURCE="${PLFH_WASM_BUNDLE:-/home/tritlo/Code/ghc/_build/on-demand/wasm-
 BUCKET="${PLFH_R2_BUCKET:-tharkun-cdn}"
 CDN_BASE="${PLFH_CDN_BASE:-https://cdn.tharkun.se}"
 KEY_PREFIX="${PLFH_R2_PREFIX:-plfh}"
-GH_REPO="${PLFH_GH_REPO:-Tritlo/PLFH}"
+GH_REPO="${PLFH_GH_REPO:-TharkunAB/PLFH}"
 SITE_ORIGIN="${PLFH_SITE_ORIGIN:-https://plfh.tharkun.se}"
 
 SOURCE="$DEFAULT_SOURCE"

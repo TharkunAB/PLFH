@@ -47,12 +47,12 @@ cp -f "$ROOTFS" "$PLFH_ROOT/wasm/rootfs.tar.gz"
 echo "Staged $PLFH_ROOT/wasm/rootfs.tar.gz ($(du -h "$PLFH_ROOT/wasm/rootfs.tar.gz" | cut -f1))"
 
 if [[ "$PUBLISH_RELEASE" -eq 1 ]]; then
-  echo "Publishing rootfs.tar.gz to GitHub Release wasm-latest on Tritlo/PLFH..."
-  if gh release view wasm-latest -R Tritlo/PLFH >/dev/null 2>&1; then
-    gh release upload wasm-latest "$PLFH_ROOT/wasm/rootfs.tar.gz" -R Tritlo/PLFH --clobber
+  echo "Publishing rootfs.tar.gz to GitHub Release wasm-latest on TharkunAB/PLFH..."
+  if gh release view wasm-latest -R TharkunAB/PLFH >/dev/null 2>&1; then
+    gh release upload wasm-latest "$PLFH_ROOT/wasm/rootfs.tar.gz" -R TharkunAB/PLFH --clobber
   else
     gh release create wasm-latest "$PLFH_ROOT/wasm/rootfs.tar.gz" \
-      -R Tritlo/PLFH \
+      -R TharkunAB/PLFH \
       --title "PLFH Dependent GHCi Wasm Bundle (latest)" \
       --notes "Prebuilt wasm32-wasi Dependent Haskell GHCi 10.1 rootfs (libplfh_ghci.so + HaskLib + precompiled plfh-book-0.1)."
   fi

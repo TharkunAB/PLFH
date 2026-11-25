@@ -17,7 +17,7 @@ follow-ups and intentional soundness guards are tracked as minimal standalone
 reproducers on the [Yardstick Status](/Status/) page.
 
 Comments, bug reports, and pull requests are welcome on
-[GitHub](https://github.com/Tritlo/PLFH).
+[GitHub](https://github.com/TharkunAB/PLFH).
 
 ## Front matter
 

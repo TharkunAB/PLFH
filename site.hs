@@ -169,7 +169,7 @@ pageCtx baseUrl wasmRootfsUrl =
   constField "baseurl" baseUrl
     <> (if null wasmRootfsUrl then mempty else constField "wasmRootfsUrl" wasmRootfsUrl)
     <> constField "siteTitle" "Programming Language Foundations in Haskell"
-    <> constField "repoUrl" "https://github.com/Tritlo/PLFH"
+    <> constField "repoUrl" "https://github.com/TharkunAB/PLFH"
     <> constField "repoBranch" "main"
     <> constField "plfaUrl" "https://plfa.inf.ed.ac.uk/"
     <> constField "licenseName" "Creative Commons Attribution 4.0 International License"
@@ -218,7 +218,7 @@ sourceGitHubUrl path
       in if "Prelude" `isPrefixOf` rel
            then "https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/" ++ rel
            else "https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/" ++ rel
-  | otherwise = "https://github.com/Tritlo/PLFH/blob/main/" ++ path
+  | otherwise = "https://github.com/TharkunAB/PLFH/blob/main/" ++ path
 
 -- | Standalone supporting client modules under hs/PLFH/ that are not chapters.
 clientModuleNames :: [String]
@@ -313,7 +313,7 @@ mkSrcUrl item = do
   mVal <- getMetadataField (itemIdentifier item) "src"
   case mVal of
     Nothing -> noResult "No metadata field: src"
-    Just rel -> pure ("https://github.com/Tritlo/PLFH/blob/main/" ++ rel)
+    Just rel -> pure ("https://github.com/TharkunAB/PLFH/blob/main/" ++ rel)
 
 mkModuleSrcUrl :: Item a -> Compiler String
 mkModuleSrcUrl item = do

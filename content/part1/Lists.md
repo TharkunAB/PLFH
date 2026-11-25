@@ -333,7 +333,7 @@ foldrTimesAppend (x : xs) ys =
 > under fusion while `null (map not (build producer) ++ map not (error "ys"))`
 > returns `False`), so GHC refuses to certify `mapAppend` when list-fusion
 > rules are active at `-O2` (recorded in
-> [`reproducers/R03_FunctionColumnSplit.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs)).
+> [`reproducers/R03_FunctionColumnSplit.hs`](https://github.com/TharkunAB/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs)).
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
 

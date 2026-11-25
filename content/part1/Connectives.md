@@ -477,7 +477,7 @@ machine-checked round-trip proofs (alongside `Iff` projections). Upgrading
 `sumZeroR` (`Either a Void ⇔ a`) and `sumZeroL` (`Either Void a ⇔ a`) to `Iso`
 requires certifying checked equations for functions with an unreachable `Void`
 branch (`Right v -> case v of {}`, tracked in
-[`R13_VoidAbsurdBranchOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_VoidAbsurdBranchOpenEq.hs)),
+[`R13_VoidAbsurdBranchOpenEq.hs`](https://github.com/TharkunAB/PLFH/blob/main/reproducers/R13_VoidAbsurdBranchOpenEq.hs)),
 whereas upgrading the exponential laws (`currying`, `expSum`, `expProd`,
 `expUnit`, `expZero`, `expToUnit`) requires **function extensionality**—which
 neither Agda nor Dependent Haskell proves internally without an axiom.
