@@ -310,7 +310,7 @@ data SubstCompat where
        -> SimRel (M.substDouble c x xs) (M.substDouble c' x' xs'))
     -> SubstCompat
 
-{-# LINE 464 "content/part2/Bisimulation.md" #-}
+{-# LINE 466 "content/part2/Bisimulation.md" #-}
 -- | Complete forward lock-step simulation across all 27 rules of `MoreProgress.Step`.
 sim :: SubstCompat -> SimRel m m' -> MP.Step m n -> Leg MP.Step m' n
 sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
@@ -478,7 +478,7 @@ simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLegInv (MP.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
 
-{-# LINE 639 "content/part2/Bisimulation.md" #-}
+{-# LINE 641 "content/part2/Bisimulation.md" #-}
 -- | Multi-step forward simulation (`—↠`).
 simSteps :: SubstCompat -> SimRel m m' -> MP.Steps m n -> Leg MP.Steps m' n
 simSteps _  rel MP.StepsRefl        = MkLeg MP.StepsRefl rel

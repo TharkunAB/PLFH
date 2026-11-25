@@ -426,17 +426,19 @@ data SubstCompat where
 ```
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Connecting retained <code>simSubst</code> to erased <code>SubstCompat</code> (R03/R16)]</strong>
+<strong>[WIP NOTICE — Connecting <code>simSubst</code> to <code>M.substSingle</code> / <code>M.substDouble</code> (R13/R16)]</strong>
 Both 20-constructor <strong><code>simRename</code></strong> and 20-constructor
-<strong><code>simExt</code> / <code>simSubst</code></strong> now check directly
+<strong><code>simExt</code> / <code>simSubst</code></strong> check directly
 above over ordinary <code>M.weakenLookup</code>, <code>M.exts</code>, and
 <code>M.subst</code> (with zero type families and <code>-Werror=incomplete-patterns</code>).
-Because <code>simSubst</code> takes a retained term <code>foreach (m :: M.Term g a)</code>
-while <code>SubstCompat</code> quantifies over erased <code>forall</code> terms inside
-<code>MP.Step</code>, <code>sim</code> and <code>simInv</code> remain
-parameterized by <code>SubstCompat</code>; the default-arrow (<code>-&gt;</code>
-vs. <code>%U -&gt;</code>) spelling of abstract renaming also remains tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>.
+However, discharging <code>SubstCompat</code> unconditionally is blocked by a
+split in GHC's closure-equation publisher: inline
+<code>subst (\case ...)</code> compiles <code>M.substSingle</code> to a private
+closure family incommensurable with <code>M.subst</code>, whereas factoring out
+a named helper <code>subst (singleSubst w) n</code> suppresses open-equation
+publication (<code>GHC-70565</code>; tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleNamedHelperOpenEq.hs"><code>R13_SubstSingleNamedHelperOpenEq.hs</code></a>,
+alongside <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>).
 </div>
 
 ## Lock-step forward and backward bisimulation (`sim` and `simInv`)
