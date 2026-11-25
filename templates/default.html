@@ -12,15 +12,18 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/syntax.css">
 </head>
-<body$if(module)$ data-plfh-module="$module$"$if(wasmRootfsUrl)$ data-plfh-rootfs="$wasmRootfsUrl$"$endif$$endif$>
+<body$if(module)$ data-plfh-module="$module$"$endif$$if(wasmInteractive)$$if(wasmRootfsUrl)$ data-plfh-rootfs="$wasmRootfsUrl$"$endif$$endif$>
   <header class="site-header" role="banner">
     <div class="wrapper">
       <a class="site-title" href="/">$siteTitle$</a>
       <nav class="site-nav">
+        <a class="page-link" href="/Overview/">Overview</a>
         <a class="page-link" href="/">The Book</a>
+        <a class="page-link" href="/Playground/">Playground</a>
+        <a class="page-link" href="/HaskLib/">HaskLib</a>
+        <a class="page-link" href="/Source/">Source</a>
+        <a class="page-link" href="/Status/">Status</a>
         <a class="page-link" href="/Setup/">Setup</a>
-        <a class="page-link" href="/Status/">Yardstick Status</a>
-        <a class="page-link" href="/Citing/">Citing</a>
         <a class="page-link" href="$repoUrl$">GitHub</a>
       </nav>
     </div>
@@ -50,7 +53,7 @@
       </p>
     </div>
   </footer>
-$if(module)$
+$if(wasmInteractive)$
   <script type="module" src="/wasm/plfh-boot.mjs"></script>
 $endif$
 </body>

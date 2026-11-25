@@ -5,10 +5,9 @@
 
   <nav class="chapter-nav" aria-label="Chapter navigation">
     $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
-    $if(prevUrl)$$if(srcUrl)$ &bullet; $else$$if(nextUrl)$ &bullet; $endif$$endif$$endif$
-    $if(srcUrl)$<a href="$srcUrl$">Source</a>$endif$
-    $if(srcUrl)$$if(nextUrl)$ &bullet; $endif$$endif$
-    $if(nextUrl)$<a href="$nextUrl$">Next</a>$endif$
+    $if(moduleSrcUrl)$$if(prevUrl)$ &bullet; $endif$<a href="$moduleSrcUrl$">Module .hs</a>$endif$
+    $if(srcUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $endif$$endif$<a href="$srcUrl$">Markdown</a>$endif$
+    $if(nextUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $else$$if(srcUrl)$ &bullet; $endif$$endif$$endif$<a href="$nextUrl$">Next</a>$endif$
   </nav>
 
   $if(plfaChapter)$
@@ -32,9 +31,8 @@
 
   <nav class="chapter-nav" aria-label="Chapter navigation">
     $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
-    $if(prevUrl)$$if(srcUrl)$ &bullet; $else$$if(nextUrl)$ &bullet; $endif$$endif$$endif$
-    $if(srcUrl)$<a href="$srcUrl$">Source</a>$endif$
-    $if(srcUrl)$$if(nextUrl)$ &bullet; $endif$$endif$
-    $if(nextUrl)$<a href="$nextUrl$">Next</a>$endif$
+    $if(moduleSrcUrl)$$if(prevUrl)$ &bullet; $endif$<a href="$moduleSrcUrl$">Module .hs</a>$endif$
+    $if(srcUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $endif$$endif$<a href="$srcUrl$">Markdown</a>$endif$
+    $if(nextUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $else$$if(srcUrl)$ &bullet; $endif$$endif$$endif$<a href="$nextUrl$">Next</a>$endif$
   </nav>
 </article>

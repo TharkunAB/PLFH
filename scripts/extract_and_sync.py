@@ -21,6 +21,18 @@ CLIENTS_DIR = ROOT / "clients"
 HS_DIR = ROOT / "hs"
 NEG_DIR = HS_DIR / "negative"
 REPRO_DIR = ROOT / "reproducers"
+HASKLIB_REF_DIR = ROOT / "reference" / "hasklib"
+
+HASKLIB_FILES = (
+    ("hasklib", "HaskLib.hs"),
+    ("hasklib", "HaskLib/Nat.hs"),
+    ("hasklib", "HaskLib/List.hs"),
+    ("hasklib", "HaskLib/Size.hs"),
+    ("hasklib", "HaskLib/List/Prefix.hs"),
+    ("examples/open-evaluation", "PreludeMapLengthSize.hs"),
+    ("examples/open-evaluation", "PreludeZipRuntime.hs"),
+    ("examples/open-evaluation", "PreludeZipMapRuntime.hs"),
+)
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 FENCE_OPEN_RE = re.compile(r"^```(.*)$")
@@ -192,6 +204,20 @@ def sync_to_ghc(ghc_plfh_dir: Path) -> None:
     print(f"Synced hs/ and reproducers/ -> {ghc_plfh_dir}")
 
 
+def sync_hasklib_reference(dh_docs_dir: Path) -> None:
+    copied = 0
+    for subdir, rel in HASKLIB_FILES:
+        src = dh_docs_dir / subdir / rel
+        if not src.exists():
+            continue
+        dst = HASKLIB_REF_DIR / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        copied += 1
+    if copied:
+        print(f"Synced {copied} HaskLib reference file(s) -> {HASKLIB_REF_DIR.relative_to(ROOT)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -199,6 +225,12 @@ def main() -> int:
         type=Path,
         default=None,
         help="Path to GHC repo's docs/dependent-haskell/plfh directory to mirror hs/ and reproducers/",
+    )
+    parser.add_argument(
+        "--sync-hasklib",
+        type=Path,
+        default=None,
+        help="Path to GHC repo's docs/dependent-haskell directory to snapshot HaskLib sources into reference/hasklib/",
     )
     args = parser.parse_args()
 
@@ -228,6 +260,9 @@ def main() -> int:
 
     if args.sync_ghc:
         sync_to_ghc(args.sync_ghc)
+
+    if args.sync_hasklib:
+        sync_hasklib_reference(args.sync_hasklib)
 
     return 0
 
