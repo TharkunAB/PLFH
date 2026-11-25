@@ -43,7 +43,7 @@ Comments, bug reports, and pull requests are welcome on
 ## Part 2: Programming Language Foundations
 
 - [Lambda](/Lambda/): Simply-typed lambda calculus syntax, values, same-module `substTerm`, reduction (`Step`/`Steps`), and typing <span class="badge badge-pass">Checked</span>
-- [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, and **verified evaluator `eval`** <span class="badge badge-pass">Checked</span>
+- [Properties](/Properties/): Canonical forms, **Progress**, **Determinism**, **8-constructor Preservation**, `preserveSteps`, **verified evaluator `eval`**, and **well-typed terms don't get stuck (`wttdgs`)** <span class="badge badge-pass">Checked</span>
 - [DeBruijn](/DeBruijn/): Intrinsically-typed terms, renaming, substitution, promoted `Value`, **`checkValue`**, **same-module 8-rule `Step` (`substSingle`)**, and **unconditional `progress`** <span class="badge badge-pass">Checked</span>
 - [Inference](/Inference/): **Sound & complete bidirectional `Dec`-based STLC type inference** (`synthesize`, `inherit`, `eraseSynth`/`eraseInherit`, `synthUnique`, plus `infer`/`check`) <span class="badge badge-pass">Checked</span>
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, sound relational `SubstAtU`, promoted `Neutral`/`Normal`/`BetaStep`, and **constructive normal-order `stepNormal`/`evalNormal`** <span class="badge badge-pass">Checked</span>

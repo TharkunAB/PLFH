@@ -24,6 +24,10 @@ module PLFH.Part2.Properties
   , preserveSteps
   , EvalResult (..)
   , eval
+  , Normal
+  , Stuck (..)
+  , unstuck
+  , wttdgs
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -44,7 +48,7 @@ import PLFH.Part2.Lambda
   , substTerm
   )
 
-{-# LINE 93 "content/part2/Properties.md" #-}
+{-# LINE 97 "content/part2/Properties.md" #-}
 -- | Canonical form of a closed well-typed value.
 data Canonical (m :: Term) (a :: Ty) where
   CLam  :: HasType (CExt CEmpty x a) n b -> Canonical (Lam x n) (TArr a b)
@@ -57,7 +61,7 @@ canonical (TLam tn)  VLam      = CLam tn
 canonical TZeroT     VZero     = CZero
 canonical (TSucT tv) (VSuc vv) = CSuc vv tv
 
-{-# LINE 116 "content/part2/Properties.md" #-}
+{-# LINE 120 "content/part2/Properties.md" #-}
 -- | Evidence that a closed term either steps or is already a value.
 data Progress (m :: Term) where
   PStep :: Step m n -> Progress m
@@ -84,7 +88,7 @@ progress (TCaseT tl _ _) = case progress tl of
     CSuc v _ -> PStep (BetaSuc v)
 progress (TMuT _) = PStep BetaMu
 
-{-# LINE 179 "content/part2/Properties.md" #-}
+{-# LINE 183 "content/part2/Properties.md" #-}
 -- | Extend a context inclusion under a newly bound variable `x : a`.
 extCtx :: (forall y b. Lookup g y b -> Lookup d y b)
        -> Lookup (CExt g x a) y b
@@ -132,7 +136,7 @@ swapTyping xNeqY = renameTyping swapLookup
     swapLookup (LS _ LZ)                  = LZ
     swapLookup (LS zNeqY (LS zNeqX rest)) = LS zNeqX (LS zNeqY rest)
 
-{-# LINE 246 "content/part2/Properties.md" #-}
+{-# LINE 250 "content/part2/Properties.md" #-}
 -- | Decidable identifier equality paired with the Boolean result of `eqId`.
 data NameDecision (x :: Id) (y :: Id) where
     Same :: x :~: y -> eqId x y :~: True -> NameDecision x y
@@ -179,7 +183,7 @@ substTyping y term replacement typed = case term of
         Same Refl Refl -> TMuT (dropTyping tt)
         Different neq Refl -> TMuT (substTyping y t replacement (swapTyping (\Refl -> neq Refl) tt))
 
-{-# LINE 306 "content/part2/Properties.md" #-}
+{-# LINE 310 "content/part2/Properties.md" #-}
 -- | Shape witness recording that a term is a lambda abstraction.
 data IsLam (m :: Term) where
     IsLam :: IsLam (Lam x body)
@@ -243,7 +247,7 @@ substSuc :: foreach (v :: Term) -> foreach (x :: Id) -> foreach (body :: Term)
          -> HasType CEmpty (substTerm body x v) a
 substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
 
-{-# LINE 379 "content/part2/Properties.md" #-}
+{-# LINE 383 "content/part2/Properties.md" #-}
 -- | Values do not reduce (`V-¬—→`).
 valueCannotStep :: Value m -> Not (Step m n)
 valueCannotStep VLam     s         = case s of {}
@@ -271,7 +275,7 @@ stepDeterm (BetaSuc v)  (XiCase s2)  = absurd (valueCannotStep (VSuc v) s2)
 stepDeterm (BetaSuc _)  (BetaSuc _)  = Refl
 stepDeterm BetaMu       BetaMu       = Refl
 
-{-# LINE 422 "content/part2/Properties.md" #-}
+{-# LINE 426 "content/part2/Properties.md" #-}
 -- | Retained runtime witness for a promoted `Term`.
 data TermW (t :: Term) where
   MkTermW :: foreach (t :: Term) -> TermW t
@@ -340,3 +344,22 @@ eval (Succ g) (MkTermW m) tm = case progress tm of
     wm' -> case eval g wm' (preserve m tm s) of
       Done ss v   -> Done (StepsCons s ss) v
       OutOfGas ss -> OutOfGas (StepsCons s ss)
+
+{-# LINE 508 "content/part2/Properties.md" #-}
+-- | A term is in normal form if no reduction step leaves it (`Normal`).
+type Normal (m :: Term) = forall (n :: Term). Step m n -> Void
+
+-- | A term is stuck if it is in normal form yet is not a value (`Stuck`).
+data Stuck (m :: Term) where
+  MkStuck :: Normal m -> Not (Value m) -> Stuck m
+
+-- | No closed well-typed term is stuck (`unstuck`).
+unstuck :: HasType CEmpty m a -> Stuck m -> Void
+unstuck tm (MkStuck norm notVal) = case progress tm of
+  PDone v -> notVal v
+  PStep s -> norm s
+
+-- | Well-typed terms don't get stuck (`wttdgs`):
+-- a closed well-typed term can never reduce to a stuck term!
+wttdgs :: foreach (m :: Term) -> HasType CEmpty m a -> Steps m n -> Stuck n -> Void
+wttdgs m tm steps stuck = unstuck (preserveSteps m tm steps) stuck

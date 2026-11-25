@@ -33,7 +33,7 @@ import qualified PLFH.Part2.Inference as Inf
 import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, rawTwo)
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
-import PLFH.Part2.Properties (EvalResult (..), Progress (..), TermW (..), eval, preserve, progress, stepDeterm)
+import PLFH.Part2.Properties (EvalResult (..), Progress (..), Stuck (..), TermW (..), eval, preserve, progress, stepDeterm, wttdgs)
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun, reduceToCbn)
@@ -421,6 +421,10 @@ main = do
   let add12Ty = L.TApp (L.TApp L.addTyped (L.TSucT L.TZeroT)) L.twoTyped
   assertEq "Properties.eval (AddTerm 1 2 = 3!) 30" True
     (case eval 30 (MkTermW (L.App (L.App (L.TMu 0 (L.Lam 1 (L.Lam 2 (L.TCase (L.Var 1) (L.Var 2) 3 (L.TSuc (L.App (L.App (L.Var 0) (L.Var 3)) (L.Var 2))))))) (L.TSuc L.TZero)) (L.TSuc (L.TSuc L.TZero)))) add12Ty of { Done _ (L.VSuc (L.VSuc (L.VSuc L.VZero))) -> True; _ -> False })
+  let wttdgsCheck :: Stuck L.TZero -> Bool
+      wttdgsCheck st = case wttdgs (L.App (L.Lam Zero (L.Var Zero)) L.TZero) idTy (L.StepsCons (L.BetaLam L.VZero) L.StepsRefl) st of {}
+  assertEq "Properties.wttdgs (well-typed terms don't get stuck)" True
+    (seq wttdgsCheck True)
   let dbSuc :: DB.Term DB.CEmpty DB.TNat
       dbSuc = DB.Suc DB.Zero
       dbApp :: DB.Term DB.CEmpty DB.TNat

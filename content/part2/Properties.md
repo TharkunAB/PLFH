@@ -58,6 +58,10 @@ module PLFH.Part2.Properties
   , preserveSteps
   , EvalResult (..)
   , eval
+  , Normal
+  , Stuck (..)
+  , unstuck
+  , wttdgs
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
@@ -492,6 +496,33 @@ eval (Succ g) (MkTermW m) tm = case progress tm of
 Notice the payoff: `eval` does not merely compute an answer—it returns a
 machine-checked proof `Steps m v` that the source term `m` reduces to a value
 `v`, built automatically from our Progress and Preservation theorems!
+
+## Well-typed terms don't get stuck (`wttdgs`)
+
+Progress and multi-step Preservation combine immediately into Robin Milner's
+famous slogan: **well-typed terms don't get stuck**. A term is *normal* if it
+cannot take any step, and *stuck* if it is normal yet not a value (for example,
+applying `0` to `0`, or taking `case` of a lambda):
+
+```haskell
+-- | A term is in normal form if no reduction step leaves it (`Normal`).
+type Normal (m :: Term) = forall (n :: Term). Step m n -> Void
+
+-- | A term is stuck if it is in normal form yet is not a value (`Stuck`).
+data Stuck (m :: Term) where
+  MkStuck :: Normal m -> Not (Value m) -> Stuck m
+
+-- | No closed well-typed term is stuck (`unstuck`).
+unstuck :: HasType CEmpty m a -> Stuck m -> Void
+unstuck tm (MkStuck norm notVal) = case progress tm of
+  PDone v -> notVal v
+  PStep s -> norm s
+
+-- | Well-typed terms don't get stuck (`wttdgs`):
+-- a closed well-typed term can never reduce to a stuck term!
+wttdgs :: foreach (m :: Term) -> HasType CEmpty m a -> Steps m n -> Stuck n -> Void
+wttdgs m tm steps stuck = unstuck (preserveSteps m tm steps) stuck
+```
 
 ## Exercises
 

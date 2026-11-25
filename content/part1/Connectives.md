@@ -308,9 +308,14 @@ Above we proved commutativity of both products (`prodCommIso :: Iso (a, b) (b, a
 and sums (`sumCommIso :: Iso (Either a b) (Either b a)`) as **full polymorphic
 isomorphisms** with machine-checked round-trip proofs (`swapProdRT`,
 `swapSumRT`), while stating associativity, unit/zero, distributivity, and the
-exponential laws via `Iff`. Notice that the exponential laws (like `currying`)
-additionally require function extensionality to upgrade from `Iff` to `Iso`—which
-neither Agda nor Dependent Haskell proves internally without an axiom.
+exponential laws via `Iff`. Upgrading the algebraic semiring laws (`prodAssoc`,
+`prodUnitR`, `sumAssoc`, `prodDistribSum`) to polymorphic `Iso` requires
+checked equations for polymorphic functions over nested/concrete domain types
+like `((a, b), c)` or `(a, ())` (currently tracked in
+[`R13_PolyNestedDomainOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PolyNestedDomainOpenEq.hs)),
+whereas upgrading the exponential laws (like `currying`) additionally requires
+function extensionality—which neither Agda nor Dependent Haskell proves
+internally without an axiom.
 
 ## Exercises
 
