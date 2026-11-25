@@ -3,10 +3,12 @@ title: "Dependent Haskell: Overview, Papers & Roadmap"
 prev: /
 next: /Playground/
 src: content/Overview.md
+playground: true
 ---
 
 <div class="hero-actions">
-  <a class="hero-btn hero-btn--primary" href="/Playground/">Try the Browser Playground</a>
+  <a class="hero-btn hero-btn--primary" href="#try-it">Try it Live Below</a>
+  <a class="hero-btn" href="/Playground/">Full-Page Playground</a>
   <a class="hero-btn" href="/">Read the Book (25 Chapters)</a>
   <a class="hero-btn" href="/HaskLib/">HaskLib Reference</a>
   <a class="hero-btn" href="/Source/">Browse Source</a>
@@ -49,21 +51,14 @@ With `-XDependentTypes`, terms and types move toward a single unified language:
   proof terms directly in the [browser Playground](/Playground/) and on every
   chapter page.
 
-```text
-{-# LANGUAGE DependentTypes #-}
+## Try it live in your browser {#try-it}
 
--- Ordinary Peano naturals + decimal literals (`FromNatural Nat`, `Num Nat`)
-twoPlusThree :: plus 2 3 :~: 5
-twoPlusThree = Refl
+Pick an example below, edit the code or replace a proof with a typed hole like
+`_qed`, and press **`Ctrl/Cmd+Enter`** (or click **Check & Load in GHCi**).
+GHC `10.1` (`wasm32-wasi`) loads lazily on first click and runs entirely in your
+browser—or open the dedicated [Playground](/Playground/) for a full-page view.
 
--- Structural induction via retained `foreach`
-plusIdentityR :: foreach (m :: Nat) -> plus m Zero :~: m
-plusIdentityR Zero     = Refl
-plusIdentityR (Succ m) = cong Succ (plusIdentityR m)
-```
-
-Try editing this proof—or replacing `Refl` with a typed hole `_qed`—directly in
-the [Interactive Playground](/Playground/).
+<div id="plfh-standalone-playground" class="plfh-playground-root"></div>
 
 ## Design Authority & Roadmap
 
