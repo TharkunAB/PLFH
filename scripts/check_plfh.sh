@@ -19,14 +19,24 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# once it includes Wave 5+6 consolidated (`91a63517fc`), otherwise use the
-# verified Wave 5+6 consolidated component (`91a63517fc`) until `_build/current`
-# advances.
+# once it includes Wave 8+9A consolidated (`f0c3001e54`), otherwise prefer the
+# verified wave8-two-stage Stage 1 build or the wave8-consolidated component
+# (`f0c3001e54`), falling back to Wave 5+6 consolidated (`91a63517fc`).
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
 CURRENT_HASKLIB="$GHC_REPO/_build/current/source/docs/dependent-haskell/hasklib"
 CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
+WAVE8_REV="f0c3001e54db37adc2aaa1887778e0b6281a0317"
+WAVE8_TWOSTAGE_PASS="$GHC_REPO/_build/on-demand/wave8-two-stage/qualified.pass"
+WAVE8_TWOSTAGE_GHC="$GHC_REPO/_build/on-demand/wave8-two-stage/source/_build/stage1/bin/ghc"
+WAVE8_TWOSTAGE_LIB="$GHC_REPO/_build/on-demand/wave8-two-stage/source/_build/stage1/lib"
+WAVE8_TWOSTAGE_HASKLIB="$GHC_REPO/_build/on-demand/wave8-two-stage/source/docs/dependent-haskell/hasklib"
+WAVE8_TWOSTAGE_OPENEVAL="$GHC_REPO/_build/on-demand/wave8-two-stage/source/docs/dependent-haskell/examples/open-evaluation"
+WAVE8_GHC="$GHC_REPO/_build/on-demand/wave8-consolidated/component/ghc"
+WAVE8_LIB="$GHC_REPO/_build/on-demand/wave8-consolidated/component/lib"
+WAVE8_HASKLIB="$GHC_REPO/_build/on-demand/wave8-consolidated/source/docs/dependent-haskell/hasklib"
+WAVE8_OPENEVAL="$GHC_REPO/_build/on-demand/wave8-consolidated/source/docs/dependent-haskell/examples/open-evaluation"
 WAVE56_REV="91a63517fc25c63f96967d2faf159f2baca98bed"
 WAVE56_GHC="$GHC_REPO/_build/on-demand/wave5-6-consolidated/component/ghc"
 WAVE56_LIB="$GHC_REPO/_build/on-demand/wave5-6-consolidated/component/lib"
@@ -50,6 +60,29 @@ DEFAULT_LIBDIR=""
 DEFAULT_HASKLIB=""
 DEFAULT_OPENEVAL=""
 if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" && -f "$CURRENT_SRC" ]] \
+   && git -C "$GHC_REPO" merge-base --is-ancestor "$WAVE8_REV" "$(cat "$CURRENT_SRC" 2>/dev/null)" 2>/dev/null; then
+  DEFAULT_COMPILER="$CURRENT_GHC"
+  DEFAULT_LIBDIR="$CURRENT_LIB"
+  DEFAULT_HASKLIB="$CURRENT_HASKLIB"
+  DEFAULT_OPENEVAL="$GHC_REPO/_build/current/source/docs/dependent-haskell/examples/open-evaluation"
+elif [[ -f "$WAVE8_TWOSTAGE_PASS" && -x "$WAVE8_TWOSTAGE_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE8_TWOSTAGE_GHC"
+  DEFAULT_LIBDIR="$WAVE8_TWOSTAGE_LIB"
+  DEFAULT_HASKLIB="$WAVE8_TWOSTAGE_HASKLIB"
+  DEFAULT_OPENEVAL="$WAVE8_TWOSTAGE_OPENEVAL"
+elif [[ -x "$WAVE8_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE8_GHC"
+  DEFAULT_LIBDIR="$WAVE8_LIB"
+  if find -L "$WAVE8_LIB" -name 'Exists.hi' 2>/dev/null | grep -q .; then
+    DEFAULT_HASKLIB="$WAVE8_HASKLIB"
+    DEFAULT_OPENEVAL="$WAVE8_OPENEVAL"
+  else
+    # Wave 8C HaskLib.Sigma imports GHC.Exists, which lives in Stage 1 base
+    # once wave8-two-stage promotes _build/current.
+    DEFAULT_HASKLIB="$WAVE56_HASKLIB"
+    DEFAULT_OPENEVAL="$WAVE56_OPENEVAL"
+  fi
+elif [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" && -f "$CURRENT_SRC" ]] \
    && git -C "$GHC_REPO" merge-base --is-ancestor "$WAVE56_REV" "$(cat "$CURRENT_SRC" 2>/dev/null)" 2>/dev/null; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"

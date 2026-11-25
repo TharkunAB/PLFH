@@ -7,7 +7,16 @@ import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
 import System.Exit (exitFailure)
 import HaskLib.Nat (Nat (..))
-import PLFH.Part1.Connectives (prodCommIso, sumCommIso)
+import PLFH.Part1.Connectives
+  ( prodAssocIso
+  , prodCommIso
+  , prodDistribSumIso
+  , prodDistribSumLIso
+  , prodUnitLIso
+  , prodUnitRIso
+  , sumAssocIso
+  , sumCommIso
+  )
 import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
 import PLFH.Part1.Equality (EqP (..), evenComm, eqToLeibniz, leibnizSym, leibnizToEq)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
@@ -290,6 +299,46 @@ main = do
               s = Right 7
           in case left s of Refl -> case from (to s) of { Right n -> natToInt n; Left _ -> -1 }
   assertEq "Connectives.sumCommIso (Right 7)" 7 sumSwapRT
+  let prodAssocRT = case prodAssocIso @Nat @Bool @Int of
+        MkIso to from left _ ->
+          let p :: ((Nat, Bool), Int)
+              p = ((2, True), 9)
+          in case left p of Refl -> let ((n, b), k) = from (to p) in (natToInt n, b, k)
+  assertEq "Connectives.prodAssocIso ((2, True), 9)" (2, True, 9) prodAssocRT
+  let prodUnitRRT = case prodUnitRIso @Int of
+        MkIso to from left right ->
+          let p :: (Int, ())
+              p = (42, ())
+              x :: Int
+              x = 42
+          in case (left p, right x) of (Refl, Refl) -> fst (from (to p))
+  assertEq "Connectives.prodUnitRIso (42, ())" 42 prodUnitRRT
+  let prodUnitLRT = case prodUnitLIso @Int of
+        MkIso to from left right ->
+          let p :: ((), Int)
+              p = ((), 43)
+              x :: Int
+              x = 43
+          in case (left p, right x) of (Refl, Refl) -> snd (from (to p))
+  assertEq "Connectives.prodUnitLIso ((), 43)" 43 prodUnitLRT
+  let sumAssocRT = case sumAssocIso @Int @Bool @Int of
+        MkIso to from left _ ->
+          let s :: Either (Either Int Bool) Int
+              s = Left (Right True)
+          in case left s of Refl -> from (to s) == s
+  assertEq "Connectives.sumAssocIso (Left (Right True))" True sumAssocRT
+  let distribRRT = case prodDistribSumIso @Int @Bool @Int of
+        MkIso to from left _ ->
+          let p :: (Either Int Bool, Int)
+              p = (Left 3, 4)
+          in case left p of Refl -> from (to p) == p
+  assertEq "Connectives.prodDistribSumIso (Left 3, 4)" True distribRRT
+  let distribLRT = case prodDistribSumLIso @Int @Bool @Int of
+        MkIso to from left _ ->
+          let p :: (Int, Either Bool Int)
+              p = (5, Right 6)
+          in case left p of Refl -> from (to p) == p
+  assertEq "Connectives.prodDistribSumLIso (5, Right 6)" True distribLRT
 
   let sum23 = case plusExists 2 3 of
         Pair k Refl -> natToInt k

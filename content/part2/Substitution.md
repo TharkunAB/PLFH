@@ -283,13 +283,12 @@ congExt eq y = case y of
 congRename :: forall m n (r1 :: Rename m n) (r2 :: Rename m n).
               RenEq @m @n r1 r2
            -> foreach (t :: UTerm m) -> renameU r1 t :~: renameU r2 t
-congRename eq t = case t of
-  UVar x   -> case eq x of Refl -> Refl
-  ULam b   ->
-    case congRename @(Succ m) @(Succ n) @(extU r1) @(extU r2) (congExt @m @n @r1 @r2 eq) b of
-      Refl -> Refl
-  UApp l r -> case (congRename @m @n @r1 @r2 eq l, congRename @m @n @r1 @r2 eq r) of
-    (Refl, Refl) -> Refl
+congRename eq (UVar x)   = case eq x of Refl -> Refl
+congRename eq (ULam b)   =
+  case congRename @(Succ m) @(Succ n) @(extU r1) @(extU r2) (congExt @m @n @r1 @r2 eq) b of
+    Refl -> Refl
+congRename eq (UApp l r) = case (congRename @m @n @r1 @r2 eq l, congRename @m @n @r1 @r2 eq r) of
+  (Refl, Refl) -> Refl
 
 stepExtsFS :: forall m n (s1 :: Subst m n) (s2 :: Subst m n) (x :: Fin m).
               (s1 x :~: s2 x) -> extsU s1 (FS x) :~: extsU s2 (FS x)
@@ -298,21 +297,19 @@ stepExtsFS eq = cong (renameU shiftFin) eq
 -- | Pointwise-equal substitutions lift to pointwise-equal extended substitutions (`cong-exts`).
 congExts :: forall m n (s1 :: Subst m n) (s2 :: Subst m n).
             SubEq @m @n s1 s2 -> SubEq @(Succ m) @(Succ n) (extsU s1) (extsU s2)
-congExts eq y = case y of
-  FZ   -> Refl
-  FS x -> stepExtsFS @m @n @s1 @s2 @x (eq x)
+congExts _  FZ     = Refl
+congExts eq (FS x) = stepExtsFS @m @n @s1 @s2 @x (eq x)
 
 -- | Pointwise-equal substitutions produce equal substituted terms (`cong-sub`).
 congSubst :: forall m n (s1 :: Subst m n) (s2 :: Subst m n).
              SubEq @m @n s1 s2
           -> foreach (t :: UTerm m) -> substU s1 t :~: substU s2 t
-congSubst eq t = case t of
-  UVar x   -> eq x
-  ULam b   ->
-    case congSubst @(Succ m) @(Succ n) @(extsU s1) @(extsU s2) (congExts @m @n @s1 @s2 eq) b of
-      Refl -> Refl
-  UApp l r -> case (congSubst @m @n @s1 @s2 eq l, congSubst @m @n @s1 @s2 eq r) of
-    (Refl, Refl) -> Refl
+congSubst eq (UVar x)   = eq x
+congSubst eq (ULam b)   =
+  case congSubst @(Succ m) @(Succ n) @(extsU s1) @(extsU s2) (congExts @m @n @s1 @s2 eq) b of
+    Refl -> Refl
+congSubst eq (UApp l r) = case (congSubst @m @n @s1 @s2 eq l, congSubst @m @n @s1 @s2 eq r) of
+  (Refl, Refl) -> Refl
 ```
 
 ## Definitional σ-calculus laws

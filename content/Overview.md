@@ -78,8 +78,8 @@ follows a strict four-tier specification hierarchy
 4. **Agda and PLFA** inform surface ergonomics where GHC proposals are silent.
 
 See the [Yardstick Status Ledger](/Status/) for the live chapter-by-chapter
-tally (all 25/25 chapters checked), 54 fixed regression reproducers, and the
-remaining tracked follow-ups.
+tally (all 25/25 chapters checked with zero `type family` declarations), 57
+fixed regression reproducers, and the remaining tracked follow-ups.
 
 ## Key GHC Proposals
 

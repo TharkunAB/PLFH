@@ -8,19 +8,43 @@ module PLFH.Part1.Connectives
   , swapProdRT
   , prodCommIso
   , prodComm
+  , prodAssocTo
+  , prodAssocFrom
+  , prodAssocIso
   , prodAssoc
+  , prodUnitRTo
+  , prodUnitRFrom
+  , prodUnitRIso
   , prodUnitR
+  , prodUnitLTo
+  , prodUnitLFrom
+  , prodUnitLIso
   , prodUnitL
+  , prodZeroRTo
+  , prodZeroRFrom
+  , prodZeroRIso
   , prodZeroR
+  , prodZeroLTo
+  , prodZeroLFrom
+  , prodZeroLIso
   , prodZeroL
   , swapSum
   , swapSumRT
   , sumCommIso
   , sumComm
+  , sumAssocTo
+  , sumAssocFrom
+  , sumAssocIso
   , sumAssoc
   , sumZeroR
   , sumZeroL
+  , prodDistribSumTo
+  , prodDistribSumFrom
+  , prodDistribSumIso
   , prodDistribSum
+  , prodDistribSumLTo
+  , prodDistribSumLFrom
+  , prodDistribSumLIso
   , prodDistribSumL
   , currying
   , expSum
@@ -35,9 +59,9 @@ module PLFH.Part1.Connectives
 
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import PLFH.Part1.Isomorphism (Iff (..), Iso (..))
+import PLFH.Part1.Isomorphism (Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
 
-{-# LINE 110 "content/part1/Connectives.md" #-}
+{-# LINE 136 "content/part1/Connectives.md" #-}
 -- | Swap the two components of a pair.
 swapProd :: (a, b) -> (b, a)
 swapProd (x, y) = (y, x)
@@ -52,29 +76,121 @@ prodCommIso = MkIso swapProd swapProd swapProdRT swapProdRT
 
 -- | Commutativity of conjunction: (a, b) ⇔ (b, a).
 prodComm :: Iff (a, b) (b, a)
-prodComm = Iff swapProd swapProd
+prodComm = embedImpliesIff (isoImpliesEmbed prodCommIso)
+
+-- | Forward map for product associativity.
+prodAssocTo :: ((a, b), c) -> (a, (b, c))
+prodAssocTo ((x, y), z) = (x, (y, z))
+
+-- | Backward map for product associativity.
+prodAssocFrom :: (a, (b, c)) -> ((a, b), c)
+prodAssocFrom (x, (y, z)) = ((x, y), z)
+
+prodAssocLR :: foreach (p :: ((a, b), c)) -> prodAssocFrom (prodAssocTo p) :~: p
+prodAssocLR ((_, _), _) = Refl
+
+prodAssocRL :: foreach (p :: (a, (b, c))) -> prodAssocTo (prodAssocFrom p) :~: p
+prodAssocRL (_, (_, _)) = Refl
+
+-- | Associativity of conjunction as a true isomorphism: ((a, b), c) ≃ (a, (b, c)).
+prodAssocIso :: Iso ((a, b), c) (a, (b, c))
+prodAssocIso = MkIso prodAssocTo prodAssocFrom prodAssocLR prodAssocRL
 
 -- | Associativity of conjunction: ((a, b), c) ⇔ (a, (b, c)).
 prodAssoc :: Iff ((a, b), c) (a, (b, c))
-prodAssoc = Iff (\((x, y), z) -> (x, (y, z))) (\(x, (y, z)) -> ((x, y), z))
+prodAssoc = embedImpliesIff (isoImpliesEmbed prodAssocIso)
+
+-- | Right-identity maps for conjunction.
+prodUnitRTo :: (a, ()) -> a
+prodUnitRTo (x, ()) = x
+
+prodUnitRFrom :: a -> (a, ())
+prodUnitRFrom x = (x, ())
+
+prodUnitRLR :: foreach (p :: (a, ())) -> prodUnitRFrom (prodUnitRTo p) :~: p
+prodUnitRLR (_, ()) = Refl
+
+prodUnitRRL :: foreach (x :: a) -> prodUnitRTo (prodUnitRFrom x) :~: x
+prodUnitRRL _ = Refl
+
+-- | Right identity of conjunction as a true isomorphism: (a, ()) ≃ a.
+prodUnitRIso :: Iso (a, ()) a
+prodUnitRIso = MkIso prodUnitRTo prodUnitRFrom prodUnitRLR prodUnitRRL
 
 -- | Right identity of conjunction: (a, ()) ⇔ a.
 prodUnitR :: Iff (a, ()) a
-prodUnitR = Iff fst (\x -> (x, ()))
+prodUnitR = embedImpliesIff (isoImpliesEmbed prodUnitRIso)
+
+-- | Left-identity maps for conjunction.
+prodUnitLTo :: ((), a) -> a
+prodUnitLTo ((), x) = x
+
+prodUnitLFrom :: a -> ((), a)
+prodUnitLFrom x = ((), x)
+
+prodUnitLLR :: foreach (p :: ((), a)) -> prodUnitLFrom (prodUnitLTo p) :~: p
+prodUnitLLR ((), _) = Refl
+
+prodUnitLRL :: foreach (x :: a) -> prodUnitLTo (prodUnitLFrom x) :~: x
+prodUnitLRL _ = Refl
+
+-- | Left identity of conjunction as a true isomorphism: ((), a) ≃ a.
+prodUnitLIso :: Iso ((), a) a
+prodUnitLIso = MkIso prodUnitLTo prodUnitLFrom prodUnitLLR prodUnitLRL
 
 -- | Left identity of conjunction: ((), a) ⇔ a.
 prodUnitL :: Iff ((), a) a
-prodUnitL = Iff snd (\x -> ((), x))
+prodUnitL = embedImpliesIff (isoImpliesEmbed prodUnitLIso)
+
+-- | Right-zero maps for conjunction.
+prodZeroRTo :: (a, Void) -> Void
+prodZeroRTo (_, v) = v
+
+prodZeroRFrom :: Void -> (a, Void)
+prodZeroRFrom = absurd
+
+-- | Right zero of conjunction as a true isomorphism: (a, Void) ≃ Void.
+prodZeroRIso :: forall a. Iso (a, Void) Void
+prodZeroRIso = go prodZeroRTo prodZeroRFrom
+  where
+    go :: foreach (t :: (a, Void) -> Void) -> foreach (f :: Void -> (a, Void))
+       -> Iso (a, Void) Void
+    go t f = MkIso t f lr rl
+      where
+        lr :: foreach (p :: (a, Void)) -> f (t p) :~: p
+        lr (_, v) = case v of {}
+        rl :: foreach (v :: Void) -> t (f v) :~: v
+        rl v = case v of {}
 
 -- | Right zero of conjunction: (a, Void) ⇔ Void.
 prodZeroR :: Iff (a, Void) Void
-prodZeroR = Iff snd absurd
+prodZeroR = embedImpliesIff (isoImpliesEmbed prodZeroRIso)
+
+-- | Left-zero maps for conjunction.
+prodZeroLTo :: (Void, a) -> Void
+prodZeroLTo (v, _) = v
+
+prodZeroLFrom :: Void -> (Void, a)
+prodZeroLFrom = absurd
+
+-- | Left zero of conjunction as a true isomorphism: (Void, a) ≃ Void.
+prodZeroLIso :: forall a. Iso (Void, a) Void
+prodZeroLIso = go prodZeroLTo prodZeroLFrom
+  where
+    go :: foreach (t :: (Void, a) -> Void) -> foreach (f :: Void -> (Void, a))
+       -> Iso (Void, a) Void
+    go t f = MkIso t f lr rl
+      where
+        lr :: foreach (p :: (Void, a)) -> f (t p) :~: p
+        lr (v, _) = case v of {}
+        rl :: foreach (v :: Void) -> t (f v) :~: v
+        rl v = case v of {}
 
 -- | Left zero of conjunction: (Void, a) ⇔ Void.
 prodZeroL :: Iff (Void, a) Void
-prodZeroL = Iff fst absurd
+prodZeroL = embedImpliesIff (isoImpliesEmbed prodZeroLIso)
 
-{-# LINE 171 "content/part1/Connectives.md" #-}
+{-# LINE 289 "content/part1/Connectives.md" #-}
 -- | Swap the two branches of a sum.
 swapSum :: Either a b -> Either b a
 swapSum (Left x)  = Right x
@@ -91,19 +207,37 @@ sumCommIso = MkIso swapSum swapSum swapSumRT swapSumRT
 
 -- | Commutativity of disjunction: Either a b ⇔ Either b a.
 sumComm :: Iff (Either a b) (Either b a)
-sumComm = Iff swapSum swapSum
+sumComm = embedImpliesIff (isoImpliesEmbed sumCommIso)
+
+-- | Forward map for disjunction associativity.
+sumAssocTo :: Either (Either a b) c -> Either a (Either b c)
+sumAssocTo (Left (Left x))  = Left x
+sumAssocTo (Left (Right y)) = Right (Left y)
+sumAssocTo (Right z)        = Right (Right z)
+
+-- | Backward map for disjunction associativity.
+sumAssocFrom :: Either a (Either b c) -> Either (Either a b) c
+sumAssocFrom (Left x)          = Left (Left x)
+sumAssocFrom (Right (Left y))  = Left (Right y)
+sumAssocFrom (Right (Right z)) = Right z
+
+sumAssocLR :: foreach (s :: Either (Either a b) c) -> sumAssocFrom (sumAssocTo s) :~: s
+sumAssocLR (Left (Left _))  = Refl
+sumAssocLR (Left (Right _)) = Refl
+sumAssocLR (Right _)        = Refl
+
+sumAssocRL :: foreach (s :: Either a (Either b c)) -> sumAssocTo (sumAssocFrom s) :~: s
+sumAssocRL (Left _)          = Refl
+sumAssocRL (Right (Left _))  = Refl
+sumAssocRL (Right (Right _)) = Refl
+
+-- | Associativity of disjunction as a true isomorphism: Either (Either a b) c ≃ Either a (Either b c).
+sumAssocIso :: Iso (Either (Either a b) c) (Either a (Either b c))
+sumAssocIso = MkIso sumAssocTo sumAssocFrom sumAssocLR sumAssocRL
 
 -- | Associativity of disjunction: Either (Either a b) c ⇔ Either a (Either b c).
 sumAssoc :: Iff (Either (Either a b) c) (Either a (Either b c))
-sumAssoc = Iff toF fromF
-  where
-    toF (Left (Left x))  = Left x
-    toF (Left (Right y)) = Right (Left y)
-    toF (Right z)        = Right (Right z)
-
-    fromF (Left x)          = Left (Left x)
-    fromF (Right (Left y))  = Left (Right y)
-    fromF (Right (Right z)) = Right z
+sumAssoc = embedImpliesIff (isoImpliesEmbed sumAssocIso)
 
 -- | Right identity of disjunction: Either a Void ⇔ a.
 sumZeroR :: Iff (Either a Void) a
@@ -113,28 +247,58 @@ sumZeroR = Iff (either id absurd) Left
 sumZeroL :: Iff (Either Void a) a
 sumZeroL = Iff (either absurd id) Right
 
-{-# LINE 217 "content/part1/Connectives.md" #-}
+{-# LINE 353 "content/part1/Connectives.md" #-}
+-- | Forward and backward maps for right distributivity.
+prodDistribSumTo :: (Either a b, c) -> Either (a, c) (b, c)
+prodDistribSumTo (Left x, z)  = Left (x, z)
+prodDistribSumTo (Right y, z) = Right (y, z)
+
+prodDistribSumFrom :: Either (a, c) (b, c) -> (Either a b, c)
+prodDistribSumFrom (Left (x, z))  = (Left x, z)
+prodDistribSumFrom (Right (y, z)) = (Right y, z)
+
+prodDistribSumLR :: foreach (p :: (Either a b, c)) -> prodDistribSumFrom (prodDistribSumTo p) :~: p
+prodDistribSumLR (Left _, _)  = Refl
+prodDistribSumLR (Right _, _) = Refl
+
+prodDistribSumRL :: foreach (s :: Either (a, c) (b, c)) -> prodDistribSumTo (prodDistribSumFrom s) :~: s
+prodDistribSumRL (Left (_, _))  = Refl
+prodDistribSumRL (Right (_, _)) = Refl
+
+-- | Right distributivity as a true isomorphism: (Either a b, c) ≃ Either (a, c) (b, c).
+prodDistribSumIso :: Iso (Either a b, c) (Either (a, c) (b, c))
+prodDistribSumIso = MkIso prodDistribSumTo prodDistribSumFrom prodDistribSumLR prodDistribSumRL
+
 -- | Right distributivity: (Either a b, c) ⇔ Either (a, c) (b, c).
 prodDistribSum :: Iff (Either a b, c) (Either (a, c) (b, c))
-prodDistribSum = Iff toF fromF
-  where
-    toF (Left x, z)  = Left (x, z)
-    toF (Right y, z) = Right (y, z)
+prodDistribSum = embedImpliesIff (isoImpliesEmbed prodDistribSumIso)
 
-    fromF (Left (x, z))  = (Left x, z)
-    fromF (Right (y, z)) = (Right y, z)
+-- | Forward and backward maps for left distributivity.
+prodDistribSumLTo :: (a, Either b c) -> Either (a, b) (a, c)
+prodDistribSumLTo (x, Left y)  = Left (x, y)
+prodDistribSumLTo (x, Right z) = Right (x, z)
+
+prodDistribSumLFrom :: Either (a, b) (a, c) -> (a, Either b c)
+prodDistribSumLFrom (Left (x, y))  = (x, Left y)
+prodDistribSumLFrom (Right (x, z)) = (x, Right z)
+
+prodDistribSumLLR :: foreach (p :: (a, Either b c)) -> prodDistribSumLFrom (prodDistribSumLTo p) :~: p
+prodDistribSumLLR (_, Left _)  = Refl
+prodDistribSumLLR (_, Right _) = Refl
+
+prodDistribSumLRL :: foreach (s :: Either (a, b) (a, c)) -> prodDistribSumLTo (prodDistribSumLFrom s) :~: s
+prodDistribSumLRL (Left (_, _))  = Refl
+prodDistribSumLRL (Right (_, _)) = Refl
+
+-- | Left distributivity as a true isomorphism: (a, Either b c) ≃ Either (a, b) (a, c).
+prodDistribSumLIso :: Iso (a, Either b c) (Either (a, b) (a, c))
+prodDistribSumLIso = MkIso prodDistribSumLTo prodDistribSumLFrom prodDistribSumLLR prodDistribSumLRL
 
 -- | Left distributivity: (a, Either b c) ⇔ Either (a, b) (a, c).
 prodDistribSumL :: Iff (a, Either b c) (Either (a, b) (a, c))
-prodDistribSumL = Iff toF fromF
-  where
-    toF (x, Left y)  = Left (x, y)
-    toF (x, Right z) = Right (x, z)
+prodDistribSumL = embedImpliesIff (isoImpliesEmbed prodDistribSumLIso)
 
-    fromF (Left (x, y))  = (x, Left y)
-    fromF (Right (x, z)) = (x, Right z)
-
-{-# LINE 258 "content/part1/Connectives.md" #-}
+{-# LINE 424 "content/part1/Connectives.md" #-}
 -- | Currying: (a -> b -> c) ⇔ ((a, b) -> c).
 currying :: Iff (a -> b -> c) ((a, b) -> c)
 currying = Iff uncurry curry
@@ -159,7 +323,7 @@ expZero = Iff (const ()) (\() -> absurd)
 expToUnit :: Iff (a -> ()) ()
 expToUnit = Iff (const ()) (\() _ -> ())
 
-{-# LINE 292 "content/part1/Connectives.md" #-}
+{-# LINE 458 "content/part1/Connectives.md" #-}
 -- | Congruence of conjunction under `Iff`.
 prodCong :: Iff a a' -> Iff b b' -> Iff (a, b) (a', b')
 prodCong (Iff fa ga) (Iff fb gb) = Iff (\(x, y) -> (fa x, fb y)) (\(x, y) -> (ga x, gb y))

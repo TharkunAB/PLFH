@@ -29,19 +29,17 @@ to know that passing argument `m` into `b` *also* halts!
 
 The classic solution is a **value-indexed logical relation** (`𝕍`, `𝔼`, `𝒢`)
 defined by structural recursion on the finite `Value` `v`:
-- `LogVLam Bot e b = ()`: every lambda closure trivially satisfies `Bot`.
-- `LogVLam (Arr v w) e b`: for *any* argument closure `(m, d)` satisfying
+- `logVLam Bot e b = type ()`: every lambda closure trivially satisfies `Bot`.
+- `logVLam (Arr v w) e b`: for *any* argument closure `(m, d)` satisfying
   `LogE v d m`, evaluating `b` with `(m, d)` pushed onto `e` satisfies
   `LogE w`! (Notice `LogE v` sits in a **negative** position—which is why
-  `LogVLam` must be defined by **large elimination** on `Value`, i.e., a
-  3-line closed type family over promoted `Value`, rather than an inductive GADT;
-  replacing `type family LogVLam` with a mutually recursive term-to-`Type`
-  function `HaltsV <-> logVLam <-> LogArr` is tracked in
-  [`R13_LargeElimMutualData.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LargeElimMutualData.hs)!)
-- `LogVLam (Join u v) e b = (LogVLam u e b, LogVLam v e b)`: a pair of proofs!
+  `logVLam` is written as a **large elimination** on `Value`, i.e., an ordinary
+  term-to-`Type` Haskell function mutually recursive with `HaltsV` and
+  `LogArr`, requiring no `type family` declaration!)
+- `logVLam (Join u v) e b = type (logVLam u e b, logVLam v e b)`: a pair of proofs!
 
 With `BigStep.evalDeterm` proved unconditionally, the **entire Big-Step Adequacy
-theorem**—`decAboveFun`, `LogVLam`/`LogE`, **full subsumption across all 8
+theorem**—`decAboveFun`, `logVLam`/`LogE`, **full subsumption across all 8
 `Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`!)**, the
 **complete Fundamental Lemma (`fundamental`, all 6 `Denotes` rules!)**, and
 **unconditional Big-Step Adequacy (`adequacyBigStep`)**—compiles directly with
@@ -50,7 +48,7 @@ theorem**—`decAboveFun`, `LogVLam`/`LogE`, **full subsumption across all 8
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -66,7 +64,7 @@ module PLFH.Part3.Adequacy
   , HaltsV (..)
   , LogE
   , LogArr (..)
-  , LogVLam
+  , logVLam
   , logVBotLam
   , logVJoinLam
   , notAboveFunLogV
@@ -191,12 +189,12 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 ```
 
-## The value-indexed logical relation (`LogVLam`, `LogE`) and Subsumption (`sub-𝕍`, `sub-𝔼`)
+## The value-indexed logical relation (`logVLam`, `LogE`) and Subsumption (`sub-𝕍`, `sub-𝔼`)
 
 Because every call-by-name big-step evaluation terminates at a lambda closure
 (`evalBigIsLam` in [BigStep](/BigStep/)), `HaltsV` directly packages
-`EvalBig e m (MkClos (ULam b) d)` with `LogVLam v d b`, and `newtype LogArr`
-wraps the impredicative `forall k d m` in the `Arr` clause of `LogVLam`.
+`EvalBig e m (MkClos (ULam b) d)` with `logVLam v d b`, and `newtype LogArr`
+wraps the impredicative `forall k d m` in the `Arr` clause of `logVLam`.
 
 Look closely at **`haltsVJoin`** (which combines `LogE w₁` and `LogE w₂` into
 `LogE (Join w₁ w₂)`): when *both* `w₁` and `w₂` are `AboveFun`, we get two
@@ -213,33 +211,33 @@ data WHNF m where
 -- | Witness that evaluating `m` in `e` halts at a lambda closure related to `v`.
 type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
-  MkHaltsV :: EvalBig e m (MkClos (ULam b) d) -> LogVLam v d b -> HaltsV e m v
+  MkHaltsV :: EvalBig e m (MkClos (ULam b) d) -> logVLam v d b -> HaltsV e m v
 
--- | Expression logical relation `𝔼`: if `v` is above a function, `(m, e)` halts in `LogVLam`.
+-- | Expression logical relation `𝔼`: if `v` is above a function, `(m, e)` halts in `logVLam`.
 type LogE :: forall (k :: Nat). Value -> Env k -> UTerm k -> Type
 type LogE v e m = AboveFun v -> HaltsV e m v
 
--- | Wrapper for the impredicative `forall k d m` in the `Arr` clause of `LogVLam`.
+-- | Wrapper for the impredicative `forall k d m` in the `Arr` clause of `logVLam`.
 newtype LogArr (v :: Value) (w :: Value) (e :: Env n) (b :: UTerm (Succ n)) =
   MkLogArr { runLogArr :: forall (k :: Nat) (d :: Env k) (m :: UTerm k).
                           LogE v d m -> AboveFun w -> HaltsV (ECons (MkClos m d) e) b w }
 
--- | Value logical relation `𝕍` on lambda closures, defined by recursion on `Value`!
-type LogVLam :: forall (n :: Nat). Value -> Env n -> UTerm (Succ n) -> Type
-type family LogVLam v e b where
-  LogVLam Bot        e b = ()
-  LogVLam (Arr v w)  e b = LogArr v w e b
-  LogVLam (Join u v) e b = (LogVLam u e b, LogVLam v e b)
+-- | Value logical relation `𝕍` on lambda closures, written directly as a
+-- term-to-`Type` large elimination mutually recursive with `HaltsV` and `LogArr`!
+logVLam :: forall (n :: Nat). Value -> Env n -> UTerm (Succ n) -> Type
+logVLam Bot        _ _ = type ()
+logVLam (Arr v w)  e b = type (LogArr v w e b)
+logVLam (Join u v) e b = type (logVLam u e b, logVLam v e b)
 
-logVBotLam :: LogVLam Bot e b
+logVBotLam :: logVLam Bot e b
 logVBotLam = ()
 
-logVJoinLam :: LogVLam u e b -> LogVLam v e b -> LogVLam (Join u v) e b
+logVJoinLam :: logVLam u e b -> logVLam v e b -> logVLam (Join u v) e b
 logVJoinLam u v = (u, v)
 
 -- | Any value not above a function relates trivially to every lambda closure (`not-above-fun-𝕍`).
 notAboveFunLogV :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)).
-                   foreach (v :: Value) -> Not (AboveFun v) -> LogVLam v e b
+                   foreach (v :: Value) -> Not (AboveFun v) -> logVLam v e b
 notAboveFunLogV Bot        _  = ()
 notAboveFunLogV (Arr _ _)  na = absurd (na aboveFunArr)
 notAboveFunLogV (Join a c) na =
@@ -273,12 +271,12 @@ subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n))
 subDistHelper (MkValW w1) (MkValW w2) (f1, f2) =
   MkLogArr (\le af -> haltsVJoin w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
 
--- | Full unconditional downward closure of `LogVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
+-- | Full unconditional downward closure of `logVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
 subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)) (u :: Value) (v :: Value).
               ValW u -> ValW v
            -> Sub u v
-           -> LogVLam v e b
-           -> LogVLam u e b
+           -> logVLam v e b
+           -> logVLam u e b
 subLogVLam _  _  SubBot             _  = ()
 subLogVLam _  _  SubRefl            lv = lv
 subLogVLam wu wv (SubJoinL l1 l2)   lv = case unJoinW wu of
@@ -289,7 +287,7 @@ subLogVLam wu wv (SubJoinR2 l2)     lv = case unJoinW wv of
   (_, wv2) -> subLogVLam @n @e @b wu wv2 l2 (snd lv)
 subLogVLam wu wv (SubTrans mid l1 l2) lv = go (MkValW mid) l1 l2 lv
   where
-    go :: forall (m :: Value). ValW m -> Sub u m -> Sub m v -> LogVLam v e b -> LogVLam u e b
+    go :: forall (m :: Value). ValW m -> Sub u m -> Sub m v -> logVLam v e b -> logVLam u e b
     go wMid s1 s2 x =
       subLogVLam @n @e @b @u @m wu wMid s1 (subLogVLam @n @e @b @m @v wMid wv s2 x)
 subLogVLam wu wv (SubArr l1 l2)     lv = case (unArrW wu, unArrW wv) of
@@ -430,9 +428,9 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `AboveFun`, `aboveFunSub`, `notAboveFunBot`,
   `aboveFunJoin`, `notAboveFunJoin`, `notAboveFunJoinInv`, `decAboveFun`,
-  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam` (mutually recursive
-  term-to-`Type` `HaltsV <-> logVLam <-> LogArr` tracked in
-  `R13_LargeElimMutualData.hs`), `notAboveFunLogV`,
+  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `logVLam` (ordinary mutually recursive
+  term-to-`Type` large elimination with zero `type family` declarations),
+  `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
   (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
   `BigStep.evalDeterm`), `adequacy`, both directions of the small-step/big-step

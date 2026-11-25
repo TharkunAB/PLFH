@@ -29,15 +29,15 @@ core inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`, `plusComm`,
 ## Interactive GHCi tips
 
 - **Inspect any module in the browser drawer:** run `:browse HaskLib.Nat`,
-  `:browse HaskLib.List`, or `:browse PLFH.Part1.Naturals` in **Open Chapter GHCi**.
+  `:browse HaskLib.List`, `:browse HaskLib.Vec`, `:browse HaskLib.Fin`, or
+  `:browse PLFH.Part1.Naturals` in **Open Chapter GHCi**.
 - **Printing `Nat` as a decimal:** `PreludeMapLengthSize.Nat` derives `Show`
   (printing `Succ (Succ Zero)`) and provides `Num Nat` / `FromNatural Nat` for
-  constructing Peano numbers from decimal literals (`2 :: Nat`). Until
-  `HaskLib.Nat` adds a decimal inverse (`ToNatural`), you can print decimal
-  values in GHCi with a one-liner:
+  constructing Peano numbers from decimal literals (`2 :: Nat`). Use
+  `HaskLib.Nat.natToInt` (re-exported by `HaskLib`) to convert a finite Peano
+  natural back to `Int`:
 
   ```text
-  ghci> let natToInt Zero = 0; natToInt (Succ n) = 1 + natToInt n
   ghci> natToInt (plus 2 3)
   5
   ```
@@ -49,16 +49,24 @@ core inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`, `plusComm`,
 Source: [on-site `HaskLib.hs`](/Source/hasklib/HaskLib/) ·
 [GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib.hs)
 
-Re-exports `module HaskLib.List`, `Matchability (..)` (from `GHC.Matchability`),
-`(:~:) (Refl)` and `trans` (from `Data.Type.Equality`), plus core equality
-combinators:
+Umbrella module re-exporting `HaskLib.Equality`, `HaskLib.Fin`, `HaskLib.List`,
+`HaskLib.Sigma`, `HaskLib.Vec`, and the core `HaskLib.Nat` laws (`eqSize`,
+`eqSizeRefl`, `natToInt`, `plusZero`, `plusSucc`, `plusComm`, `plusAssoc`,
+`congSucc`, `congFirst`).
+
+### `HaskLib.Equality` {#hasklibequality}
+
+Source: [on-site `HaskLib/Equality.hs`](/Source/hasklib/HaskLib/Equality/) ·
+[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Equality.hs)
 
 | Symbol | Type / Role |
 | --- | --- |
+| `(:~:) (Refl)`, `(:~~:) (HRefl)` | Homogeneous and heterogeneous propositional equality |
+| `sym`, `trans`, `gcastWith` | Re-exported from `Data.Type.Equality` |
 | `cong` | `forall {a} {b} {m :: Matchability} (f :: a %m -> b) x y. x :~: y -> f x :~: f y` |
 | `rewrite` | `(a :~: b) -> ((a ~ b) => r) -> r` (alias for `gcastWith`) |
 | `withEquality` | Compatibility alias for `rewrite` |
-| `eqSize`, `eqSizeRefl`, `plusZero`, `plusSucc`, `congSucc`, `congFirst` | Re-exported from `HaskLib.Nat` |
+| `Matchability (..)`, `M`, `U` | Re-exported from `GHC.Matchability` |
 
 ### `HaskLib.Nat` {#hasklibnat}
 
@@ -68,6 +76,7 @@ Source: [on-site `HaskLib/Nat.hs`](/Source/hasklib/HaskLib/Nat/) ·
 | Symbol | Type / Role |
 | --- | --- |
 | `Nat (Zero, Succ)` | Peano natural numbers (defined in [`PreludeMapLengthSize.hs`](/Source/hasklib/PreludeMapLengthSize/), with `Show`, `Num Nat`, and `FromNatural Nat`) |
+| `natToInt` | `Nat -> Int` (convert a finite Peano natural to an ordinary `Int`) |
 | `plus` | `Nat -> Nat -> Nat` (structural recursion on first argument) |
 | `type (+)` | `type (m :: Nat) + (n :: Nat) = plus m n` (`infixl 6`) |
 | `eqSize` | `Nat -> Nat -> Bool` |
@@ -75,8 +84,46 @@ Source: [on-site `HaskLib/Nat.hs`](/Source/hasklib/HaskLib/Nat/) ·
 | `plusZero` | `foreach (m :: Nat) -> plus m Zero :~: m` |
 | `plusSucc` | `foreach (m :: Nat) -> foreach (n :: Nat) -> plus m (Succ n) :~: Succ (plus m n)` |
 | `plusComm` | `foreach (m :: Nat) -> foreach (n :: Nat) -> plus m n :~: plus n m` |
+| `plusAssoc` | `foreach (m n p :: Nat) -> plus (plus m n) p :~: plus m (plus n p)` |
 | `congSucc` | `m :~: n -> Succ m :~: Succ n` |
 | `congFirst` | `forall (f :: Nat %U -> Nat %U -> Nat) r m n. m :~: n -> f m r :~: f n r` |
+
+### `HaskLib.Vec` {#hasklibvec}
+
+Source: [on-site `HaskLib/Vec.hs`](/Source/hasklib/HaskLib/Vec/) ·
+[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Vec.hs)
+
+Length-indexed vectors and ordinary-list boundary adapters:
+
+| Symbol | Type / Role |
+| --- | --- |
+| `Vec (VNil, VCons)` | Length-indexed vector `Vec a (n :: Nat)` (with `Eq`, `Show`) |
+| `SomeVec a` | `some (n :: Nat) \| Vec a n` |
+| `toListVec`, `fromListVec` | Convert between `Vec a n` and `[a]` (indexed by `size xs`) |
+| `fromListExact`, `packListVec` | Checked exact-length adapter and existential packing |
+| `replicateVec`, `appendVec`, `mapVec`, `zipVec`, `headVec`, `tailVec` | Standard length-preserving vector operations |
+
+### `HaskLib.Fin` {#hasklibfin}
+
+Source: [on-site `HaskLib/Fin.hs`](/Source/hasklib/HaskLib/Fin/) ·
+[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Fin.hs)
+
+| Symbol | Type / Role |
+| --- | --- |
+| `Fin (FZ, FS)` | Bounded natural positions strictly below `n :: Nat` (with `Eq`, `Show`) |
+| `lookupVec` | `Fin n -> Vec a n -> a` (total bounds-checked indexing) |
+| `mkFin`, `mkFinVec` | Checked `Int -> Maybe (Fin n)` constructors |
+
+### `HaskLib.Sigma` {#hasklibsigma}
+
+Source: [on-site `HaskLib/Sigma.hs`](/Source/hasklib/HaskLib/Sigma/) ·
+[GitHub (`Tritlo/ghc`)](https://github.com/Tritlo/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/HaskLib/Sigma.hs)
+
+| Symbol | Type / Role |
+| --- | --- |
+| `Sigma (Pair)` | Retained dependent pair (`some (x :: a) \| p x`) |
+| `first`, `second`, `withSigma` | Dependent pair projections and eliminator |
+| `pattern Pack` | Erased existential package constructor (from `GHC.Exists`) |
 
 ### `HaskLib.List` {#haskliblist}
 
@@ -91,10 +138,10 @@ Laws over stock `Prelude` lists (`[a]`, `(++)`, `map`, `reverse`, `zip`, `zipWit
 | `size` | `[a] -> Nat` (structural list length) |
 | `minSize` | `Nat -> Nat -> Nat` |
 | `takeSize` | `Nat -> [a] -> [a]` (from [`HaskLib/List/Prefix.hs`](/Source/hasklib/HaskLib/List/Prefix/)) |
-| `foldr` | `(a -> b -> b) -> b -> [a] -> b` (re-exported from `GHC.Internal.List` with checked equations) |
+| `append`, `map`, `zip`, `foldr` | Checked stock list operations |
 | `appendAssoc` | `foreach (xs ys zs :: [a]) -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))` |
 | `lengthMap` | `foreach (f :: a -> b) -> foreach (xs :: [a]) -> size (map f xs) :~: size xs` |
-| `lengthAppend` | `foreach (xs ys :: [a]) -> size (xs ++ ys) :~: plus (size xs) (size ys)` |
+| `lengthAppend`, `lengthAppendList` | `foreach (xs ys :: [a]) -> size (xs ++ ys) :~: plus (size xs) (size ys)` |
 | `lengthReverse` | `foreach (xs :: [a]) -> size (reverse xs) :~: size xs` |
 | `lengthTakeSize` | `foreach (n :: Nat) -> foreach (xs :: [a]) -> size (takeSize n xs) :~: minSize n (size xs)` |
 | `lengthZip`, `lengthZipWith`, `lengthZipMap`, `lengthMapZip` | Length preservation for `zip`, `zipWith`, and fused `map`/`zip` compositions |

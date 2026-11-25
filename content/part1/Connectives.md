@@ -60,19 +60,43 @@ module PLFH.Part1.Connectives
   , swapProdRT
   , prodCommIso
   , prodComm
+  , prodAssocTo
+  , prodAssocFrom
+  , prodAssocIso
   , prodAssoc
+  , prodUnitRTo
+  , prodUnitRFrom
+  , prodUnitRIso
   , prodUnitR
+  , prodUnitLTo
+  , prodUnitLFrom
+  , prodUnitLIso
   , prodUnitL
+  , prodZeroRTo
+  , prodZeroRFrom
+  , prodZeroRIso
   , prodZeroR
+  , prodZeroLTo
+  , prodZeroLFrom
+  , prodZeroLIso
   , prodZeroL
   , swapSum
   , swapSumRT
   , sumCommIso
   , sumComm
+  , sumAssocTo
+  , sumAssocFrom
+  , sumAssocIso
   , sumAssoc
   , sumZeroR
   , sumZeroL
+  , prodDistribSumTo
+  , prodDistribSumFrom
+  , prodDistribSumIso
   , prodDistribSum
+  , prodDistribSumLTo
+  , prodDistribSumLFrom
+  , prodDistribSumLIso
   , prodDistribSumL
   , currying
   , expSum
@@ -87,7 +111,7 @@ module PLFH.Part1.Connectives
 
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import PLFH.Part1.Isomorphism (Iff (..), Iso (..))
+import PLFH.Part1.Isomorphism (Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
 ```
 
 ## Conjunction (`(a, b)`) and Truth (`()`)
@@ -104,7 +128,9 @@ proof `x :: a` and a proof `y :: b`:
 
 Just like multiplication on the naturals, conjunction is commutative and
 associative, has truth `()` as its left and right identity (`a × 1 = a`),
-and has falsehood `Void` as its left and right absorbing zero (`a × 0 = 0`):
+and has falsehood `Void` as its left and right absorbing zero (`a × 0 = 0`)—all
+proved as **full polymorphic isomorphisms (`Iso`)** with machine-checked
+round-trip proofs:
 
 ```haskell
 -- | Swap the two components of a pair.
@@ -121,27 +147,119 @@ prodCommIso = MkIso swapProd swapProd swapProdRT swapProdRT
 
 -- | Commutativity of conjunction: (a, b) ⇔ (b, a).
 prodComm :: Iff (a, b) (b, a)
-prodComm = Iff swapProd swapProd
+prodComm = embedImpliesIff (isoImpliesEmbed prodCommIso)
+
+-- | Forward map for product associativity.
+prodAssocTo :: ((a, b), c) -> (a, (b, c))
+prodAssocTo ((x, y), z) = (x, (y, z))
+
+-- | Backward map for product associativity.
+prodAssocFrom :: (a, (b, c)) -> ((a, b), c)
+prodAssocFrom (x, (y, z)) = ((x, y), z)
+
+prodAssocLR :: foreach (p :: ((a, b), c)) -> prodAssocFrom (prodAssocTo p) :~: p
+prodAssocLR ((_, _), _) = Refl
+
+prodAssocRL :: foreach (p :: (a, (b, c))) -> prodAssocTo (prodAssocFrom p) :~: p
+prodAssocRL (_, (_, _)) = Refl
+
+-- | Associativity of conjunction as a true isomorphism: ((a, b), c) ≃ (a, (b, c)).
+prodAssocIso :: Iso ((a, b), c) (a, (b, c))
+prodAssocIso = MkIso prodAssocTo prodAssocFrom prodAssocLR prodAssocRL
 
 -- | Associativity of conjunction: ((a, b), c) ⇔ (a, (b, c)).
 prodAssoc :: Iff ((a, b), c) (a, (b, c))
-prodAssoc = Iff (\((x, y), z) -> (x, (y, z))) (\(x, (y, z)) -> ((x, y), z))
+prodAssoc = embedImpliesIff (isoImpliesEmbed prodAssocIso)
+
+-- | Right-identity maps for conjunction.
+prodUnitRTo :: (a, ()) -> a
+prodUnitRTo (x, ()) = x
+
+prodUnitRFrom :: a -> (a, ())
+prodUnitRFrom x = (x, ())
+
+prodUnitRLR :: foreach (p :: (a, ())) -> prodUnitRFrom (prodUnitRTo p) :~: p
+prodUnitRLR (_, ()) = Refl
+
+prodUnitRRL :: foreach (x :: a) -> prodUnitRTo (prodUnitRFrom x) :~: x
+prodUnitRRL _ = Refl
+
+-- | Right identity of conjunction as a true isomorphism: (a, ()) ≃ a.
+prodUnitRIso :: Iso (a, ()) a
+prodUnitRIso = MkIso prodUnitRTo prodUnitRFrom prodUnitRLR prodUnitRRL
 
 -- | Right identity of conjunction: (a, ()) ⇔ a.
 prodUnitR :: Iff (a, ()) a
-prodUnitR = Iff fst (\x -> (x, ()))
+prodUnitR = embedImpliesIff (isoImpliesEmbed prodUnitRIso)
+
+-- | Left-identity maps for conjunction.
+prodUnitLTo :: ((), a) -> a
+prodUnitLTo ((), x) = x
+
+prodUnitLFrom :: a -> ((), a)
+prodUnitLFrom x = ((), x)
+
+prodUnitLLR :: foreach (p :: ((), a)) -> prodUnitLFrom (prodUnitLTo p) :~: p
+prodUnitLLR ((), _) = Refl
+
+prodUnitLRL :: foreach (x :: a) -> prodUnitLTo (prodUnitLFrom x) :~: x
+prodUnitLRL _ = Refl
+
+-- | Left identity of conjunction as a true isomorphism: ((), a) ≃ a.
+prodUnitLIso :: Iso ((), a) a
+prodUnitLIso = MkIso prodUnitLTo prodUnitLFrom prodUnitLLR prodUnitLRL
 
 -- | Left identity of conjunction: ((), a) ⇔ a.
 prodUnitL :: Iff ((), a) a
-prodUnitL = Iff snd (\x -> ((), x))
+prodUnitL = embedImpliesIff (isoImpliesEmbed prodUnitLIso)
+
+-- | Right-zero maps for conjunction.
+prodZeroRTo :: (a, Void) -> Void
+prodZeroRTo (_, v) = v
+
+prodZeroRFrom :: Void -> (a, Void)
+prodZeroRFrom = absurd
+
+-- | Right zero of conjunction as a true isomorphism: (a, Void) ≃ Void.
+prodZeroRIso :: forall a. Iso (a, Void) Void
+prodZeroRIso = go prodZeroRTo prodZeroRFrom
+  where
+    go :: foreach (t :: (a, Void) -> Void) -> foreach (f :: Void -> (a, Void))
+       -> Iso (a, Void) Void
+    go t f = MkIso t f lr rl
+      where
+        lr :: foreach (p :: (a, Void)) -> f (t p) :~: p
+        lr (_, v) = case v of {}
+        rl :: foreach (v :: Void) -> t (f v) :~: v
+        rl v = case v of {}
 
 -- | Right zero of conjunction: (a, Void) ⇔ Void.
 prodZeroR :: Iff (a, Void) Void
-prodZeroR = Iff snd absurd
+prodZeroR = embedImpliesIff (isoImpliesEmbed prodZeroRIso)
+
+-- | Left-zero maps for conjunction.
+prodZeroLTo :: (Void, a) -> Void
+prodZeroLTo (v, _) = v
+
+prodZeroLFrom :: Void -> (Void, a)
+prodZeroLFrom = absurd
+
+-- | Left zero of conjunction as a true isomorphism: (Void, a) ≃ Void.
+prodZeroLIso :: forall a. Iso (Void, a) Void
+prodZeroLIso = go prodZeroLTo prodZeroLFrom
+  where
+    go :: foreach (t :: (Void, a) -> Void) -> foreach (f :: Void -> (Void, a))
+       -> Iso (Void, a) Void
+    go t f = MkIso t f lr rl
+      where
+        lr :: foreach (p :: (Void, a)) -> f (t p) :~: p
+        lr (v, _) = case v of {}
+        rl :: foreach (v :: Void) -> t (f v) :~: v
+        rl v = case v of {}
 
 -- | Left zero of conjunction: (Void, a) ⇔ Void.
 prodZeroL :: Iff (Void, a) Void
-prodZeroL = Iff fst absurd
+prodZeroL = embedImpliesIff (isoImpliesEmbed prodZeroLIso)
 ```
 
 ## Disjunction (`Either a b`) and Falsehood (`Void`)
@@ -165,7 +283,7 @@ and I are one."* (PLFA illustrates the same rule with the English idiom:
 
 Just like addition on the naturals, disjunction is commutative and
 associative, with falsehood `Void` as its left and right identity
-(`a + 0 = a`):
+(`a + 0 = a`)—again proved as full polymorphic `Iso` isomorphisms:
 
 ```haskell
 -- | Swap the two branches of a sum.
@@ -184,19 +302,37 @@ sumCommIso = MkIso swapSum swapSum swapSumRT swapSumRT
 
 -- | Commutativity of disjunction: Either a b ⇔ Either b a.
 sumComm :: Iff (Either a b) (Either b a)
-sumComm = Iff swapSum swapSum
+sumComm = embedImpliesIff (isoImpliesEmbed sumCommIso)
+
+-- | Forward map for disjunction associativity.
+sumAssocTo :: Either (Either a b) c -> Either a (Either b c)
+sumAssocTo (Left (Left x))  = Left x
+sumAssocTo (Left (Right y)) = Right (Left y)
+sumAssocTo (Right z)        = Right (Right z)
+
+-- | Backward map for disjunction associativity.
+sumAssocFrom :: Either a (Either b c) -> Either (Either a b) c
+sumAssocFrom (Left x)          = Left (Left x)
+sumAssocFrom (Right (Left y))  = Left (Right y)
+sumAssocFrom (Right (Right z)) = Right z
+
+sumAssocLR :: foreach (s :: Either (Either a b) c) -> sumAssocFrom (sumAssocTo s) :~: s
+sumAssocLR (Left (Left _))  = Refl
+sumAssocLR (Left (Right _)) = Refl
+sumAssocLR (Right _)        = Refl
+
+sumAssocRL :: foreach (s :: Either a (Either b c)) -> sumAssocTo (sumAssocFrom s) :~: s
+sumAssocRL (Left _)          = Refl
+sumAssocRL (Right (Left _))  = Refl
+sumAssocRL (Right (Right _)) = Refl
+
+-- | Associativity of disjunction as a true isomorphism: Either (Either a b) c ≃ Either a (Either b c).
+sumAssocIso :: Iso (Either (Either a b) c) (Either a (Either b c))
+sumAssocIso = MkIso sumAssocTo sumAssocFrom sumAssocLR sumAssocRL
 
 -- | Associativity of disjunction: Either (Either a b) c ⇔ Either a (Either b c).
 sumAssoc :: Iff (Either (Either a b) c) (Either a (Either b c))
-sumAssoc = Iff toF fromF
-  where
-    toF (Left (Left x))  = Left x
-    toF (Left (Right y)) = Right (Left y)
-    toF (Right z)        = Right (Right z)
-
-    fromF (Left x)          = Left (Left x)
-    fromF (Right (Left y))  = Left (Right y)
-    fromF (Right (Right z)) = Right z
+sumAssoc = embedImpliesIff (isoImpliesEmbed sumAssocIso)
 
 -- | Right identity of disjunction: Either a Void ⇔ a.
 sumZeroR :: Iff (Either a Void) a
@@ -211,28 +347,58 @@ sumZeroL = Iff (either absurd id) Right
 
 Just as multiplication distributes over addition (`(a + b) × c = a × c + b × c`
 and `a × (b + c) = a × b + a × c`), conjunction distributes over disjunction
-on both sides:
+on both sides as full polymorphic isomorphisms:
 
 ```haskell
+-- | Forward and backward maps for right distributivity.
+prodDistribSumTo :: (Either a b, c) -> Either (a, c) (b, c)
+prodDistribSumTo (Left x, z)  = Left (x, z)
+prodDistribSumTo (Right y, z) = Right (y, z)
+
+prodDistribSumFrom :: Either (a, c) (b, c) -> (Either a b, c)
+prodDistribSumFrom (Left (x, z))  = (Left x, z)
+prodDistribSumFrom (Right (y, z)) = (Right y, z)
+
+prodDistribSumLR :: foreach (p :: (Either a b, c)) -> prodDistribSumFrom (prodDistribSumTo p) :~: p
+prodDistribSumLR (Left _, _)  = Refl
+prodDistribSumLR (Right _, _) = Refl
+
+prodDistribSumRL :: foreach (s :: Either (a, c) (b, c)) -> prodDistribSumTo (prodDistribSumFrom s) :~: s
+prodDistribSumRL (Left (_, _))  = Refl
+prodDistribSumRL (Right (_, _)) = Refl
+
+-- | Right distributivity as a true isomorphism: (Either a b, c) ≃ Either (a, c) (b, c).
+prodDistribSumIso :: Iso (Either a b, c) (Either (a, c) (b, c))
+prodDistribSumIso = MkIso prodDistribSumTo prodDistribSumFrom prodDistribSumLR prodDistribSumRL
+
 -- | Right distributivity: (Either a b, c) ⇔ Either (a, c) (b, c).
 prodDistribSum :: Iff (Either a b, c) (Either (a, c) (b, c))
-prodDistribSum = Iff toF fromF
-  where
-    toF (Left x, z)  = Left (x, z)
-    toF (Right y, z) = Right (y, z)
+prodDistribSum = embedImpliesIff (isoImpliesEmbed prodDistribSumIso)
 
-    fromF (Left (x, z))  = (Left x, z)
-    fromF (Right (y, z)) = (Right y, z)
+-- | Forward and backward maps for left distributivity.
+prodDistribSumLTo :: (a, Either b c) -> Either (a, b) (a, c)
+prodDistribSumLTo (x, Left y)  = Left (x, y)
+prodDistribSumLTo (x, Right z) = Right (x, z)
+
+prodDistribSumLFrom :: Either (a, b) (a, c) -> (a, Either b c)
+prodDistribSumLFrom (Left (x, y))  = (x, Left y)
+prodDistribSumLFrom (Right (x, z)) = (x, Right z)
+
+prodDistribSumLLR :: foreach (p :: (a, Either b c)) -> prodDistribSumLFrom (prodDistribSumLTo p) :~: p
+prodDistribSumLLR (_, Left _)  = Refl
+prodDistribSumLLR (_, Right _) = Refl
+
+prodDistribSumLRL :: foreach (s :: Either (a, b) (a, c)) -> prodDistribSumLTo (prodDistribSumLFrom s) :~: s
+prodDistribSumLRL (Left (_, _))  = Refl
+prodDistribSumLRL (Right (_, _)) = Refl
+
+-- | Left distributivity as a true isomorphism: (a, Either b c) ≃ Either (a, b) (a, c).
+prodDistribSumLIso :: Iso (a, Either b c) (Either (a, b) (a, c))
+prodDistribSumLIso = MkIso prodDistribSumLTo prodDistribSumLFrom prodDistribSumLLR prodDistribSumLRL
 
 -- | Left distributivity: (a, Either b c) ⇔ Either (a, b) (a, c).
 prodDistribSumL :: Iff (a, Either b c) (Either (a, b) (a, c))
-prodDistribSumL = Iff toF fromF
-  where
-    toF (x, Left y)  = Left (x, y)
-    toF (x, Right z) = Right (x, z)
-
-    fromF (Left (x, y))  = (x, Left y)
-    fromF (Right (x, z)) = (x, Right z)
+prodDistribSumL = embedImpliesIff (isoImpliesEmbed prodDistribSumLIso)
 ```
 
 ## Implication (`a -> b`) and the laws of exponentiation
@@ -304,18 +470,17 @@ arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
 
 ## Isomorphisms vs. logical equivalences
 
-Above we proved commutativity of both products (`prodCommIso :: Iso (a, b) (b, a)`)
-and sums (`sumCommIso :: Iso (Either a b) (Either b a)`) as **full polymorphic
-isomorphisms** with machine-checked round-trip proofs (`swapProdRT`,
-`swapSumRT`), while stating associativity, unit/zero, distributivity, and the
-exponential laws via `Iff`. Upgrading the algebraic semiring laws (`prodAssoc`,
-`prodUnitR`, `sumAssoc`, `prodDistribSum`) to polymorphic `Iso` requires
-checked equations for polymorphic functions over nested/concrete domain types
-like `((a, b), c)` or `(a, ())` (currently tracked in
-[`R13_PolyNestedDomainOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_PolyNestedDomainOpenEq.hs)),
-whereas upgrading the exponential laws (like `currying`) additionally requires
-function extensionality—which neither Agda nor Dependent Haskell proves
-internally without an axiom.
+Above we proved ten of the twelve commutative semiring laws—product & sum
+commutativity, associativity, product units & absorbing zeros, and left/right
+distributivity—as **full polymorphic isomorphisms (`Iso`)** with
+machine-checked round-trip proofs (alongside `Iff` projections). Upgrading
+`sumZeroR` (`Either a Void ⇔ a`) and `sumZeroL` (`Either Void a ⇔ a`) to `Iso`
+requires certifying checked equations for functions with an unreachable `Void`
+branch (`Right v -> case v of {}`, tracked in
+[`R13_VoidAbsurdBranchOpenEq.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_VoidAbsurdBranchOpenEq.hs)),
+whereas upgrading the exponential laws (`currying`, `expSum`, `expProd`,
+`expUnit`, `expZero`, `expToUnit`) requires **function extensionality**—which
+neither Agda nor Dependent Haskell proves internally without an axiom.
 
 ## Exercises
 
@@ -341,8 +506,11 @@ Check by hand that for any finite type `a` with `n` inhabitants,
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Connectives.lagda.md)),
   licensed under CC BY 4.0.
 - Uses standard Haskell `(,)`, `Either`, `()`, and `Void` directly.
-- Proved polymorphic product & sum commutativity as genuine isomorphisms
-  (`prodCommIso :: Iso (a, b) (b, a)` and `sumCommIso :: Iso (Either a b) (Either b a)`),
-  along with all commutative semiring, exponential (`currying`, `expSum`,
+- Proved ten commutative semiring laws (product & sum commutativity and
+  associativity, product units & zeros, and left/right distributivity) as
+  genuine polymorphic isomorphisms (`prodCommIso`, `prodAssocIso`,
+  `prodUnitRIso`, `prodUnitLIso`, `prodZeroRIso`, `prodZeroLIso`,
+  `sumCommIso`, `sumAssocIso`, `prodDistribSumIso`, `prodDistribSumLIso`),
+  along with `sumZeroR`/`sumZeroL`, exponential (`currying`, `expSum`,
   `expProd`, `expUnit`, `expZero`, `expToUnit`), and congruence (`prodCong`,
   `sumCong`, `arrCong`) laws as constructive `Iff` equivalences.
