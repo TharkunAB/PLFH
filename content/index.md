@@ -22,6 +22,8 @@ Comments, bug reports, and pull requests are welcome on
 
 ## Front matter
 
+- [Dependent Haskell Overview](/Overview/): Core concepts, GHC proposals (`#378`, `#281`, `#242`, ...), foundational papers, and the Serokell roadmap
+- [Interactive Playground](/Playground/): Try Dependent Haskell, typed-hole refinement, and GHCi directly in your browser (WebAssembly)
 - [Preface](/Preface/): Propositions as Types, totality discipline, and yardstick goals
 - [Setup](/Setup/): Compiling `Tritlo/ghc`, `shell.nix`, flags, GHCi, and Hakyll preview
 
@@ -59,7 +61,9 @@ Comments, bug reports, and pull requests are welcome on
 - [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`/`adequacy`/`reduceToCbn`/`cbnToReduce`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Checked</span>
 - [ContextualEquivalence](/ContextualEquivalence/): Open-term **`CtxEquiv`** (`UCtx`/`plug`), **unconditional `denotEqualCtxBigStep`**, **unconditional `denotEqualCtxEquiv`**, and **unconditional `betaCtxEquiv`** <span class="badge badge-pass">Checked</span>
 
-## Yardstick & Backmatter
+## Yardstick, Reference & Backmatter
 
+- [HaskLib Reference](/HaskLib/): Exported API, `Nat` / `List` laws, GHCi tips, and links to `HaskLib` source
+- [Source Browser](/Source/): Syntax-highlighted `.hs` source for all chapters, clients, `HaskLib`, negative controls, and reproducers
 - [Yardstick Status](/Status/): Full theorem-by-theorem ledger, HaskLib reuse, negative controls, and minimal compiler reproducers
 - [How to Cite & Licence](/Citing/): CC BY 4.0 licence and attribution to upstream PLFA

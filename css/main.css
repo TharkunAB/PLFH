@@ -488,3 +488,154 @@ tr:nth-child(even) td {
   border-left: 4px solid #eab308;
   color: #fef08a;
 }
+
+/* Source browser & Agda-mode typed-hole refinement panel */
+.source-meta {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: var(--muted-color);
+}
+
+.plfh-refinement-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #1e3a5f;
+  cursor: pointer;
+  user-select: none;
+}
+
+.plfh-hole-panel {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  background-color: #fffbeb;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #d97706;
+  border-radius: 3px;
+}
+
+.plfh-hole-heading {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+
+.plfh-hole-card + .plfh-hole-card {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #fde68a;
+}
+
+.plfh-hole-goal {
+  font-size: 0.86rem;
+  margin-bottom: 6px;
+  overflow-x: auto;
+}
+
+.plfh-hole-fits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.plfh-hole-fit-btn {
+  padding: 2px 8px;
+  font-family: var(--code-font);
+  font-size: 0.82rem;
+  color: #1e3a5f;
+  background-color: #ffffff;
+  border: 1px solid #93c5fd;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.plfh-hole-fit-btn:hover {
+  background-color: #dbeafe;
+  border-color: #2563eb;
+}
+
+.plfh-hole-fit-btn--refine {
+  border-color: #14b8a6;
+  color: #0f766e;
+}
+
+.plfh-hole-fit-btn--refine:hover {
+  background-color: #ccfbf1;
+}
+
+/* Overview landing CTAs & Standalone Playground */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 22px;
+}
+
+.hero-btn {
+  display: inline-block;
+  padding: 7px 14px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #1e3a5f !important;
+  background-color: #eef5fc;
+  border: 1px solid #b8d3ee;
+  border-radius: 4px;
+  text-decoration: none !important;
+}
+
+.hero-btn:hover {
+  background-color: #dbeafe;
+  border-color: #60a5fa;
+}
+
+.hero-btn--primary {
+  color: #ffffff !important;
+  background-color: var(--brand-color);
+  border-color: var(--brand-dark);
+}
+
+.hero-btn--primary:hover {
+  background-color: var(--brand-dark);
+}
+
+.plfh-playground-root {
+  margin: 14px 0 22px;
+  padding: 14px;
+  background-color: #f4f8fc;
+  border: 1px solid var(--code-border);
+  border-radius: 4px;
+}
+
+.plfh-preset-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.plfh-preset-btn {
+  padding: 4px 10px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #1e3a5f;
+  background-color: #ffffff;
+  border: 1px solid #b8cde0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.plfh-preset-btn:hover {
+  background-color: #e8f2fb;
+}
+
+.plfh-preset-btn--active {
+  color: #ffffff;
+  background-color: var(--brand-color);
+  border-color: var(--brand-dark);
+}
+
+.plfh-playground-editor {
+  min-height: 260px;
+}

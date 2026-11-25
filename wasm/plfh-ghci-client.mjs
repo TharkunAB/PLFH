@@ -254,7 +254,131 @@ function wireEditorKeys(editor, onRun) {
   });
 }
 
-function mountChapterBar(mountEl, client, chapterModule, ctx) {
+// Parse GHC typed-hole diagnostics ([GHC-88464]) into structured goals and valid fits
+// so the browser UI can render Agda-mode clickable refinement chips.
+function parseTypedHoles(diagText) {
+  if (!diagText || !diagText.includes("Found hole:")) return [];
+  const holes = [];
+  const sections = diagText.split(/(?=^[^\n]*error:\s*\[GHC-88464\])/m);
+  const skipFits = new Set(["undefined", "error", "errorWithoutStackTrace"]);
+
+  for (const sec of sections) {
+    if (!sec.includes("Found hole:")) continue;
+    const goalMatch = sec.match(
+      /Found hole:\s+(_[A-Za-z0-9_']*)\s+::\s+([\s\S]*?)(?=\n\s*(?:Or perhaps|Where:|•|\|)|$)/
+    );
+    if (!goalMatch) continue;
+    const name = goalMatch[1];
+    const goalType = goalMatch[2].replace(/\s+/g, " ").trim();
+    const fits = [];
+    const seen = new Set();
+
+    const extractFitsBlock = (headerRe, isRefinement) => {
+      const m = sec.match(headerRe);
+      if (!m) return;
+      const lines = m[1].split("\n");
+      for (const line of lines) {
+        // GHC indents fit entries with 8 spaces: "        Refl :: forall ..."
+        const fm = line.match(/^\s{6,10}([^\s(][^:]*?)\s+::\s+(.*)$/);
+        if (!fm) continue;
+        const expr = fm[1].trim();
+        const typeSig = fm[2].trim();
+        if (!expr || skipFits.has(expr) || seen.has(expr)) continue;
+        seen.add(expr);
+        fits.push({ expr, typeSig, refinement: isRefinement });
+      }
+    };
+
+    extractFitsBlock(
+      /Valid hole fits include\n([\s\S]*?)(?=\n\s*(?:Valid refinement hole fits include|\(Some hole fits suppressed|\|)|$)/,
+      false
+    );
+    extractFitsBlock(
+      /Valid refinement hole fits include\n([\s\S]*?)(?=\n\s*(?:\(Some refinement hole fits suppressed|\|)|$)/,
+      true
+    );
+
+    holes.push({ name, goalType, fits });
+  }
+  return holes;
+}
+
+// Replace the first standalone occurrence of `holeName` (`_`, `_qed`, ...) in `code`.
+function applyHoleFit(code, holeName, fitExpr) {
+  const escaped = holeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|[^A-Za-z0-9_'])(${escaped})(?![A-Za-z0-9_'])`);
+  return code.replace(re, (match, prefix, _tok, offset) => {
+    const needsParens = /\s/.test(fitExpr) && !/^\(.*\)$/.test(fitExpr);
+    const before = code.slice(0, offset + prefix.length);
+    const insideApp = /[A-Za-z0-9_')\]]\s+$/.test(before);
+    const replacement = needsParens && insideApp ? `(${fitExpr})` : fitExpr;
+    return `${prefix}${replacement}`;
+  });
+}
+
+// Inject refinement-level hole-fit flags when the opt-in toggle is active and a hole exists.
+function maybeWithRefinementPragmas(code, refinementEnabled) {
+  if (!refinementEnabled) return code;
+  if (!/(^|[^A-Za-z0-9_'])_[A-Za-z0-9_']*/.test(code)) return code;
+  if (/-frefinement-level-hole-fits/.test(code)) return code;
+  return (
+    "{-# OPTIONS_GHC -frefinement-level-hole-fits=1 -fmax-refinement-hole-fits=6 -funclutter-valid-hole-fits #-}\n" +
+    code
+  );
+}
+
+// Render interactive Agda-mode hole goal & clickable fit buttons above the raw diagnostic log.
+function renderHolePanel(panelEl, diagText, onFill) {
+  const holes = parseTypedHoles(diagText);
+  panelEl.innerHTML = "";
+  if (holes.length === 0) {
+    panelEl.hidden = true;
+    return;
+  }
+  panelEl.hidden = false;
+
+  const heading = document.createElement("div");
+  heading.className = "plfh-hole-heading";
+  heading.textContent = "Typed Holes (Agda-mode — click a fit to refine & re-check):";
+  panelEl.append(heading);
+
+  for (const hole of holes) {
+    const card = document.createElement("div");
+    card.className = "plfh-hole-card";
+
+    const goal = document.createElement("div");
+    goal.className = "plfh-hole-goal";
+    goal.innerHTML = `<code>${escapeHtml(hole.name)} :: ${escapeHtml(hole.goalType)}</code>`;
+    card.append(goal);
+
+    if (hole.fits.length > 0) {
+      const fitsRow = document.createElement("div");
+      fitsRow.className = "plfh-hole-fits";
+      for (const fit of hole.fits.slice(0, 10)) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = fit.refinement
+          ? "plfh-hole-fit-btn plfh-hole-fit-btn--refine"
+          : "plfh-hole-fit-btn";
+        btn.textContent = fit.expr;
+        btn.title = `${fit.expr} :: ${fit.typeSig}`;
+        btn.addEventListener("click", () => onFill(hole.name, fit.expr));
+        fitsRow.append(btn);
+      }
+      card.append(fitsRow);
+    }
+    panelEl.append(card);
+  }
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
   mountEl.innerHTML = "";
   mountEl.classList.add("plfh-chapter-bar--ready");
 
@@ -278,11 +402,23 @@ function mountChapterBar(mountEl, client, chapterModule, ctx) {
   checkAllBtn.className = "plfh-wasm-btn plfh-wasm-edit";
   checkAllBtn.textContent = "Check Whole Chapter";
 
+  const refineLabel = document.createElement("label");
+  refineLabel.className = "plfh-refinement-toggle";
+  refineLabel.title =
+    "Enable -frefinement-level-hole-fits=1 when checking snippets with typed holes (_) — experimental while GHC valid hole fits are being refined";
+  const refineCheckbox = document.createElement("input");
+  refineCheckbox.type = "checkbox";
+  refineCheckbox.checked = uiState.refinementFits;
+  refineCheckbox.addEventListener("change", () => {
+    uiState.refinementFits = refineCheckbox.checked;
+  });
+  refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
+
   const statusSpan = document.createElement("span");
   statusSpan.className = "plfh-wasm-status";
   statusSpan.textContent = "Loads on demand";
 
-  actions.append(openBtn, checkAllBtn);
+  actions.append(openBtn, checkAllBtn, refineLabel);
   header.append(label, actions, statusSpan);
 
   const drawer = document.createElement("div");
@@ -317,18 +453,22 @@ function mountChapterBar(mountEl, client, chapterModule, ctx) {
   scratchEditor.className = "plfh-wasm-editor";
   scratchEditor.spellcheck = false;
   scratchEditor.rows = 6;
-  scratchEditor.placeholder = `-- Declarations here automatically import ${chapterModule}\n-- Press Ctrl/Cmd+Enter or click Check Scratchpad`;
+  scratchEditor.placeholder = `-- Declarations here automatically import ${chapterModule}\n-- Tip: write a typed hole like _qed to inspect goals & valid hole fits (Ctrl/Cmd+Enter)`;
   const scratchBtn = document.createElement("button");
   scratchBtn.type = "button";
   scratchBtn.className = "plfh-wasm-btn plfh-wasm-check";
   scratchBtn.textContent = "Check Scratchpad";
   scratchWrap.append(scratchSummary, scratchEditor, scratchBtn);
 
+  const holePanel = document.createElement("div");
+  holePanel.className = "plfh-hole-panel";
+  holePanel.hidden = true;
+
   const output = document.createElement("pre");
   output.className = "plfh-wasm-output";
   output.hidden = true;
 
-  drawer.append(replRow, scratchWrap, output);
+  drawer.append(replRow, scratchWrap, holePanel, output);
   mountEl.append(header, drawer);
 
   client.onProgress((p) => {
@@ -381,12 +521,13 @@ function mountChapterBar(mountEl, client, chapterModule, ctx) {
   });
 
   const runScratch = async () => {
-    const code = scratchEditor.value.trim();
-    if (!code) return;
+    const rawCode = scratchEditor.value.trim();
+    if (!rawCode) return;
     scratchBtn.disabled = true;
+    holePanel.hidden = true;
     statusSpan.textContent = client.booted ? "Checking scratchpad..." : "Starting GHCi Wasm...";
     const res = await client.checkBlock({
-      code,
+      code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
       chapterModule,
       chapterPragmas: ctx.chapterPragmas,
       chapterImports: ctx.chapterImports,
@@ -394,15 +535,27 @@ function mountChapterBar(mountEl, client, chapterModule, ctx) {
     });
     scratchBtn.disabled = false;
     output.hidden = false;
-    output.dataset.state = res.ok ? "ok" : "err";
+    const combined = [res.stdout, res.stderr].filter(Boolean).join("\n");
+    const hasHoles = !res.ok && combined.includes("Found hole:");
+    output.dataset.state = res.ok ? "ok" : hasHoles ? "warn" : "err";
     statusSpan.textContent = res.ok
       ? `Scratchpad checked (${res.elapsedMs} ms)`
-      : `Type error (${res.elapsedMs} ms)`;
+      : hasHoles
+        ? `Typed hole(s) found (${res.elapsedMs} ms)`
+        : `Type error (${res.elapsedMs} ms)`;
     output.textContent =
-      [res.stdout, res.stderr].filter(Boolean).join("\n") ||
+      combined ||
       (res.ok
         ? "Ok, scratchpad typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
+    if (hasHoles) {
+      renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
+        scratchWrap.open = true;
+        scratchEditor.value = applyHoleFit(scratchEditor.value, holeName, fitExpr);
+        scratchEditor.focus();
+        runScratch();
+      });
+    }
   };
 
   scratchBtn.addEventListener("click", runScratch);
@@ -424,6 +577,307 @@ function mountChapterBar(mountEl, client, chapterModule, ctx) {
   });
 }
 
+const PLAYGROUND_PRESETS = [
+  {
+    id: "induction",
+    label: "Peano Induction",
+    replHint: "natToInt (plus 2 3)",
+    code: `{-# LANGUAGE DependentTypes #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl), trans)
+import HaskLib.Nat (Nat (..), congSucc, plus, type (+))
+
+twoPlusThree :: (2 + 3 :: Nat) :~: 5
+twoPlusThree = Refl
+
+plusIdentityR :: foreach (m :: Nat) -> plus m Zero :~: m
+plusIdentityR Zero     = Refl
+plusIdentityR (Succ m) = congSucc (plusIdentityR m)
+
+plusSuc :: foreach (m n :: Nat) -> plus m (Succ n) :~: Succ (plus m n)
+plusSuc Zero     _ = Refl
+plusSuc (Succ m) n = congSucc (plusSuc m n)
+
+plusComm :: foreach (m n :: Nat) -> plus m n :~: plus n m
+plusComm m Zero     = plusIdentityR m
+plusComm m (Succ k) = plusSuc m k \`trans\` congSucc (plusComm m k)
+
+natToInt :: Nat -> Int
+natToInt Zero     = 0
+natToInt (Succ n) = 1 + natToInt n
+`,
+  },
+  {
+    id: "holes",
+    label: "Agda-mode Typed Hole",
+    replHint: ":t twoPlusThree",
+    code: `{-# LANGUAGE DependentTypes #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+import HaskLib.Nat (Nat (..), plus)
+
+-- Click "Check & Load in GHCi", then click the \`Refl\` chip below!
+twoPlusThree :: plus 2 3 :~: 5
+twoPlusThree = _qed
+`,
+  },
+  {
+    id: "lists",
+    label: "Prelude List Laws",
+    replHint: ":t lengthMap",
+    code: `{-# LANGUAGE DependentTypes, NoListTuplePuns #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.Types (List)
+import HaskLib (congSucc, size)
+import HaskLib.Nat (Nat (..), plus)
+
+lengthAppend :: forall a. foreach (xs ys :: List a)
+             -> size (xs ++ ys) :~: plus (size xs) (size ys)
+lengthAppend []       _  = Refl
+lengthAppend (_ : xs) ys = congSucc (lengthAppend xs ys)
+
+lengthMap :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
+          -> size (map f xs) :~: size xs
+lengthMap _ []       = Refl
+lengthMap f (_ : xs) = congSucc (lengthMap f xs)
+`,
+  },
+  {
+    id: "sigma",
+    label: "Dependent Pair (Sigma)",
+    replHint: "extractHalf",
+    code: `{-# LANGUAGE DependentTypes, UndecidableInstances #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.Sigma (Sigma (Pair))
+import HaskLib.Nat (Nat (..), plus)
+
+type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
+
+halfOfFour :: EvenSigma 4
+halfOfFour = Pair 2 Refl
+
+natToInt :: Nat -> Int
+natToInt Zero     = 0
+natToInt (Succ n) = 1 + natToInt n
+
+extractHalf :: Int
+extractHalf = case halfOfFour of
+  Pair k Refl -> natToInt k
+`,
+  },
+  {
+    id: "debruijn",
+    label: "Intrinsically-Typed STLC",
+    replHint: "isTwoValue",
+    code: `{-# LANGUAGE DependentTypes #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+import qualified PLFH.Part2.DeBruijn as DB
+
+-- Capture-avoiding substitution under a binder shifts free variables automatically!
+shiftUnderLam
+  :: DB.substSingle @(DB.CExt DB.CEmpty DB.TNat)
+                    @(DB.TArr DB.TNat DB.TNat)
+                    @(DB.TArr DB.TNat (DB.TArr DB.TNat DB.TNat))
+       (DB.Lam (DB.Var (DB.S DB.Z)))
+       (DB.Lam (DB.Var (DB.S DB.Z)))
+     :~: DB.Lam (DB.Lam (DB.Var (DB.S (DB.S DB.Z))))
+shiftUnderLam = Refl
+
+isTwoValue :: Bool
+isTwoValue =
+  let t :: DB.Term DB.CEmpty DB.TNat
+      t = DB.termTwo
+  in case DB.checkValue t of
+       DB.YesVal _ -> True
+       DB.NotVal   -> False
+`,
+  },
+  {
+    id: "neg",
+    label: "Type Error (2 + 2 = 5)",
+    replHint: ":k! plus 2 2",
+    code: `{-# LANGUAGE DependentTypes #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+import HaskLib.Nat (Nat (..), plus)
+
+-- GHC rejects this false proof with [GHC-83865] (4 /= 5):
+bogus :: plus 2 2 :~: 5
+bogus = Refl
+`,
+  },
+];
+
+function mountStandalonePlayground(mountEl, client, uiState) {
+  mountEl.innerHTML = "";
+  let activePreset = PLAYGROUND_PRESETS[0];
+
+  const presetBar = document.createElement("div");
+  presetBar.className = "plfh-preset-bar";
+  const presetBtns = new Map();
+
+  const editor = document.createElement("textarea");
+  editor.className = "plfh-wasm-editor plfh-playground-editor";
+  editor.spellcheck = false;
+  editor.rows = 16;
+  editor.value = activePreset.code;
+
+  const replInput = document.createElement("input");
+  replInput.type = "text";
+  replInput.className = "plfh-wasm-repl-input";
+  replInput.placeholder = `Try ${activePreset.replHint}, :browse HaskLib.Nat, :t ..., or :k! plus 2 3`;
+  replInput.setAttribute("aria-label", "Playground GHCi prompt");
+
+  const selectPreset = (preset) => {
+    activePreset = preset;
+    editor.value = preset.code;
+    replInput.placeholder = `Try ${preset.replHint}, :browse HaskLib.Nat, :t ..., or :k! plus 2 3`;
+    for (const [id, btn] of presetBtns.entries()) {
+      btn.classList.toggle("plfh-preset-btn--active", id === preset.id);
+    }
+  };
+
+  for (const preset of PLAYGROUND_PRESETS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "plfh-preset-btn";
+    btn.textContent = preset.label;
+    btn.addEventListener("click", () => selectPreset(preset));
+    presetBtns.set(preset.id, btn);
+    presetBar.append(btn);
+  }
+  selectPreset(activePreset);
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "plfh-wasm-toolbar";
+
+  const checkBtn = document.createElement("button");
+  checkBtn.type = "button";
+  checkBtn.className = "plfh-wasm-btn plfh-wasm-check";
+  checkBtn.textContent = "Check & Load in GHCi";
+
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.className = "plfh-wasm-btn plfh-wasm-reset";
+  resetBtn.textContent = "Reset Example";
+  resetBtn.addEventListener("click", () => {
+    editor.value = activePreset.code;
+  });
+
+  const refineLabel = document.createElement("label");
+  refineLabel.className = "plfh-refinement-toggle";
+  refineLabel.title =
+    "Enable -frefinement-level-hole-fits=1 when checking snippets with typed holes (_) — experimental while GHC valid hole fits are being refined";
+  const refineCheckbox = document.createElement("input");
+  refineCheckbox.type = "checkbox";
+  refineCheckbox.checked = uiState.refinementFits;
+  refineCheckbox.addEventListener("change", () => {
+    uiState.refinementFits = refineCheckbox.checked;
+  });
+  refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
+
+  const statusSpan = document.createElement("span");
+  statusSpan.className = "plfh-wasm-status";
+  statusSpan.textContent = "Loads Dependent GHCi (Wasm) on first run";
+
+  toolbar.append(checkBtn, resetBtn, refineLabel, statusSpan);
+
+  const holePanel = document.createElement("div");
+  holePanel.className = "plfh-hole-panel";
+  holePanel.hidden = true;
+
+  const output = document.createElement("pre");
+  output.className = "plfh-wasm-output";
+  output.hidden = true;
+
+  const replRow = document.createElement("form");
+  replRow.className = "plfh-wasm-repl";
+
+  const promptLabel = document.createElement("span");
+  promptLabel.className = "plfh-wasm-prompt";
+  promptLabel.textContent = "ghci>";
+
+  const replBtn = document.createElement("button");
+  replBtn.type = "submit";
+  replBtn.className = "plfh-wasm-btn plfh-wasm-eval";
+  replBtn.textContent = "Eval";
+
+  replRow.append(promptLabel, replInput, replBtn);
+
+  mountEl.append(presetBar, toolbar, editor, holePanel, output, replRow);
+
+  client.onProgress((p) => {
+    const msg = formatProgress(p);
+    if (msg) statusSpan.textContent = msg;
+  });
+
+  const runCheck = async () => {
+    const rawCode = editor.value.trim();
+    if (!rawCode) return;
+    checkBtn.disabled = true;
+    holePanel.hidden = true;
+    statusSpan.textContent = client.booted
+      ? "Checking..."
+      : "Starting Dependent GHCi Wasm...";
+    const res = await client.checkBlock({
+      code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
+      chapterModule: null,
+    });
+    checkBtn.disabled = false;
+    output.hidden = false;
+    const combined = [res.stderr, res.stdout].filter(Boolean).join("\n");
+    const hasHoles = !res.ok && combined.includes("Found hole:");
+    output.dataset.state = res.ok ? "ok" : hasHoles ? "warn" : "err";
+    statusSpan.textContent = res.ok
+      ? `Checked & loaded (${res.elapsedMs} ms)`
+      : hasHoles
+        ? `Typed hole(s) found (${res.elapsedMs} ms)`
+        : `Type error (${res.elapsedMs} ms)`;
+    output.textContent =
+      combined ||
+      (res.ok
+        ? "Ok, module typechecked and loaded into GHCi (-XDependentTypes)."
+        : res.status);
+    if (hasHoles) {
+      renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
+        editor.value = applyHoleFit(editor.value, holeName, fitExpr);
+        editor.focus();
+        runCheck();
+      });
+    }
+  };
+
+  checkBtn.addEventListener("click", runCheck);
+  wireEditorKeys(editor, runCheck);
+
+  replRow.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const line = replInput.value.trim();
+    if (!line) return;
+    replBtn.disabled = true;
+    statusSpan.textContent = client.booted
+      ? "Evaluating..."
+      : "Starting Dependent GHCi Wasm...";
+    const res = await client.repl(line, null);
+    replBtn.disabled = false;
+    output.hidden = false;
+    output.dataset.state = res.ok ? "ok" : "err";
+    statusSpan.textContent = `${res.ok ? "Done" : "Error"} (${res.elapsedMs} ms)`;
+    const text = [res.stdout, res.stderr].filter(Boolean).join("\n");
+    output.textContent = `ghci> ${line}\n${text}`;
+  });
+}
+
 export function enhancePlfhPage({
   workerUrl,
   rootfsUrl,
@@ -434,9 +888,14 @@ export function enhancePlfhPage({
   const blocks = [...document.querySelectorAll(selector)];
   const chapterCtx = scrapeChapterContext(blocks);
 
+  const uiState = { refinementFits: false };
+  const standaloneMount = document.getElementById("plfh-standalone-playground");
+  if (standaloneMount) {
+    mountStandalonePlayground(standaloneMount, client, uiState);
+  }
   const chapterMount = document.getElementById("plfh-chapter-playground");
   if (chapterMount && chapterModule) {
-    mountChapterBar(chapterMount, client, chapterModule, chapterCtx);
+    mountChapterBar(chapterMount, client, chapterModule, chapterCtx, uiState);
   }
 
   blocks.forEach((pre, idx) => {
@@ -522,11 +981,15 @@ export function enhancePlfhPage({
 
     replRow.append(promptLabel, replInput, replBtn);
 
+    const holePanel = document.createElement("div");
+    holePanel.className = "plfh-hole-panel";
+    holePanel.hidden = true;
+
     const output = document.createElement("pre");
     output.className = "plfh-wasm-output";
     output.hidden = true;
 
-    wrapper.append(bar, editor, replRow, output);
+    wrapper.append(bar, editor, replRow, holePanel, output);
     container.insertAdjacentElement("afterend", wrapper);
 
     client.onProgress((p) => {
@@ -554,13 +1017,14 @@ export function enhancePlfhPage({
 
     const runCheck = async () => {
       checkBtn.disabled = true;
+      holePanel.hidden = true;
       statusSpan.dataset.active = "1";
       statusSpan.textContent = client.booted
         ? "Checking..."
         : "Starting GHCi Wasm...";
-      const code = editor.hidden ? initialCode : editor.value;
+      const rawCode = editor.hidden ? initialCode : editor.value;
       const res = await client.checkBlock({
-        code,
+        code: maybeWithRefinementPragmas(rawCode, uiState.refinementFits),
         chapterModule: blockMod,
         chapterPragmas: chapterCtx.chapterPragmas,
         chapterImports: chapterCtx.chapterImports,
@@ -597,9 +1061,25 @@ export function enhancePlfhPage({
           [res.stdout, res.stderr].filter(Boolean).join("\n") ||
           "Ok, module typechecked and loaded into GHCi (-XDependentTypes).";
       } else {
-        statusSpan.textContent = `Type error (${res.elapsedMs} ms)`;
-        output.dataset.state = "err";
+        const hasHoles = combined.includes("Found hole:");
+        statusSpan.textContent = hasHoles
+          ? `Typed hole(s) found (${res.elapsedMs} ms)`
+          : `Type error (${res.elapsedMs} ms)`;
+        output.dataset.state = hasHoles ? "warn" : "err";
         output.textContent = combined || res.status;
+        if (hasHoles) {
+          renderHolePanel(holePanel, combined, (holeName, fitExpr) => {
+            if (editor.hidden) {
+              editor.hidden = false;
+              container.hidden = true;
+              resetBtn.hidden = false;
+              editBtn.textContent = "View Highlighted";
+            }
+            editor.value = applyHoleFit(editor.value, holeName, fitExpr);
+            editor.focus();
+            runCheck();
+          });
+        }
       }
     };
 

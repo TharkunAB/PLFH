@@ -171,8 +171,15 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
   automatically receive updates when a new bundle ships.
 - **Precompiled chapters:** The bundle ships `libplfh_ghci.so` alongside a
   precompiled `plfh-book-0.1` package (`HaskLib` and the checked `PLFH.*`
-  modules), so individual edits, exercises, `:t`, `:k!`, and negative controls
-  check directly against the chapter module.
+  modules), so individual edits, exercises, `:browse`, `:t`, `:k!`, and
+  negative controls check directly against the chapter module.
+- **Browser Agda-mode (typed holes & valid hole fits):** Write a typed hole
+  such as `_` or `_qed` in any editable code block or in the chapter scratchpad
+  and press `Ctrl/Cmd+Enter`. GHC reports the normalized goal type and valid
+  hole fits, and the UI renders clickable fill chips that substitute the fit
+  into the editor and re-check automatically. An opt-in **Refinement fits**
+  toggle in the chapter bar enables `-frefinement-level-hole-fits=1` for
+  multi-step refinement.
 
 ### Staging and hosting `rootfs.tar.gz`
 

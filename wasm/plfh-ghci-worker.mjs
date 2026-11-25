@@ -287,13 +287,13 @@ async function bootSession({ rootfsUrl, chapterModule }) {
     self.postMessage({ type: "ready", bootMs, fromCache });
   }
 
-  if (chapterModule && chapterModule !== currentChapter) {
-    currentChapter = chapterModule;
-    await runCmd(
-      "context",
-      "",
-      `Prelude Data.Type.Equality GHC.Sigma HaskLib.Nat ${chapterModule}`
-    );
+  const targetCtx = chapterModule || "__default__";
+  if (targetCtx !== currentChapter) {
+    currentChapter = targetCtx;
+    const mods = chapterModule
+      ? `Prelude Data.Type.Equality GHC.Sigma HaskLib.Nat ${chapterModule}`
+      : "Prelude Data.Type.Equality GHC.Sigma HaskLib.Nat";
+    await runCmd("context", "", mods);
     drainOutput();
   }
 }
@@ -535,6 +535,10 @@ async function handleRepl(line) {
     status = await runCmd("kind", m[1].trim(), "");
   } else if ((m = trimmed.match(/^:(?:i|info)\s+([\s\S]+)$/))) {
     status = await runCmd("info", m[1].trim(), "");
+  } else if ((m = trimmed.match(/^:browse!?\s*([\s\S]*)$/))) {
+    const targetMod =
+      m[1].trim() || (currentChapter && currentChapter !== "__default__" ? currentChapter : "HaskLib.Nat");
+    status = await runCmd("browse", targetMod, "");
   } else if ((m = trimmed.match(/^:set\s+([\s\S]+)$/))) {
     status = await runCmd("setflags", `${defaultFlags} ${m[1].trim()}`, "");
   } else if (
