@@ -17,9 +17,13 @@
     <a href="$plfaChapter$">$plfaEditionLabel$</a>
     by $plfaAuthorsLabel$
     (<a rel="license" href="$licenseUrl$">CC BY 4.0</a>).
-    Translated for Dependent Haskell (<code>-XExperimentalDependentTypes</code>);
+    Translated for Dependent Haskell (<code>-XDependentTypes</code>);
     differences, HaskLib reuse, and current compiler limitations are marked inline.
   </div>
+  $endif$
+
+  $if(module)$
+  <div id="plfh-chapter-playground" class="plfh-chapter-bar"></div>
   $endif$
 
   <div class="post-content">

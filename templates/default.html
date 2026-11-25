@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/css/main.css">
   <link rel="stylesheet" href="/css/syntax.css">
 </head>
-<body>
+<body$if(module)$ data-plfh-module="$module$"$if(wasmRootfsUrl)$ data-plfh-rootfs="$wasmRootfsUrl$"$endif$$endif$>
   <header class="site-header" role="banner">
     <div class="wrapper">
       <a class="site-title" href="/">$siteTitle$</a>
@@ -50,5 +50,8 @@
       </p>
     </div>
   </footer>
+$if(module)$
+  <script type="module" src="/wasm/plfh-boot.mjs"></script>
+$endif$
 </body>
 </html>

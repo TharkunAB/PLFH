@@ -19,10 +19,15 @@ import Text.Pandoc.Options
 main :: IO ()
 main = do
   baseUrl <- normalizeBaseUrl . fromMaybe "" <$> lookupEnv "PLFH_BASEURL"
+  wasmRootfsUrl <- fromMaybe "" <$> lookupEnv "PLFH_WASM_ROOTFS_URL"
   hakyll $ do
     match "css/*" $ do
       route idRoute
       compile compressCssCompiler
+
+    match "wasm/*" $ do
+      route idRoute
+      compile copyFileCompiler
 
     match "templates/*" $ compile templateBodyCompiler
 
@@ -30,8 +35,8 @@ main = do
       route $ constRoute "index.html"
       compile $
         plfhPandocCompiler
-          >>= loadAndApplyTemplate "templates/page.html" (pageCtx baseUrl)
-          >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl)
+          >>= loadAndApplyTemplate "templates/page.html" (pageCtx baseUrl wasmRootfsUrl)
+          >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
     match (fromList
@@ -43,8 +48,8 @@ main = do
       route prettyPageRoute
       compile $
         plfhPandocCompiler
-          >>= loadAndApplyTemplate "templates/page.html" (pageCtx baseUrl)
-          >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl)
+          >>= loadAndApplyTemplate "templates/page.html" (pageCtx baseUrl wasmRootfsUrl)
+          >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
 normalizeBaseUrl :: String -> String
@@ -83,9 +88,10 @@ plfhMarkdownExtensions =
     . enableExtension Ext_raw_html
     $ githubMarkdownExtensions
 
-pageCtx :: String -> Context String
-pageCtx baseUrl =
+pageCtx :: String -> String -> Context String
+pageCtx baseUrl wasmRootfsUrl =
   constField "baseurl" baseUrl
+    <> (if null wasmRootfsUrl then mempty else constField "wasmRootfsUrl" wasmRootfsUrl)
     <> constField "siteTitle" "Programming Language Foundations in Haskell"
     <> constField "repoUrl" "https://github.com/Tritlo/PLFH"
     <> constField "repoBranch" "main"

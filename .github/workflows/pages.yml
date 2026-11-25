@@ -50,8 +50,21 @@ jobs:
       - name: Generate static book site
         env:
           PLFH_BASEURL: /PLFH
+          PLFH_WASM_ROOTFS_URL: ${{ vars.PLFH_WASM_ROOTFS_URL }}
         run: |
           cabal run plfh-site -- rebuild
+
+      - name: Fetch published Wasm GHC rootfs (same-origin fallback)
+        if: ${{ vars.PLFH_WASM_ROOTFS_URL == '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p _site/wasm
+          if gh release download wasm-latest --pattern 'rootfs.tar.gz' --dir _site/wasm --clobber 2>/dev/null; then
+            ls -lh _site/wasm/rootfs.tar.gz
+          else
+            echo "No wasm-latest release asset found yet; deploying interactive UI without rootfs.tar.gz."
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

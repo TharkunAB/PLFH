@@ -10,3 +10,6 @@ _cache/
 result
 result-*
 __pycache__/
+wasm/rootfs.tar.gz
+wasm/*.tar.gz
+wasm/*.wasm
