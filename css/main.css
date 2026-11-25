@@ -696,6 +696,16 @@ tr:nth-child(even) td {
   min-height: 260px;
 }
 
+.plfh-agda-editor[hidden],
+.plfh-wasm-repl[hidden],
+.plfh-hole-panel[hidden],
+.plfh-wasm-output[hidden],
+.plfh-chapter-drawer[hidden],
+.plfh-wasm-btn[hidden],
+div.sourceCode[hidden] {
+  display: none !important;
+}
+
 /* Agda-mode highlight-on-compile editor & verified block accents */
 .plfh-agda-editor {
   position: relative;
