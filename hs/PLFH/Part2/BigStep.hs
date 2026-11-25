@@ -239,11 +239,10 @@ lookupClose :: forall (n nd :: Nat) (e :: Env n) (p :: Subst n Zero)
 lookupClose (CloseCons wa ce swe _ _) ELZ      = MkCloseHit wa ce swe Refl
 lookupClose (CloseCons _  _  _  cd _) (ELS lk) = lookupClose cd lk
 
-castConsW :: forall (nd :: Nat) (g :: Subst nd Zero) (u v :: UTerm Zero).
-             u :~: v
-          -> SubW @(Succ nd) @Zero (consSubst u g)
-          -> SubW @(Succ nd) @Zero (consSubst v g)
-castConsW Refl f = f
+consHasW :: forall (nd :: Nat) (g :: Subst nd Zero) (t :: UTerm Zero).
+            HasTerm t -> SubW @nd @Zero g -> SubW @(Succ nd) @Zero (consSubst t g)
+consHasW ht _  FZ     = ht
+consHasW _  sw (FS x) = sw x
 
 -- | Simulation result: a closed lambda `ULam (substU (extsU g) b)` reached via `BetaSteps`.
 type CbnRes :: forall (nd :: Nat). UTerm (Succ nd) -> Env nd -> UTerm Zero -> Type
@@ -268,19 +267,20 @@ cbnSim (EApp (evL :: EvalBig e l (MkClos (ULam b1) (d1 :: Env nd1))) evB) ce sw 
     MkCbnRes (wb :: TermW b1) (cd :: CloseEnv d1 g) swd stepsL ->
       case (termWToHas wm, termWToHas wb) of
         (MkHasTerm m', MkHasTerm b') ->
-          case evalSubst @n @Zero @p sw m' of
+          let hsm = evalSubst @n @Zero @p sw m'
+              swNew :: SubW @(Succ nd1) @Zero (consSubst (substU p m) g)
+              swNew = consHasW @nd1 @g @(substU p m) hsm swd
+              ceNew :: CloseEnv (ECons (MkClos m e) d1) (consSubst (substU p m) g)
+              ceNew = CloseCons wm ce sw cd swd
+          in case hsm of
             MkHasTerm sm ->
-              let swNew :: SubW @(Succ nd1) @Zero (consSubst (substU p m) g)
-                  swNew = castConsW @nd1 @g @sm @(substU p m) Refl (consW @nd1 @Zero @g sm swd)
-                  ceNew :: CloseEnv (ECons (MkClos m e) d1) (consSubst (substU p m) g)
-                  ceNew = CloseCons wm ce sw cd swd
-              in case extsSingleBeta @nd1 @Zero @g swd sm b' of
-                   Refl -> case cbnSim @(Succ nd1) @nd @(ECons (MkClos m e) d1) @(consSubst (substU p m) g)
-                                  evB ceNew swNew wb of
-                     MkCbnRes wbRes cf swf stepsB ->
-                       MkCbnRes wbRes cf swf
-                         (bsTrans (bsApp1 stepsL)
-                           (BCons (Beta @Zero @(substU (extsU g) b1) @(substU p m)) stepsB))
+              case extsSingleBeta @nd1 @Zero @g swd sm b' of
+                Refl -> case cbnSim @(Succ nd1) @nd @(ECons (MkClos m e) d1) @(consSubst (substU p m) g)
+                               evB ceNew swNew wb of
+                  MkCbnRes wbRes cf swf stepsB ->
+                    MkCbnRes wbRes cf swf
+                      (bsTrans (bsApp1 stepsL)
+                        (BCons (Beta @Zero @(substU (extsU g) b1) @(substU p m)) stepsB))
 
 -- | Small-step termination witness: `u` β-reduces to some lambda abstraction.
 data CbnTerminates (u :: UTerm Zero) where
