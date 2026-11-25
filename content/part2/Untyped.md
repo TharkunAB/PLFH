@@ -35,10 +35,12 @@ the foundation for [BigStep](/BigStep/), [Substitution](/Substitution/),
 module PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
+  , shiftFin
   , extU
   , renameU
   , extsU
   , substU
+  , singleSubstU
   , substSingleU
   , BumpFin (..)
   , ShiftU (..)
@@ -131,6 +133,10 @@ Altenkirch–Reus / McBride pattern as [DeBruijn](/DeBruijn/), now indexed only
 by scope depth `n :: Nat`:
 
 ```haskell
+-- | Shift a variable up by one de Bruijn level.
+shiftFin :: Fin m -> Fin (Succ m)
+shiftFin x = FS x
+
 -- | Lift a variable renaming under a lambda binder.
 extU :: (Fin m -> Fin n) -> Fin (Succ m) -> Fin (Succ n)
 extU _   FZ     = FZ
@@ -145,7 +151,7 @@ renameU rho (UApp l m) = UApp (renameU rho l) (renameU rho m)
 -- | Lift a substitution under a lambda binder.
 extsU :: (Fin m -> UTerm n) -> Fin (Succ m) -> UTerm (Succ n)
 extsU _     FZ     = UVar FZ
-extsU sigma (FS x) = renameU FS (sigma x)
+extsU sigma (FS x) = renameU shiftFin (sigma x)
 
 -- | Simultaneous capture-avoiding substitution on well-scoped untyped terms.
 substU :: (Fin m -> UTerm n) -> UTerm m -> UTerm n
@@ -153,9 +159,14 @@ substU sigma (UVar x)   = sigma x
 substU sigma (ULam b)   = ULam (substU (extsU sigma) b)
 substU sigma (UApp l m) = UApp (substU sigma l) (substU sigma m)
 
+-- | Single-variable substitution map `w • ids`.
+singleSubstU :: UTerm n -> Fin (Succ n) -> UTerm n
+singleSubstU w FZ     = w
+singleSubstU _ (FS x) = UVar x
+
 -- | Single-variable substitution `b [ w ]`.
 substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
-substSingleU b w = substU (\case { FZ -> w; FS x -> UVar x }) b
+substSingleU b w = substU (singleSubstU w) b
 ```
 
 ## Relational capture-avoiding substitution (`SubstAtU`)

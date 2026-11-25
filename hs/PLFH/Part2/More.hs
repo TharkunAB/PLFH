@@ -14,6 +14,8 @@ module PLFH.Part2.More
   , rename
   , exts
   , subst
+  , singleSubst
+  , doubleSubst
   , substSingle
   , substDouble
   , Value (..)
@@ -34,7 +36,7 @@ module PLFH.Part2.More
 
 import Data.Kind (Type)
 
-{-# LINE 88 "content/part2/More.md" #-}
+{-# LINE 90 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -74,7 +76,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 142 "content/part2/More.md" #-}
+{-# LINE 144 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -131,13 +133,23 @@ subst _ Nil              = Nil
 subst s (Cons x xs)      = Cons (subst s x) (subst s xs)
 subst s (CaseLst xs n c) = CaseLst (subst s xs) (subst s n) (subst (exts (exts s)) c)
 
+singleSubst :: forall g a. Term g a -> (forall b. Lookup (CExt g a) b -> Term g b)
+singleSubst w Z     = w
+singleSubst _ (S x) = Var x
+
+doubleSubst :: forall g a b. Term g a -> Term g b
+            -> (forall c. Lookup (CExt (CExt g a) b) c -> Term g c)
+doubleSubst _ w Z         = w
+doubleSubst v _ (S Z)     = v
+doubleSubst _ _ (S (S x)) = Var x
+
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
-substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
+substSingle n w = subst (singleSubst w) n
 
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
-substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
+substDouble n v w = subst (doubleSubst v w) n
 
-{-# LINE 213 "content/part2/More.md" #-}
+{-# LINE 225 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -184,7 +196,7 @@ appendList =
       (Var Z)
       (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))
 
-{-# LINE 272 "content/part2/More.md" #-}
+{-# LINE 284 "content/part2/More.md" #-}
 -- | Intrinsically type-preserving call-by-value reduction for extended STLC (27 rules!).
 type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data Step before after where

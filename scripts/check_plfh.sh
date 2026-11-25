@@ -19,13 +19,19 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified normal stage1 build under _build/current/
-# once it supports Proposal #378 `-XDependentTypes` AND Wave 3+4A HaskLib
-# (`HaskLib.List.foldr`), otherwise use the verified Wave 3 + Wave 4A
-# consolidated component (`ae37d20205`) until `_build/current` advances.
+# once it includes Wave 5+6 consolidated (`91a63517fc`), otherwise use the
+# verified Wave 5+6 consolidated component (`91a63517fc`) until `_build/current`
+# advances.
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
 CURRENT_HASKLIB="$GHC_REPO/_build/current/source/docs/dependent-haskell/hasklib"
+CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
+WAVE56_REV="91a63517fc25c63f96967d2faf159f2baca98bed"
+WAVE56_GHC="$GHC_REPO/_build/on-demand/wave5-6-consolidated/component/ghc"
+WAVE56_LIB="$GHC_REPO/_build/on-demand/wave5-6-consolidated/component/lib"
+WAVE56_HASKLIB="$GHC_REPO/_build/on-demand/wave5-6-consolidated/source/docs/dependent-haskell/hasklib"
+WAVE56_OPENEVAL="$GHC_REPO/_build/on-demand/wave5-6-consolidated/source/docs/dependent-haskell/examples/open-evaluation"
 WAVE34A_GHC="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/component/ghc"
 WAVE34A_LIB="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/component/lib"
 WAVE34A_HASKLIB="$GHC_REPO/_build/on-demand/wave3-4a-consolidated/source/docs/dependent-haskell/hasklib"
@@ -43,11 +49,15 @@ DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
 DEFAULT_HASKLIB=""
 DEFAULT_OPENEVAL=""
-if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" ]] \
-   && "$CURRENT_GHC" --supported-extensions 2>/dev/null | grep -qx "DependentTypes" \
-   && grep -q "List\.foldr" "$CURRENT_HASKLIB/HaskLib/List.hs" 2>/dev/null; then
+if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" && -f "$CURRENT_SRC" ]] \
+   && git -C "$GHC_REPO" merge-base --is-ancestor "$WAVE56_REV" "$(cat "$CURRENT_SRC" 2>/dev/null)" 2>/dev/null; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
+elif [[ -x "$WAVE56_GHC" ]]; then
+  DEFAULT_COMPILER="$WAVE56_GHC"
+  DEFAULT_LIBDIR="$WAVE56_LIB"
+  DEFAULT_HASKLIB="$WAVE56_HASKLIB"
+  DEFAULT_OPENEVAL="$WAVE56_OPENEVAL"
 elif [[ -x "$WAVE34A_GHC" ]]; then
   DEFAULT_COMPILER="$WAVE34A_GHC"
   DEFAULT_LIBDIR="$WAVE34A_LIB"

@@ -35,9 +35,9 @@ defined by structural recursion on the finite `Value` `v`:
   `LogE w`! (Notice `LogE v` sits in a **negative** position—which is why
   `LogVLam` must be defined by **large elimination** on `Value`, i.e., a
   3-line closed type family over promoted `Value`, rather than an inductive GADT;
-  term-to-`Type` large elimination with `Nat`-kinded `forall` and GADT-indexed
-  carried arguments `Env n`/`UTerm (Succ n)` is tracked in
-  [`R13_LargeElimIndexedArgs.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LargeElimIndexedArgs.hs)!)
+  replacing `type family LogVLam` with a mutually recursive term-to-`Type`
+  function `HaltsV <-> logVLam <-> LogArr` is tracked in
+  [`R13_LargeElimMutualData.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_LargeElimMutualData.hs)!)
 - `LogVLam (Join u v) e b = (LogVLam u e b, LogVLam v e b)`: a pair of proofs!
 
 With `BigStep.evalDeterm` proved unconditionally, the **entire Big-Step Adequacy
@@ -430,7 +430,9 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
 - Checked direct ports of `AboveFun`, `aboveFunSub`, `notAboveFunBot`,
   `aboveFunJoin`, `notAboveFunJoin`, `notAboveFunJoinInv`, `decAboveFun`,
-  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam`, `notAboveFunLogV`,
+  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `LogVLam` (mutually recursive
+  term-to-`Type` `HaltsV <-> logVLam <-> LogArr` tracked in
+  `R13_LargeElimMutualData.hs`), `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
   (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
   `BigStep.evalDeterm`), `adequacy`, both directions of the small-step/big-step

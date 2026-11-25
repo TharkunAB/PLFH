@@ -1,6 +1,6 @@
 {-# LANGUAGE DependentTypes #-}
 -- | Cross-module client exercising `PLFH.Part2.Bisimulation.simRename` under
--- both binders of `CaseLst` and `simSubst` across `SimLetApp`.
+-- both binders of `CaseLst` and unconditional `simSubst` across `SimLetApp`.
 module PLFH.Part2.BisimulationRenaming
   ( renamedListBody
   , observeRenamedListBody
@@ -8,14 +8,11 @@ module PLFH.Part2.BisimulationRenaming
   , observeSubstLet
   ) where
 
-import GHC.Exts (U)
-import PLFH.Part2.Bisimulation (Compatible, SimRel (..), simRefl, simRename, simSubst)
+import PLFH.Part2.Bisimulation (Compatible, SimRel (..), simRefl, simSubst, simWeaken)
 import qualified PLFH.Part2.More as M
 
 type Source = M.CExt M.CEmpty M.TNat
 type Target = M.CExt Source M.TNat
-type Shift :: forall (a :: M.Ty). @U M.Lookup Source a %U -> M.Lookup Target a
-type Shift x = M.S x
 
 type Body = M.CaseLst (M.Nil :: M.Term Source (M.TList M.TNat)) M.Zero
                       (M.Var (M.S (M.S M.Z)))
@@ -25,29 +22,31 @@ type RenamedBody = M.CaseLst (M.Nil :: M.Term Target (M.TList M.TNat)) M.Zero
 -- | Shift an outer lookup through both binders of a list alternative.
 renamedListBody :: SimRel RenamedBody RenamedBody
 renamedListBody =
-  simRename @Source @Target @M.TNat @Shift
-    (SimCaseLst SimNil SimZero SimVar :: SimRel Body Body)
+  simWeaken @Source @M.TNat
+    (SimCaseLst SimNil SimZero
+       (SimVar (M.S (M.S M.Z) :: M.Lookup (M.CExt (M.CExt Source M.TNat) (M.TList M.TNat)) M.TNat))
+      :: SimRel Body Body)
 
 -- | Observe the proof for the renamed list alternative.
 observeRenamedListBody :: Bool
 observeRenamedListBody = case renamedListBody of
-  SimCaseLst SimNil SimZero SimVar -> True
+  SimCaseLst SimNil SimZero (SimVar _) -> True
 
-type IdSub :: forall (a :: M.Ty). @U M.Lookup Source a %U -> M.Term Source a
-type IdSub x = M.Var x
+idSub :: forall a. M.Lookup Source a -> M.Term Source a
+idSub x = M.Var x
 
-idCompat :: Compatible @Source @Source IdSub IdSub
-idCompat _ = SimVar
+idCompat :: Compatible @Source @Source idSub idSub
+idCompat x = SimVar x
 
--- | Exercise 20-constructor `simSubst` across `M.Let` under a binder (`M.exts`).
+-- | Exercise unconditional 20-constructor `simSubst` across `M.Let` under a binder (`M.exts`).
 substRefl :: foreach (m :: M.Term Source M.TNat)
-          -> SimRel (M.subst IdSub m) (M.subst IdSub m)
-substRefl m = simSubst @Source @Source @M.TNat @IdSub @IdSub @m m idCompat (simRefl m)
+          -> SimRel (M.subst idSub m) (M.subst idSub m)
+substRefl m = simSubst @Source @Source @M.TNat @idSub @idSub @m @m idCompat (simRefl m)
 
 checkSubstRefl :: M.Term Source M.TNat -> Bool
 checkSubstRefl term = case substRefl term of
-  SimLet SimVar (SimSuc SimVar) -> True
-  _                             -> False
+  SimLet (SimVar _) (SimSuc (SimVar _)) -> True
+  _                                     -> False
 
 observeSubstLet :: Bool
 observeSubstLet = checkSubstRefl (M.Let (M.Var M.Z) (M.Suc (M.Var M.Z)))

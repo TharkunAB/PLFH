@@ -35,20 +35,17 @@ module PLFH.Part1.Equality
   , congP
   , congAppP
   , substP
-  , substU
   , beginEq
   , stepEq
   , qedEq
   , plusZeroChain
   , Leibniz
   , leibnizRefl
+  , leibnizSymAt
+  , leibnizSym
   , leibnizTrans
   , eqToLeibniz
   , leibnizToEq
-  , LeibnizU
-  , leibnizUSymAt
-  , leibnizUSym
-  , leibnizUToEq
   , evenComm
   ) where
 
@@ -119,9 +116,10 @@ In Dependent Haskell, type-level functions come in two flavors controlled by
 By quantifying over `{m :: Matchability}` with `RequiredTypeArguments` in
 `congP`, a single Agda-style congruence combinator handles *both* constructors
 (`congP Succ`) and promoted functions (`congP (plus m)`) with no `@` needed!
-For substitution, we provide both `substP` (for matchable predicates such as
-GADTs like `Even`) and `substU` (for unmatchable predicates such as type
-lambdas or promoted functions):
+Because Dependent Haskell now lets matchable constructors (`Even :: Nat -> Type`)
+directly instantiate unmatchable predicate parameters (`a %U -> Type`), a single
+`substP` combinator handles *both* matchable GADTs like `Even` and unmatchable
+predicates such as type lambdas or promoted functions:
 
 ```haskell
 -- | Agda-style matchability-polymorphic congruence: works for both constructors
@@ -136,15 +134,11 @@ congAppP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (g :: a %m -> b)
             EqP f g -> EqP (f x) (g x)
 congAppP ReflP = ReflP
 
--- | Substitution for matchable predicates (e.g. GADTs like `Even`).
-substP :: forall {a} (p :: a -> Type) (x :: a) (y :: a).
+-- | Substitution for any predicate `p :: a %U -> Type` (matchable GADTs like `Even`
+-- as well as unmatchable type lambdas or promoted functions).
+substP :: forall {a} (p :: a %U -> Type) (x :: a) (y :: a).
           EqP x y -> p x -> p y
 substP ReflP px = px
-
--- | Substitution for unmatchable predicates (e.g. type lambdas or promoted functions).
-substU :: forall {a} (p :: a %U -> Type) (x :: a) (y :: a).
-          EqP x y -> p x -> p y
-substU ReflP px = px
 ```
 
 ### Example: `even-comm` via substitution
@@ -240,20 +234,42 @@ only if they satisfy all the same properties.
 *"A difference that makes no difference is no difference."*)
 
 In type theory, Leibniz equality states that `x` and `y` of kind `a` are
-equal if, for every predicate `p`, a proof of `p x` can be transformed into a
-proof of `p y`.
+equal if, for every predicate `p :: a %U -> Type`, a proof of `p x` can be
+transformed into a proof of `p y`.
 
-Over matchable predicates (`p :: a -> Type`), reflexivity is the identity
-function, transitivity is function composition, and equivalence with `EqP`
-follows directly:
+Using an unmatchable predicate arrow (`%U ->`) makes a **single** `Leibniz`
+definition handle everything cleanly:
+
+- **Reflexivity** (`leibnizRefl`) is the identity function and **transitivity**
+  (`leibnizTrans`) is function composition.
+- **Symmetry** (`leibnizSym`, matching PLFA's `sym-≐`) is proved **purely
+  inside Leibniz equality** without touching Martin-Löf equality at all: given
+  a predicate `p :: a %U -> Type`, we instantiate `xy` with the inline
+  type-level lambda `@(\z -> p z -> p x)` (capturing `p` and `x`) and feed it
+  the identity `\px -> px :: p x -> p x`!
+- **Equivalence with Martin-Löf equality** (`leibnizToEq`): because matchable
+  constructors directly instantiate unmatchable arrows (`a %M -> Type` into
+  `a %U -> Type`), we instantiate `p` directly with `@(EqP x)` (no
+  eta-expansion!) and pass `ReflP :: EqP x x`, producing `EqP x y`!
 
 ```haskell
--- | Leibniz equality over matchable predicates `p :: a -> Type`.
-type Leibniz (x :: a) (y :: a) = forall (p :: a -> Type). p x -> p y
+-- | Leibniz equality over predicates `p :: a %U -> Type`
+-- (accepts both matchable constructors like `EqP x` and type-level lambdas).
+type Leibniz (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
 
 -- | Reflexivity of Leibniz equality is the identity function.
 leibnizRefl :: Leibniz x x
 leibnizRefl px = px
+
+-- | Pure impredicative symmetry of Leibniz at a given predicate `p` (`sym-≐`):
+-- instantiates `xy` with `@(\z -> p z -> p x)` and passes `\px -> px` (no `EqP` detour!).
+leibnizSymAt :: forall {a} (x :: a) (y :: a) (p :: a %U -> Type).
+                Leibniz x y -> p y -> p x
+leibnizSymAt xy = xy @(\z -> p z -> p x) (\px -> px)
+
+-- | Symmetry of Leibniz equality (`sym-≐`).
+leibnizSym :: forall {a} (x :: a) (y :: a). Leibniz x y -> Leibniz y x
+leibnizSym xy = leibnizSymAt @x @y xy
 
 -- | Transitivity of Leibniz equality is function composition.
 leibnizTrans :: forall {a} (x :: a) (y :: a) (z :: a).
@@ -264,54 +280,11 @@ leibnizTrans xy yz px = yz (xy px)
 eqToLeibniz :: EqP x y -> Leibniz x y
 eqToLeibniz ReflP px = px
 
--- | Leibniz equality implies Martin-Löf equality (identity of indiscernibles).
+-- | Leibniz equality implies Martin-Löf equality (identity of indiscernibles):
+-- instantiates `p :: a %U -> Type` directly with the matchable constructor `@(EqP x)`!
 leibnizToEq :: forall {a} (x :: a) (y :: a). Leibniz x y -> EqP x y
 leibnizToEq f = f @(EqP x) ReflP
 ```
-
-Look closely at `leibnizToEq`: we instantiate `p` with the matchable
-partially-applied constructor `EqP x` (whose kind is `a -> Type`), feed it
-`ReflP :: EqP x x`, and out pops `EqP x y`!
-
-What about **symmetry** of Leibniz equality (`LeibnizU x y -> LeibnizU y x`)?
-Just as in PLFA's `sym-≐`, we prove symmetry **purely inside Leibniz equality**
-without touching Martin-Löf equality at all: given a predicate `p :: a %U -> Type`,
-we instantiate `xy` with the inline type-level lambda `@(\z -> p z -> p x)`
-(capturing `p` and `x`) and feed it the identity `\px -> px :: p x -> p x`!
-Because `\z -> p z -> p x` is a **type-level lambda** (unmatchable, `a %U -> Type`),
-we state symmetry over `LeibnizU` using Dependent Haskell's **type-level lambdas**
-and **unmatchable arrows (`%U`)**:
-
-```haskell
--- | Leibniz equality over unmatchable predicates `p :: a %U -> Type`.
-type LeibnizU (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y
-
--- | Pure impredicative symmetry of LeibnizU at a given predicate `p` (`sym-≐`):
--- instantiates `xy` with `@(\z -> p z -> p x)` and passes `\px -> px` (no `EqP` detour!).
-leibnizUSymAt :: forall {a} (x :: a) (y :: a) (p :: a %U -> Type).
-                 LeibnizU x y -> p y -> p x
-leibnizUSymAt xy = xy @(\z -> p z -> p x) (\px -> px)
-
--- | Symmetry of LeibnizU (`sym-≐`).
-leibnizUSym :: forall {a} (x :: a) (y :: a). LeibnizU x y -> LeibnizU y x
-leibnizUSym xy = leibnizUSymAt @x @y xy
-
--- | Recovering EqP from LeibnizU via an inline type-level lambda.
-leibnizUToEq :: forall {a} (x :: a) (y :: a). LeibnizU x y -> EqP x y
-leibnizUToEq f = f @(\z -> EqP x z) ReflP
-```
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Matchability subtyping in Leibniz equality (R23)]</strong>
-While inline type-level lambdas inside visible type applications
-(<code>xy @(\z -&gt; EqP z x)</code>) <em>do</em> work,
-instantiating <code>LeibnizU</code> (which expects
-an unmatchable predicate <code>a %U -&gt; Type</code>) directly at the
-matchable constructor <code>@(EqP x)</code> fails with <code>GHC-83865</code>
-(<em>Couldn't match kind Matchable with Unmatchable</em>), requiring an
-eta-expanded lambda <code>@(\z -&gt; EqP x z)</code>. See minimal reproducer
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R23_MatchabilityInLeibniz.hs"><code>reproducers/R23_MatchabilityInLeibniz.hs</code></a>.
-</div>
 
 ## Universe polymorphism
 
@@ -336,7 +309,8 @@ proofs `EqP x x'` and `EqP y y'`, produce `EqP (f x y) (f x' y')`.
 #### Exercise `Leibniz` reflexivity, symmetry, and transitivity (practice)
 
 Show that `leibnizTrans` is associative and has `leibnizRefl` as both left
-and right identity, and write `eqToLeibnizU :: EqP x y -> LeibnizU x y`.
+and right identity, and verify that `eqToLeibniz . leibnizToEq` and
+`leibnizToEq . eqToLeibniz` round-trip on `ReflP`.
 
 ## Changes from PLFA
 
@@ -344,14 +318,13 @@ and right identity, and write `eqToLeibnizU :: EqP x y -> LeibnizU x y`.
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Equality.lagda.md)),
   licensed under CC BY 4.0.
 - `EqP`, `symP`, `transP`, matchability-polymorphic `congP`/`congAppP`,
-  `substP`, `substU`, `evenComm` (via `substP @Even`), `RequiredTypeArguments`
-  equational chains (`beginEq`/`stepEq`/`qedEq`/`plusZeroChain`), and both
-  `Leibniz` and `LeibnizU` (with `leibnizUSym` via inline type-level lambdas)
-  port directly and pass `-dcore-lint -dstg-lint`.
+  unified `substP`, `evenComm` (via `substP @Even`), `RequiredTypeArguments`
+  equational chains (`beginEq`/`stepEq`/`qedEq`/`plusZeroChain`), and unified
+  `Leibniz` (with pure impredicative `leibnizSym` via inline type-level lambda
+  `@(\z -> p z -> p x)` and direct matchable instantiation
+  `leibnizToEq f = f @(EqP x) ReflP`) port directly and pass
+  `-dcore-lint -dstg-lint` with zero `[WIP NOTICE]` boxes.
 - All promoted constructors (`Zero`, `Succ`) are written without leading `'`
   ticks under `-XDataKinds`.
-- Explained GHC's matchable (`->`) vs. unmatchable (`%U ->`) arrow distinction
-  and marked matchability subtyping in `LeibnizU` with `[WIP NOTICE]`
-  (`R23_MatchabilityInLeibniz.hs`).
 - PLFA's universe-polymorphic `_≡′_` corresponds to GHC's `-XPolyKinds`,
   which already makes `EqP` kind-polymorphic out of the box.

@@ -9,7 +9,7 @@ import System.Exit (exitFailure)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Connectives (prodCommIso, sumCommIso)
 import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
-import PLFH.Part1.Equality (evenComm)
+import PLFH.Part1.Equality (EqP (..), evenComm, eqToLeibniz, leibnizSym, leibnizToEq)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
 import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
@@ -34,6 +34,7 @@ import PLFH.Part2.Inference (RawTerm (..), Typed (..), check, infer, rawIdNat, r
 import qualified PLFH.Part2.Lambda as L
 import qualified PLFH.Part2.More as M
 import PLFH.Part2.Properties (EvalResult (..), Progress (..), Stuck (..), TermW (..), eval, preserve, progress, stepDeterm, wttdgs)
+import qualified PLFH.Part2.Substitution as Sub
 import qualified PLFH.Part2.Untyped as U
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), Normal (..), cTwoIsNormal, idAppStep, idIsNormal, kOmegaStep, omegaStep)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacyDelta, adequacyIdApp, decAboveFun, reduceToCbn)
@@ -230,6 +231,8 @@ main = do
 
   assertEq "Equality.evenComm 2 2" True
     (case evenComm 2 2 (EvenS (OddS (EvenS (OddS EvenZ)))) of { EvenS _ -> True })
+  assertEq "Equality.leibnizToEq (leibnizSym (eqToLeibniz ReflP)) (direct matchable @(EqP x)!)" True
+    (case leibnizToEq (leibnizSym (eqToLeibniz (ReflP :: EqP (3 :: Nat) 3))) of { ReflP -> True })
 
   let isoRoundTrip = case isoSizeSym isoSizeRefl of
         MkIsoSize to _ _ _ -> natToInt (to 4)
@@ -455,20 +458,34 @@ main = do
       dbMuZ = DB.Mu DB.Zero
       dbPlus22 :: DB.Term DB.CEmpty DB.TNat
       dbPlus22 = DB.App (DB.App DB.plusTerm DB.termTwo) DB.termTwo
+      dbMul22 :: DB.Term DB.CEmpty DB.TNat
+      dbMul22 = DB.App (DB.App DB.mulTerm DB.termTwo) DB.termTwo
+      dbOmega :: DB.Term DB.CEmpty DB.TNat
+      dbOmega = DB.Mu (DB.Var DB.Z)
+      dbTermToInt :: DB.Term DB.CEmpty DB.TNat -> Int
+      dbTermToInt DB.Zero    = 0
+      dbTermToInt (DB.Suc n) = 1 + dbTermToInt n
+      dbTermToInt _          = -1
   assertEq "DeBruijn.progress (Lam (Var Z)) -> PDone VLam" True
     (case DB.progress dbLam of { DB.PDone DB.VLam -> True; _ -> False })
   assertEq "DeBruijn.progress ((lam. 0) 0) -> BetaLam" True
-    (case DB.progress dbApp of { DB.PStep (DB.BetaLam DB.VZero) -> True; _ -> False })
+    (case DB.progress dbApp of { DB.PStep _ (DB.BetaLam DB.VZero) -> True; _ -> False })
   assertEq "DeBruijn.progress (Suc ((lam. 0) 0)) -> XiSuc" True
-    (case DB.progress dbSucApp of { DB.PStep (DB.XiSuc (DB.BetaLam DB.VZero)) -> True; _ -> False })
+    (case DB.progress dbSucApp of { DB.PStep _ (DB.XiSuc (DB.BetaLam DB.VZero)) -> True; _ -> False })
   assertEq "DeBruijn.progress (Case Zero Zero (Var Z)) -> BetaZero" True
-    (case DB.progress dbCaseZ of { DB.PStep DB.BetaZero -> True; _ -> False })
+    (case DB.progress dbCaseZ of { DB.PStep _ DB.BetaZero -> True; _ -> False })
   assertEq "DeBruijn.progress (Case (Suc Zero) Zero (Var Z)) -> BetaSuc" True
-    (case DB.progress dbCaseS of { DB.PStep (DB.BetaSuc DB.VZero) -> True; _ -> False })
+    (case DB.progress dbCaseS of { DB.PStep _ (DB.BetaSuc DB.VZero) -> True; _ -> False })
   assertEq "DeBruijn.progress (Mu Zero) -> BetaMu" True
-    (case DB.progress dbMuZ of { DB.PStep DB.BetaMu -> True; _ -> False })
+    (case DB.progress dbMuZ of { DB.PStep _ DB.BetaMu -> True; _ -> False })
   assertEq "DeBruijn.progress (plusTerm 2 2) -> XiApp1 (XiApp1 BetaMu)" True
-    (case DB.progress dbPlus22 of { DB.PStep (DB.XiApp1 (DB.XiApp1 DB.BetaMu)) -> True; _ -> False })
+    (case DB.progress dbPlus22 of { DB.PStep _ (DB.XiApp1 (DB.XiApp1 DB.BetaMu)) -> True; _ -> False })
+  assertEq "DeBruijn.eval 40 (2 + 2) -> Done 4" 4
+    (case DB.eval (DB.MkGas 40) dbPlus22 of { DB.Done v _ _ -> dbTermToInt v; DB.OutOfGas _ _ -> -1 })
+  assertEq "DeBruijn.eval 80 (2 * 2) -> Done 4" 4
+    (case DB.eval (DB.MkGas 80) dbMul22 of { DB.Done v _ _ -> dbTermToInt v; DB.OutOfGas _ _ -> -1 })
+  assertEq "DeBruijn.eval 3 (Mu (Var Z)) -> OutOfGas" True
+    (case DB.eval (DB.MkGas 3) dbOmega of { DB.OutOfGas _ _ -> True; DB.Done _ _ _ -> False })
 
   let infOk = case infer CEmpty (RApp rawIdNat rawTwo) of
         Just (MkTyped t _) -> Just (show t)
@@ -502,22 +519,28 @@ main = do
 
   let bisimPairTerm :: M.Term M.CEmpty (M.TProd (M.TArr M.TNat M.TNat) (M.TArr M.TNat M.TNat))
       bisimPairTerm = M.Pair (M.Lam (M.Var M.Z)) (M.Lam (M.Var M.Z))
-      bisimPairRel = SimPair (SimLam SimVar) (SimLam SimVar)
+      bisimPairRel
+        :: SimRel @M.CEmpty @(M.TProd (M.TArr M.TNat M.TNat) (M.TArr M.TNat M.TNat))
+                  (M.Pair (M.Lam (M.Var M.Z)) (M.Lam (M.Var M.Z)))
+                  (M.Pair (M.Lam (M.Var M.Z)) (M.Lam (M.Var M.Z)))
+      bisimPairRel =
+        SimPair (SimLam (SimVar (M.Z :: M.Lookup (M.CExt M.CEmpty M.TNat) M.TNat)))
+                (SimLam (SimVar (M.Z :: M.Lookup (M.CExt M.CEmpty M.TNat) M.TNat)))
   assertEq "Bisimulation.simRefl (Pair id id)" True
-    (case simRefl bisimPairTerm of { SimPair (SimLam SimVar) (SimLam SimVar) -> True; _ -> False })
+    (case simRefl bisimPairTerm of { SimPair (SimLam (SimVar _)) (SimLam (SimVar _)) -> True; _ -> False })
   assertEq "Bisimulation.simValue (Pair VLam VLam)" True
     (case simValue bisimPairRel (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
   assertEq "Bisimulation.simValueInv / simTrans" True
     (case simValueInv (simTrans bisimPairRel bisimPairRel) (M.VPair M.VLam M.VLam) of { M.VPair M.VLam M.VLam -> True })
   assertEq "Bisimulation.letDesugarSim (SimLetApp)" True
-    (case letDesugarSim of { SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc SimVar) -> True })
-  assertEq "Bisimulation.letDesugarSteps (XiApp2 + BetaLam)" True
+    (case letDesugarSim of { SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc (SimVar _)) -> True })
+  assertEq "Bisimulation.letDesugarSteps (unconditional simSteps!)" True
     (case letDesugarSteps of { MkLeg (M.StepsCons (M.XiApp2 M.VLam (M.BetaFst M.VZero (M.VSuc M.VZero))) (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl)) (SimSuc SimZero) -> True })
-  assertEq "Bisimulation.letDesugarStepsInv (XiLet + BetaLet)" True
+  assertEq "Bisimulation.letDesugarStepsInv (unconditional simStepsInv!)" True
     (case letDesugarStepsInv of { MkLegInv (M.StepsCons (M.XiLet (M.BetaFst M.VZero (M.VSuc M.VZero))) (M.StepsCons (M.BetaLet M.VZero) M.StepsRefl)) (SimSuc SimZero) -> True })
   assertEq "BisimulationRenaming.observeRenamedListBody (2-binder CaseLst shift)" True
     BisimulationRenaming.observeRenamedListBody
-  assertEq "BisimulationRenaming.observeSubstLet (20-ctor simSubst + M.exts)" True
+  assertEq "BisimulationRenaming.observeSubstLet (unconditional 20-ctor simSubst!)" True
     BisimulationRenaming.observeSubstLet
 
   let moreLet :: M.Term M.CEmpty M.TNat
@@ -601,6 +624,27 @@ main = do
   assertEq "BigStepFunctional.observeKIdOmega (FS FZ)" (True, True) BigStepFunctional.observeKIdOmega
   assertEq "BigStepFunctional.evalDeterm" True
     (case BigStepFunctional.evalDeterm BigStepFunctional.evalKIdOmega BigStepFunctional.evalKIdOmega of Refl -> True)
+
+  let subOpenBody :: U.UTerm (Succ Zero)
+      subOpenBody = U.ULam (U.UApp (U.UVar U.FZ) (U.UVar (U.FS U.FZ)))
+      subTwoVarBody :: U.UTerm (Succ (Succ Zero))
+      subTwoVarBody = U.UApp (U.UVar U.FZ) (U.UVar (U.FS U.FZ))
+      subArgN :: U.UTerm (Succ Zero)
+      subArgN = U.UVar U.FZ
+      subArgL :: U.UTerm Zero
+      subArgL = U.idTerm
+  assertEq "Substitution.subId (idTerm [ids] = idTerm)" True
+    (case Sub.subId @Zero subArgL of { Refl -> True })
+  assertEq "Substitution.subSub ((b [single id]) [ids] = b [single id ;; ids])" True
+    (case Sub.subSub @(Succ Zero) @Zero @Zero @(U.singleSubstU U.IdTerm) @(Sub.ids @Zero)
+            (Sub.singleW @Zero (U.ULam (U.UVar U.FZ) :: U.UTerm Zero)) (Sub.idsW @Zero) subOpenBody of
+      Refl -> True)
+  assertEq "Substitution.substCommute ((b [id]) [ids] = (b [exts ids]) [id [ids]])" True
+    (case Sub.substCommute @Zero @Zero @(Sub.ids @Zero) (Sub.idsW @Zero) subArgL subOpenBody of
+      Refl -> True)
+  assertEq "Substitution.substitution (Barendregt lemma on 2-var body!)" True
+    (case Sub.substitution @Zero subArgN subArgL subTwoVarBody of
+      Refl -> True)
 
   -- Part 3: Denotational Semantics, Compositionality, & Unconditional Adequacy!
   assertEq "Adequacy.decAboveFun Bot" False (case decAboveFun Bot of { Yes _ -> True; No _ -> False })

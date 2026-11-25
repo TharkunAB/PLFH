@@ -12,14 +12,18 @@ module PLFH.Part2.Bisimulation
   , simValueInv
   , valNoStep
   , Renaming
+  , RenCompat
+  , extRenCompat
   , simRename
+  , simWeaken
   , SubstFn
   , Compatible
   , simExt
   , simSubst
+  , simSubstSingle
+  , simSubstDouble
   , Leg (..)
   , LegInv (..)
-  , SubstCompat (..)
   , sim
   , simInv
   , simSteps
@@ -31,15 +35,14 @@ module PLFH.Part2.Bisimulation
 
 import Data.Kind (Type)
 import Data.Void (Void, absurd)
-import GHC.Exts (U)
 import qualified PLFH.Part2.More as M
 
-{-# LINE 99 "content/part2/Bisimulation.md" #-}
+{-# LINE 102 "content/part2/Bisimulation.md" #-}
 -- | Structural bisimulation relation relating `let x = m in n` to `(λx. n') m'`
 -- across all 19 constructors of `PLFH.Part2.More.Term`.
 type SimRel :: forall (g :: M.Ctx) (a :: M.Ty). M.Term g a -> M.Term g a -> Type
 data SimRel m m' where
-  SimVar     :: SimRel (M.Var x) (M.Var x)
+  SimVar     :: foreach (x :: M.Lookup g a) -> SimRel (M.Var x) (M.Var x)
   SimLam     :: SimRel n n' -> SimRel (M.Lam n) (M.Lam n')
   SimApp     :: SimRel l l' -> SimRel m m' -> SimRel (M.App l m) (M.App l' m')
   SimZero    :: SimRel M.Zero M.Zero
@@ -63,11 +66,11 @@ data SimRel m m' where
   SimCaseLst :: SimRel s s' -> SimRel n n' -> SimRel c c'
              -> SimRel (M.CaseLst s n c) (M.CaseLst s' n' c')
 
-{-# LINE 135 "content/part2/Bisimulation.md" #-}
+{-# LINE 138 "content/part2/Bisimulation.md" #-}
 -- | Reflexivity (`~-refl`): every extended STLC term is related to itself.
 simRefl :: forall (g :: M.Ctx) (a :: M.Ty). foreach (m :: M.Term g a) -> SimRel m m
 simRefl t = case t of
-  M.Var _         -> SimVar
+  M.Var x         -> SimVar x
   M.Lam n         -> SimLam (simRefl n)
   M.App l m       -> SimApp (simRefl l) (simRefl m)
   M.Zero          -> SimZero
@@ -89,7 +92,7 @@ simRefl t = case t of
 
 -- | Transitivity of `SimRel`: `l ~ m` and `m ~ n` implies `l ~ n`.
 simTrans :: SimRel l m -> SimRel m n -> SimRel l n
-simTrans SimVar                 SimVar                  = SimVar
+simTrans (SimVar x)             (SimVar _)              = SimVar x
 simTrans (SimLam s1)            (SimLam s2)             = SimLam (simTrans s1 s2)
 simTrans (SimApp l1 m1)         (SimApp l2 m2)          = SimApp (simTrans l1 l2) (simTrans m1 m2)
 simTrans SimZero                SimZero                 = SimZero
@@ -111,7 +114,7 @@ simTrans SimNil                 SimNil                  = SimNil
 simTrans (SimCons x1 xs1)       (SimCons x2 xs2)        = SimCons (simTrans x1 x2) (simTrans xs1 xs2)
 simTrans (SimCaseLst s1 n1 c1)  (SimCaseLst s2 n2 c2)   = SimCaseLst (simTrans s1 s2) (simTrans n1 n2) (simTrans c1 c2)
 
-{-# LINE 192 "content/part2/Bisimulation.md" #-}
+{-# LINE 195 "content/part2/Bisimulation.md" #-}
 -- | Forward value preservation (`~-val`): all 9 value constructors.
 simValue :: SimRel m m' -> M.Value m -> M.Value m'
 simValue rel val = case val of
@@ -151,43 +154,59 @@ valNoStep val st = case val of
   M.VNil       -> case st of {}
   M.VCons v vs -> case st of { M.XiCons1 s -> valNoStep v s; M.XiCons2 _ s -> valNoStep vs s }
 
-{-# LINE 244 "content/part2/Bisimulation.md" #-}
+{-# LINE 246 "content/part2/Bisimulation.md" #-}
 -- | A sort-preserving map between lookup contexts.
-type Renaming g d = forall x. M.Lookup g x %U -> M.Lookup d x
+type Renaming g d = forall x. M.Lookup g x -> M.Lookup d x
+
+-- | Runtime witness that renaming `r` preserves variable lookups inside `SimVar`.
+type RenCompat :: forall g d. Renaming g d -> Type
+type RenCompat @g @d r = forall a. foreach (x :: M.Lookup g a) -> SimRel (M.Var (r x)) (M.Var (r x))
+
+-- | Lifting a renaming witness under one binder (`M.ext r`).
+extRenCompat :: forall g d b (r :: Renaming g d).
+                RenCompat @g @d r
+             -> RenCompat @(M.CExt g b) @(M.CExt d b) (M.ext r)
+extRenCompat rc idx = case idx of
+  M.Z   -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
+  M.S x -> case rc x of
+    SimVar y -> SimVar (M.S y)
 
 -- | Renaming preserves the structural simulation relation across all 20 constructors!
 simRename :: forall g d a (r :: Renaming g d) (m :: M.Term g a) (n :: M.Term g a).
-             SimRel m n -> SimRel (M.rename r m) (M.rename r n)
-simRename SimVar = SimVar
-simRename (SimLam s) = SimLam (simRename @_ @_ @_ @(M.ext r) s)
-simRename (SimApp l m) = SimApp (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r m)
-simRename SimZero = SimZero
-simRename (SimSuc s) = SimSuc (simRename @_ @_ @_ @r s)
-simRename (SimCaseNat n z s) =
-  SimCaseNat (simRename @_ @_ @_ @r n) (simRename @_ @_ @_ @r z)
-             (simRename @_ @_ @_ @(M.ext r) s)
-simRename (SimMu s) = SimMu (simRename @_ @_ @_ @(M.ext r) s)
-simRename (SimLet m n) = SimLet (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
-simRename (SimLetApp m n) = SimLetApp (simRename @_ @_ @_ @r m) (simRename @_ @_ @_ @(M.ext r) n)
-simRename SimTT = SimTT
-simRename (SimPair l r') = SimPair (simRename @_ @_ @_ @r l) (simRename @_ @_ @_ @r r')
-simRename (SimFst p) = SimFst (simRename @_ @_ @_ @r p)
-simRename (SimSnd p) = SimSnd (simRename @_ @_ @_ @r p)
-simRename (SimInl s) = SimInl (simRename @_ @_ @_ @r s)
-simRename (SimInr s) = SimInr (simRename @_ @_ @_ @r s)
-simRename (SimCaseSum s l r') =
-  SimCaseSum (simRename @_ @_ @_ @r s) (simRename @_ @_ @_ @(M.ext r) l)
-             (simRename @_ @_ @_ @(M.ext r) r')
-simRename (SimAbsurd s) = SimAbsurd (simRename @_ @_ @_ @r s)
-simRename SimNil = SimNil
-simRename (SimCons x xs) = SimCons (simRename @_ @_ @_ @r x) (simRename @_ @_ @_ @r xs)
-simRename (SimCaseLst xs n c) =
-  SimCaseLst (simRename @_ @_ @_ @r xs) (simRename @_ @_ @_ @r n)
-             (simRename @_ @_ @_ @(M.ext (M.ext r)) c)
+             RenCompat @g @d r
+          -> SimRel m n -> SimRel (M.rename r m) (M.rename r n)
+simRename rc (SimVar x)           = rc x
+simRename rc (SimLam s)           = SimLam (simRename (extRenCompat rc) s)
+simRename rc (SimApp l m)         = SimApp (simRename rc l) (simRename rc m)
+simRename _  SimZero              = SimZero
+simRename rc (SimSuc s)           = SimSuc (simRename rc s)
+simRename rc (SimCaseNat n z s)   = SimCaseNat (simRename rc n) (simRename rc z) (simRename (extRenCompat rc) s)
+simRename rc (SimMu s)            = SimMu (simRename (extRenCompat rc) s)
+simRename rc (SimLet m n)         = SimLet (simRename rc m) (simRename (extRenCompat rc) n)
+simRename rc (SimLetApp m n)      = SimLetApp (simRename rc m) (simRename (extRenCompat rc) n)
+simRename _  SimTT                = SimTT
+simRename rc (SimPair l r')       = SimPair (simRename rc l) (simRename rc r')
+simRename rc (SimFst p)           = SimFst (simRename rc p)
+simRename rc (SimSnd p)           = SimSnd (simRename rc p)
+simRename rc (SimInl s)           = SimInl (simRename rc s)
+simRename rc (SimInr s)           = SimInr (simRename rc s)
+simRename rc (SimCaseSum s l r')  = SimCaseSum (simRename rc s) (simRename (extRenCompat rc) l) (simRename (extRenCompat rc) r')
+simRename rc (SimAbsurd s)        = SimAbsurd (simRename rc s)
+simRename _  SimNil               = SimNil
+simRename rc (SimCons x xs)       = SimCons (simRename rc x) (simRename rc xs)
+simRename rc (SimCaseLst xs n c)  = SimCaseLst (simRename rc xs) (simRename rc n) (simRename (extRenCompat (extRenCompat rc)) c)
 
-{-# LINE 288 "content/part2/Bisimulation.md" #-}
+-- | Shifting an extended term into an extended context (`M.weakenLookup`) preserves `SimRel`.
+weakenRenCompat :: forall d b. RenCompat @d @(M.CExt d b) (M.weakenLookup @d @b)
+weakenRenCompat x = SimVar (M.S x)
+
+simWeaken :: forall d b a (m :: M.Term d a) (n :: M.Term d a).
+             SimRel m n -> SimRel (M.rename (M.weakenLookup @d @b) m) (M.rename (M.weakenLookup @d @b) n)
+simWeaken = simRename (weakenRenCompat @d @b)
+
+{-# LINE 309 "content/part2/Bisimulation.md" #-}
 -- | A sort-preserving simultaneous substitution callback between contexts.
-type SubstFn g d = forall a. M.Lookup g a %U -> M.Term d a
+type SubstFn g d = forall a. M.Lookup g a -> M.Term d a
 
 -- | Pointwise simulation compatibility between two simultaneous substitutions.
 type Compatible :: forall g d. SubstFn g d -> SubstFn g d -> Type
@@ -195,92 +214,75 @@ type Compatible @g @d p q = forall a. foreach (x :: M.Lookup g a) -> SimRel (p x
 
 -- | Extending two compatible substitutions under a binder preserves compatibility (`~-exts`).
 simExt :: forall g d b (p :: SubstFn g d) (q :: SubstFn g d).
-          Compatible p q
+          Compatible @g @d p q
        -> Compatible @(M.CExt g b) @(M.CExt d b) (M.exts @g @d @b p) (M.exts @g @d @b q)
-simExt step index = case index of
-  M.Z   -> SimVar
-  M.S x -> simRename @d @(M.CExt d b) @_ @(M.weakenLookup @d @b) @(p x) @(q x) (step x)
+simExt step idx = case idx of
+  M.Z   -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
+  M.S x -> simWeaken @d @b (step x)
 
 -- | Simultaneous substitution preserves `SimRel` across all 20 constructors (`~-subst`)!
-simSubst :: forall g d a (p :: SubstFn g d) (q :: SubstFn g d) (n :: M.Term g a).
-            foreach (m :: M.Term g a)
-         -> Compatible p q
+simSubst :: forall g d a (p :: SubstFn g d) (q :: SubstFn g d) (m :: M.Term g a) (n :: M.Term g a).
+            Compatible @g @d p q
          -> SimRel m n
          -> SimRel (M.subst p m) (M.subst q n)
-simSubst term = case term of
-  M.Var x -> \step rel -> case rel of
-    SimVar -> step x
-  M.Lam body -> \step rel -> case rel of
-    SimLam p0 ->
-      SimLam (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                body (simExt @g @d @_ @p @q step) p0)
-  M.App f x -> \step rel -> case rel of
-    SimApp p0 p1 ->
-      SimApp (simSubst @g @d @_ @p @q f step p0) (simSubst @g @d @_ @p @q x step p1)
-  M.Zero -> \_ rel -> case rel of
-    SimZero -> SimZero
-  M.Suc n -> \step rel -> case rel of
-    SimSuc p0 -> SimSuc (simSubst @g @d @_ @p @q n step p0)
-  M.CaseNat n z suc -> \step rel -> case rel of
-    SimCaseNat p0 p1 p2 ->
-      SimCaseNat (simSubst @g @d @_ @p @q n step p0)
-                 (simSubst @g @d @_ @p @q z step p1)
-                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                    suc (simExt @g @d @_ @p @q step) p2)
-  M.Mu body -> \step rel -> case rel of
-    SimMu p0 ->
-      SimMu (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-               body (simExt @g @d @_ @p @q step) p0)
-  M.Let x body -> \step rel -> case rel of
-    SimLet p0 p1 ->
-      SimLet (simSubst @g @d @_ @p @q x step p0)
-             (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                body (simExt @g @d @_ @p @q step) p1)
-    SimLetApp p0 p1 ->
-      SimLetApp (simSubst @g @d @_ @p @q x step p0)
-                (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                   body (simExt @g @d @_ @p @q step) p1)
-  M.TT -> \_ rel -> case rel of
-    SimTT -> SimTT
-  M.Pair x y -> \step rel -> case rel of
-    SimPair p0 p1 ->
-      SimPair (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q y step p1)
-  M.Fst x -> \step rel -> case rel of
-    SimFst p0 -> SimFst (simSubst @g @d @_ @p @q x step p0)
-  M.Snd x -> \step rel -> case rel of
-    SimSnd p0 -> SimSnd (simSubst @g @d @_ @p @q x step p0)
-  M.Inl x -> \step rel -> case rel of
-    SimInl p0 -> SimInl @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
-  M.Inr y -> \step rel -> case rel of
-    SimInr p0 -> SimInr @(M.subst p y) (simSubst @g @d @_ @p @q y step p0)
-  M.CaseSum x l r -> \step rel -> case rel of
-    SimCaseSum p0 p1 p2 ->
-      SimCaseSum (simSubst @g @d @_ @p @q x step p0)
-                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                    l (simExt @g @d @_ @p @q step) p1)
-                 (simSubst @(M.CExt g _) @(M.CExt d _) @_ @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                    r (simExt @g @d @_ @p @q step) p2)
-  M.Absurd x -> \step rel -> case rel of
-    SimAbsurd p0 -> SimAbsurd @(M.subst p x) (simSubst @g @d @_ @p @q x step p0)
-  M.Nil -> \_ rel -> case rel of
-    SimNil -> SimNil
-  M.Cons x xs -> \step rel -> case rel of
-    SimCons p0 p1 ->
-      SimCons (simSubst @g @d @_ @p @q x step p0) (simSubst @g @d @_ @p @q xs step p1)
-  M.CaseLst xs z body -> \step rel -> case rel of
-    SimCaseLst p0 p1 p2 ->
-      SimCaseLst (simSubst @g @d @_ @p @q xs step p0)
-                 (simSubst @g @d @_ @p @q z step p1)
-                 (simSubst @(M.CExt (M.CExt g _) _) @(M.CExt (M.CExt d _) _) @_
-                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ p))
-                    @(M.exts @(M.CExt g _) @(M.CExt d _) @_ (M.exts @g @d @_ q))
-                    body
-                    (simExt @(M.CExt g _) @(M.CExt d _) @_
-                       @(M.exts @g @d @_ p) @(M.exts @g @d @_ q)
-                       (simExt @g @d @_ @p @q step))
-                    p2)
+simSubst step (SimVar x)          = step x
+simSubst step (SimLam p0)         = SimLam (simSubst (simExt step) p0)
+simSubst step (SimApp p0 p1)      = SimApp (simSubst step p0) (simSubst step p1)
+simSubst _    SimZero             = SimZero
+simSubst step (SimSuc p0)         = SimSuc (simSubst step p0)
+simSubst step (SimCaseNat p0 p1 p2) =
+  SimCaseNat (simSubst step p0) (simSubst step p1) (simSubst (simExt step) p2)
+simSubst step (SimMu p0)          = SimMu (simSubst (simExt step) p0)
+simSubst step (SimLet p0 p1)      = SimLet (simSubst step p0) (simSubst (simExt step) p1)
+simSubst step (SimLetApp p0 p1)   = SimLetApp (simSubst step p0) (simSubst (simExt step) p1)
+simSubst _    SimTT               = SimTT
+simSubst step (SimPair p0 p1)     = SimPair (simSubst step p0) (simSubst step p1)
+simSubst step (SimFst p0)         = SimFst (simSubst step p0)
+simSubst step (SimSnd p0)         = SimSnd (simSubst step p0)
+simSubst step (SimInl p0)         = SimInl (simSubst step p0)
+simSubst step (SimInr p0)         = SimInr (simSubst step p0)
+simSubst step (SimCaseSum p0 p1 p2) =
+  SimCaseSum (simSubst step p0) (simSubst (simExt step) p1) (simSubst (simExt step) p2)
+simSubst step (SimAbsurd p0)      = SimAbsurd (simSubst step p0)
+simSubst _    SimNil              = SimNil
+simSubst step (SimCons p0 p1)     = SimCons (simSubst step p0) (simSubst step p1)
+simSubst step (SimCaseLst p0 p1 p2) =
+  SimCaseLst (simSubst step p0) (simSubst step p1) (simSubst (simExt (simExt step)) p2)
 
-{-# LINE 398 "content/part2/Bisimulation.md" #-}
+singleCompat :: forall g a (v :: M.Term g a) (v' :: M.Term g a).
+                SimRel v v'
+             -> Compatible @(M.CExt g a) @g (M.singleSubst v) (M.singleSubst v')
+singleCompat sv idx = case idx of
+  M.Z   -> sv
+  M.S x -> SimVar x
+
+-- | Unconditional single-variable substitution preserves `SimRel`!
+simSubstSingle :: forall g a b (n :: M.Term (M.CExt g a) b) (n' :: M.Term (M.CExt g a) b)
+                               (v :: M.Term g a) (v' :: M.Term g a).
+                  SimRel n n' -> SimRel v v'
+               -> SimRel (M.substSingle n v) (M.substSingle n' v')
+simSubstSingle sn sv = simSubst (singleCompat sv) sn
+
+doubleCompat :: forall g a b (v :: M.Term g a) (v' :: M.Term g a)
+                             (w :: M.Term g b) (w' :: M.Term g b).
+                SimRel v v' -> SimRel w w'
+             -> Compatible @(M.CExt (M.CExt g a) b) @g (M.doubleSubst v w) (M.doubleSubst v' w')
+doubleCompat sv sw idx = case idx of
+  M.Z   -> sw
+  M.S y -> case y of
+    M.Z   -> sv
+    M.S x -> SimVar x
+
+-- | Unconditional double-variable substitution preserves `SimRel`!
+simSubstDouble :: forall g a b c (n :: M.Term (M.CExt (M.CExt g a) b) c)
+                                 (n' :: M.Term (M.CExt (M.CExt g a) b) c)
+                                 (v :: M.Term g a) (v' :: M.Term g a)
+                                 (w :: M.Term g b) (w' :: M.Term g b).
+                  SimRel n n' -> SimRel v v' -> SimRel w w'
+               -> SimRel (M.substDouble n v w) (M.substDouble n' v' w')
+simSubstDouble sn sv sw = simSubst (doubleCompat sv sw) sn
+
+{-# LINE 402 "content/part2/Bisimulation.md" #-}
 -- | Forward simulation leg: `m' —→ n'` with `n ~ n'`.
 type Leg :: forall (g :: M.Ctx) (a :: M.Ty).
             (M.Term g a -> M.Term g a -> Type) -> M.Term g a -> M.Term g a -> Type
@@ -293,68 +295,52 @@ type LegInv :: forall (g :: M.Ctx) (a :: M.Ty).
 data LegInv step m n' where
   MkLegInv :: step m n -> SimRel n n' -> LegInv step m n'
 
--- | Substitution compatibility bundle for `M.substSingle` and `M.substDouble`.
-data SubstCompat where
-  MkSubstCompat
-    :: (forall (g :: M.Ctx) (a :: M.Ty) (b :: M.Ty)
-               (n :: M.Term (M.CExt g a) b) (n' :: M.Term (M.CExt g a) b)
-               (v :: M.Term g a) (v' :: M.Term g a).
-          SimRel n n' -> SimRel v v' -> SimRel (M.substSingle n v) (M.substSingle n' v'))
-    -> (forall (g :: M.Ctx) (a :: M.Ty) (b :: M.Ty)
-               (c :: M.Term (M.CExt (M.CExt g a) (M.TList a)) b)
-               (c' :: M.Term (M.CExt (M.CExt g a) (M.TList a)) b)
-               (x :: M.Term g a) (x' :: M.Term g a)
-               (xs :: M.Term g (M.TList a)) (xs' :: M.Term g (M.TList a)).
-          SimRel c c' -> SimRel x x' -> SimRel xs xs'
-       -> SimRel (M.substDouble c x xs) (M.substDouble c' x' xs'))
-    -> SubstCompat
-
-{-# LINE 465 "content/part2/Bisimulation.md" #-}
--- | Complete forward lock-step simulation across all 27 rules of `More.Step`.
-sim :: SubstCompat -> SimRel m m' -> M.Step m n -> Leg M.Step m' n
-sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
+{-# LINE 437 "content/part2/Bisimulation.md" #-}
+-- | Unconditional forward lock-step simulation across all 27 rules of `More.Step`.
+sim :: SimRel m m' -> M.Step m n -> Leg M.Step m' n
+sim rel st = case st of
   M.XiApp1 stL -> case rel of
-    SimApp sl sm -> case sim sc sl stL of
+    SimApp sl sm -> case sim sl stL of
       MkLeg stL' sl' -> MkLeg (M.XiApp1 stL') (SimApp sl' sm)
   M.XiApp2 vl stM -> case rel of
-    SimApp sl sm -> case sim sc sm stM of
+    SimApp sl sm -> case sim sm stM of
       MkLeg stM' sm' -> MkLeg (M.XiApp2 (simValue sl vl) stM') (SimApp sl sm')
   M.BetaLam vm -> case rel of
-    SimApp (SimLam sn) sm -> MkLeg (M.BetaLam (simValue sm vm)) (sc1 sn sm)
+    SimApp (SimLam sn) sm -> MkLeg (M.BetaLam (simValue sm vm)) (simSubstSingle sn sm)
 
   M.XiSuc stM -> case rel of
-    SimSuc sm -> case sim sc sm stM of
+    SimSuc sm -> case sim sm stM of
       MkLeg stM' sm' -> MkLeg (M.XiSuc stM') (SimSuc sm')
   M.XiCaseNat stN -> case rel of
-    SimCaseNat sn sz ss -> case sim sc sn stN of
+    SimCaseNat sn sz ss -> case sim sn stN of
       MkLeg stN' sn' -> MkLeg (M.XiCaseNat stN') (SimCaseNat sn' sz ss)
   M.BetaZero -> case rel of
     SimCaseNat SimZero sz _ -> MkLeg M.BetaZero sz
   M.BetaSuc vv -> case rel of
-    SimCaseNat (SimSuc sv) _ ss -> MkLeg (M.BetaSuc (simValue sv vv)) (sc1 ss sv)
+    SimCaseNat (SimSuc sv) _ ss -> MkLeg (M.BetaSuc (simValue sv vv)) (simSubstSingle ss sv)
   M.BetaMu -> case rel of
-    SimMu sn -> MkLeg M.BetaMu (sc1 sn (SimMu sn))
+    SimMu sn -> MkLeg M.BetaMu (simSubstSingle sn (SimMu sn))
 
   M.XiLet stM -> case rel of
-    SimLet sm sn -> case sim sc sm stM of
+    SimLet sm sn -> case sim sm stM of
       MkLeg stM' sm' -> MkLeg (M.XiLet stM') (SimLet sm' sn)
-    SimLetApp sm sn -> case sim sc sm stM of
+    SimLetApp sm sn -> case sim sm stM of
       MkLeg stM' sm' -> MkLeg (M.XiApp2 M.VLam stM') (SimLetApp sm' sn)
   M.BetaLet vm -> case rel of
-    SimLet sm sn    -> MkLeg (M.BetaLet (simValue sm vm)) (sc1 sn sm)
-    SimLetApp sm sn -> MkLeg (M.BetaLam (simValue sm vm)) (sc1 sn sm)
+    SimLet sm sn    -> MkLeg (M.BetaLet (simValue sm vm)) (simSubstSingle sn sm)
+    SimLetApp sm sn -> MkLeg (M.BetaLam (simValue sm vm)) (simSubstSingle sn sm)
 
   M.XiPair1 stL -> case rel of
-    SimPair sl sr -> case sim sc sl stL of
+    SimPair sl sr -> case sim sl stL of
       MkLeg stL' sl' -> MkLeg (M.XiPair1 stL') (SimPair sl' sr)
   M.XiPair2 vl stR -> case rel of
-    SimPair sl sr -> case sim sc sr stR of
+    SimPair sl sr -> case sim sr stR of
       MkLeg stR' sr' -> MkLeg (M.XiPair2 (simValue sl vl) stR') (SimPair sl sr')
   M.XiFst stP -> case rel of
-    SimFst sp -> case sim sc sp stP of
+    SimFst sp -> case sim sp stP of
       MkLeg stP' sp' -> MkLeg (M.XiFst stP') (SimFst sp')
   M.XiSnd stP -> case rel of
-    SimSnd sp -> case sim sc sp stP of
+    SimSnd sp -> case sim sp stP of
       MkLeg stP' sp' -> MkLeg (M.XiSnd stP') (SimSnd sp')
   M.BetaFst vl vr -> case rel of
     SimFst (SimPair sl sr) -> MkLeg (M.BetaFst (simValue sl vl) (simValue sr vr)) sl
@@ -362,83 +348,83 @@ sim sc@(MkSubstCompat sc1 sc2) rel st = case st of
     SimSnd (SimPair sl sr) -> MkLeg (M.BetaSnd (simValue sl vl) (simValue sr vr)) sr
 
   M.XiInl stX -> case rel of
-    SimInl sx -> case sim sc sx stX of
+    SimInl sx -> case sim sx stX of
       MkLeg stX' sx' -> MkLeg (M.XiInl stX') (SimInl sx')
   M.XiInr stY -> case rel of
-    SimInr sy -> case sim sc sy stY of
+    SimInr sy -> case sim sy stY of
       MkLeg stY' sy' -> MkLeg (M.XiInr stY') (SimInr sy')
   M.XiCaseSum stS -> case rel of
-    SimCaseSum ss sl sr -> case sim sc ss stS of
+    SimCaseSum ss sl sr -> case sim ss stS of
       MkLeg stS' ss' -> MkLeg (M.XiCaseSum stS') (SimCaseSum ss' sl sr)
   M.BetaInl vx -> case rel of
-    SimCaseSum (SimInl sx) sl _ -> MkLeg (M.BetaInl (simValue sx vx)) (sc1 sl sx)
+    SimCaseSum (SimInl sx) sl _ -> MkLeg (M.BetaInl (simValue sx vx)) (simSubstSingle sl sx)
   M.BetaInr vy -> case rel of
-    SimCaseSum (SimInr sy) _ sr -> MkLeg (M.BetaInr (simValue sy vy)) (sc1 sr sy)
+    SimCaseSum (SimInr sy) _ sr -> MkLeg (M.BetaInr (simValue sy vy)) (simSubstSingle sr sy)
   M.XiAbsurd stM -> case rel of
-    SimAbsurd sm -> case sim sc sm stM of
+    SimAbsurd sm -> case sim sm stM of
       MkLeg stM' sm' -> MkLeg (M.XiAbsurd stM') (SimAbsurd sm')
 
   M.XiCons1 stX -> case rel of
-    SimCons sx sxs -> case sim sc sx stX of
+    SimCons sx sxs -> case sim sx stX of
       MkLeg stX' sx' -> MkLeg (M.XiCons1 stX') (SimCons sx' sxs)
   M.XiCons2 vx stXs -> case rel of
-    SimCons sx sxs -> case sim sc sxs stXs of
+    SimCons sx sxs -> case sim sxs stXs of
       MkLeg stXs' sxs' -> MkLeg (M.XiCons2 (simValue sx vx) stXs') (SimCons sx sxs')
   M.XiCaseLst stS -> case rel of
-    SimCaseLst ss sn scons -> case sim sc ss stS of
+    SimCaseLst ss sn scons -> case sim ss stS of
       MkLeg stS' ss' -> MkLeg (M.XiCaseLst stS') (SimCaseLst ss' sn scons)
   M.BetaNil -> case rel of
     SimCaseLst SimNil sn _ -> MkLeg M.BetaNil sn
   M.BetaCons vx vxs -> case rel of
     SimCaseLst (SimCons sx sxs) _ scons ->
-      MkLeg (M.BetaCons (simValue sx vx) (simValue sxs vxs)) (sc2 scons sx sxs)
+      MkLeg (M.BetaCons (simValue sx vx) (simValue sxs vxs)) (simSubstDouble scons sx sxs)
 
--- | Complete backward lock-step simulation (`sim⁻¹`) across all 27 rules!
-simInv :: SubstCompat -> SimRel m m' -> M.Step m' n' -> LegInv M.Step m n'
-simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
+-- | Unconditional backward lock-step simulation (`sim⁻¹`) across all 27 rules!
+simInv :: SimRel m m' -> M.Step m' n' -> LegInv M.Step m n'
+simInv rel st = case st of
   M.XiApp1 stL' -> case rel of
-    SimApp sl sm -> case simInv sc sl stL' of
+    SimApp sl sm -> case simInv sl stL' of
       MkLegInv stL sl' -> MkLegInv (M.XiApp1 stL) (SimApp sl' sm)
     SimLetApp _ _ -> absurd (valNoStep M.VLam stL')
   M.XiApp2 vl' stM' -> case rel of
-    SimApp sl sm -> case simInv sc sm stM' of
+    SimApp sl sm -> case simInv sm stM' of
       MkLegInv stM sm' -> MkLegInv (M.XiApp2 (simValueInv sl vl') stM) (SimApp sl sm')
-    SimLetApp sm sn -> case simInv sc sm stM' of
+    SimLetApp sm sn -> case simInv sm stM' of
       MkLegInv stM sm' -> MkLegInv (M.XiLet stM) (SimLetApp sm' sn)
   M.BetaLam vm' -> case rel of
-    SimApp (SimLam sn) sm -> MkLegInv (M.BetaLam (simValueInv sm vm')) (sc1 sn sm)
-    SimLetApp sm sn       -> MkLegInv (M.BetaLet (simValueInv sm vm')) (sc1 sn sm)
+    SimApp (SimLam sn) sm -> MkLegInv (M.BetaLam (simValueInv sm vm')) (simSubstSingle sn sm)
+    SimLetApp sm sn       -> MkLegInv (M.BetaLet (simValueInv sm vm')) (simSubstSingle sn sm)
 
   M.XiSuc stM' -> case rel of
-    SimSuc sm -> case simInv sc sm stM' of
+    SimSuc sm -> case simInv sm stM' of
       MkLegInv stM sm' -> MkLegInv (M.XiSuc stM) (SimSuc sm')
   M.XiCaseNat stN' -> case rel of
-    SimCaseNat sn sz ss -> case simInv sc sn stN' of
+    SimCaseNat sn sz ss -> case simInv sn stN' of
       MkLegInv stN sn' -> MkLegInv (M.XiCaseNat stN) (SimCaseNat sn' sz ss)
   M.BetaZero -> case rel of
     SimCaseNat SimZero sz _ -> MkLegInv M.BetaZero sz
   M.BetaSuc vv' -> case rel of
-    SimCaseNat (SimSuc sv) _ ss -> MkLegInv (M.BetaSuc (simValueInv sv vv')) (sc1 ss sv)
+    SimCaseNat (SimSuc sv) _ ss -> MkLegInv (M.BetaSuc (simValueInv sv vv')) (simSubstSingle ss sv)
   M.BetaMu -> case rel of
-    SimMu sn -> MkLegInv M.BetaMu (sc1 sn (SimMu sn))
+    SimMu sn -> MkLegInv M.BetaMu (simSubstSingle sn (SimMu sn))
 
   M.XiLet stM' -> case rel of
-    SimLet sm sn -> case simInv sc sm stM' of
+    SimLet sm sn -> case simInv sm stM' of
       MkLegInv stM sm' -> MkLegInv (M.XiLet stM) (SimLet sm' sn)
   M.BetaLet vm' -> case rel of
-    SimLet sm sn -> MkLegInv (M.BetaLet (simValueInv sm vm')) (sc1 sn sm)
+    SimLet sm sn -> MkLegInv (M.BetaLet (simValueInv sm vm')) (simSubstSingle sn sm)
 
   M.XiPair1 stL' -> case rel of
-    SimPair sl sr -> case simInv sc sl stL' of
+    SimPair sl sr -> case simInv sl stL' of
       MkLegInv stL sl' -> MkLegInv (M.XiPair1 stL) (SimPair sl' sr)
   M.XiPair2 vl' stR' -> case rel of
-    SimPair sl sr -> case simInv sc sr stR' of
+    SimPair sl sr -> case simInv sr stR' of
       MkLegInv stR sr' -> MkLegInv (M.XiPair2 (simValueInv sl vl') stR) (SimPair sl sr')
   M.XiFst stP' -> case rel of
-    SimFst sp -> case simInv sc sp stP' of
+    SimFst sp -> case simInv sp stP' of
       MkLegInv stP sp' -> MkLegInv (M.XiFst stP) (SimFst sp')
   M.XiSnd stP' -> case rel of
-    SimSnd sp -> case simInv sc sp stP' of
+    SimSnd sp -> case simInv sp stP' of
       MkLegInv stP sp' -> MkLegInv (M.XiSnd stP) (SimSnd sp')
   M.BetaFst vl' vr' -> case rel of
     SimFst (SimPair sl sr) -> MkLegInv (M.BetaFst (simValueInv sl vl') (simValueInv sr vr')) sl
@@ -446,77 +432,77 @@ simInv sc@(MkSubstCompat sc1 sc2) rel st = case st of
     SimSnd (SimPair sl sr) -> MkLegInv (M.BetaSnd (simValueInv sl vl') (simValueInv sr vr')) sr
 
   M.XiInl stX' -> case rel of
-    SimInl sx -> case simInv sc sx stX' of
+    SimInl sx -> case simInv sx stX' of
       MkLegInv stX sx' -> MkLegInv (M.XiInl stX) (SimInl sx')
   M.XiInr stY' -> case rel of
-    SimInr sy -> case simInv sc sy stY' of
+    SimInr sy -> case simInv sy stY' of
       MkLegInv stY sy' -> MkLegInv (M.XiInr stY) (SimInr sy')
   M.XiCaseSum stS' -> case rel of
-    SimCaseSum ss sl sr -> case simInv sc ss stS' of
+    SimCaseSum ss sl sr -> case simInv ss stS' of
       MkLegInv stS ss' -> MkLegInv (M.XiCaseSum stS) (SimCaseSum ss' sl sr)
   M.BetaInl vx' -> case rel of
-    SimCaseSum (SimInl sx) sl _ -> MkLegInv (M.BetaInl (simValueInv sx vx')) (sc1 sl sx)
+    SimCaseSum (SimInl sx) sl _ -> MkLegInv (M.BetaInl (simValueInv sx vx')) (simSubstSingle sl sx)
   M.BetaInr vy' -> case rel of
-    SimCaseSum (SimInr sy) _ sr -> MkLegInv (M.BetaInr (simValueInv sy vy')) (sc1 sr sy)
+    SimCaseSum (SimInr sy) _ sr -> MkLegInv (M.BetaInr (simValueInv sy vy')) (simSubstSingle sr sy)
   M.XiAbsurd stM' -> case rel of
-    SimAbsurd sm -> case simInv sc sm stM' of
+    SimAbsurd sm -> case simInv sm stM' of
       MkLegInv stM sm' -> MkLegInv (M.XiAbsurd stM) (SimAbsurd sm')
 
   M.XiCons1 stX' -> case rel of
-    SimCons sx sxs -> case simInv sc sx stX' of
+    SimCons sx sxs -> case simInv sx stX' of
       MkLegInv stX sx' -> MkLegInv (M.XiCons1 stX) (SimCons sx' sxs)
   M.XiCons2 vx' stXs' -> case rel of
-    SimCons sx sxs -> case simInv sc sxs stXs' of
+    SimCons sx sxs -> case simInv sxs stXs' of
       MkLegInv stXs sxs' -> MkLegInv (M.XiCons2 (simValueInv sx vx') stXs) (SimCons sx sxs')
   M.XiCaseLst stS' -> case rel of
-    SimCaseLst ss sn scons -> case simInv sc ss stS' of
+    SimCaseLst ss sn scons -> case simInv ss stS' of
       MkLegInv stS ss' -> MkLegInv (M.XiCaseLst stS) (SimCaseLst ss' sn scons)
   M.BetaNil -> case rel of
     SimCaseLst SimNil sn _ -> MkLegInv M.BetaNil sn
   M.BetaCons vx' vxs' -> case rel of
     SimCaseLst (SimCons sx sxs) _ scons ->
-      MkLegInv (M.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (sc2 scons sx sxs)
+      MkLegInv (M.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (simSubstDouble scons sx sxs)
 
-{-# LINE 640 "content/part2/Bisimulation.md" #-}
--- | Multi-step forward simulation (`—↠`).
-simSteps :: SubstCompat -> SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
-simSteps _  rel M.StepsRefl        = MkLeg M.StepsRefl rel
-simSteps sc rel (M.StepsCons s ss) = case sim sc rel s of
-  MkLeg s' rel1 -> case simSteps sc rel1 ss of
+{-# LINE 612 "content/part2/Bisimulation.md" #-}
+-- | Unconditional multi-step forward simulation (`—↠`).
+simSteps :: SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
+simSteps rel M.StepsRefl        = MkLeg M.StepsRefl rel
+simSteps rel (M.StepsCons s ss) = case sim rel s of
+  MkLeg s' rel1 -> case simSteps rel1 ss of
     MkLeg ss' rel2 -> MkLeg (M.StepsCons s' ss') rel2
 
--- | Multi-step backward simulation (`—↠`).
-simStepsInv :: SubstCompat -> SimRel m m' -> M.Steps m' n' -> LegInv M.Steps m n'
-simStepsInv _  rel M.StepsRefl        = MkLegInv M.StepsRefl rel
-simStepsInv sc rel (M.StepsCons s ss) = case simInv sc rel s of
-  MkLegInv s' rel1 -> case simStepsInv sc rel1 ss of
+-- | Unconditional multi-step backward simulation (`—↠`).
+simStepsInv :: SimRel m m' -> M.Steps m' n' -> LegInv M.Steps m n'
+simStepsInv rel M.StepsRefl        = MkLegInv M.StepsRefl rel
+simStepsInv rel (M.StepsCons s ss) = case simInv rel s of
+  MkLegInv s' rel1 -> case simStepsInv rel1 ss of
     MkLegInv ss' rel2 -> MkLegInv (M.StepsCons s' ss') rel2
 
--- | Concrete closed lock-step bisimulation witnesses (zero assumptions!):
+-- | Concrete closed lock-step bisimulation witnesses (computed by `simSteps` / `simStepsInv`!):
 -- `let x = fst (0, 1) in suc x` simulates `(λx. suc x) (fst (0, 1))`
 -- through both `XiLet` ↔ `XiApp2 VLam` and `BetaLet` ↔ `BetaLam`!
 letDesugarSim
   :: SimRel @M.CEmpty @M.TNat
             (M.Let (M.Fst (M.Pair M.Zero (M.Suc M.Zero))) (M.Suc (M.Var M.Z)))
             (M.App (M.Lam (M.Suc (M.Var M.Z))) (M.Fst (M.Pair M.Zero (M.Suc M.Zero))))
-letDesugarSim = SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero))) (SimSuc SimVar)
+letDesugarSim =
+  SimLetApp (SimFst (SimPair SimZero (SimSuc SimZero)))
+            (SimSuc (SimVar (M.Z :: M.Lookup (M.CExt M.CEmpty M.TNat) M.TNat)))
 
 letDesugarSteps
   :: Leg @M.CEmpty @M.TNat M.Steps
          (M.App (M.Lam (M.Suc (M.Var M.Z))) (M.Fst (M.Pair M.Zero (M.Suc M.Zero))))
          (M.Suc M.Zero)
 letDesugarSteps =
-  MkLeg
-    (M.StepsCons (M.XiApp2 M.VLam (M.BetaFst M.VZero (M.VSuc M.VZero)))
-      (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl))
-    (SimSuc SimZero)
+  simSteps letDesugarSim
+    (M.StepsCons (M.XiLet (M.BetaFst M.VZero (M.VSuc M.VZero)))
+      (M.StepsCons (M.BetaLet M.VZero) M.StepsRefl))
 
 letDesugarStepsInv
   :: LegInv @M.CEmpty @M.TNat M.Steps
             (M.Let (M.Fst (M.Pair M.Zero (M.Suc M.Zero))) (M.Suc (M.Var M.Z)))
             (M.Suc M.Zero)
 letDesugarStepsInv =
-  MkLegInv
-    (M.StepsCons (M.XiLet (M.BetaFst M.VZero (M.VSuc M.VZero)))
-      (M.StepsCons (M.BetaLet M.VZero) M.StepsRefl))
-    (SimSuc SimZero)
+  simStepsInv letDesugarSim
+    (M.StepsCons (M.XiApp2 M.VLam (M.BetaFst M.VZero (M.VSuc M.VZero)))
+      (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl))

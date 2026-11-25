@@ -219,7 +219,7 @@ foldrTimesAppend (x : xs) ys =
   trans (cong (times x) (foldrTimesAppend xs ys))
         (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
 
-{-# LINE 355 "content/part1/Lists.md" #-}
+{-# LINE 354 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -238,7 +238,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 383 "content/part1/Lists.md" #-}
+{-# LINE 382 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -282,7 +282,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 434 "content/part1/Lists.md" #-}
+{-# LINE 433 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -309,7 +309,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 470 "content/part1/Lists.md" #-}
+{-# LINE 469 "content/part1/Lists.md" #-}
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
@@ -339,7 +339,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 520 "content/part1/Lists.md" #-}
+{-# LINE 519 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.

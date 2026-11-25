@@ -1,22 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
--- | Minimal reproducer (Serokell R13 / R16, Proposal #378):
--- Blocks proving PLFA Part 2 `PLFH.Part2.Substitution` (σ-calculus identities
--- and Barendregt's Substitution Lemma over `Untyped.renameU` / `Untyped.substU`,
--- using constructive pointwise equality `foreach (x :: Fin m) -> ...` with
--- zero function extensionality needed!).
---
--- Root cause (`GHC.Tc.Gen.SourceClosure`):
--- `publishWeakening`, `publishLookupExtension`, and `publishClosureTraversal`
--- hardcode 2-index `(Ctx, Ty)` rank-2 GADTs (`Lookup g a` / `Term g a`, as in
--- `PLFH.Part2.More` -> `PLFH.Part2.Bisimulation`). For 1-index `Nat`-scoped
--- rank-1 `Fin n` / `UTerm n` (`PLFH.Part2.Untyped`), `SourceClosure` publishes
--- open checked equations ONLY for the closed `substSingleU` closure, and NONE
--- for `shiftFin`, `extU`, `renameU`, `extsU`, or `substU`!
---
--- Expected behavior: `subApp = Refl` and `congExts` check directly against
--- `ReproOpsUntypedSubst`'s open checked equations for `substU`/`extsU`/`renameU`/`shiftFin`.
--- Actual behavior on Wave 4 Track A (`c5dbff62fb`): fails with `GHC-70566` on
--- `U.substU s (U.UApp l r)` and `GHC-68947` on `U.shiftFin`.
+-- | Minimal reproducer (Serokell R03 / R16, Proposal #378):
+-- Wave 5+6 (`91a63517fc`) certified 1-index `Fin n` / `UTerm n` open equations
+-- (`subApp` below passes at `-O0` and `-O2`, unblocking `PLFH.Part2.Substitution`).
+-- Remaining gap on lines 42-43 (`congExts _ U.FZ = Refl`): matching a retained
+-- constructor pattern directly on a function LHS after an earlier non-retained
+-- function wildcard fails with `GHC-83605` (whereas `congExts eq y = case y of ...`
+-- checks cleanly). Tracked for Wave 7A (`elabGeneralRetainedMatrix`).
 module R16_UntypedSubstOpenEq (SubstFn, subApp, congExts) where
 
 import Data.Type.Equality ((:~:) (Refl))

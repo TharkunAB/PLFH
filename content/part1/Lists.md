@@ -324,17 +324,16 @@ foldrTimesAppend (x : xs) ys =
         (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
 ```
 
-<div class="wip-notice">
-<strong>[WIP NOTICE — Default <code>-O2</code> list rewrite rules]</strong>
-This module disables list-fusion rewrite rules via
-<code>-fno-enable-rewrite-rules</code>. With rewrite rules enabled at default
-<code>-O2</code>, GHC guards <code>mapAppend</code> and
-<code>shuntAppend</code> against Prelude <code>(++)</code>/<code>map</code>
-fusion rewrite rules (see
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs"><code>reproducers/R03_FunctionColumnSplit.hs</code></a>
-and
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_ShuntAccumOpenEq.hs"><code>reproducers/R13_ShuntAccumOpenEq.hs</code></a>).
-</div>
+> **Why `-fno-enable-rewrite-rules` at `-O2`?**
+> Spine-strict accumulator proofs like `shuntAppend` check at default `-O2`,
+> whereas `mapAppend` disables Prelude list-fusion rewrite rules via
+> `-fno-enable-rewrite-rules`. This is a **deliberate soundness guard**, not a
+> compiler bug: stock `-O2` `build`/`augment`/`map` fusion can alter strictness
+> (for example, `null (map not (build producer ++ error "ys"))` forces `ys`
+> under fusion while `null (map not (build producer) ++ map not (error "ys"))`
+> returns `False`), so GHC refuses to certify `mapAppend` when list-fusion
+> rules are active at `-O2` (recorded in
+> [`reproducers/R03_FunctionColumnSplit.hs`](https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs)).
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
 
@@ -615,6 +614,5 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
   `HaskLib.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
   `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
   `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
-- Marked default `-O2` Prelude `(++)`/`map` list-fusion rewrite-rule guards
-  (`R03_FunctionColumnSplit.hs`, `R13_ShuntAccumOpenEq.hs`) with `[WIP NOTICE]`
-  and minimal reproducers.
+- Documented GHC's intentional `-O2` list-fusion soundness guard on `mapAppend`
+  (`-fno-enable-rewrite-rules`; `reproducers/R03_FunctionColumnSplit.hs`).

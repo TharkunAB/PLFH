@@ -43,6 +43,8 @@ module PLFH.Part2.More
   , rename
   , exts
   , subst
+  , singleSubst
+  , doubleSubst
   , substSingle
   , substDouble
   , Value (..)
@@ -195,11 +197,21 @@ subst _ Nil              = Nil
 subst s (Cons x xs)      = Cons (subst s x) (subst s xs)
 subst s (CaseLst xs n c) = CaseLst (subst s xs) (subst s n) (subst (exts (exts s)) c)
 
+singleSubst :: forall g a. Term g a -> (forall b. Lookup (CExt g a) b -> Term g b)
+singleSubst w Z     = w
+singleSubst _ (S x) = Var x
+
+doubleSubst :: forall g a b. Term g a -> Term g b
+            -> (forall c. Lookup (CExt (CExt g a) b) c -> Term g c)
+doubleSubst _ w Z         = w
+doubleSubst v _ (S Z)     = v
+doubleSubst _ _ (S (S x)) = Var x
+
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
-substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
+substSingle n w = subst (singleSubst w) n
 
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
-substDouble n v w = subst (\case { Z -> w; S Z -> v; S (S x) -> Var x }) n
+substDouble n v w = subst (doubleSubst v w) n
 ```
 
 ## Values and example programs

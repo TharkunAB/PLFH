@@ -26,14 +26,18 @@ module PLFH.Part2.DeBruijn
   , Progress (..)
   , progress
   , appProgress
+  , Gas (..)
+  , Finished (..)
+  , eval
   , betaIdStep
   , betaCaptureAvoid
   , betaShiftUnderLam
   ) where
 
 import Data.Kind (Type)
+import qualified HaskLib.Nat as N
 
-{-# LINE 88 "content/part2/DeBruijn.md" #-}
+{-# LINE 92 "content/part2/DeBruijn.md" #-}
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
   deriving (Show)
@@ -46,7 +50,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
   Z :: Lookup (CExt g a) a
   S :: Lookup g a -> Lookup (CExt g b) a
 
-{-# LINE 108 "content/part2/DeBruijn.md" #-}
+{-# LINE 112 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
 data Term (g :: Ctx) (a :: Ty) where
   Var  :: Lookup g a -> Term g a
@@ -80,7 +84,7 @@ mulTerm =
       (App (App plusTerm (Var (S Z)))
            (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
 
-{-# LINE 175 "content/part2/DeBruijn.md" #-}
+{-# LINE 179 "content/part2/DeBruijn.md" #-}
 -- | Extend a variable renaming under a binder.
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
@@ -117,7 +121,7 @@ subst sigma (Mu n)       = Mu (subst (exts sigma) n)
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-{-# LINE 224 "content/part2/DeBruijn.md" #-}
+{-# LINE 228 "content/part2/DeBruijn.md" #-}
 -- | Values indexed by promoted intrinsically-typed terms!
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -147,7 +151,7 @@ checkValue (Suc n)      = case checkValue n of
 checkValue (Case _ _ _) = NotVal
 checkValue (Mu _)       = NotVal
 
-{-# LINE 284 "content/part2/DeBruijn.md" #-}
+{-# LINE 276 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically type-preserving call-by-value reduction (`M —→ N`).
 -- Preservation holds automatically by the kind of `Step`!
 type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
@@ -172,10 +176,11 @@ data Steps m n where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
 
--- | Intrinsically-typed progress witness for closed terms.
+-- | Intrinsically-typed progress witness for closed terms, carrying the
+-- next term `n` as a retained `foreach` field for executable `eval`.
 type Progress :: forall (a :: Ty). Term CEmpty a -> Type
 data Progress m where
-  PStep :: Step m n -> Progress m
+  PStep :: foreach (n :: Term CEmpty a) -> Step m n -> Progress m
   PDone :: Value m -> Progress m
 
 -- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
@@ -185,18 +190,23 @@ progress t = case t of
   Var x -> case x of {}
   Lam _ -> PDone VLam
   App l m -> case progress l of
-    PStep s -> appLeft s
+    PStep l' s -> PStep (App l' m) (XiApp1 s)
     PDone v -> case progress m of
-      PStep s -> appRight v s
-      PDone w -> appBeta v w
+      PStep m' s -> PStep (App l m') (XiApp2 v s)
+      PDone w -> appBeta l m v w
   Zero -> PDone VZero
   Suc n -> case progress n of
-    PStep s -> sucStep s
+    PStep n' s -> sucStep @n n' s
     PDone v -> PDone (VSuc v)
   Case l m n -> case progress l of
-    PStep s -> caseStep @a @l @_ @m @n s
-    PDone v -> caseBeta @a @l @m @n v
-  Mu n -> muStep @a @n
+    PStep l' s -> PStep (Case l' m n) (XiCase s)
+    PDone v -> caseBeta @a l m n v
+  Mu n -> muStep @a n
+
+sucStep :: forall (n :: Term CEmpty TNat).
+           foreach (n' :: Term CEmpty TNat)
+        -> Step n n' -> Progress (Suc n)
+sucStep n' s = PStep (Suc n') (XiSuc s)
 
 -- | Application case factored out as a standalone helper given subterm progress.
 appProgress
@@ -205,43 +215,69 @@ appProgress
   -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
 appProgress recProg t = case t of
   App l m -> case recProg l of
-    PStep s -> Just (appLeft s)
+    PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
     PDone v -> case recProg m of
-      PStep s -> Just (appRight v s)
-      PDone w -> Just (appBeta v w)
+      PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
+      PDone w -> Just (appBeta l m v w)
   _ -> Nothing
 
-appLeft :: forall a b (l :: Term CEmpty (TArr a b))
-                      (l' :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
-           Step l l' -> Progress (App l m)
-appLeft s = PStep (XiApp1 s)
+betaStep :: forall a b.
+            foreach (body :: Term (CExt CEmpty a) b) -> foreach (m :: Term CEmpty a)
+         -> Value m -> Progress (App (Lam body) m)
+betaStep body m w = PStep (substSingle body m) (BetaLam w)
 
-appRight :: forall a b (l :: Term CEmpty (TArr a b))
-                       (m :: Term CEmpty a) (m' :: Term CEmpty a).
-            Value l -> Step m m' -> Progress (App l m)
-appRight v s = PStep (XiApp2 v s)
+appBeta :: forall a b.
+           foreach (l :: Term CEmpty (TArr a b)) -> foreach (m :: Term CEmpty a)
+        -> Value l -> Value m -> Progress (App l m)
+appBeta l = case l of
+  Lam body   -> \m _ w -> betaStep body m w
+  Var x      -> \_ _ _ -> case x of {}
+  App _ _    -> \_ v _ -> case v of {}
+  Case _ _ _ -> \_ v _ -> case v of {}
+  Mu _       -> \_ v _ -> case v of {}
 
-appBeta :: forall a b (l :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
-           Value l -> Value m -> Progress (App l m)
-appBeta (VLam @n) w = PStep (BetaLam @CEmpty @a @b @n @m w)
+caseBetaSuc :: forall a.
+               foreach (p :: Term CEmpty TNat)
+            -> foreach (n :: Term (CExt CEmpty TNat) a)
+            -> forall (m :: Term CEmpty a). Value p -> Progress (Case (Suc p) m n)
+caseBetaSuc p n w = PStep (substSingle n p) (BetaSuc w)
 
-sucStep :: forall (n :: Term CEmpty TNat) (n' :: Term CEmpty TNat).
-           Step n n' -> Progress (Suc n)
-sucStep s = PStep (XiSuc s)
+caseBeta :: forall a.
+            foreach (l :: Term CEmpty TNat)
+         -> foreach (m :: Term CEmpty a)
+         -> foreach (n :: Term (CExt CEmpty TNat) a)
+         -> Value l -> Progress (Case l m n)
+caseBeta l = case l of
+  Zero       -> \m _ _ -> PStep m BetaZero
+  Suc p      -> \_ n v -> case v of { VSuc w -> caseBetaSuc p n w }
+  Var x      -> \_ _ _ -> case x of {}
+  App _ _    -> \_ _ v -> case v of {}
+  Case _ _ _ -> \_ _ v -> case v of {}
+  Mu _       -> \_ _ v -> case v of {}
 
-caseStep :: forall a (l :: Term CEmpty TNat) (l' :: Term CEmpty TNat)
-                     (m :: Term CEmpty a) (n :: Term (CExt CEmpty TNat) a).
-            Step l l' -> Progress (Case l m n)
-caseStep s = PStep (XiCase s)
+muStep :: forall a. foreach (n :: Term (CExt CEmpty a) a) -> Progress (Mu n)
+muStep n = PStep (substSingle n (Mu n)) BetaMu
 
-caseBeta :: forall a (l :: Term CEmpty TNat) (m :: Term CEmpty a)
-                     (n :: Term (CExt CEmpty TNat) a).
-            Value l -> Progress (Case l m n)
-caseBeta VZero       = PStep (BetaZero @CEmpty @a @m @n)
-caseBeta (VSuc @v w) = PStep (BetaSuc @CEmpty @a @m @n @v w)
+-- | Fuel bound for gas-bounded intrinsically-typed evaluation (`Gas`).
+newtype Gas = MkGas N.Nat
 
-muStep :: forall a (n :: Term (CExt CEmpty a) a). Progress (Mu n)
-muStep = PStep (BetaMu @CEmpty @a @n)
+-- | Evaluation outcome for a closed term `m`, pairing the final term `n`
+-- with its machine-checked reduction trace `Steps m n`.
+type Finished :: forall (a :: Ty). Term CEmpty a -> Type
+data Finished m where
+  Done     :: foreach (n :: Term CEmpty a) -> Steps m n -> Value n -> Finished m
+  OutOfGas :: foreach (n :: Term CEmpty a) -> Steps m n -> Finished m
+
+-- | PLFA's 6-line intrinsically-typed evaluator (`eval`):
+-- steps any closed term up to the fuel bound while certifying type preservation!
+eval :: forall (a :: Ty). Gas -> foreach (m :: Term CEmpty a) -> Finished m
+eval gas m = case gas of
+  MkGas N.Zero     -> OutOfGas m StepsRefl
+  MkGas (N.Succ g) -> case progress m of
+    PDone v   -> Done m StepsRefl v
+    PStep n s -> case eval (MkGas g) n of
+      Done     vTerm ss v -> Done     vTerm (StepsCons s ss) v
+      OutOfGas kTerm ss   -> OutOfGas kTerm (StepsCons s ss)
 
 -- | Concrete β-reduction: (λ. 0) 0 —→ 0.
 betaIdStep :: Step (App (Lam (Var Z)) Zero) Zero

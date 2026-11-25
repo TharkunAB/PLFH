@@ -60,12 +60,16 @@ module PLFH.Part2.DeBruijn
   , Progress (..)
   , progress
   , appProgress
+  , Gas (..)
+  , Finished (..)
+  , eval
   , betaIdStep
   , betaCaptureAvoid
   , betaShiftUnderLam
   ) where
 
 import Data.Kind (Type)
+import qualified HaskLib.Nat as N
 ```
 
 ## Types, nameless contexts, and de Bruijn lookups
@@ -261,24 +265,12 @@ two terms of the *exact same* type `a` in the *exact same* context `g`.
 With `-XDependentTypes`, all eight intrinsically-typed reduction rules
 (`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
 `BetaMu`) use our ordinary functional `substSingle` directly in this module,
-and **`progress`** proves unconditionally across all seven term constructors
-that every closed well-typed term is either a value or takes a type-preserving
-step!
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Intrinsically-typed gas-bounded <code>eval</code>]</strong>
-PLFA's 6-line gas-bounded evaluator <code>eval</code> upgrades
-<code>PStep</code> to carry a retained <code>foreach (n :: Term CEmpty a)</code>
-target alongside <code>Step m n</code>. Constructing
-<code>PStep (substSingle body m) (BetaLam w)</code> after matching
-<code>l :: Term CEmpty (TArr a b)</code> against <code>Lam body</code> requires
-casting <code>m</code> by the GADT equality coercion
-<code>TArr a b ~ TArr a' b'</code>: GHC's typechecker rejects that cast inside
-a retained source call (<code>GHC-83605</code>), and factoring it through a
-helper causes Desugar inlining to fail Core Lint
-(<code>Unsupported retained runtime argument</code>). Tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R03_RetainedSourceCallGadtCastCoreLint.hs"><code>R03_RetainedSourceCallGadtCastCoreLint.hs</code></a>.
-</div>
+**`progress`** proves unconditionally across all seven term constructors that
+every closed well-typed term is either a value or takes a type-preserving step
+(carrying the next term `n` as a retained `foreach` field in `PStep`), and
+PLFA's 6-line **`eval`** runs any closed term up to a fuel bound `Gas`,
+returning a machine-checked reduction trace `Steps m n` alongside the final
+value!
 
 ```haskell
 -- | Intrinsically type-preserving call-by-value reduction (`M —→ N`).
@@ -305,10 +297,11 @@ data Steps m n where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
 
--- | Intrinsically-typed progress witness for closed terms.
+-- | Intrinsically-typed progress witness for closed terms, carrying the
+-- next term `n` as a retained `foreach` field for executable `eval`.
 type Progress :: forall (a :: Ty). Term CEmpty a -> Type
 data Progress m where
-  PStep :: Step m n -> Progress m
+  PStep :: foreach (n :: Term CEmpty a) -> Step m n -> Progress m
   PDone :: Value m -> Progress m
 
 -- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
@@ -318,18 +311,23 @@ progress t = case t of
   Var x -> case x of {}
   Lam _ -> PDone VLam
   App l m -> case progress l of
-    PStep s -> appLeft s
+    PStep l' s -> PStep (App l' m) (XiApp1 s)
     PDone v -> case progress m of
-      PStep s -> appRight v s
-      PDone w -> appBeta v w
+      PStep m' s -> PStep (App l m') (XiApp2 v s)
+      PDone w -> appBeta l m v w
   Zero -> PDone VZero
   Suc n -> case progress n of
-    PStep s -> sucStep s
+    PStep n' s -> sucStep @n n' s
     PDone v -> PDone (VSuc v)
   Case l m n -> case progress l of
-    PStep s -> caseStep @a @l @_ @m @n s
-    PDone v -> caseBeta @a @l @m @n v
-  Mu n -> muStep @a @n
+    PStep l' s -> PStep (Case l' m n) (XiCase s)
+    PDone v -> caseBeta @a l m n v
+  Mu n -> muStep @a n
+
+sucStep :: forall (n :: Term CEmpty TNat).
+           foreach (n' :: Term CEmpty TNat)
+        -> Step n n' -> Progress (Suc n)
+sucStep n' s = PStep (Suc n') (XiSuc s)
 
 -- | Application case factored out as a standalone helper given subterm progress.
 appProgress
@@ -338,43 +336,69 @@ appProgress
   -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
 appProgress recProg t = case t of
   App l m -> case recProg l of
-    PStep s -> Just (appLeft s)
+    PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
     PDone v -> case recProg m of
-      PStep s -> Just (appRight v s)
-      PDone w -> Just (appBeta v w)
+      PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
+      PDone w -> Just (appBeta l m v w)
   _ -> Nothing
 
-appLeft :: forall a b (l :: Term CEmpty (TArr a b))
-                      (l' :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
-           Step l l' -> Progress (App l m)
-appLeft s = PStep (XiApp1 s)
+betaStep :: forall a b.
+            foreach (body :: Term (CExt CEmpty a) b) -> foreach (m :: Term CEmpty a)
+         -> Value m -> Progress (App (Lam body) m)
+betaStep body m w = PStep (substSingle body m) (BetaLam w)
 
-appRight :: forall a b (l :: Term CEmpty (TArr a b))
-                       (m :: Term CEmpty a) (m' :: Term CEmpty a).
-            Value l -> Step m m' -> Progress (App l m)
-appRight v s = PStep (XiApp2 v s)
+appBeta :: forall a b.
+           foreach (l :: Term CEmpty (TArr a b)) -> foreach (m :: Term CEmpty a)
+        -> Value l -> Value m -> Progress (App l m)
+appBeta l = case l of
+  Lam body   -> \m _ w -> betaStep body m w
+  Var x      -> \_ _ _ -> case x of {}
+  App _ _    -> \_ v _ -> case v of {}
+  Case _ _ _ -> \_ v _ -> case v of {}
+  Mu _       -> \_ v _ -> case v of {}
 
-appBeta :: forall a b (l :: Term CEmpty (TArr a b)) (m :: Term CEmpty a).
-           Value l -> Value m -> Progress (App l m)
-appBeta (VLam @n) w = PStep (BetaLam @CEmpty @a @b @n @m w)
+caseBetaSuc :: forall a.
+               foreach (p :: Term CEmpty TNat)
+            -> foreach (n :: Term (CExt CEmpty TNat) a)
+            -> forall (m :: Term CEmpty a). Value p -> Progress (Case (Suc p) m n)
+caseBetaSuc p n w = PStep (substSingle n p) (BetaSuc w)
 
-sucStep :: forall (n :: Term CEmpty TNat) (n' :: Term CEmpty TNat).
-           Step n n' -> Progress (Suc n)
-sucStep s = PStep (XiSuc s)
+caseBeta :: forall a.
+            foreach (l :: Term CEmpty TNat)
+         -> foreach (m :: Term CEmpty a)
+         -> foreach (n :: Term (CExt CEmpty TNat) a)
+         -> Value l -> Progress (Case l m n)
+caseBeta l = case l of
+  Zero       -> \m _ _ -> PStep m BetaZero
+  Suc p      -> \_ n v -> case v of { VSuc w -> caseBetaSuc p n w }
+  Var x      -> \_ _ _ -> case x of {}
+  App _ _    -> \_ _ v -> case v of {}
+  Case _ _ _ -> \_ _ v -> case v of {}
+  Mu _       -> \_ _ v -> case v of {}
 
-caseStep :: forall a (l :: Term CEmpty TNat) (l' :: Term CEmpty TNat)
-                     (m :: Term CEmpty a) (n :: Term (CExt CEmpty TNat) a).
-            Step l l' -> Progress (Case l m n)
-caseStep s = PStep (XiCase s)
+muStep :: forall a. foreach (n :: Term (CExt CEmpty a) a) -> Progress (Mu n)
+muStep n = PStep (substSingle n (Mu n)) BetaMu
 
-caseBeta :: forall a (l :: Term CEmpty TNat) (m :: Term CEmpty a)
-                     (n :: Term (CExt CEmpty TNat) a).
-            Value l -> Progress (Case l m n)
-caseBeta VZero       = PStep (BetaZero @CEmpty @a @m @n)
-caseBeta (VSuc @v w) = PStep (BetaSuc @CEmpty @a @m @n @v w)
+-- | Fuel bound for gas-bounded intrinsically-typed evaluation (`Gas`).
+newtype Gas = MkGas N.Nat
 
-muStep :: forall a (n :: Term (CExt CEmpty a) a). Progress (Mu n)
-muStep = PStep (BetaMu @CEmpty @a @n)
+-- | Evaluation outcome for a closed term `m`, pairing the final term `n`
+-- with its machine-checked reduction trace `Steps m n`.
+type Finished :: forall (a :: Ty). Term CEmpty a -> Type
+data Finished m where
+  Done     :: foreach (n :: Term CEmpty a) -> Steps m n -> Value n -> Finished m
+  OutOfGas :: foreach (n :: Term CEmpty a) -> Steps m n -> Finished m
+
+-- | PLFA's 6-line intrinsically-typed evaluator (`eval`):
+-- steps any closed term up to the fuel bound while certifying type preservation!
+eval :: forall (a :: Ty). Gas -> foreach (m :: Term CEmpty a) -> Finished m
+eval gas m = case gas of
+  MkGas N.Zero     -> OutOfGas m StepsRefl
+  MkGas (N.Succ g) -> case progress m of
+    PDone v   -> Done m StepsRefl v
+    PStep n s -> case eval (MkGas g) n of
+      Done     vTerm ss v -> Done     vTerm (StepsCons s ss) v
+      OutOfGas kTerm ss   -> OutOfGas kTerm (StepsCons s ss)
 
 -- | Concrete β-reduction: (λ. 0) 0 —→ 0.
 betaIdStep :: Step (App (Lam (Var Z)) Zero) Zero
@@ -448,9 +472,9 @@ in context `CExt CEmpty TNat`?
   soundness audit.
 - All eight intrinsically-typed `Step` rules (using real functional
   `substSingle` directly in the same module), concrete capture-avoiding beta
-  witnesses (guarded by negative control `NegDeBruijnBadCapture`), and complete
-  unconditional `progress` across all 7 term constructors all compile inline in
-  `PLFH.Part2.DeBruijn` with `-Werror=incomplete-patterns` and
-  `-dcore-lint -dstg-lint`. PLFA's 6-line intrinsic `eval` (requiring a
-  retained `foreach` target inside `PStep`) is tracked in
-  `reproducers/R03_RetainedSourceCallGadtCastCoreLint.hs`.
+  witnesses (guarded by negative control `NegDeBruijnBadCapture`), complete
+  unconditional `progress` across all 7 term constructors (carrying retained
+  `foreach n` inside `PStep`), and PLFA's 6-line intrinsically-typed evaluator
+  `eval` (`Gas`, `Finished`) all compile inline in `PLFH.Part2.DeBruijn` with
+  `-Werror=incomplete-patterns`, `-dcore-lint -dstg-lint`, and zero
+  `[WIP NOTICE]` boxes.
