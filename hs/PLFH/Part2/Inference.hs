@@ -53,18 +53,16 @@ data RawTerm
 {-# LINE 118 "content/part2/Inference.md" #-}
 -- | Decidable equality on simple types `Ty`.
 decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
-decEqTy TNat b = case b of
-  TNat     -> Right Refl
-  TArr _ _ -> Left (\case {})
-decEqTy (TArr a1 a2) b = case b of
-  TNat       -> Left (\case {})
-  TArr b1 b2 -> case decEqTy a1 b1 of
+decEqTy TNat         TNat         = Right Refl
+decEqTy TNat         (TArr _ _)   = Left (\case {})
+decEqTy (TArr _ _)   TNat         = Left (\case {})
+decEqTy (TArr a1 a2) (TArr b1 b2) = case decEqTy a1 b1 of
+  Left neq   -> Left (\Refl -> neq Refl)
+  Right Refl -> case decEqTy a2 b2 of
     Left neq   -> Left (\Refl -> neq Refl)
-    Right Refl -> case decEqTy a2 b2 of
-      Left neq   -> Left (\Refl -> neq Refl)
-      Right Refl -> Right Refl
+    Right Refl -> Right Refl
 
-{-# LINE 145 "content/part2/Inference.md" #-}
+{-# LINE 143 "content/part2/Inference.md" #-}
 -- | An inferred runtime type paired with its intrinsically typed term.
 data Typed (g :: Ctx) where
   MkTyped :: foreach (a :: Ty) -> Term g a -> Typed g
@@ -81,7 +79,7 @@ lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 
-{-# LINE 182 "content/part2/Inference.md" #-}
+{-# LINE 180 "content/part2/Inference.md" #-}
 -- | Certified type inference: given a runtime context `g` and raw term,
 -- infer a runtime type `a` and construct an intrinsically-typed `Term g a`.
 infer :: foreach (g :: Ctx) -> RawTerm -> Maybe (Typed g)
@@ -139,7 +137,7 @@ rawIdNat = RLam TNat (RVar N.Zero)
 rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
 
-{-# LINE 274 "content/part2/Inference.md" #-}
+{-# LINE 272 "content/part2/Inference.md" #-}
 -- | Bidirectional raw syntax: synthesizable (`Term⁺`) and inheritable (`Term⁻`).
 data TermPos
   = PVar N.Nat

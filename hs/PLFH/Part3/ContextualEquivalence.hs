@@ -1,7 +1,7 @@
 -- Generated from content/part3/ContextualEquivalence.md by scripts/extract_and_sync.py
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
-{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 {-# LINE 42 "content/part3/ContextualEquivalence.md" #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
@@ -68,16 +68,15 @@ denotEqualCtxBigStep
   -> Terminates (C.plug c m)
   -> HaltsBig ENil (C.plug c n)
 denotEqualCtxBigStep c eqM =
-  denotEqualClosedBigStep @(C.plug c m) @(C.plug c n)
-    (compositionality @k @Zero @m @n c eqM)
+  denotEqualClosedBigStep (compositionality c eqM)
 
 -- | Plugging a witnessed term into a retained context yields a witnessed term.
 plugTermW :: forall (m n :: Nat) (t :: UTerm m).
              foreach (c :: UCtx m n) -> TermW t -> TermW (C.plug c t)
-plugTermW CHole       = \wt -> wt
-plugTermW (CLam c)    = \wt -> WLam (plugTermW @m @(Succ n) @t c wt)
-plugTermW (CAppL c r) = \wt -> WApp (plugTermW @m @n @t c wt) (mkTermW r)
-plugTermW (CAppR l c) = \wt -> WApp (mkTermW l) (plugTermW @m @n @t c wt)
+plugTermW CHole       wt = wt
+plugTermW (CLam c)    wt = WLam (plugTermW c wt)
+plugTermW (CAppL c r) wt = WApp (plugTermW c wt) (mkTermW r)
+plugTermW (CAppR l c) wt = WApp (mkTermW l) (plugTermW c wt)
 
 -- | Unconditional Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
 -- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`!
@@ -88,11 +87,11 @@ denotEqualCtxEquivW
   -> CtxEquiv m n
 denotEqualCtxEquivW wm wn eqM c =
   let stepFwd :: Terminates (C.plug c m) -> Terminates (C.plug c n)
-      stepFwd tm = case cbnToReduceW (plugTermW @k @Zero @n c wn)
-                          (denotEqualCtxBigStep @k @m @n c eqM tm) of
+      stepFwd tm = case cbnToReduceW (plugTermW c wn)
+                          (denotEqualCtxBigStep c eqM tm) of
         MkCbnTerminates steps -> MkTerminates steps
       stepBwd :: Terminates (C.plug c n) -> Terminates (C.plug c m)
-      stepBwd tn = case cbnToReduceW (plugTermW @k @Zero @m c wm)
+      stepBwd tn = case cbnToReduceW (plugTermW c wm)
                           (denotEqualCtxBigStep @k @n @m c (denEqSym eqM) tn) of
         MkCbnTerminates steps -> MkTerminates steps
   in (stepFwd, stepBwd)
@@ -113,7 +112,7 @@ betaCtxBigStep
   -> BetaSteps m n
   -> Terminates (C.plug c m)
   -> HaltsBig ENil (C.plug c n)
-betaCtxBigStep c steps = denotEqualCtxBigStep @k @m @n c (denotEquivSteps steps)
+betaCtxBigStep c steps = denotEqualCtxBigStep c (denotEquivSteps steps)
 
 -- | Unconditional Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
 -- terms are contextually equivalent across all closing contexts `UCtx k Zero`!
@@ -127,4 +126,4 @@ betaCtxEquiv
      foreach (m n :: UTerm k)
   -> BetaSteps m n
   -> CtxEquiv m n
-betaCtxEquiv m n steps = betaCtxEquivW @k @m @n (mkTermW m) (mkTermW n) steps
+betaCtxEquiv m n steps = betaCtxEquivW (mkTermW m) (mkTermW n) steps

@@ -307,22 +307,21 @@ data Progress m where
 -- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
 -- every closed well-typed term is either a value or takes a type-preserving step!
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
-progress t = case t of
-  Var x -> case x of {}
-  Lam _ -> PDone VLam
-  App l m -> case progress l of
-    PStep l' s -> PStep (App l' m) (XiApp1 s)
-    PDone v -> case progress m of
-      PStep m' s -> PStep (App l m') (XiApp2 v s)
-      PDone w -> appBeta l m v w
-  Zero -> PDone VZero
-  Suc n -> case progress n of
-    PStep n' s -> sucStep @n n' s
-    PDone v -> PDone (VSuc v)
-  Case l m n -> case progress l of
-    PStep l' s -> PStep (Case l' m n) (XiCase s)
-    PDone v -> caseBeta @a l m n v
-  Mu n -> muStep @a n
+progress (Var x)      = case x of {}
+progress (Lam _)      = PDone VLam
+progress (App l m)    = case progress l of
+  PStep l' s -> PStep (App l' m) (XiApp1 s)
+  PDone v    -> case progress m of
+    PStep m' s -> PStep (App l m') (XiApp2 v s)
+    PDone w    -> appBeta l m v w
+progress Zero         = PDone VZero
+progress (Suc n)      = case progress n of
+  PStep n' s -> sucStep @n n' s
+  PDone v    -> PDone (VSuc v)
+progress (Case l m n) = case progress l of
+  PStep l' s -> PStep (Case l' m n) (XiCase s)
+  PDone v    -> caseBeta l m n v
+progress (Mu n)       = PStep (substSingle n (Mu n)) BetaMu
 
 sucStep :: forall (n :: Term CEmpty TNat).
            foreach (n' :: Term CEmpty TNat)
@@ -334,13 +333,12 @@ appProgress
   :: forall (a :: Ty).
      (forall (b :: Ty). foreach (m :: Term CEmpty b) -> Progress m)
   -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
-appProgress recProg t = case t of
-  App l m -> case recProg l of
-    PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
-    PDone v -> case recProg m of
-      PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
-      PDone w -> Just (appBeta l m v w)
-  _ -> Nothing
+appProgress recProg (App l m) = case recProg l of
+  PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
+  PDone v    -> case recProg m of
+    PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
+    PDone w    -> Just (appBeta l m v w)
+appProgress _ _ = Nothing
 
 betaStep :: forall a b.
             foreach (body :: Term (CExt CEmpty a) b) -> foreach (m :: Term CEmpty a)
@@ -375,9 +373,6 @@ caseBeta l = case l of
   App _ _    -> \_ _ v -> case v of {}
   Case _ _ _ -> \_ _ v -> case v of {}
   Mu _       -> \_ _ v -> case v of {}
-
-muStep :: forall a. foreach (n :: Term (CExt CEmpty a) a) -> Progress (Mu n)
-muStep n = PStep (substSingle n (Mu n)) BetaMu
 
 -- | Fuel bound for gas-bounded intrinsically-typed evaluation (`Gas`).
 newtype Gas = MkGas N.Nat

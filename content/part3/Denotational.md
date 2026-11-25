@@ -306,16 +306,16 @@ arrMemToSubDom :: forall (v :: Value) (w :: Value) (x :: Value).
                   foreach (u :: Value) -> ValMem (Arr v w) u -> ValMem x v -> ValMem x (dom u)
 arrMemToSubDom Bot        m            _ = case m of {}
 arrMemToSubDom (Arr _ _)  MemArr       x = x
-arrMemToSubDom (Join a b) (MemJoinL m) x = MemJoinL @x @(dom a) @(dom b) (arrMemToSubDom @v @w @x a m x)
-arrMemToSubDom (Join a b) (MemJoinR m) x = MemJoinR @x @(dom b) @(dom a) (arrMemToSubDom @v @w @x b m x)
+arrMemToSubDom (Join a _) (MemJoinL m) x = MemJoinL (arrMemToSubDom a m x)
+arrMemToSubDom (Join _ b) (MemJoinR m) x = MemJoinR (arrMemToSubDom b m x)
 
 -- | If `u ⊆ v ↦ w` then `cod u ⊆ w` (`⊆↦→cod⊆`).
 subArrToCodSub :: forall (v :: Value) (w :: Value) (x :: Value).
                   foreach (u :: Value) -> ValSubset u (Arr v w) -> ValMem x (cod u) -> ValMem x w
-subArrToCodSub Bot        s _            = case s @Bot MemBot of {}
+subArrToCodSub Bot        s _            = case s MemBot of {}
 subArrToCodSub (Arr a b)  s x            = case s @(Arr a b) MemArr of { MemArr -> x }
-subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub @v @w @x a (\m -> s (MemJoinL m)) x
-subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub @v @w @x b (\m -> s (MemJoinR m)) y
+subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub a (\m -> s (MemJoinL m)) x
+subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub b (\m -> s (MemJoinR m)) y
 ```
 
 ## Inversion of `Sub` for functions (`subInv` and `arrSubArrInv`)
@@ -349,29 +349,26 @@ allFunsDist (MemJoinR MemArr) = IsFun
 subJoinSelf :: Sub (Join a a) a
 subJoinSelf = SubJoinL SubRefl SubRefl
 
-mkJoinFactor :: forall (u2 :: Value) (d1 :: Value) (c1 :: Value) (d2 :: Value) (c2 :: Value).
-                Factor u2 d1 c1 -> Factor u2 d2 c2 -> Factor u2 (Join d1 d2) (Join c1 c2)
+mkJoinFactor :: Factor u2 d1 c1 -> Factor u2 d2 c2 -> Factor u2 (Join d1 d2) (Join c1 c2)
 mkJoinFactor (MkFactor u31 f1 s1 d1 c1) (MkFactor u32 f2 s2 d2 c2) =
-  MkFactor @u2 @(Join d1 d2) @(Join c1 c2) (Join u31 u32)
+  MkFactor (Join u31 u32)
     (\case { MemJoinL m -> f1 m; MemJoinR m -> f2 m })
     (\case { MemJoinL m -> s1 m; MemJoinR m -> s2 m })
     (joinSubJoin d1 d2)
     (joinSubJoin c1 c2)
 
 mkArrFactor :: foreach (a b :: Value) -> Factor (Arr a b) a b
-mkArrFactor a b = MkFactor @(Arr a b) @a @b (Arr a b) allFunsArr (\z -> z) SubRefl SubRefl
+mkArrFactor a b = MkFactor (Arr a b) allFunsArr id SubRefl SubRefl
 
-mkArrSubFactor :: forall (v :: Value) (w :: Value).
-                  foreach (u21 u22 :: Value)
+mkArrSubFactor :: foreach (u21 u22 :: Value)
                -> Sub u21 v -> Sub w u22 -> Factor (Arr u21 u22) v w
 mkArrSubFactor u21 u22 lt1 lt2 =
-  MkFactor @(Arr u21 u22) @v @w (Arr u21 u22) allFunsArr (\z -> z) lt1 lt2
+  MkFactor (Arr u21 u22) allFunsArr id lt1 lt2
 
 mkDistFactor :: foreach (a b c :: Value)
              -> Factor (Join (Arr a b) (Arr a c)) a (Join b c)
 mkDistFactor a b c =
-  MkFactor @(Join (Arr a b) (Arr a c)) @a @(Join b c) (Join (Arr a b) (Arr a c))
-    allFunsDist (\z -> z) subJoinSelf SubRefl
+  MkFactor (Join (Arr a b) (Arr a c)) allFunsDist id subJoinSelf SubRefl
 
 -- | Transitivity factoring lemma (`sub-inv-trans`).
 subInvTrans :: forall (u :: Value) (u2 :: Value).
@@ -383,9 +380,9 @@ subInvTrans :: forall (u :: Value) (u2 :: Value).
 subInvTrans Bot        fu _    _  = absurd (notFunBot (fu MemBot))
 subInvTrans (Arr _ _)  _  subU ih = ih (subU MemArr)
 subInvTrans (Join a b) fu subU ih =
-  mkJoinFactor @u2 @(dom a) @(cod a) @(dom b) @(cod b)
-    (subInvTrans @u @u2 a (\m -> fu (MemJoinL m)) (\m -> subU (MemJoinL m)) ih)
-    (subInvTrans @u @u2 b (\m -> fu (MemJoinR m)) (\m -> subU (MemJoinR m)) ih)
+  mkJoinFactor
+    (subInvTrans a (\m -> fu (MemJoinL m)) (\m -> subU (MemJoinL m)) ih)
+    (subInvTrans b (\m -> fu (MemJoinR m)) (\m -> subU (MemJoinR m)) ih)
 
 mapFactorL :: forall (a :: Value) (b :: Value) (v :: Value) (w :: Value).
               Factor a v w -> Factor (Join a b) v w
@@ -401,40 +398,6 @@ subInvRefl (Arr a b)  MemArr       = mkArrFactor a b
 subInvRefl (Join a _) (MemJoinL m) = mapFactorL (subInvRefl a m)
 subInvRefl (Join _ b) (MemJoinR m) = mapFactorR (subInvRefl b m)
 
-subInvJoinR1 :: forall (a :: Value) (b :: Value) (u1 :: Value) (v :: Value) (w :: Value).
-                foreach (x :: Value) -> (x :~: Join a b) -> Sub u1 a -> ValMem (Arr v w) u1 -> Factor x v w
-subInvJoinR1 Bot        eq _ _ = case eq of {}
-subInvJoinR1 (Arr _ _)  eq _ _ = case eq of {}
-subInvJoinR1 (Join a _) eq lt1 m = case eq of
-  Refl -> mapFactorL (subInv a lt1 m)
-
-subInvJoinR2 :: forall (a :: Value) (b :: Value) (u1 :: Value) (v :: Value) (w :: Value).
-                foreach (x :: Value) -> (x :~: Join a b) -> Sub u1 b -> ValMem (Arr v w) u1 -> Factor x v w
-subInvJoinR2 Bot        eq _ _ = case eq of {}
-subInvJoinR2 (Arr _ _)  eq _ _ = case eq of {}
-subInvJoinR2 (Join _ b) eq lt2 m = case eq of
-  Refl -> mapFactorR (subInv b lt2 m)
-
-subInvArr :: forall (u21 :: Value) (u22 :: Value) (v :: Value) (w :: Value).
-             foreach (x :: Value) -> (x :~: Arr u21 u22) -> Sub u21 v -> Sub w u22 -> Factor x v w
-subInvArr Bot        eq _   _   = case eq of {}
-subInvArr (Join _ _) eq _   _   = case eq of {}
-subInvArr (Arr a b)  eq lt1 lt2 = case eq of
-  Refl -> mkArrSubFactor @v @w a b lt1 lt2
-
-subInvDist :: forall (a :: Value) (b :: Value) (c :: Value).
-              foreach (x :: Value) -> (x :~: Join (Arr a b) (Arr a c)) -> Factor x a (Join b c)
-subInvDist Bot        eq = case eq of {}
-subInvDist (Arr _ _)  eq = case eq of {}
-subInvDist (Join l r) eq = case l of
-  Bot       -> case eq of {}
-  Join _ _  -> case eq of {}
-  Arr a' b' -> case r of
-    Bot      -> case eq of {}
-    Join _ _ -> case eq of {}
-    Arr _ c' -> case eq of
-      Refl -> mkDistFactor a' b' c'
-
 -- | Main inversion theorem for `Sub` (`sub-inv`): if `u1 ⊑ u2` and `v ↦ w ∈ u1`,
 -- then `v ↦ w` factors `u2` into a sub-collection of functions.
 subInv :: forall (u1 :: Value) (v :: Value) (w :: Value).
@@ -445,8 +408,10 @@ subInv u2 lt m = case lt of
   SubJoinL lt1 lt2  -> case m of
     MemJoinL x -> subInv u2 lt1 x
     MemJoinR y -> subInv u2 lt2 y
-  SubJoinR1 @_ @a @b lt1 -> subInvJoinR1 @a @b u2 Refl lt1 m
-  SubJoinR2 @_ @a @b lt2 -> subInvJoinR2 @a @b u2 Refl lt2 m
+  SubJoinR1 @_ @a @b lt1 -> case unJoinW (MkValW u2) of
+    (MkValW a', _) -> mapFactorL @a @b (subInv a' lt1 m)
+  SubJoinR2 @_ @a @b lt2 -> case unJoinW (MkValW u2) of
+    (_, MkValW b') -> mapFactorR @a @b (subInv b' lt2 m)
   SubTrans u lt1 lt2 ->
     case subInv u lt1 m of
       MkFactor u' fu' u'sub d1 c1 ->
@@ -454,9 +419,12 @@ subInv u2 lt m = case lt of
           MkFactor u3 fu3 u3sub d2 c2 ->
             MkFactor @u2 @v @w u3 fu3 u3sub (SubTrans (dom u') d2 d1) (SubTrans (cod u') c1 c2)
   SubArr lt1 lt2    -> case m of
-    MemArr -> subInvArr u2 Refl lt1 lt2
+    MemArr -> case unArrW (MkValW u2) of
+      (MkValW a, MkValW b) -> mkArrSubFactor a b lt1 lt2
   SubDist           -> case m of
-    MemArr -> subInvDist u2 Refl
+    MemArr -> case unJoinW (MkValW u2) of
+      (wl, wr) -> case (unArrW wl, unArrW wr) of
+        ((MkValW a, MkValW b), (_, MkValW c)) -> mkDistFactor a b c
 
 finishArrSubInv :: forall (v :: Value) (w :: Value) (v' :: Value) (w' :: Value).
                    Factor (Arr v' w') v w -> (Sub v' v, Sub w w')

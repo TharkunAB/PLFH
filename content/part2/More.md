@@ -344,32 +344,31 @@ data Progress m where
 
 -- | Complete, unconditional Progress theorem across all 19 constructors of `Term`!
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
-progress t = case t of
-  Var x         -> case x of {}
-  Lam _         -> PDone VLam
-  App f x       -> appProgress (progress f) (progress x)
-  Zero          -> PDone VZero
-  Suc n         -> sucProgress (progress n)
-  CaseNat n z s -> natCaseProgress @a @n @z @s (progress n)
-  Mu body       -> PStep (BetaMu @CEmpty @a @body)
-  Let m body    -> letProgress @_ @a @m @body (progress m)
-  TT            -> PDone VTT
-  Pair l r      -> pairProgress (progress l) (progress r)
-  Fst p         -> fstProgress (progress p)
-  Snd p         -> sndProgress (progress p)
-  Inl x         -> inlProgress (progress x)
-  Inr y         -> inrProgress (progress y)
-  CaseSum s l r -> sumCaseProgress @_ @_ @a @s @l @r (progress s)
-  Absurd m      -> absurdProgress (progress m)
-  Nil           -> PDone VNil
-  Cons x xs     -> consProgress (progress x) (progress xs)
-  CaseLst s n c -> listCaseProgress @_ @a @s @n @c (progress s)
+progress (Var x)         = case x of {}
+progress (Lam _)         = PDone VLam
+progress (App f x)       = appProgress (progress f) (progress x)
+progress Zero            = PDone VZero
+progress (Suc n)         = sucProgress (progress n)
+progress (CaseNat n _ _) = natCaseProgress (progress n)
+progress (Mu body)       = PStep (BetaMu @CEmpty @a @body)
+progress (Let m _)       = letProgress (progress m)
+progress TT              = PDone VTT
+progress (Pair l r)      = pairProgress (progress l) (progress r)
+progress (Fst p)         = fstProgress (progress p)
+progress (Snd p)         = sndProgress (progress p)
+progress (Inl x)         = inlProgress (progress x)
+progress (Inr y)         = inrProgress (progress y)
+progress (CaseSum s _ _) = sumCaseProgress (progress s)
+progress (Absurd m)      = absurdProgress (progress m)
+progress Nil             = PDone VNil
+progress (Cons x xs)     = consProgress (progress x) (progress xs)
+progress (CaseLst s _ _) = listCaseProgress (progress s)
 
 appProgress :: forall a b (f :: Term CEmpty (TArr a b)) (x :: Term CEmpty a).
                Progress f -> Progress x -> Progress (App f x)
-appProgress (PStep s) _                    = PStep (XiApp1 s)
-appProgress (PDone v) (PStep s)            = PStep (XiApp2 v s)
-appProgress (PDone (VLam @body)) (PDone v) = PStep (BetaLam @CEmpty @a @b @body @x v)
+appProgress (PStep s) _         = PStep (XiApp1 s)
+appProgress (PDone v) (PStep s) = PStep (XiApp2 v s)
+appProgress (PDone VLam) (PDone v) = PStep (BetaLam v)
 
 sucProgress :: Progress n -> Progress (Suc n)
 sucProgress (PStep s) = PStep (XiSuc s)
@@ -378,14 +377,14 @@ sucProgress (PDone v) = PDone (VSuc v)
 natCaseProgress :: forall a (n :: Term CEmpty TNat) (z :: Term CEmpty a)
                           (s :: Term (CExt CEmpty TNat) a).
                    Progress n -> Progress (CaseNat n z s)
-natCaseProgress (PStep step)          = PStep (XiCaseNat step)
-natCaseProgress (PDone VZero)         = PStep BetaZero
-natCaseProgress (PDone (VSuc @v val)) = PStep (BetaSuc @CEmpty @a @z @s @v val)
+natCaseProgress (PStep step)      = PStep (XiCaseNat step)
+natCaseProgress (PDone VZero)     = PStep BetaZero
+natCaseProgress (PDone (VSuc val)) = PStep (BetaSuc val)
 
 letProgress :: forall a b (m :: Term CEmpty a) (body :: Term (CExt CEmpty a) b).
                Progress m -> Progress (Let m body)
 letProgress (PStep s) = PStep (XiLet s)
-letProgress (PDone v) = PStep (BetaLet @CEmpty @a @b @m @body v)
+letProgress (PDone v) = PStep (BetaLet v)
 
 pairProgress :: Progress l -> Progress r -> Progress (Pair l r)
 pairProgress (PStep s) _         = PStep (XiPair1 s)
@@ -393,12 +392,12 @@ pairProgress (PDone v) (PStep s) = PStep (XiPair2 v s)
 pairProgress (PDone v) (PDone w) = PDone (VPair v w)
 
 fstProgress :: Progress p -> Progress (Fst p)
-fstProgress (PStep s)             = PStep (XiFst s)
-fstProgress (PDone (VPair v w))   = PStep (BetaFst v w)
+fstProgress (PStep s)           = PStep (XiFst s)
+fstProgress (PDone (VPair v w)) = PStep (BetaFst v w)
 
 sndProgress :: Progress p -> Progress (Snd p)
-sndProgress (PStep s)             = PStep (XiSnd s)
-sndProgress (PDone (VPair v w))   = PStep (BetaSnd v w)
+sndProgress (PStep s)           = PStep (XiSnd s)
+sndProgress (PDone (VPair v w)) = PStep (BetaSnd v w)
 
 inlProgress :: Progress x -> Progress (Inl x)
 inlProgress (PStep s) = PStep (XiInl s)
@@ -412,9 +411,9 @@ sumCaseProgress :: forall a b c (s :: Term CEmpty (TSum a b))
                           (l :: Term (CExt CEmpty a) c)
                           (r :: Term (CExt CEmpty b) c).
                    Progress s -> Progress (CaseSum s l r)
-sumCaseProgress (PStep step)        = PStep (XiCaseSum step)
-sumCaseProgress (PDone (VInl @x v)) = PStep (BetaInl @CEmpty @a @b @c @l @r @x v)
-sumCaseProgress (PDone (VInr @y v)) = PStep (BetaInr @CEmpty @a @b @c @l @r @y v)
+sumCaseProgress (PStep step)    = PStep (XiCaseSum step)
+sumCaseProgress (PDone (VInl v)) = PStep (BetaInl v)
+sumCaseProgress (PDone (VInr v)) = PStep (BetaInr v)
 
 absurdProgress :: Progress m -> Progress (Absurd m)
 absurdProgress (PStep s) = PStep (XiAbsurd s)
@@ -428,9 +427,9 @@ consProgress (PDone v) (PDone vs) = PDone (VCons v vs)
 listCaseProgress :: forall a b (s :: Term CEmpty (TList a)) (n :: Term CEmpty b)
                            (c :: Term (CExt (CExt CEmpty a) (TList a)) b).
                     Progress s -> Progress (CaseLst s n c)
-listCaseProgress (PStep step)                 = PStep (XiCaseLst step)
-listCaseProgress (PDone VNil)                 = PStep BetaNil
-listCaseProgress (PDone (VCons @x @xs v vs))  = PStep (BetaCons @CEmpty @a @b @n @c @x @xs v vs)
+listCaseProgress (PStep step)            = PStep (XiCaseLst step)
+listCaseProgress (PDone VNil)            = PStep BetaNil
+listCaseProgress (PDone (VCons v vs))    = PStep (BetaCons v vs)
 
 -- | Concrete `BetaCons` witness exercising `substDouble`:
 -- `S Z` receives the head (`Suc Zero`) and `Z` receives the tail (`Cons Zero Nil`)!

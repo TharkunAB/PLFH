@@ -36,7 +36,7 @@ program!
 ## Imports
 
 ```haskell
-{-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
+{-# LANGUAGE DependentTypes #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -282,13 +282,10 @@ compositionality
      foreach (c :: UCtx m n)
   -> DenEq (Den t1) (Den t2)
   -> DenEq (Den (plug c t1)) (Den (plug c t2))
-compositionality CHole       = \eq -> eq
-compositionality (CLam c)    = \eq ->
-  lamCong @n @(plug c t1) @(plug c t2) (compositionality @m @(Succ n) @t1 @t2 c eq)
-compositionality (CAppL c r) = \eq ->
-  appCong @n @(plug c t1) @(plug c t2) @r @r (compositionality @m @n @t1 @t2 c eq) denEqRefl
-compositionality (CAppR l c) = \eq ->
-  appCong @n @l @l @(plug c t1) @(plug c t2) denEqRefl (compositionality @m @n @t1 @t2 c eq)
+compositionality CHole       eq = eq
+compositionality (CLam c)    eq = lamCong (compositionality c eq)
+compositionality (CAppL c _) eq = appCong (compositionality c eq) denEqRefl
+compositionality (CAppR _ c) eq = appCong denEqRefl (compositionality c eq)
 ```
 
 Look how clean that 4-line induction is: `CHole` returns `eq` unchanged, `CLam`

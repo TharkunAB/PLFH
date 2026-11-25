@@ -117,16 +117,14 @@ Because `Ty` is a simple inductive datatype, structural recursion on retained
 ```haskell
 -- | Decidable equality on simple types `Ty`.
 decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
-decEqTy TNat b = case b of
-  TNat     -> Right Refl
-  TArr _ _ -> Left (\case {})
-decEqTy (TArr a1 a2) b = case b of
-  TNat       -> Left (\case {})
-  TArr b1 b2 -> case decEqTy a1 b1 of
+decEqTy TNat         TNat         = Right Refl
+decEqTy TNat         (TArr _ _)   = Left (\case {})
+decEqTy (TArr _ _)   TNat         = Left (\case {})
+decEqTy (TArr a1 a2) (TArr b1 b2) = case decEqTy a1 b1 of
+  Left neq   -> Left (\Refl -> neq Refl)
+  Right Refl -> case decEqTy a2 b2 of
     Left neq   -> Left (\Refl -> neq Refl)
-    Right Refl -> case decEqTy a2 b2 of
-      Left neq   -> Left (\Refl -> neq Refl)
-      Right Refl -> Right Refl
+    Right Refl -> Right Refl
 ```
 
 ## Dependent result packages & runtime context lookup

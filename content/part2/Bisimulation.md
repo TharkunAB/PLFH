@@ -137,26 +137,25 @@ or second step):
 ```haskell
 -- | Reflexivity (`~-refl`): every extended STLC term is related to itself.
 simRefl :: forall (g :: M.Ctx) (a :: M.Ty). foreach (m :: M.Term g a) -> SimRel m m
-simRefl t = case t of
-  M.Var x         -> SimVar x
-  M.Lam n         -> SimLam (simRefl n)
-  M.App l m       -> SimApp (simRefl l) (simRefl m)
-  M.Zero          -> SimZero
-  M.Suc n         -> SimSuc (simRefl n)
-  M.CaseNat n z s -> SimCaseNat (simRefl n) (simRefl z) (simRefl s)
-  M.Mu n          -> SimMu (simRefl n)
-  M.Let m n       -> SimLet (simRefl m) (simRefl n)
-  M.TT            -> SimTT
-  M.Pair l r      -> SimPair (simRefl l) (simRefl r)
-  M.Fst p         -> SimFst (simRefl p)
-  M.Snd p         -> SimSnd (simRefl p)
-  M.Inl x         -> SimInl (simRefl x)
-  M.Inr y         -> SimInr (simRefl y)
-  M.CaseSum s l r -> SimCaseSum (simRefl s) (simRefl l) (simRefl r)
-  M.Absurd m      -> SimAbsurd (simRefl m)
-  M.Nil           -> SimNil
-  M.Cons x xs     -> SimCons (simRefl x) (simRefl xs)
-  M.CaseLst s n c -> SimCaseLst (simRefl s) (simRefl n) (simRefl c)
+simRefl (M.Var x)         = SimVar x
+simRefl (M.Lam n)         = SimLam (simRefl n)
+simRefl (M.App l m)       = SimApp (simRefl l) (simRefl m)
+simRefl M.Zero            = SimZero
+simRefl (M.Suc n)         = SimSuc (simRefl n)
+simRefl (M.CaseNat n z s) = SimCaseNat (simRefl n) (simRefl z) (simRefl s)
+simRefl (M.Mu n)          = SimMu (simRefl n)
+simRefl (M.Let m n)       = SimLet (simRefl m) (simRefl n)
+simRefl M.TT              = SimTT
+simRefl (M.Pair l r)      = SimPair (simRefl l) (simRefl r)
+simRefl (M.Fst p)         = SimFst (simRefl p)
+simRefl (M.Snd p)         = SimSnd (simRefl p)
+simRefl (M.Inl x)         = SimInl (simRefl x)
+simRefl (M.Inr y)         = SimInr (simRefl y)
+simRefl (M.CaseSum s l r) = SimCaseSum (simRefl s) (simRefl l) (simRefl r)
+simRefl (M.Absurd m)      = SimAbsurd (simRefl m)
+simRefl M.Nil             = SimNil
+simRefl (M.Cons x xs)     = SimCons (simRefl x) (simRefl xs)
+simRefl (M.CaseLst s n c) = SimCaseLst (simRefl s) (simRefl n) (simRefl c)
 
 -- | Transitivity of `SimRel`: `l ~ m` and `m ~ n` implies `l ~ n`.
 simTrans :: SimRel l m -> SimRel m n -> SimRel l n
@@ -254,9 +253,9 @@ type RenCompat @g @d r = forall a. foreach (x :: M.Lookup g a) -> SimRel (M.Var 
 extRenCompat :: forall g d b (r :: Renaming g d).
                 RenCompat @g @d r
              -> RenCompat @(M.CExt g b) @(M.CExt d b) (M.ext r)
-extRenCompat rc idx = case idx of
-  M.Z   -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
-  M.S x -> case rc x of
+extRenCompat rc x = case x of
+  M.Z    -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
+  M.S x' -> case rc x' of
     SimVar y -> SimVar (M.S y)
 
 -- | Renaming preserves the structural simulation relation across all 20 constructors!
@@ -317,9 +316,9 @@ type Compatible @g @d p q = forall a. foreach (x :: M.Lookup g a) -> SimRel (p x
 simExt :: forall g d b (p :: SubstFn g d) (q :: SubstFn g d).
           Compatible @g @d p q
        -> Compatible @(M.CExt g b) @(M.CExt d b) (M.exts @g @d @b p) (M.exts @g @d @b q)
-simExt step idx = case idx of
-  M.Z   -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
-  M.S x -> simWeaken @d @b (step x)
+simExt step x = case x of
+  M.Z    -> SimVar (M.Z :: M.Lookup (M.CExt d b) b)
+  M.S x' -> simWeaken @d @b (step x')
 
 -- | Simultaneous substitution preserves `SimRel` across all 20 constructors (`~-subst`)!
 simSubst :: forall g d a (p :: SubstFn g d) (q :: SubstFn g d) (m :: M.Term g a) (n :: M.Term g a).
@@ -353,9 +352,9 @@ simSubst step (SimCaseLst p0 p1 p2) =
 singleCompat :: forall g a (v :: M.Term g a) (v' :: M.Term g a).
                 SimRel v v'
              -> Compatible @(M.CExt g a) @g (M.singleSubst v) (M.singleSubst v')
-singleCompat sv idx = case idx of
-  M.Z   -> sv
-  M.S x -> SimVar x
+singleCompat sv x = case x of
+  M.Z    -> sv
+  M.S x' -> SimVar x'
 
 -- | Unconditional single-variable substitution preserves `SimRel`!
 simSubstSingle :: forall g a b (n :: M.Term (M.CExt g a) b) (n' :: M.Term (M.CExt g a) b)
@@ -368,11 +367,10 @@ doubleCompat :: forall g a b (v :: M.Term g a) (v' :: M.Term g a)
                              (w :: M.Term g b) (w' :: M.Term g b).
                 SimRel v v' -> SimRel w w'
              -> Compatible @(M.CExt (M.CExt g a) b) @g (M.doubleSubst v w) (M.doubleSubst v' w')
-doubleCompat sv sw idx = case idx of
-  M.Z   -> sw
-  M.S y -> case y of
-    M.Z   -> sv
-    M.S x -> SimVar x
+doubleCompat sv sw x = case x of
+  M.Z         -> sw
+  M.S M.Z     -> sv
+  M.S (M.S y) -> SimVar y
 
 -- | Unconditional double-variable substitution preserves `SimRel`!
 simSubstDouble :: forall g a b c (n :: M.Term (M.CExt (M.CExt g a) b) c)

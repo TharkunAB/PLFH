@@ -223,12 +223,10 @@ data BumpRes c x where
 -- | Compute the bumped variable `y` together with its `BumpFin` proof.
 bumpProof :: forall (n :: Nat).
              foreach (c :: Fin (Succ n)) -> foreach (x :: Fin n) -> BumpRes c x
-bumpProof c x = case c of
-  FZ    -> MkBump (FS x) BumpZ
-  FS c' -> case x of
-    FZ    -> MkBump FZ (BumpSZ @c')
-    FS x' -> case bumpProof c' x' of
-      MkBump y b -> MkBump (FS y) (BumpSS b)
+bumpProof FZ      x       = MkBump (FS x) BumpZ
+bumpProof (FS c') FZ      = MkBump FZ (BumpSZ @c')
+bumpProof (FS c') (FS x') = case bumpProof c' x' of
+  MkBump y b -> MkBump (FS y) (BumpSS b)
 
 -- | Constructive witness for `ShiftU c m m'`.
 type ShiftRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> Type
@@ -238,14 +236,13 @@ data ShiftRes c m where
 -- | Compute capture-avoiding weakening together with its `ShiftU` proof.
 shiftProof :: forall (n :: Nat).
               foreach (c :: Fin (Succ n)) -> foreach (m :: UTerm n) -> ShiftRes c m
-shiftProof c m = case m of
-  UVar x -> case bumpProof c x of
-    MkBump y b -> MkShift (UVar y) (ShiftVar b)
-  ULam b -> case shiftProof (FS c) b of
-    MkShift b' sb -> MkShift (ULam b') (ShiftLam sb)
-  UApp l r -> case shiftProof c l of
-    MkShift l' sl -> case shiftProof c r of
-      MkShift r' sr -> MkShift (UApp l' r') (ShiftApp sl sr)
+shiftProof c (UVar x)   = case bumpProof c x of
+  MkBump y b -> MkShift (UVar y) (ShiftVar b)
+shiftProof c (ULam b)   = case shiftProof (FS c) b of
+  MkShift b' sb -> MkShift (ULam b') (ShiftLam sb)
+shiftProof c (UApp l r) = case shiftProof c l of
+  MkShift l' sl -> case shiftProof c r of
+    MkShift r' sr -> MkShift (UApp l' r') (ShiftApp sl sr)
 
 -- | Compare two indices in `Fin (Succ n)`: either equal or separated by `RemoveFin`.
 type CmpFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Type
@@ -253,44 +250,22 @@ data CmpFin c x where
   CmpEq  :: CmpFin c c
   CmpNeq :: foreach (y :: Fin n) -> RemoveFin c x y -> CmpFin c x
 
--- | Helper for comparing `FZ` against any `x :: Fin (Succ m)`.
-cmpFinZ :: forall (m :: Nat).
-           foreach (x :: Fin (Succ m)) -> CmpFin (FZ @m) x
-cmpFinZ x = case x of
-  FZ   -> CmpEq
-  FS y -> CmpNeq y (RemGt @y)
-
--- | Helper for the `FS FZ` branch where the outer scope index is manifestly `Succ m`.
-cmpFinFZ :: forall (m :: Nat).
-            foreach (x :: Fin (Succ (Succ m))) -> CmpFin (FS (FZ @m)) x
-cmpFinFZ x = case x of
-  FZ    -> CmpNeq FZ (RemLt @FZ)
-  FS x' -> case x' of
-    FZ   -> CmpEq
-    FS y -> CmpNeq (FS y) (RemSS (RemGt @y))
-
--- | Helper for the `FS (FS c'')` branch where the outer scope index is manifestly `Succ m`.
-cmpFinFSS :: forall (m :: Nat).
-             foreach (c'' :: Fin m) -> foreach (x :: Fin (Succ (Succ m)))
-          -> CmpFin (FS (FS c'')) x
-cmpFinFSS c'' x = case x of
-  FZ    -> CmpNeq FZ (RemLt @(FS c''))
-  FS x' -> case c'' of
-    FZ -> case cmpFinFZ x' of
-      CmpEq      -> CmpEq
-      CmpNeq y r -> CmpNeq (FS y) (RemSS r)
-    FS c''' -> case cmpFinFSS c''' x' of
-      CmpEq      -> CmpEq
-      CmpNeq y r -> CmpNeq (FS y) (RemSS r)
+-- | Helper for comparing `FS c'` once inspecting `c'` has refined the outer index to `Succ m`.
+cmpFinFS :: forall (m :: Nat).
+            foreach (c' :: Fin (Succ m)) -> foreach (x :: Fin (Succ (Succ m)))
+         -> CmpFin (FS c') x
+cmpFinFS c' FZ      = CmpNeq FZ (RemLt @c')
+cmpFinFS c' (FS x') = case cmpFin c' x' of
+  CmpEq      -> CmpEq
+  CmpNeq y r -> CmpNeq (FS y) (RemSS r)
 
 -- | Decidable comparison with `RemoveFin` evidence.
 cmpFin :: forall (n :: Nat).
           foreach (c :: Fin (Succ n)) -> foreach (x :: Fin (Succ n)) -> CmpFin c x
-cmpFin c x = case c of
-  FZ    -> cmpFinZ x
-  FS c' -> case c' of
-    FZ     -> cmpFinFZ x
-    FS c'' -> cmpFinFSS c'' x
+cmpFin FZ            FZ     = CmpEq
+cmpFin FZ            (FS y) = CmpNeq y (RemGt @y)
+cmpFin (FS FZ)       x      = cmpFinFS FZ x
+cmpFin (FS (FS c'')) x      = cmpFinFS (FS c'') x
 
 -- | Constructive witness for `SubstAtU c w m r`.
 type SubstRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
@@ -303,16 +278,15 @@ substProof :: forall (n :: Nat).
            -> foreach (w :: UTerm n)
            -> foreach (m :: UTerm (Succ n))
            -> SubstRes c w m
-substProof c w m = case m of
-  UVar x -> case cmpFin c x of
-    CmpEq      -> MkSubst w SUEq
-    CmpNeq y r -> MkSubst (UVar y) (SUNeq r)
-  ULam b -> case shiftProof FZ w of
-    MkShift w' sw -> case substProof (FS c) w' b of
-      MkSubst b' sb -> MkSubst (ULam b') (SULam sw sb)
-  UApp l r -> case substProof c w l of
-    MkSubst l' sl -> case substProof c w r of
-      MkSubst r' sr -> MkSubst (UApp l' r') (SUApp sl sr)
+substProof c w (UVar x)   = case cmpFin c x of
+  CmpEq      -> MkSubst w SUEq
+  CmpNeq y r -> MkSubst (UVar y) (SUNeq r)
+substProof c w (ULam b)   = case shiftProof FZ w of
+  MkShift w' sw -> case substProof (FS c) w' b of
+    MkSubst b' sb -> MkSubst (ULam b') (SULam sw sb)
+substProof c w (UApp l r) = case substProof c w l of
+  MkSubst l' sl -> case substProof c w r of
+    MkSubst r' sr -> MkSubst (UApp l' r') (SUApp sl sr)
 
 -- | Outcome of one leftmost-outermost (normal-order) reduction step.
 type StepRes :: forall (n :: Nat). UTerm n -> Type
@@ -323,27 +297,24 @@ data StepRes t where
 -- | Normal-order step for an application `UApp l m`.
 stepApp :: forall (n :: Nat).
            foreach (l m :: UTerm n) -> StepRes (UApp l m)
-stepApp l m = case l of
-  ULam b -> case substProof FZ m b of
-    MkSubst r sr -> Reduct r (Beta sr)
-  UVar x -> case stepNormal m of
-    Reduct m' sm -> Reduct (UApp (UVar x) m') (XiApp2 sm)
-    IsNorm nm    -> IsNorm (NNeu (NApp NVar nm))
-  UApp l1 l2 -> case stepApp l1 l2 of
-    Reduct l' sl -> Reduct (UApp l' m) (XiApp1 sl)
-    IsNorm nl    -> case nl of
-      NNeu neuL -> case stepNormal m of
-        Reduct m' sm -> Reduct (UApp (UApp l1 l2) m') (XiApp2 sm)
-        IsNorm nm    -> IsNorm (NNeu (NApp neuL nm))
+stepApp (ULam b)     m = case substProof FZ m b of
+  MkSubst r sr -> Reduct r (Beta sr)
+stepApp (UVar x)     m = case stepNormal m of
+  Reduct m' sm -> Reduct (UApp (UVar x) m') (XiApp2 sm)
+  IsNorm nm    -> IsNorm (NNeu (NApp NVar nm))
+stepApp (UApp l1 l2) m = case stepApp l1 l2 of
+  Reduct l' sl       -> Reduct (UApp l' m) (XiApp1 sl)
+  IsNorm (NNeu neuL) -> case stepNormal m of
+    Reduct m' sm -> Reduct (UApp (UApp l1 l2) m') (XiApp2 sm)
+    IsNorm nm    -> IsNorm (NNeu (NApp neuL nm))
 
 -- | Constructive normal-order single-step reducer (`stepNormal`).
 stepNormal :: forall (n :: Nat). foreach (t :: UTerm n) -> StepRes t
-stepNormal t = case t of
-  UVar _   -> IsNorm (NNeu NVar)
-  ULam b   -> case stepNormal b of
-    Reduct b' sb -> Reduct (ULam b') (XiLam sb)
-    IsNorm nb    -> IsNorm (NLam nb)
-  UApp l m -> stepApp l m
+stepNormal (UVar _)   = IsNorm (NNeu NVar)
+stepNormal (ULam b)   = case stepNormal b of
+  Reduct b' sb -> Reduct (ULam b') (XiLam sb)
+  IsNorm nb    -> IsNorm (NLam nb)
+stepNormal (UApp l m) = stepApp l m
 
 -- | Outcome of gas-bounded normal-order evaluation (`Finished` in PLFA).
 type EvalRes :: forall (n :: Nat). UTerm n -> Type

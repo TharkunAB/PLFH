@@ -55,10 +55,10 @@ Comments, bug reports, and pull requests are welcome on
 
 ## Part 3: Denotational Semantics
 
-- [Denotational](/Denotational/): Filter model (GADT `Value`, `Sub`, `dom`/`cod`, nested `subInvDist`, **`subInv`**, **`arrSubArrInv`**, `Denotes`, `envSubMono`) <span class="badge badge-pass">Checked</span>
+- [Denotational](/Denotational/): Filter model (GADT `Value`, `Sub`, `dom`/`cod`, inline **`subInv`**, **`arrSubArrInv`**, `Denotes`, `envSubMono`) <span class="badge badge-pass">Checked</span>
 - [Compositional](/Compositional/): Semantic curry & application (**`lamEquiv`/`lamCong`**, **`appEquiv`/`appCong`**), `UCtx`/`plug`, and **full `compositionality`** <span class="badge badge-pass">Checked</span>
 - [Soundness](/Soundness/): **100% unconditional** weakening, strengthening, substitution, forward preservation, subject expansion, and **`denotEquivSteps`** <span class="badge badge-pass">Checked</span>
-- [Adequacy](/Adequacy/): **`decAboveFun`**, `LogVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`/`adequacy`/`reduceToCbn`/`cbnToReduce`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Checked</span>
+- [Adequacy](/Adequacy/): **`decAboveFun`**, `logVLam`/`LogE`, full **`subLogVLam`**, full **`fundamental`**, **unconditional `adequacyBigStep`/`adequacy`/`reduceToCbn`/`cbnToReduce`**, and **`omegaNotAboveFun`** <span class="badge badge-pass">Checked</span>
 - [ContextualEquivalence](/ContextualEquivalence/): Open-term **`CtxEquiv`** (`UCtx`/`plug`), **unconditional `denotEqualCtxBigStep`**, **unconditional `denotEqualCtxEquiv`**, and **unconditional `betaCtxEquiv`** <span class="badge badge-pass">Checked</span>
 
 ## Yardstick, Reference & Backmatter

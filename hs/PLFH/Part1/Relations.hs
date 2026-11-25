@@ -199,20 +199,18 @@ data DiffWitness (m :: Nat) (n :: Nat) where
 
 -- | From m <= n we can compute a difference witness k with m + k = n.
 leToDiff :: foreach (m n :: Nat) -> LE m n -> DiffWitness m n
-leToDiff Zero     n p = case p of
-  ZleN -> MkDiff n Refl
-leToDiff (Succ m) n p = case n of
-  Zero    -> case p of {}
-  Succ n' -> case p of
-    SleS q -> case leToDiff m n' q of
-      MkDiff k eq -> MkDiff k (rewrite eq Refl)
+leToDiff Zero     n        _ = MkDiff n Refl
+leToDiff (Succ _) Zero     p = case p of {}
+leToDiff (Succ m) (Succ n) p = case p of
+  SleS q -> case leToDiff m n q of
+    MkDiff k eq -> MkDiff k (rewrite eq Refl)
 
 -- | Conversely, m <= m + k for any finite m and k.
 diffToLe :: foreach (m k :: Nat) -> LE m (plus m k)
 diffToLe Zero     _ = ZleN
 diffToLe (Succ m) k = SleS (diffToLe m k)
 
-{-# LINE 428 "content/part1/Relations.md" #-}
+{-# LINE 426 "content/part1/Relations.md" #-}
 -- | Right monotonicity of strict inequality: if p < q then n + p < n + q.
 plusMonoLtR :: foreach (n :: Nat) -> LT' p q -> LT' (plus n p) (plus n q)
 plusMonoLtR Zero     pq = pq
@@ -232,7 +230,7 @@ plusMonoLt :: foreach (m n p q :: Nat)
            -> LT' m n -> LT' p q -> LT' (plus m p) (plus n q)
 plusMonoLt m n p q mn pq = ltTrans (plusMonoLtL m n p mn) (plusMonoLtR n pq)
 
-{-# LINE 459 "content/part1/Relations.md" #-}
+{-# LINE 457 "content/part1/Relations.md" #-}
 -- | Mutually inductive parity predicates on Nat.
 data Even (n :: Nat) where
   EvenZ :: Even Zero
@@ -241,7 +239,7 @@ data Even (n :: Nat) where
 data Odd (n :: Nat) where
   OddS :: Even n -> Odd (Succ n)
 
-{-# LINE 475 "content/part1/Relations.md" #-}
+{-# LINE 473 "content/part1/Relations.md" #-}
 -- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`).
 evenPlusEven :: Even m -> Even n -> Even (plus m n)
 evenPlusEven EvenZ      en = en
@@ -260,7 +258,7 @@ evenPlusOdd (EvenS om) on = OddS (oddPlusOdd om on)
 oddPlusOdd :: Odd m -> Odd n -> Even (plus m n)
 oddPlusOdd (OddS em) on = EvenS (evenPlusOdd em on)
 
-{-# LINE 498 "content/part1/Relations.md" #-}
+{-# LINE 496 "content/part1/Relations.md" #-}
 -- | Every natural number is either even or odd.
 evenOrOdd :: foreach (n :: Nat) -> Either (Even n) (Odd n)
 evenOrOdd Zero     = Left EvenZ
@@ -272,7 +270,7 @@ evenOrOdd (Succ n) = case evenOrOdd n of
 notBothEvenOdd :: Even n -> Odd n -> Void
 notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
 
-{-# LINE 529 "content/part1/Relations.md" #-}
+{-# LINE 527 "content/part1/Relations.md" #-}
 -- | Evidence that a binary number is positive and has no leading zero bits.
 data One (b :: Bin) where
   OneX1  :: One (X1 Nil)
@@ -284,50 +282,41 @@ data Can (b :: Bin) where
   CanZ   :: Can (X0 Nil)
   CanOne :: One b -> Can b
 
-{-# LINE 545 "content/part1/Relations.md" #-}
+{-# LINE 543 "content/part1/Relations.md" #-}
 -- | Incrementing a positive canonical binary number stays positive canonical.
 incOne :: foreach (b :: Bin) -> One b -> One (inc b)
-incOne Nil    p = case p of {}
-incOne (X0 _) p = case p of
-  OneX0 o -> OneX1' o
-incOne (X1 b) p = case b of
-  Nil -> case p of
-    OneX1    -> OneX0 OneX1
-    OneX1' o -> case o of {}
-  X0 b' -> case p of
-    OneX1' o -> OneX0 (incOne (X0 b') o)
-  X1 b' -> case p of
-    OneX1' o -> OneX0 (incOne (X1 b') o)
+incOne Nil         p          = case p of {}
+incOne (X0 _)      (OneX0 o)  = OneX1' o
+incOne (X1 Nil)    OneX1      = OneX0 OneX1
+incOne (X1 Nil)    (OneX1' o) = case o of {}
+incOne (X1 (X0 b)) (OneX1' o) = OneX0 (incOne (X0 b) o)
+incOne (X1 (X1 b)) (OneX1' o) = OneX0 (incOne (X1 b) o)
 
 -- | Incrementing any canonical binary number yields a canonical binary number.
 incCan :: foreach (b :: Bin) -> Can b -> Can (inc b)
-incCan Nil    p = case p of {}
-incCan (X0 _) p = case p of
-  CanZ             -> CanOne OneX1
-  CanOne (OneX0 o) -> CanOne (OneX1' o)
-incCan (X1 b) p = case p of
-  CanOne o -> CanOne (incOne (X1 b) o)
+incCan Nil    p                = case p of {}
+incCan (X0 _) CanZ             = CanOne OneX1
+incCan (X0 _) (CanOne (OneX0 o)) = CanOne (OneX1' o)
+incCan (X1 b) (CanOne o)       = CanOne (incOne (X1 b) o)
 
 -- | Converting any natural number to binary produces a canonical bitstring (`to-Can`).
 toBinCan :: foreach (n :: Nat) -> Can (toBin n)
 toBinCan Zero     = CanZ
 toBinCan (Succ n) = incCan (toBin n) (toBinCan n)
 
-{-# LINE 581 "content/part1/Relations.md" #-}
+{-# LINE 572 "content/part1/Relations.md" #-}
 -- | Witness that a natural number is strictly positive (`n = Succ k`).
 data PosNat (n :: Nat) where
   MkPos :: foreach (k :: Nat) -> n :~: Succ k -> PosNat n
 
 -- | Every `One` bitstring represents a strictly positive natural number.
 onePos :: foreach (b :: Bin) -> One b -> PosNat (fromBin b)
-onePos Nil    o = case o of {}
-onePos (X0 b) o = case o of
-  OneX0 o' -> case onePos b o' of
-    MkPos k eq -> rewrite eq (MkPos (plus k (Succ k)) Refl)
-onePos (X1 b) _ = case b of
-  Nil   -> MkPos Zero Refl
-  X0 b' -> MkPos (plus (fromBin (X0 b')) (fromBin (X0 b'))) Refl
-  X1 b' -> MkPos (plus (fromBin (X1 b')) (fromBin (X1 b'))) Refl
+onePos Nil         o          = case o of {}
+onePos (X0 b)      (OneX0 o)  = case onePos b o of
+  MkPos k eq -> rewrite eq (MkPos (plus k (Succ k)) Refl)
+onePos (X1 Nil)    _          = MkPos Zero Refl
+onePos (X1 (X0 b)) _          = MkPos (plus (fromBin (X0 b)) (fromBin (X0 b))) Refl
+onePos (X1 (X1 b)) _          = MkPos (plus (fromBin (X1 b)) (fromBin (X1 b))) Refl
 
 -- | Doubling a positive natural shifts its binary representation left by one zero bit.
 toBinDoubleSucc :: foreach (n :: Nat) -> toBin (plus (Succ n) (Succ n)) :~: X0 (toBin (Succ n))
@@ -350,30 +339,19 @@ toFromDoubleOne b o =
 
 -- | Round-trip law for positive canonical bitstrings: `toBin (fromBin b) = b`.
 toFromOne :: foreach (b :: Bin) -> One b -> toBin (fromBin b) :~: b
-toFromOne Nil    o = case o of {}
-toFromOne (X0 b) o = case o of
-  OneX0 o' -> toFromDoubleOne b o'
-toFromOne (X1 b) o = case b of
-  Nil -> case o of
-    OneX1    -> Refl
-    OneX1' x -> case x of {}
-  X0 b' -> case o of
-    OneX1' o' -> cong inc (toFromDoubleOne (X0 b') o')
-  X1 b' -> case o of
-    OneX1' o' -> cong inc (toFromDoubleOne (X1 b') o')
+toFromOne Nil         o          = case o of {}
+toFromOne (X0 b)      (OneX0 o)  = toFromDoubleOne b o
+toFromOne (X1 Nil)    OneX1      = Refl
+toFromOne (X1 Nil)    (OneX1' o) = case o of {}
+toFromOne (X1 (X0 b)) (OneX1' o) = cong inc (toFromDoubleOne (X0 b) o)
+toFromOne (X1 (X1 b)) (OneX1' o) = cong inc (toFromDoubleOne (X1 b) o)
 
 -- | Full round-trip law for canonical binary numbers (`to-from`):
 -- together with `Induction.fromTo`, `Nat` and canonical `Bin` are in bijection.
 toFromCan :: foreach (b :: Bin) -> Can b -> toBin (fromBin b) :~: b
-toFromCan Nil    c = case c of
-  CanOne o -> case o of {}
-toFromCan (X0 b) c = case b of
-  Nil   -> case c of
-    CanZ     -> Refl
-    CanOne o -> case o of { OneX0 o' -> case o' of {} }
-  X0 b' -> case c of
-    CanOne o -> toFromOne (X0 (X0 b')) o
-  X1 b' -> case c of
-    CanOne o -> toFromOne (X0 (X1 b')) o
-toFromCan (X1 b) c = case c of
-  CanOne o -> toFromOne (X1 b) o
+toFromCan Nil         (CanOne o)         = case o of {}
+toFromCan (X0 Nil)    CanZ               = Refl
+toFromCan (X0 Nil)    (CanOne (OneX0 o)) = case o of {}
+toFromCan (X0 (X0 b)) (CanOne o)         = toFromOne (X0 (X0 b)) o
+toFromCan (X0 (X1 b)) (CanOne o)         = toFromOne (X0 (X1 b)) o
+toFromCan (X1 b)      (CanOne o)         = toFromOne (X1 b) o

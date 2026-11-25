@@ -182,8 +182,8 @@ decLtSize (Succ m) (Succ n) = case decLtSize m n of
 
 ### Decidable parity, Boolean reflection (`Reflects`), and `Bin-decidable`
 
-Parity (`decEven`, `decOdd`) is decided by two-step structural recursion on
-`Nat` (matching the inner `n` in a `case` expression on the RHS). And
+Parity (`decEven`, `decOdd`) is decided by direct two-step structural recursion
+on `Nat` (`Zero`, `Succ Zero`, `Succ (Succ n)`). And
 whenever we *do* wish to bridge a Boolean `b :: Bool` back to a proposition
 `p`, the standard **`Reflects p b`** GADT packages `OfTrue :: p -> Reflects p True`
 and `OfFalse :: Not p -> Reflects p False` (using tick-free promoted `True`
@@ -198,21 +198,19 @@ decidability for the binary-numeral predicates introduced in
 ```haskell
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
-decEven Zero     = Yes EvenZ
-decEven (Succ n) = case n of
-  Zero    -> No (\case EvenS o -> case o of {})
-  Succ n' -> case decEven n' of
-    Yes ev  -> Yes (EvenS (OddS ev))
-    No  nev -> No (\case EvenS (OddS ev) -> nev ev)
+decEven Zero            = Yes EvenZ
+decEven (Succ Zero)     = No (\case EvenS o -> case o of {})
+decEven (Succ (Succ n)) = case decEven n of
+  Yes ev  -> Yes (EvenS (OddS ev))
+  No  nev -> No (\case EvenS (OddS ev) -> nev ev)
 
 -- | Decidable oddness predicate on Nat.
 decOdd :: foreach (n :: Nat) -> Dec (Odd n)
-decOdd Zero     = No (\case {})
-decOdd (Succ n) = case n of
-  Zero    -> Yes (OddS EvenZ)
-  Succ n' -> case decOdd n' of
-    Yes od  -> Yes (OddS (EvenS od))
-    No  nod -> No (\case OddS (EvenS od) -> nod od)
+decOdd Zero            = No (\case {})
+decOdd (Succ Zero)     = Yes (OddS EvenZ)
+decOdd (Succ (Succ n)) = case decOdd n of
+  Yes od  -> Yes (OddS (EvenS od))
+  No  nod -> No (\case OddS (EvenS od) -> nod od)
 
 -- | Boolean reflection: ties a proposition `p` to a promoted `Bool` `b`.
 data Reflects (p :: Type) (b :: Bool) where
@@ -242,31 +240,29 @@ decEqBin (X1 a) (X1 b) = case decEqBin a b of
 
 -- | Decidable `One` predicate (`One?`).
 decOne :: foreach (b :: Bin) -> Dec (One b)
-decOne Nil    = No (\case {})
-decOne (X0 b) = case decOne b of
+decOne Nil         = No (\case {})
+decOne (X0 b)      = case decOne b of
   Yes o  -> Yes (OneX0 o)
   No  no -> No (\case OneX0 o -> no o)
-decOne (X1 b) = case b of
-  Nil   -> Yes OneX1
-  X0 b' -> case decOne (X0 b') of
-    Yes o  -> Yes (OneX1' o)
-    No  no -> No (\case OneX1' o -> no o)
-  X1 b' -> case decOne (X1 b') of
-    Yes o  -> Yes (OneX1' o)
-    No  no -> No (\case OneX1' o -> no o)
+decOne (X1 Nil)    = Yes OneX1
+decOne (X1 (X0 b)) = case decOne (X0 b) of
+  Yes o  -> Yes (OneX1' o)
+  No  no -> No (\case OneX1' o -> no o)
+decOne (X1 (X1 b)) = case decOne (X1 b) of
+  Yes o  -> Yes (OneX1' o)
+  No  no -> No (\case OneX1' o -> no o)
 
 -- | Decidable canonical-form predicate (`Can?`).
 decCan :: foreach (b :: Bin) -> Dec (Can b)
-decCan Nil    = No (\case CanOne o -> case o of {})
-decCan (X0 b) = case b of
-  Nil   -> Yes CanZ
-  X0 b' -> case decOne (X0 b') of
-    Yes o  -> Yes (CanOne (OneX0 o))
-    No  no -> No (\case CanOne (OneX0 o) -> no o)
-  X1 b' -> case decOne (X1 b') of
-    Yes o  -> Yes (CanOne (OneX0 o))
-    No  no -> No (\case CanOne (OneX0 o) -> no o)
-decCan (X1 b) = case decOne (X1 b) of
+decCan Nil         = No (\case CanOne o -> case o of {})
+decCan (X0 Nil)    = Yes CanZ
+decCan (X0 (X0 b)) = case decOne (X0 b) of
+  Yes o  -> Yes (CanOne (OneX0 o))
+  No  no -> No (\case CanOne (OneX0 o) -> no o)
+decCan (X0 (X1 b)) = case decOne (X1 b) of
+  Yes o  -> Yes (CanOne (OneX0 o))
+  No  no -> No (\case CanOne (OneX0 o) -> no o)
+decCan (X1 b)      = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 ```
