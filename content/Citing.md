@@ -7,7 +7,9 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 
 ## Licence
 
-*Programming Language Foundations in Haskell* (PLFH) is licensed under the
+&copy; 2026 **Tharkun AB**. *Programming Language Foundations in Haskell* (PLFH)
+and its original Dependent Haskell chapters, Roadmap Showcase, and interactive
+tooling are licensed under the
 [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 See [`LICENSE`](https://github.com/TharkunAB/PLFH/blob/main/LICENSE) in the
 repository for the complete legal text.
@@ -21,6 +23,8 @@ by **Philip Wadler, Wen Kokke, and Jeremy G. Siek**
 synced against commit `c0885696578474ebcfe7bb3d7a592224567d9754`),
 which is licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The original PLFA authors are not affiliated with and do not endorse Tharkun AB
+or PLFH.
 
 All 25 adapted chapters across Parts 1, 2, and 3 carry an attribution banner
 linking to the corresponding upstream PLFA chapter and document the changes
@@ -51,6 +55,7 @@ made in translation to Dependent Haskell (`-XDependentTypes` in
 
 ```bibtex
 @Misc{plfh2026,
+  author       = {{Tharkun AB}},
   title        = {Programming Language Foundations in {H}askell},
   howpublished = {\url{https://plfh.tharkun.se/}},
   note         = {Adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek,

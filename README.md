@@ -9,7 +9,7 @@ experimental Dependent Haskell fork of GHC
 ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 - **Live book (GitHub Pages):** <https://plfh.tharkun.se/>
-- **Licence:** [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
+- **Copyright & Licence:** &copy; 2026 Tharkun AB — [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
 
 ## Repository layout
 
