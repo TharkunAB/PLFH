@@ -87,7 +87,7 @@ import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
 import GHC.Types (List)
-import HaskLib (Matchability, foldr, lengthAppend, lengthMap, lengthReverse, rewrite, size)
+import HaskLib (Matchability, foldr, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus, plusZero)
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
@@ -130,26 +130,30 @@ appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 ```
 
-## Length laws (reused from `HaskLib`)
+## Length laws (`size`)
 
 PLFA defines `length` and proves `length (xs ++ ys) ≡ length xs + length ys`,
-along with length preservation for `map` and `reverse`. In Dependent Haskell,
-all three theorems are already proved in `HaskLib` over ordinary Prelude
-`(++)`, `map`, and `reverse` (using `size :: List a -> Nat`), so we reuse
-them directly by eta-reduced equality:
+along with length preservation for `map` and `reverse`. Using
+[`HaskLib.List.size`](/HaskLib/#haskliblist) (`size :: List a -> Nat`) over
+ordinary Prelude `(++)` and `map`, we prove `lengthAppendLaw` and
+`lengthMapLaw` directly by structural induction on `xs` (the same proofs are
+also exported by [`HaskLib.List`](/HaskLib/#haskliblist) as `lengthAppend` and
+`lengthMap`, alongside `lengthReverse` for Prelude's tail-recursive `reverse`):
 
 ```haskell
--- | Length of append (reused directly from HaskLib.lengthAppend).
+-- | Length of append: size (xs ++ ys) = size xs + size ys.
 lengthAppendLaw :: forall a. foreach (xs ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
-lengthAppendLaw = lengthAppend
+lengthAppendLaw []       _  = Refl
+lengthAppendLaw (_ : xs) ys = cong Succ (lengthAppendLaw xs ys)
 
--- | Length of map (reused directly from HaskLib.lengthMap).
+-- | Length of map: size (map f xs) = size xs.
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
              -> size (map f xs) :~: size xs
-lengthMapLaw = lengthMap
+lengthMapLaw _ []       = Refl
+lengthMapLaw f (_ : xs) = cong Succ (lengthMapLaw f xs)
 
--- | Length of reverse (reused directly from HaskLib.lengthReverse).
+-- | Length of Prelude reverse (proved via accumulator in HaskLib.List.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse

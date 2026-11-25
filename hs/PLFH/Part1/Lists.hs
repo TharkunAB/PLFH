@@ -60,7 +60,7 @@ import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
 import GHC.Types (List)
-import HaskLib (Matchability, foldr, lengthAppend, lengthMap, lengthReverse, rewrite, size)
+import HaskLib (Matchability, foldr, lengthReverse, rewrite, size)
 import HaskLib.Nat (Nat (..), plus, plusZero)
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
@@ -79,23 +79,25 @@ appendNilR :: forall a. foreach (xs :: List a) -> (xs ++ []) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 142 "content/part1/Lists.md" #-}
--- | Length of append (reused directly from HaskLib.lengthAppend).
+{-# LINE 144 "content/part1/Lists.md" #-}
+-- | Length of append: size (xs ++ ys) = size xs + size ys.
 lengthAppendLaw :: forall a. foreach (xs ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
-lengthAppendLaw = lengthAppend
+lengthAppendLaw []       _  = Refl
+lengthAppendLaw (_ : xs) ys = cong Succ (lengthAppendLaw xs ys)
 
--- | Length of map (reused directly from HaskLib.lengthMap).
+-- | Length of map: size (map f xs) = size xs.
 lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
              -> size (map f xs) :~: size xs
-lengthMapLaw = lengthMap
+lengthMapLaw _ []       = Refl
+lengthMapLaw f (_ : xs) = cong Succ (lengthMapLaw f xs)
 
--- | Length of reverse (reused directly from HaskLib.lengthReverse).
+-- | Length of Prelude reverse (proved via accumulator in HaskLib.List.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 174 "content/part1/Lists.md" #-}
+{-# LINE 178 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -113,7 +115,7 @@ mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 207 "content/part1/Lists.md" #-}
+{-# LINE 211 "content/part1/Lists.md" #-}
 -- | Accumulating linear-time list reversal helper `shunt`.
 shunt :: List a -> List a -> List a
 shunt []     ys = ys
@@ -182,7 +184,7 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 288 "content/part1/Lists.md" #-}
+{-# LINE 292 "content/part1/Lists.md" #-}
 -- | Move the seed to the right of the zero-seeded fold.
 foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
               -> foldr plus z xs :~: plus (foldr plus Zero xs) z
@@ -217,7 +219,7 @@ foldrTimesAppend (x : xs) ys =
   trans (cong (times x) (foldrTimesAppend xs ys))
         (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
 
-{-# LINE 351 "content/part1/Lists.md" #-}
+{-# LINE 355 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -236,7 +238,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 379 "content/part1/Lists.md" #-}
+{-# LINE 383 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -280,7 +282,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 430 "content/part1/Lists.md" #-}
+{-# LINE 434 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -307,7 +309,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 466 "content/part1/Lists.md" #-}
+{-# LINE 470 "content/part1/Lists.md" #-}
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
@@ -337,7 +339,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 516 "content/part1/Lists.md" #-}
+{-# LINE 520 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.

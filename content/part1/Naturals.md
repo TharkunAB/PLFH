@@ -70,9 +70,12 @@ inference rules:
   <div class="conclusion">Succ m :: Nat</div>
 </div>
 
-And here is the definition in Dependent Haskell (reused directly from
-`HaskLib.Nat` so all chapters share one `Nat` type and decimal-numeral
-instances):
+And here is the definition in Dependent Haskell (imported from
+[`HaskLib.Nat`](/HaskLib/#hasklibnat) — see its full source in
+[`PreludeMapLengthSize.hs`](/Source/hasklib/PreludeMapLengthSize/) — so every
+chapter in Parts 1–3, `HaskLib.List.size`, and decimal-numeral literals share
+one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL` and switches to
+Agda's `Data.Nat`):
 
 ```{.haskell .ignore}
 data Nat where

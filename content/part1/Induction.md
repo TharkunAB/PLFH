@@ -45,7 +45,7 @@ module PLFH.Part1.Induction
 
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
 import HaskLib (Matchability, rewrite)
-import HaskLib.Nat (Nat (..), congFirst, plus, plusSucc, plusZero, type (+))
+import HaskLib.Nat (Nat (..), congFirst, plus, type (+))
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, pow, times, toBin)
 ```
 
@@ -303,18 +303,21 @@ The proof requires that we first demonstrate two lemmas:
    `Succ` out of the second argument (`m + Succ n ≡ Succ (m + n)`) requires
    induction on `m`.
 
-Both lemmas are already proved by induction in `HaskLib.Nat` as `plusZero`
-and `plusSucc`, so we reuse them directly:
+We prove both lemmas directly by structural induction on `m` using `cong Succ`
+(later chapters can also import the same proofs from
+[`HaskLib.Nat`](/HaskLib/#hasklibnat) under the names `plusZero` and `plusSucc`):
 
 ```haskell
 -- | First lemma: right identity of addition (`+-identityʳ`).
 plusIdentityR :: foreach (m :: Nat) -> plus m Zero :~: m
-plusIdentityR = plusZero
+plusIdentityR Zero     = Refl
+plusIdentityR (Succ m) = cong Succ (plusIdentityR m)
 
 -- | Second lemma: move a successor from the second addend outside (`+-suc`).
 plusSuc :: foreach (m n :: Nat)
         -> plus m (Succ n) :~: Succ (plus m n)
-plusSuc = plusSucc
+plusSuc Zero     _ = Refl
+plusSuc (Succ m) n = cong Succ (plusSuc m n)
 ```
 
 Finally, here is our proposition's statement and proof by induction on the
@@ -323,15 +326,15 @@ Finally, here is our proposition's statement and proof by induction on the
 ```haskell
 -- | Commutativity of addition: m + n = n + m (`+-comm`).
 plusComm :: foreach (m n :: Nat) -> plus m n :~: plus n m
-plusComm m Zero     = plusZero m
-plusComm m (Succ k) = plusSucc m k `trans` cong Succ (plusComm m k)
+plusComm m Zero     = plusIdentityR m
+plusComm m (Succ k) = plusSuc m k `trans` cong Succ (plusComm m k)
 ```
 
 - **Base case (`Zero`):** We must show `m + Zero ≡ Zero + m`, which
   simplifies to `m + Zero ≡ m` and is discharged by our first lemma
-  `plusZero m`.
+  `plusIdentityR m`.
 - **Inductive case (`Succ k`):** We must show `m + Succ k ≡ Succ k + m`,
-  which simplifies to `m + Succ k ≡ Succ (k + m)`. First `plusSucc m k`
+  which simplifies to `m + Succ k ≡ Succ (k + m)`. First `plusSuc m k`
   gives `m + Succ k ≡ Succ (m + k)`, and then `cong Succ (plusComm m k)`
   gives `Succ (m + k) ≡ Succ (k + m)`; chaining them with `trans` completes
   the proof!
@@ -391,8 +394,8 @@ plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 
 -- | Commutativity proved via nested `HaskLib.rewrite` (`+-comm′`).
 plusCommRewrite :: foreach (m n :: Nat) -> plus m n :~: plus n m
-plusCommRewrite m Zero     = rewrite (plusZero m) Refl
-plusCommRewrite m (Succ k) = rewrite (plusSucc m k) (rewrite (plusCommRewrite m k) Refl)
+plusCommRewrite m Zero     = rewrite (plusIdentityR m) Refl
+plusCommRewrite m (Succ k) = rewrite (plusSuc m k) (rewrite (plusCommRewrite m k) Refl)
 ```
 
 ### Negative control: zero is not equal to its successor
@@ -541,7 +544,7 @@ threePowFour = Refl
 -- m ^ (n + p) = (m ^ n) * (m ^ p).
 powPlus :: foreach (m n p :: Nat)
         -> pow m (plus n p) :~: times (pow m n) (pow m p)
-powPlus m Zero     p = sym (plusZero (pow m p))
+powPlus m Zero     p = sym (plusIdentityR (pow m p))
 powPlus m (Succ k) p =
   rewrite (powPlus m k p)
     (sym (timesAssoc m (pow m k) (pow m p)))
@@ -585,7 +588,7 @@ fromInc Nil    = Refl
 fromInc (X0 _) = Refl
 fromInc (X1 b) =
   rewrite (fromInc b)
-    (cong Succ (plusSucc (fromBin b) (fromBin b)))
+    (cong Succ (plusSuc (fromBin b) (fromBin b)))
 
 -- | Round-tripping Nat -> Bin -> Nat is the identity.
 fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n
@@ -597,7 +600,10 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
 
 - Adapted from [Induction](https://plfa.inf.ed.ac.uk/Induction/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
-- Reused `plusZero` (`+-identityʳ`) and `plusSucc` (`+-suc`) from `HaskLib.Nat`.
+- Proves `plusIdentityR` (`+-identityʳ`) and `plusSuc` (`+-suc`) directly by
+  induction in the chapter (matching PLFA; later chapters can also import the
+  same lemmas from [`HaskLib.Nat`](/HaskLib/#hasklibnat) as `plusZero` and
+  `plusSucc`).
 - Uses a single Agda-style matchability-polymorphic `cong` (`{m :: Matchability}`
   + `RequiredTypeArguments`) for constructors (`cong Succ`), left-first
   functions (`cong (plus m)`, `cong (times a)`), and right-first functions
