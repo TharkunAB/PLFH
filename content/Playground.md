@@ -18,6 +18,10 @@ available to import.
   preset (or replace any proof with `_`) to split stuck equations across
   constructors, refine proof subgoals step-by-step (`cong Succ _`), or fill
   goals directly via 1-step synthesis (`cong Succ (plusAssoc m n p)`).
+- **Try runtime `Type` case, dependent `OverloadedRecordDot`, and operator
+  sections:** select **Type Case, Record Dot & Sections** to match on retained
+  `foreach (a :: Type)` arguments, project dependent fields with `.vecItems` and
+  `Sigma` `.second`, and pass sections such as `(x :)` directly to `cong`.
 - Use the **`ghci>`** prompt below the editor for `:t`, `:k!`, `:i`,
   `:browse HaskLib.Nat`, or runtime evaluation.
 

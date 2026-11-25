@@ -1194,6 +1194,63 @@ firstWord = headVec combined
 `,
   },
   {
+    id: "wave10",
+    label: "Type Case, Record Dot & Sections",
+    replHint: "(defaultVal String, sampleItems, pairChars)",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot #-}
+module Playground where
+
+import Data.Kind (Type)
+import Data.Type.Equality ((:~:) (Refl))
+import GHC.Sigma (Sigma (Pair), first)
+import GHC.Sigma.Projection (second)
+import HaskLib.Nat (Nat (..), natToInt)
+import HaskLib.Vec (SomeVec, Vec (..), toListVec)
+import PLFH.Part1.Induction (cong)
+
+-- 1. Runtime Type pattern matching (Proposal #378 section 4.9):
+defaultVal :: foreach (a :: Type) -> Maybe a
+defaultVal a = case a of
+  Int    -> Just 0
+  Bool   -> Just True
+  [Char] -> Just "dependent haskell"
+  _      -> Nothing
+
+-- 2. Dependent OverloadedRecordDot on dependent records and Sigma:
+data SizedVec a = SizedVec
+  { vecLen   :: Nat
+  , vecItems :: Vec a vecLen
+  }
+
+sampleVec :: SizedVec String
+sampleVec = SizedVec 2 (VCons "wave" (VCons "ten" VNil))
+
+sampleLen :: Int
+sampleLen = natToInt sampleVec.vecLen
+
+sampleItems :: [String]
+sampleItems = toListVec sampleVec.vecItems
+
+pairVec :: SomeVec Char
+pairVec = Pair 2 (VCons 'o' (VCons 'k' VNil))
+
+readSecond :: forall a. foreach (p :: SomeVec a) -> Vec a (first p)
+readSecond p = p.second
+
+pairChars :: String
+pairChars = toListVec (readSecond pairVec)
+
+-- 3. Operator sections directly inside cong:
+congConsL :: forall a (x :: a) (ys1 ys2 :: [a]).
+             ys1 :~: ys2 -> (x : ys1) :~: (x : ys2)
+congConsL eq = cong (x :) eq
+
+congConsR :: forall a (x1 x2 :: a) (ys :: [a]).
+             x1 :~: x2 -> (x1 : ys) :~: (x2 : ys)
+congConsR eq = cong (: ys) eq
+`,
+  },
+  {
     id: "debruijn",
     label: "Intrinsically-Typed STLC",
     replHint: "evalTwoPlusTwo",

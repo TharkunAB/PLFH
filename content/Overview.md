@@ -40,8 +40,13 @@ With `-XDependentTypes`, terms and types move toward a single unified language:
   that can also appear in the result type.
 - **Visible type arguments and Agda-style combinators:** Proposal `#281`
   (`RequiredTypeArguments`) and matchability polymorphism (`%M` / `%U`,
-  Proposal `#242`) let us write `cong Succ`, `cong (plus m)`, and `cong (pow m)`
-  with a single polymorphic `cong` and zero `@` sigils.
+  Proposal `#242`) let us write `cong Succ`, `cong (plus m)`, `cong (x :)`, and
+  `cong (pow m)` with a single polymorphic `cong` and zero `@` sigils.
+- **Runtime `Type` case & dependent `OverloadedRecordDot`:** Match directly on
+  retained `foreach (a :: Type)` values (`case a of Int -> ...`, Proposal
+  `#378 §4.9`) and project length-indexed record fields and `Sigma` pairs with
+  `.` (`sampleVec.vecItems`, `pairVec.second`, Proposal `#282`)—try the
+  **Type Case, Record Dot & Sections** preset below.
 - **Type safety without forced totality:** Unlike Agda or Lean, Haskell permits
   non-termination and partiality. Dependent Haskell preserves System FC type
   soundness by checking value-carrying proofs explicitly (Weirich et al., ICFP
