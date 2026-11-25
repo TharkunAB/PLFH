@@ -138,18 +138,27 @@ subApp sigma l m = substU sigma (UApp l m)
 ## Proving σ-calculus equational identities (`sub-id`, `sub-sub`, `sub-dist`)
 
 <div class="wip-notice">
-<strong>[WIP NOTICE — Equational σ-calculus proofs over GADT terms &amp; functions (R04/R16 + Function Extensionality)]</strong>
-Stating PLFA's equational substitution identities directly as Dependent
-Haskell types, such as:
-<pre class="wip"><code>subId  :: foreach (t :: UTerm n) -&gt; substU ids t :~: t
-subSub :: foreach (s1 :: Subst m n) -&gt; foreach (s2 :: Subst n p)
-       -&gt; foreach (t :: UTerm m)
-       -&gt; substU s2 (substU s1 t) :~: substU (seqSubst s1 s2) t</code></pre>
-requires both (1) reducing abstract function-valued <code>foreach</code>
-binders and higher-order substitutions in types (tracked in
-<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>)
-and (2) function extensionality (which PLFA postulates via
-<code>extensionality</code> for the substitution-algebra equations).
+<strong>[WIP NOTICE — Equational σ-calculus proofs over 1-index <code>Untyped.renameU</code> / <code>substU</code> (R13/R16)]</strong>
+Every equational identity in PLFA's <code>Substitution</code> chapter—including
+<code>sub-id</code>, <code>sub-sub</code>, <code>sub-assoc</code>,
+<code>subst-commute</code>, and Barendregt's Substitution Lemma—can be stated
+constructively without function extensionality by using pointwise equality
+(<code>foreach (x :: Fin m) -&gt; s1 x :~: s2 x</code>).
+However, proving them over <a href="/Untyped/">Untyped</a>'s
+<code>renameU</code> and <code>substU</code> is currently blocked by two
+gaps in GHC's closure-equation publisher:
+(1) open checked equations for <code>rename</code> / <code>subst</code> /
+<code>ext</code> / <code>exts</code> / weakening currently cover only 2-index
+<code>(Ctx, Ty)</code> GADTs (as in <a href="/Bisimulation/">Bisimulation</a>),
+not 1-index <code>Nat</code>-scoped <code>Fin n</code> / <code>UTerm n</code>
+(<code>GHC-70566</code> / <code>GHC-68947</code>; tracked in
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_UntypedSubstOpenEq.hs"><code>R16_UntypedSubstOpenEq.hs</code></a>),
+and (2) partially applied σ-combinators (<code>ids</code>, <code>shift</code>,
+<code>ren rho</code>, <code>consSubst t s</code>, <code>seqSubst s1 s2</code>)
+cannot yet be passed as open function arguments in types
+(<code>GHC-70565</code>; related to
+<a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R13_SubstSingleNamedHelperOpenEq.hs"><code>R13_SubstSingleNamedHelperOpenEq.hs</code></a>
+and <a href="https://github.com/Tritlo/PLFH/blob/main/reproducers/R16_AbstractRenamingInType.hs"><code>R16_AbstractRenamingInType.hs</code></a>).
 All σ-calculus definitions and runtime combinators above compile cleanly with
 <code>-dcore-lint -dstg-lint</code>.
 </div>
@@ -175,6 +184,8 @@ Verify on `FZ` and `FS x` that `extsU sigma` agrees pointwise with
 - Checked direct ports of `Rename`, `Subst`, `ids`, `shift`, `ren`,
   `consSubst`, `seqSubst`, and the computational σ-calculus combinators with
   zero promoted-constructor ticks.
-- Marked the equational substitution proofs (`sub-id`, `sub-sub`, `sub-dist`)
-  with `[WIP NOTICE]` pointing to `R16_AbstractRenamingInType.hs` and function
-  extensionality.
+- Marked the equational substitution proofs (`sub-id`, `sub-sub`, `sub-dist`,
+  `subst-commute`, `substitution`) with `[WIP NOTICE]` pointing to
+  `R16_UntypedSubstOpenEq.hs` (1-index `Fin n`/`UTerm n` open `renameU`/`substU`
+  equations) and `R13_SubstSingleNamedHelperOpenEq.hs` (partially applied named
+  substitution combinators).
