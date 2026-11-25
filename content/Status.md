@@ -10,7 +10,7 @@ the current experimental Dependent Haskell compiler
 ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 - **Compiler & HaskLib:** GHC `10.1.20261115.1` (`TharkunAB/ghc`, branch `dependent-haskell`, Wave 8+9A consolidated [`f0c3001e54`](https://github.com/TharkunAB/ghc/tree/dependent-haskell): Proposal `#378` `-XDependentTypes` umbrella bundle, T2T lowering & nested `foreach` patterns, polymorphic nested source domains, mutually recursive datatypes and term-to-`Type` large eliminations, parameterized dependent record updates, opt-in `-freport-totality`, and 39× faster dependent typed holes with subgoal splitting & case-split suggestions) + expanded `HaskLib` (`HaskLib.Nat` with `natToInt`/`plusAssoc`, `HaskLib.Equality`, `HaskLib.List`, `HaskLib.Vec`, `HaskLib.Fin`, `HaskLib.Sigma`).
-- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all **25 / 25 chapters** (`31` modules, **0 `type family` declarations**), automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **10 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, `181` `[RUN-OK]` checks), **57 fixed regressions** (`-O0` & `-O2`), and **2 tracked reproducers** (1 minor open gap for uninhabited `Void` branches + 1 intentional `-O2` list-fusion soundness guard).
+- **Verification mode:** Native `-O0 -fomit-interface-pragmas -fno-write-if-simplified-core -dcore-lint -dstg-lint` across all **25 / 25 chapters** (`31` modules, **0 `type family` declarations**), automated **`.hi` interface soundness audit** (`scripts/audit_ifaces.py`), **10 negative controls**, executable **runtime smoke test** (`clients/PLFH/RuntimeSmokeTest.hs`, `181` `[RUN-OK]` checks), and **2 tracked reproducers** (1 minor open gap for uninhabited `Void` branches + 1 intentional `-O2` list-fusion soundness guard).
 - **Proof discipline:** Zero typed holes, zero `-fdefer-type-errors`, zero `undefined`/`error`, zero circular bindings, zero `unsafeCoerce`, zero silently quantified function type variables in `.hi` interfaces.
 - **Policy on gaps:** Avoid workarounds; isolate any remaining compiler follow-up as a minimal standalone reproducer under [`reproducers/`](https://github.com/TharkunAB/PLFH/tree/main/reproducers).
 
@@ -63,9 +63,9 @@ the current experimental Dependent Haskell compiler
 
 ## Tracked Reproducers (1 Open Compiler Gap · 1 Intentional `-O2` Soundness Guard)
 
-All **57** previously filed compiler-bug reproducers now pass at both `-O0` and `-O2` under [`reproducers/fixed/`](https://github.com/TharkunAB/PLFH/tree/main/reproducers/fixed) (mirrored to `docs/dependent-haskell/plfh/reproducers/` in `TharkunAB/ghc`). Two tracked reproducers remain under [`reproducers/`](https://github.com/TharkunAB/PLFH/tree/main/reproducers):
+Two tracked reproducers remain under [`reproducers/`](https://github.com/TharkunAB/PLFH/tree/main/reproducers):
 
 | Reproducer (`reproducers/`) | Serokell Card / Proposals | Diagnostic | Summary |
 | --- | --- | --- | --- |
 | `R03_FunctionColumnSplit.hs` | R03 / `-O2` fusion guard (`#378`) | `GHC-83605` (`-O2` only) | **Intentional soundness guard:** passes `-O0` and `-fno-enable-rewrite-rules` (checked in `Lists`), rejected at default `-O2` because stock `build`/`augment`/`map` fusion can change strictness on `null (map not (build producer ++ error "ys"))` |
-| `R13_VoidAbsurdBranchOpenEq.hs` | R13 (`#378`, `#509`) | `GHC-68947` | Follow-up to `fixed/R13_PolyNestedDomainOpenEq.hs`: `SourceTable` rejects functions with an uninhabited `Void` branch (`sumZeroRTo (Right v) = case v of {}`), keeping `sumZeroR`/`sumZeroL` as `Iff` rather than `Iso` |
+| `R13_VoidAbsurdBranchOpenEq.hs` | R13 (`#378`, `#509`) | `GHC-68947` | `SourceTable` rejects functions with an uninhabited `Void` branch (`sumZeroRTo (Right v) = case v of {}`), keeping `sumZeroR`/`sumZeroL` as `Iff` rather than `Iso` |

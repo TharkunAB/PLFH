@@ -247,6 +247,7 @@ function wireEditorKeys(editor, onRun) {
       editor.value =
         editor.value.slice(0, start) + "  " + editor.value.slice(end);
       editor.selectionStart = editor.selectionEnd = start + 2;
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
     } else if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
       ev.preventDefault();
       onRun();
@@ -861,6 +862,514 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;");
 }
 
+// Parse GHC diagnostic locations (`path:line:col:`, `path:line:col-end:`, or
+// `path:(l1,c1)-(l2,c2):`) into 0-based line indices & 0-based half-open column spans.
+function parseErrorSpans(diagText, lineOffset = null) {
+  if (!diagText) return [];
+  const off = lineOffset ?? 0;
+  const spans = [];
+  const seen = new Set();
+
+  const rangeRe = /^[^\n]*?:(\d+):(\d+)(?:-(\d+))?:\s*(error|warning):/gm;
+  let m;
+  while ((m = rangeRe.exec(diagText)) !== null) {
+    if (m[4] !== "error") continue;
+    const lineIdx = Number(m[1]) - 1 - off;
+    const startCol = Math.max(0, Number(m[2]) - 1);
+    const endCol = m[3] ? Math.max(startCol + 1, Number(m[3])) : null;
+    if (lineIdx < 0) continue;
+    const key = `${lineIdx}:${startCol}:${endCol ?? ""}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      spans.push({ lineIdx, startCol, endCol });
+    }
+  }
+
+  const multiRe = /^[^\n]*?:\((\d+),(\d+)\)-\((\d+),(\d+)\):\s*error:/gm;
+  while ((m = multiRe.exec(diagText)) !== null) {
+    const l1 = Number(m[1]) - 1 - off;
+    const c1 = Math.max(0, Number(m[2]) - 1);
+    const l2 = Number(m[3]) - 1 - off;
+    const c2 = Math.max(1, Number(m[4]));
+    if (l1 < 0) continue;
+    for (let li = l1; li <= Math.min(l2, l1 + 6); li++) {
+      const sc = li === l1 ? c1 : 0;
+      const ec = li === l2 ? c2 : null;
+      const key = `${li}:${sc}:${ec ?? ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        spans.push({ lineIdx: li, startCol: sc, endCol: ec });
+      }
+    }
+  }
+  return spans;
+}
+
+const AGDA_KEYWORDS = new Set([
+  "foreach",
+  "forall",
+  "some",
+  "exists",
+  "module",
+  "where",
+  "import",
+  "qualified",
+  "as",
+  "hiding",
+  "data",
+  "newtype",
+  "type",
+  "class",
+  "instance",
+  "let",
+  "in",
+  "case",
+  "of",
+  "if",
+  "then",
+  "else",
+  "do",
+  "deriving",
+  "infix",
+  "infixl",
+  "infixr",
+  "pattern",
+  "family",
+]);
+
+const AGDA_KNOWN_DATACONS = new Set([
+  "Refl",
+  "HRefl",
+  "Zero",
+  "Succ",
+  "VNil",
+  "VCons",
+  "FZ",
+  "FS",
+  "Pair",
+  "Pack",
+  "Just",
+  "Nothing",
+  "Left",
+  "Right",
+  "True",
+  "False",
+  "MkIso",
+  "MkEmbed",
+  "Iff",
+  "MkCPair",
+  "Witness",
+  "ZleN",
+  "SleS",
+  "EvenZ",
+  "EvenS",
+  "OddS",
+  "Yes",
+  "No",
+  "Here",
+  "There",
+  "Nil",
+  "Cons",
+  "Lam",
+  "App",
+  "Var",
+  "Suc",
+  "Done",
+  "OutOfGas",
+  "MkGas",
+  "CEmpty",
+  "CExt",
+  "TNat",
+  "TArr",
+  "Z",
+  "S",
+]);
+
+const AGDA_KNOWN_TYCONS = new Set([
+  "Type",
+  "Constraint",
+  "Matchability",
+  "Nat",
+  "Vec",
+  "Fin",
+  "List",
+  "Maybe",
+  "Either",
+  "Bool",
+  "Int",
+  "Integer",
+  "Char",
+  "String",
+  "Double",
+  "Float",
+  "IO",
+  "Void",
+  "Proxy",
+  "Sigma",
+  "SomeVec",
+  "Exists",
+  "Iso",
+  "Embed",
+  "Dec",
+  "Not",
+  "Even",
+  "Odd",
+  "All",
+  "Any",
+  "In",
+  "Term",
+  "Context",
+  "EvenSigma",
+  "SizedRow",
+  "SizedVec",
+]);
+
+function highlightHaskellLine(line, lineIdx, { inBlockComment, isTypeLine, holeSpans }) {
+  // Hole spans on this line take precedence for Agda-green goal boxes.
+  const holesHere = (holeSpans || []).filter((h) => h.lineIdx === lineIdx);
+  const findHoleAt = (col) =>
+    holesHere.find((h) => col >= h.startCol && col < h.endCol);
+
+  let out = "";
+  let i = 0;
+  let blockDepth = inBlockComment;
+  let inTypeCtx = isTypeLine;
+  const n = line.length;
+
+  while (i < n) {
+    const hole = findHoleAt(i);
+    if (hole && i === hole.startCol) {
+      out += `<span class="plfh-agda-hole">${escapeHtml(line.slice(hole.startCol, hole.endCol))}</span>`;
+      i = hole.endCol;
+      continue;
+    }
+
+    if (blockDepth > 0) {
+      const openIdx = line.indexOf("{-", i);
+      const closeIdx = line.indexOf("-}", i);
+      if (closeIdx === -1) {
+        out += `<span class="plfh-tok-comment">${escapeHtml(line.slice(i))}</span>`;
+        return { html: out, inBlockComment: blockDepth };
+      }
+      if (openIdx !== -1 && openIdx < closeIdx) {
+        out += `<span class="plfh-tok-comment">${escapeHtml(line.slice(i, openIdx + 2))}</span>`;
+        blockDepth++;
+        i = openIdx + 2;
+      } else {
+        out += `<span class="plfh-tok-comment">${escapeHtml(line.slice(i, closeIdx + 2))}</span>`;
+        blockDepth--;
+        i = closeIdx + 2;
+      }
+      continue;
+    }
+
+    // Pragmas {-# ... #-}
+    if (line.startsWith("{-#", i)) {
+      const end = line.indexOf("#-}", i + 3);
+      const stop = end === -1 ? n : end + 3;
+      out += `<span class="plfh-tok-pragma">${escapeHtml(line.slice(i, stop))}</span>`;
+      i = stop;
+      continue;
+    }
+
+    // Block comments {- ... -}
+    if (line.startsWith("{-", i)) {
+      blockDepth = 1;
+      out += `<span class="plfh-tok-comment">${escapeHtml("{-")}</span>`;
+      i += 2;
+      continue;
+    }
+
+    // Line comments -- ...
+    if (
+      line.startsWith("--", i) &&
+      (i + 2 === n || !/[!#$%&*+./<=>?@\\^|~:-]/.test(line[i + 2]))
+    ) {
+      out += `<span class="plfh-tok-comment">${escapeHtml(line.slice(i))}</span>`;
+      break;
+    }
+
+    // String literals
+    if (line[i] === '"') {
+      let j = i + 1;
+      while (j < n) {
+        if (line[j] === "\\") j += 2;
+        else if (line[j] === '"') {
+          j++;
+          break;
+        } else j++;
+      }
+      out += `<span class="plfh-tok-str">${escapeHtml(line.slice(i, j))}</span>`;
+      i = j;
+      continue;
+    }
+
+    // Char literals ('a', '\n')
+    if (line[i] === "'" && i + 2 < n) {
+      const charM = line.slice(i).match(/^'(?:\\.|[^'\\])'/);
+      if (charM) {
+        out += `<span class="plfh-tok-str">${escapeHtml(charM[0])}</span>`;
+        i += charM[0].length;
+        continue;
+      }
+    }
+
+    // Numbers
+    if (/\d/.test(line[i]) && (i === 0 || !/[A-Za-z0-9_']/.test(line[i - 1]))) {
+      const numM = line.slice(i).match(/^\d+(?:\.\d+)?/);
+      if (numM) {
+        out += `<span class="plfh-tok-lit">${escapeHtml(numM[0])}</span>`;
+        i += numM[0].length;
+        continue;
+      }
+    }
+
+    // Identifiers / keywords / constructors
+    if (/[A-Za-z_]/.test(line[i])) {
+      let j = i + 1;
+      while (j < n && /[A-Za-z0-9_']/.test(line[j])) j++;
+      const word = line.slice(i, j);
+      if (AGDA_KEYWORDS.has(word)) {
+        out += `<span class="plfh-tok-kw">${escapeHtml(word)}</span>`;
+        if (word === "type" || word === "data" || word === "newtype" || word === "class" || word === "instance") {
+          inTypeCtx = true;
+        }
+      } else if (/^[A-Z]/.test(word)) {
+        const isCon =
+          AGDA_KNOWN_TYCONS.has(word)
+            ? "plfh-tok-tycon"
+            : AGDA_KNOWN_DATACONS.has(word)
+              ? "plfh-tok-datacon"
+              : inTypeCtx
+                ? "plfh-tok-tycon"
+                : "plfh-tok-datacon";
+        out += `<span class="${isCon}">${escapeHtml(word)}</span>`;
+      } else if (i === 0) {
+        out += `<span class="plfh-tok-fn">${escapeHtml(word)}</span>`;
+      } else {
+        out += escapeHtml(word);
+      }
+      i = j;
+      continue;
+    }
+
+    // Multi-char operators / symbols
+    const opM = line.slice(i).match(/^(?::~~:|:~:|::|->|=>|<-|\+\+|==|\/=|<=|>=|&&|\|\||[:!#$%&*+./<=>?@\\^|~-]+)/);
+    if (opM) {
+      const op = opM[0];
+      if (op === "::") inTypeCtx = true;
+      else if (op === "=" && !line.slice(0, i).includes("type ")) inTypeCtx = false;
+      out += `<span class="plfh-tok-op">${escapeHtml(op)}</span>`;
+      i += op.length;
+      continue;
+    }
+
+    out += escapeHtml(line[i]);
+    i++;
+  }
+
+  return { html: out, inBlockComment: blockDepth };
+}
+
+function renderErrorLine(line, spansHere) {
+  if (!spansHere || spansHere.length === 0) {
+    return escapeHtml(line);
+  }
+  const sorted = [...spansHere].sort((a, b) => a.startCol - b.startCol);
+  let out = "";
+  let pos = 0;
+  for (const sp of sorted) {
+    const start = Math.max(pos, Math.min(sp.startCol, line.length));
+    let end = sp.endCol !== null ? Math.min(sp.endCol, line.length) : start;
+    if (end <= start) {
+      const tok = line.slice(start).match(/^[A-Za-z0-9_']+|^\S+/);
+      end = tok ? start + tok[0].length : Math.min(line.length, start + 1);
+    }
+    if (start > pos) out += escapeHtml(line.slice(pos, start));
+    if (end > start) {
+      out += `<span class="plfh-agda-err">${escapeHtml(line.slice(start, end))}</span>`;
+    }
+    pos = Math.max(pos, end);
+  }
+  if (pos < line.length) out += escapeHtml(line.slice(pos));
+  return `<span class="plfh-agda-err-line">${out}</span>`;
+}
+
+// Render Agda-mode code backdrop: monochrome when unverified, full semantic colors
+// when compiled by GHC, green goal boxes on typed holes, and red spans on errors.
+function highlightDependentHaskell(
+  code,
+  { state = "unverified", holes = [], errors = [], lineOffset = null } = {}
+) {
+  if (state === "unverified" || state === "checking") {
+    return escapeHtml(code) + "\n";
+  }
+
+  const lines = code.split("\n");
+  if (state === "err") {
+    const byLine = new Map();
+    for (const sp of errors || []) {
+      if (!byLine.has(sp.lineIdx)) byLine.set(sp.lineIdx, []);
+      byLine.get(sp.lineIdx).push(sp);
+    }
+    return (
+      lines
+        .map((line, idx) => renderErrorLine(line, byLine.get(idx)))
+        .join("\n") + "\n"
+    );
+  }
+
+  // Verified ("ok") or verified-with-holes ("holes"): compute exact hole spans.
+  const holeSpans = [];
+  for (const h of holes || []) {
+    const lineIdx = findHoleLineIndex(lines, h, lineOffset);
+    if (lineIdx === -1) continue;
+    const lineText = lines[lineIdx];
+    const targetCol = h.col ? Math.max(0, h.col - 1) : 0;
+    const re = new RegExp(`(?<![A-Za-z0-9_'])${escapeRegex(h.name)}(?![A-Za-z0-9_'])`, "g");
+    let best = null;
+    let bestDist = Infinity;
+    let mm;
+    while ((mm = re.exec(lineText)) !== null) {
+      const dist = Math.abs(mm.index - targetCol);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = mm.index;
+      }
+    }
+    if (best !== null) {
+      holeSpans.push({
+        lineIdx,
+        startCol: best,
+        endCol: best + h.name.length,
+      });
+    }
+  }
+
+  let inBlockComment = 0;
+  let prevWasSigCont = false;
+  const rendered = lines.map((line, idx) => {
+    const trimmed = line.trim();
+    const startsSig =
+      /^[a-z_][A-Za-z0-9_']*\s*::/.test(line) ||
+      /^\s*(?:type|data|newtype|class|instance)\b/.test(line) ||
+      (prevWasSigCont && /^\s*(?:->|=>|::|\|)/.test(line));
+    const res = highlightHaskellLine(line, idx, {
+      inBlockComment,
+      isTypeLine: startsSig,
+      holeSpans,
+    });
+    inBlockComment = res.inBlockComment;
+    prevWasSigCont =
+      startsSig && trimmed.length > 0 && !trimmed.includes(" = ");
+    return res.html;
+  });
+
+  return rendered.join("\n") + "\n";
+}
+
+const AGDA_BADGE_LABELS = {
+  unverified: "Unverified · Ctrl+Enter",
+  checking: "Checking…",
+  ok: "Verified ✓",
+  holes: "Holes (Agda-mode)",
+  err: "Type Error",
+};
+
+function createAgdaEditor({
+  initialValue = "",
+  rows = 8,
+  placeholder = "",
+  extraClass = "",
+} = {}) {
+  const root = document.createElement("div");
+  root.className = "plfh-agda-editor";
+  root.dataset.state = "unverified";
+
+  const badge = document.createElement("span");
+  badge.className = "plfh-agda-badge";
+  badge.textContent = AGDA_BADGE_LABELS.unverified;
+
+  const backdrop = document.createElement("pre");
+  backdrop.className = "plfh-agda-backdrop";
+  backdrop.setAttribute("aria-hidden", "true");
+  const codeEl = document.createElement("code");
+  backdrop.append(codeEl);
+
+  const textarea = document.createElement("textarea");
+  textarea.className = `plfh-wasm-editor plfh-agda-input${extraClass ? " " + extraClass : ""}`;
+  textarea.spellcheck = false;
+  textarea.rows = rows;
+  if (placeholder) textarea.placeholder = placeholder;
+  textarea.value = initialValue;
+
+  root.append(backdrop, textarea, badge);
+
+  let state = "unverified";
+  let lastMeta = {};
+
+  const render = () => {
+    root.dataset.state = state;
+    badge.textContent = AGDA_BADGE_LABELS[state] || "";
+    codeEl.innerHTML = highlightDependentHaskell(textarea.value, {
+      state,
+      ...lastMeta,
+    });
+    backdrop.scrollTop = textarea.scrollTop;
+    backdrop.scrollLeft = textarea.scrollLeft;
+  };
+
+  textarea.addEventListener("input", () => {
+    state = "unverified";
+    lastMeta = {};
+    render();
+  });
+
+  textarea.addEventListener("scroll", () => {
+    backdrop.scrollTop = textarea.scrollTop;
+    backdrop.scrollLeft = textarea.scrollLeft;
+  });
+
+  render();
+
+  return {
+    root,
+    textarea,
+    get value() {
+      return textarea.value;
+    },
+    set value(v) {
+      textarea.value = v;
+      state = "unverified";
+      lastMeta = {};
+      render();
+    },
+    setUnverified() {
+      state = "unverified";
+      lastMeta = {};
+      render();
+    },
+    setChecking() {
+      state = "checking";
+      lastMeta = {};
+      render();
+    },
+    setVerified({ holes = [], lineOffset = null } = {}) {
+      state = holes && holes.length > 0 ? "holes" : "ok";
+      lastMeta = { holes, lineOffset };
+      render();
+    },
+    setErrors({ errors = [], lineOffset = null } = {}) {
+      state = "err";
+      lastMeta = { errors, lineOffset };
+      render();
+    },
+    focus() {
+      textarea.focus();
+    },
+  };
+}
+
 function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
   mountEl.innerHTML = "";
   mountEl.classList.add("plfh-chapter-bar--ready");
@@ -932,16 +1441,15 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
   scratchWrap.className = "plfh-chapter-scratch";
   const scratchSummary = document.createElement("summary");
   scratchSummary.textContent = "Scratchpad (write & check exercises in this chapter)";
-  const scratchEditor = document.createElement("textarea");
-  scratchEditor.className = "plfh-wasm-editor";
-  scratchEditor.spellcheck = false;
-  scratchEditor.rows = 6;
-  scratchEditor.placeholder = `-- Declarations here automatically import ${chapterModule}\n-- Tip: write a typed hole like _qed to inspect goals & valid hole fits (Ctrl/Cmd+Enter)`;
+  const scratchEditor = createAgdaEditor({
+    rows: 6,
+    placeholder: `-- Declarations here automatically import ${chapterModule}\n-- Tip: write a typed hole like _qed to inspect goals & valid hole fits (Ctrl/Cmd+Enter)`,
+  });
   const scratchBtn = document.createElement("button");
   scratchBtn.type = "button";
   scratchBtn.className = "plfh-wasm-btn plfh-wasm-check";
   scratchBtn.textContent = "Check Scratchpad";
-  scratchWrap.append(scratchSummary, scratchEditor, scratchBtn);
+  scratchWrap.append(scratchSummary, scratchEditor.root, scratchBtn);
 
   const holePanel = document.createElement("div");
   holePanel.className = "plfh-hole-panel";
@@ -1008,6 +1516,7 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
     if (!rawCode) return;
     scratchBtn.disabled = true;
     holePanel.hidden = true;
+    scratchEditor.setChecking();
     statusSpan.textContent = client.booted ? "Checking scratchpad..." : "Starting GHCi Wasm...";
     const res = await client.checkBlock({
       code: scratchEditor.value,
@@ -1021,6 +1530,7 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
     output.hidden = false;
     const combined = [res.stdout, res.stderr].filter(Boolean).join("\n");
     const hasHoles = !res.ok && combined.includes("Found hole:");
+    const lineOffset = res.lineOffset ?? null;
     output.dataset.state = res.ok ? "ok" : hasHoles ? "warn" : "err";
     statusSpan.textContent = res.ok
       ? `Scratchpad checked (${res.elapsedMs} ms)`
@@ -1032,8 +1542,11 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
       (res.ok
         ? "Ok, scratchpad typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
-    if (hasHoles) {
-      const lineOffset = res.lineOffset ?? null;
+    if (res.ok) {
+      scratchEditor.setVerified({ holes: [], lineOffset });
+    } else if (hasHoles) {
+      const parsedHoles = parseTypedHoles(combined);
+      scratchEditor.setVerified({ holes: parsedHoles, lineOffset });
       renderHolePanel(holePanel, combined, {
         code: scratchEditor.value,
         lineOffset,
@@ -1050,11 +1563,16 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
           runScratch();
         },
       });
+    } else {
+      scratchEditor.setErrors({
+        errors: parseErrorSpans(combined, lineOffset),
+        lineOffset,
+      });
     }
   };
 
   scratchBtn.addEventListener("click", runScratch);
-  wireEditorKeys(scratchEditor, runScratch);
+  wireEditorKeys(scratchEditor.textarea, runScratch);
 
   replRow.addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -1310,11 +1828,11 @@ function mountStandalonePlayground(mountEl, client, uiState) {
   presetBar.className = "plfh-preset-bar";
   const presetBtns = new Map();
 
-  const editor = document.createElement("textarea");
-  editor.className = "plfh-wasm-editor plfh-playground-editor";
-  editor.spellcheck = false;
-  editor.rows = 16;
-  editor.value = activePreset.code;
+  const editor = createAgdaEditor({
+    initialValue: activePreset.code,
+    rows: 16,
+    extraClass: "plfh-playground-editor",
+  });
 
   const replInput = document.createElement("input");
   replInput.type = "text";
@@ -1398,7 +1916,7 @@ function mountStandalonePlayground(mountEl, client, uiState) {
 
   replRow.append(promptLabel, replInput, replBtn);
 
-  mountEl.append(presetBar, toolbar, editor, holePanel, output, replRow);
+  mountEl.append(presetBar, toolbar, editor.root, holePanel, output, replRow);
 
   client.onProgress((p) => {
     const msg = formatProgress(p);
@@ -1410,6 +1928,7 @@ function mountStandalonePlayground(mountEl, client, uiState) {
     if (!rawCode) return;
     checkBtn.disabled = true;
     holePanel.hidden = true;
+    editor.setChecking();
     statusSpan.textContent = client.booted
       ? "Checking..."
       : "Starting Dependent GHCi Wasm...";
@@ -1422,6 +1941,7 @@ function mountStandalonePlayground(mountEl, client, uiState) {
     output.hidden = false;
     const combined = [res.stderr, res.stdout].filter(Boolean).join("\n");
     const hasHoles = !res.ok && combined.includes("Found hole:");
+    const lineOffset = res.lineOffset ?? null;
     output.dataset.state = res.ok ? "ok" : hasHoles ? "warn" : "err";
     statusSpan.textContent = res.ok
       ? `Checked & loaded (${res.elapsedMs} ms)`
@@ -1433,8 +1953,11 @@ function mountStandalonePlayground(mountEl, client, uiState) {
       (res.ok
         ? "Ok, module typechecked and loaded into GHCi (-XDependentTypes)."
         : res.status);
-    if (hasHoles) {
-      const lineOffset = res.lineOffset ?? null;
+    if (res.ok) {
+      editor.setVerified({ holes: [], lineOffset });
+    } else if (hasHoles) {
+      const parsedHoles = parseTypedHoles(combined);
+      editor.setVerified({ holes: parsedHoles, lineOffset });
       renderHolePanel(holePanel, combined, {
         code: editor.value,
         lineOffset,
@@ -1449,11 +1972,16 @@ function mountStandalonePlayground(mountEl, client, uiState) {
           runCheck();
         },
       });
+    } else {
+      editor.setErrors({
+        errors: parseErrorSpans(combined, lineOffset),
+        lineOffset,
+      });
     }
   };
 
   checkBtn.addEventListener("click", runCheck);
-  wireEditorKeys(editor, runCheck);
+  wireEditorKeys(editor.textarea, runCheck);
 
   replRow.addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -1470,6 +1998,167 @@ function mountStandalonePlayground(mountEl, client, uiState) {
     statusSpan.textContent = `${res.ok ? "Done" : "Error"} (${res.elapsedMs} ms)`;
     const text = [res.stdout, res.stderr].filter(Boolean).join("\n");
     output.textContent = `ghci> ${line}\n${text}`;
+  });
+}
+
+function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
+  mountEl.innerHTML = "";
+  mountEl.classList.add("plfh-chapter-bar--ready");
+
+  const groups = [...document.querySelectorAll(".plfh-showcase-group")];
+  const completeEntries = cardEntries.filter((e) => !e.isHole);
+  let activeTab = groups[0]?.dataset.showcaseTab || "all";
+
+  const hashMatch = window.location.hash.match(/^#tab=([a-z0-9-]+)$/i);
+  if (hashMatch) {
+    const requested = hashMatch[1];
+    if (
+      requested === "all" ||
+      groups.some((g) => g.dataset.showcaseTab === requested)
+    ) {
+      activeTab = requested;
+    }
+  }
+
+  const header = document.createElement("div");
+  header.className = "plfh-chapter-bar-row";
+
+  const label = document.createElement("span");
+  label.className = "plfh-chapter-bar-title";
+  label.innerHTML = `<strong>Roadmap Showcase (Wasm):</strong> ${completeEntries.length} complete cards + 1 Agda-mode hole`;
+
+  const actions = document.createElement("div");
+  actions.className = "plfh-chapter-bar-actions";
+
+  const checkTabBtn = document.createElement("button");
+  checkTabBtn.type = "button";
+  checkTabBtn.className = "plfh-wasm-btn plfh-wasm-check";
+  checkTabBtn.textContent = "Check Active Tab (Wasm)";
+
+  const checkAllBtn = document.createElement("button");
+  checkAllBtn.type = "button";
+  checkAllBtn.className = "plfh-wasm-btn plfh-wasm-edit";
+  checkAllBtn.textContent = `Check All ${completeEntries.length} Cards`;
+
+  const refineLabel = document.createElement("label");
+  refineLabel.className = "plfh-refinement-toggle";
+  refineLabel.title =
+    "Enable Dependent Haskell refinement hole fits & subgoal splitting (on by default under -XDependentTypes)";
+  const refineCheckbox = document.createElement("input");
+  refineCheckbox.type = "checkbox";
+  refineCheckbox.checked = uiState.refinementFits;
+  refineCheckbox.addEventListener("change", () => {
+    uiState.refinementFits = refineCheckbox.checked;
+  });
+  refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
+
+  const statusSpan = document.createElement("span");
+  statusSpan.className = "plfh-wasm-status";
+  statusSpan.textContent = "Loads Dependent GHCi (Wasm) on demand";
+
+  actions.append(checkTabBtn, checkAllBtn, refineLabel);
+  header.append(label, actions, statusSpan);
+  mountEl.append(header);
+
+  const tabBtns = new Map();
+  const selectTab = (tabId, updateHash = false) => {
+    activeTab = tabId;
+    for (const g of groups) {
+      g.hidden = tabId !== "all" && g.dataset.showcaseTab !== tabId;
+    }
+    for (const [id, btn] of tabBtns.entries()) {
+      btn.classList.toggle("plfh-preset-btn--active", id === tabId);
+      btn.setAttribute("aria-selected", id === tabId ? "true" : "false");
+    }
+    const tabCompleteCount = completeEntries.filter(
+      (e) => tabId === "all" || e.tabId === tabId
+    ).length;
+    checkTabBtn.hidden = tabId === "all" || tabCompleteCount === 0;
+    if (tabCompleteCount > 0) {
+      checkTabBtn.textContent = `Check Tab (${tabCompleteCount} card${tabCompleteCount === 1 ? "" : "s"})`;
+    }
+    if (updateHash) {
+      history.replaceState(null, "", `#tab=${tabId}`);
+    }
+  };
+
+  if (groups.length > 0) {
+    const tabBar = document.createElement("div");
+    tabBar.className = "plfh-showcase-tabs";
+    tabBar.setAttribute("role", "tablist");
+
+    for (const g of groups) {
+      const id = g.dataset.showcaseTab;
+      const count = cardEntries.filter((e) => e.tabId === id).length;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("role", "tab");
+      btn.className = "plfh-preset-btn";
+      btn.dataset.showcaseTabBtn = id;
+      btn.textContent = `${g.dataset.showcaseLabel || id} (${count})`;
+      btn.addEventListener("click", () => selectTab(id, true));
+      tabBtns.set(id, btn);
+      tabBar.append(btn);
+    }
+
+    const allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.setAttribute("role", "tab");
+    allBtn.className = "plfh-preset-btn";
+    allBtn.dataset.showcaseTabBtn = "all";
+    allBtn.textContent = `All (${cardEntries.length})`;
+    allBtn.addEventListener("click", () => selectTab("all", true));
+    tabBtns.set("all", allBtn);
+    tabBar.append(allBtn);
+
+    mountEl.append(tabBar);
+    selectTab(activeTab, false);
+  }
+
+  client.onProgress((p) => {
+    if (statusSpan.dataset.active !== "1") return;
+    const msg = formatProgress(p);
+    if (msg) statusSpan.textContent = msg;
+  });
+
+  const runBatch = async (entries, desc) => {
+    if (entries.length === 0) return;
+    checkTabBtn.disabled = true;
+    checkAllBtn.disabled = true;
+    statusSpan.dataset.active = "1";
+    const t0 = performance.now();
+    let passed = 0;
+    let failed = 0;
+    for (let i = 0; i < entries.length; i++) {
+      statusSpan.textContent = client.booted
+        ? `Checking ${desc} (${i + 1}/${entries.length})...`
+        : "Starting Dependent GHCi Wasm...";
+      const ok = await entries[i].run();
+      if (ok) passed++;
+      else failed++;
+    }
+    const elapsedMs = Math.round(performance.now() - t0);
+    statusSpan.dataset.active = "0";
+    checkTabBtn.disabled = false;
+    checkAllBtn.disabled = false;
+    statusSpan.textContent =
+      failed === 0
+        ? `All ${passed}/${entries.length} cards verified ✓ (${elapsedMs} ms)`
+        : `${passed}/${entries.length} verified, ${failed} failed (${elapsedMs} ms)`;
+  };
+
+  checkTabBtn.addEventListener("click", () => {
+    const entries = completeEntries.filter(
+      (e) => activeTab === "all" || e.tabId === activeTab
+    );
+    runBatch(entries, activeTab);
+  });
+
+  checkAllBtn.addEventListener("click", () => {
+    if (groups.length > 0 && activeTab !== "all") {
+      selectTab("all", false);
+    }
+    runBatch(completeEntries, "all cards");
   });
 }
 
@@ -1493,6 +2182,8 @@ export function enhancePlfhPage({
     mountChapterBar(chapterMount, client, chapterModule, chapterCtx, uiState);
   }
 
+  const showcaseCardRunners = [];
+
   blocks.forEach((pre, idx) => {
     const cls = pre.classList;
     if (cls.contains("ignore") || cls.contains("spec") || cls.contains("wip")) {
@@ -1510,6 +2201,8 @@ export function enhancePlfhPage({
 
     const isFail = cls.contains("fail");
     const isExercise = cls.contains("exercise");
+    const isShowcaseHole =
+      pre.dataset.showcaseHole === "1" || container.dataset.showcaseHole === "1";
     const expectedCode = container.dataset.expect || pre.dataset.expect || null;
     const blockMod =
       pre.dataset.plfhModule || container.dataset.plfhModule || chapterModule;
@@ -1548,12 +2241,11 @@ export function enhancePlfhPage({
 
     bar.append(checkBtn, editBtn, resetBtn, statusSpan);
 
-    const editor = document.createElement("textarea");
-    editor.className = "plfh-wasm-editor";
-    editor.spellcheck = false;
-    editor.value = initialCode;
-    editor.rows = Math.max(4, Math.min(24, initialCode.split("\n").length + 1));
-    editor.hidden = true;
+    const editor = createAgdaEditor({
+      initialValue: initialCode,
+      rows: Math.max(4, Math.min(24, initialCode.split("\n").length + 1)),
+    });
+    editor.root.hidden = true;
 
     const replRow = document.createElement("form");
     replRow.className = "plfh-wasm-repl";
@@ -1584,8 +2276,13 @@ export function enhancePlfhPage({
     output.className = "plfh-wasm-output";
     output.hidden = true;
 
-    wrapper.append(bar, editor, replRow, holePanel, output);
+    wrapper.append(bar, editor.root, replRow, holePanel, output);
     container.insertAdjacentElement("afterend", wrapper);
+
+    const setContainerState = (st) => {
+      container.classList.remove("plfh-block--ok", "plfh-block--holes", "plfh-block--err");
+      if (st) container.classList.add(`plfh-block--${st}`);
+    };
 
     client.onProgress((p) => {
       if (statusSpan.dataset.active !== "1") return;
@@ -1594,8 +2291,8 @@ export function enhancePlfhPage({
     });
 
     editBtn.addEventListener("click", () => {
-      const editing = editor.hidden;
-      editor.hidden = !editing;
+      const editing = editor.root.hidden;
+      editor.root.hidden = !editing;
       container.hidden = editing;
       resetBtn.hidden = !editing;
       editBtn.textContent = editing
@@ -1608,16 +2305,18 @@ export function enhancePlfhPage({
 
     resetBtn.addEventListener("click", () => {
       editor.value = initialCode;
+      setContainerState(null);
     });
 
     const runCheck = async () => {
       checkBtn.disabled = true;
       holePanel.hidden = true;
+      editor.setChecking();
       statusSpan.dataset.active = "1";
       statusSpan.textContent = client.booted
         ? "Checking..."
         : "Starting GHCi Wasm...";
-      const rawCode = editor.hidden ? initialCode : editor.value;
+      const rawCode = editor.root.hidden ? initialCode : editor.value;
       const res = await client.checkBlock({
         code: rawCode,
         chapterModule: blockMod,
@@ -1631,22 +2330,31 @@ export function enhancePlfhPage({
       output.hidden = false;
 
       const combined = [res.stderr, res.stdout].filter(Boolean).join("\n");
+      const lineOffset = res.lineOffset ?? null;
       if (isFail && expectedCode) {
         if (!res.ok && combined.includes(expectedCode)) {
           statusSpan.textContent = `Rejected as expected (${expectedCode}, ${res.elapsedMs} ms)`;
           output.dataset.state = "ok";
           output.textContent = combined;
+          setContainerState("ok");
+          editor.setErrors({ errors: parseErrorSpans(combined, lineOffset), lineOffset });
+          return true;
         } else if (res.ok) {
           statusSpan.textContent = `Unexpectedly passed (${res.elapsedMs} ms)`;
           output.dataset.state = "warn";
           output.textContent =
             combined || "Module typechecked (was expected to fail with " + expectedCode + ").";
+          setContainerState("holes");
+          editor.setVerified({ holes: [], lineOffset });
+          return false;
         } else {
           statusSpan.textContent = `Failed (${res.elapsedMs} ms)`;
           output.dataset.state = "err";
           output.textContent = combined || res.status;
+          setContainerState("err");
+          editor.setErrors({ errors: parseErrorSpans(combined, lineOffset), lineOffset });
+          return false;
         }
-        return;
       }
 
       if (res.ok) {
@@ -1656,6 +2364,9 @@ export function enhancePlfhPage({
         output.textContent =
           [res.stdout, res.stderr].filter(Boolean).join("\n") ||
           "Ok, module typechecked and loaded into GHCi (-XDependentTypes).";
+        setContainerState("ok");
+        editor.setVerified({ holes: [], lineOffset });
+        return true;
       } else {
         const hasHoles = combined.includes("Found hole:");
         statusSpan.textContent = hasHoles
@@ -1664,10 +2375,12 @@ export function enhancePlfhPage({
         output.dataset.state = hasHoles ? "warn" : "err";
         output.textContent = combined || res.status;
         if (hasHoles) {
-          const lineOffset = res.lineOffset ?? null;
+          const parsedHoles = parseTypedHoles(combined);
+          setContainerState("holes");
+          editor.setVerified({ holes: parsedHoles, lineOffset });
           const revealEditor = () => {
-            if (editor.hidden) {
-              editor.hidden = false;
+            if (editor.root.hidden) {
+              editor.root.hidden = false;
               container.hidden = true;
               resetBtn.hidden = false;
               editBtn.textContent = "View Highlighted";
@@ -1689,12 +2402,28 @@ export function enhancePlfhPage({
               runCheck();
             },
           });
+        } else {
+          setContainerState("err");
+          editor.setErrors({
+            errors: parseErrorSpans(combined, lineOffset),
+            lineOffset,
+          });
         }
+        return false;
       }
     };
 
     checkBtn.addEventListener("click", runCheck);
-    wireEditorKeys(editor, runCheck);
+    wireEditorKeys(editor.textarea, runCheck);
+
+    if (!isFail && !isExercise) {
+      const grp = container.closest(".plfh-showcase-group");
+      showcaseCardRunners.push({
+        tabId: grp?.dataset.showcaseTab || "all",
+        isHole: isShowcaseHole,
+        run: runCheck,
+      });
+    }
 
     replRow.addEventListener("submit", async (ev) => {
       ev.preventDefault();
@@ -1713,6 +2442,11 @@ export function enhancePlfhPage({
       output.textContent = `ghci> ${line}\n${text}`;
     });
   });
+
+  const showcaseMount = document.getElementById("plfh-showcase-bar");
+  if (showcaseMount && showcaseCardRunners.length > 0) {
+    mountShowcaseBar(showcaseMount, client, uiState, showcaseCardRunners);
+  }
 
   return client;
 }

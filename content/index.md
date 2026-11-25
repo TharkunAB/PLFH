@@ -22,6 +22,7 @@ Comments, bug reports, and pull requests are welcome on
 ## Front matter
 
 - [Dependent Haskell Overview](/Overview/): Core concepts, GHC proposals (`#378`, `#281`, `#242`, ...), foundational papers, and the Serokell roadmap
+- [Roadmap Showcase](/Showcase/): Self-contained runnable cards for completed Dependent Haskell features (live WebAssembly GHC)
 - [Interactive Playground](/Playground/): Try Dependent Haskell, typed-hole refinement, and GHCi directly in your browser (WebAssembly)
 - [Preface](/Preface/): Propositions as Types, totality discipline, and yardstick goals
 - [Setup](/Setup/): Compiling `TharkunAB/ghc`, `shell.nix`, flags, GHCi, and Hakyll preview

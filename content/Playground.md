@@ -13,7 +13,12 @@ in your browser via WebAssembly—zero server backend required. All of
 available to import.
 
 - Pick an example below or write your own module, then press **`Ctrl/Cmd+Enter`**
-  or click **Check & Load in GHCi**.
+  or click **Check & Load in GHCi**. Like Emacs `agda-mode`, code dims while
+  edited and lights up with semantic colors, green typed-hole goal boxes, and
+  red error spans whenever GHC checks it.
+- **Browse the [Roadmap Showcase](/Showcase/):** explore self-contained
+  editable cards grouped by feature area with direct links to GHC proposals and
+  Serokell roadmap items.
 - **Try Agda-mode typed holes:** select the **Agda-mode Case Split & Holes**
   preset (or replace any proof with `_`) to split stuck equations across
   constructors, refine proof subgoals step-by-step (`cong Succ _`), or fill

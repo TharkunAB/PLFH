@@ -41,6 +41,7 @@ main = do
 
     match (fromList
       [ "content/Overview.md"
+      , "content/Showcase.md"
       , "content/Playground.md"
       , "content/Preface.md"
       , "content/Setup.md"
@@ -76,9 +77,8 @@ main = do
         hasklibIds <- sort . map toFilePath <$> getMatches "reference/hasklib/**.hs"
         negIds <- sort . map toFilePath <$> getMatches "hs/negative/*.hs"
         openReproIds <- sort . map toFilePath <$> getMatches "reproducers/*.hs"
-        fixedReproIds <- sort . map toFilePath <$> getMatches "reproducers/fixed/*.hs"
         let (chapMods, clientMods) = partitionChapterClients chapterIds
-            md = buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds fixedReproIds
+            md = buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds
             ctx =
               constField "title" "Source Browser"
                 <> constField "prevUrl" "/HaskLib/"
@@ -95,7 +95,6 @@ sourcePatterns =
   "hs/PLFH/**.hs"
     .||. "hs/negative/*.hs"
     .||. "reproducers/*.hs"
-    .||. "reproducers/fixed/*.hs"
     .||. "reference/hasklib/**.hs"
 
 normalizeBaseUrl :: String -> String
@@ -158,6 +157,7 @@ plfhMarkdownExtensions =
     . disableExtension Ext_tex_math_single_backslash
     . disableExtension Ext_tex_math_double_backslash
     . enableExtension Ext_fenced_code_attributes
+    . enableExtension Ext_fenced_divs
     . enableExtension Ext_pipe_tables
     . enableExtension Ext_auto_identifiers
     . enableExtension Ext_header_attributes
@@ -247,12 +247,12 @@ partitionChapterClients paths =
   )
 
 buildSourceIndexMarkdown
-  :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
-buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds fixedReproIds =
+  :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
+buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds =
   unlines $
     [ "Browse every verified Haskell module extracted from PLFH, its supporting"
     , "client modules, the `HaskLib` reference library from `TharkunAB/ghc`, all"
-    , "negative controls, and every compiler reproducer directly on this site."
+    , "negative controls, and tracked compiler reproducers directly on this site."
     , ""
     , "## Chapter Modules (" ++ show (length chapMods) ++ ")"
     , ""
@@ -276,15 +276,10 @@ buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds fixe
          ]
       ++ map formatPlainRow negIds
       ++ [ ""
-         , "## Open Compiler-Gap Reproducers (" ++ show (length openReproIds) ++ ")"
+         , "## Tracked Reproducers (" ++ show (length openReproIds) ++ ")"
          , ""
          ]
       ++ map formatPlainRow openReproIds
-      ++ [ ""
-         , "## Fixed Regressions (" ++ show (length fixedReproIds) ++ ")"
-         , ""
-         ]
-      ++ map formatPlainRow fixedReproIds
   where
     formatChapterRow p =
       let modName = sourceDisplayTitle p

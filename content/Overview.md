@@ -8,6 +8,7 @@ playground: true
 
 <div class="hero-actions">
   <a class="hero-btn hero-btn--primary" href="#try-it">Try it Live Below</a>
+  <a class="hero-btn" href="/Showcase/">Roadmap Showcase</a>
   <a class="hero-btn" href="/Playground/">Full-Page Playground</a>
   <a class="hero-btn" href="/">Read the Book (25 Chapters)</a>
   <a class="hero-btn" href="/HaskLib/">HaskLib Reference</a>
@@ -83,8 +84,8 @@ follows a strict four-tier specification hierarchy
 4. **Agda and PLFA** inform surface ergonomics where GHC proposals are silent.
 
 See the [Yardstick Status Ledger](/Status/) for the live chapter-by-chapter
-tally (all 25/25 chapters checked with zero `type family` declarations), 57
-fixed regression reproducers, and the remaining tracked follow-ups.
+tally (all 25/25 chapters checked with zero `type family` declarations) and
+the remaining tracked follow-ups.
 
 ## Key GHC Proposals
 
@@ -146,6 +147,9 @@ fixed regression reproducers, and the remaining tracked follow-ups.
 
 ## Explore the Site
 
+- **[Roadmap Showcase](/Showcase/):** Explore self-contained, editable cards
+  for completed Dependent Haskell features grouped by roadmap area, with links
+  to the corresponding GHC proposals and Serokell roadmap cards.
 - **[Interactive Playground](/Playground/):** Write, typecheck, fill typed
   holes, and evaluate Dependent Haskell directly in your browser.
 - **[Table of Contents](/):** Read all 25 chapters from Peano arithmetic and
