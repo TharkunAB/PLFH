@@ -49,9 +49,18 @@ module PLFH.Part2.Substitution
   , consSubst
   , seqSubst
   , HasTerm (..)
+  , HasFin (..)
+  , finWToHas
+  , termWToHas
+  , hasToTermW
+  , RenW
+  , shiftW
+  , extRenW
+  , evalRename
   , SubW
   , idsW
   , singleW
+  , singleHasW
   , consW
   , extsW
   , evalSubst
@@ -84,6 +93,8 @@ module PLFH.Part2.Substitution
   , subAssocAt
   , extsAsSigmaAt
   , substSingleAsCons
+  , renCommute
+  , extsSingleBeta
   , substCommute
   , substitution
   ) where
@@ -94,9 +105,12 @@ import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (cong)
 import PLFH.Part2.Untyped
   ( Fin (..)
+  , FinW (..)
+  , TermW (..)
   , UTerm (..)
   , extU
   , extsU
+  , mkTermW
   , renameU
   , shiftFin
   , singleSubstU
@@ -194,6 +208,19 @@ consW _ sw (FS x) = sw x
 type HasFin :: forall (n :: Nat). Fin n -> Type
 data HasFin x where
   MkHasFin :: foreach (x :: Fin n) -> HasFin x
+
+finWToHas :: forall (n :: Nat) (x :: Fin n). FinW x -> HasFin x
+finWToHas (WFZ @m) = MkHasFin (FZ :: Fin (Succ m))
+finWToHas (WFS fx) = case finWToHas fx of MkHasFin y -> MkHasFin (FS y)
+
+termWToHas :: forall (n :: Nat) (t :: UTerm n). TermW t -> HasTerm t
+termWToHas (WVar fx)    = case finWToHas fx of MkHasFin x -> MkHasTerm (UVar x)
+termWToHas (WLam wb)    = case termWToHas wb of MkHasTerm b -> MkHasTerm (ULam b)
+termWToHas (WApp wl wm) = case (termWToHas wl, termWToHas wm) of
+  (MkHasTerm l, MkHasTerm m) -> MkHasTerm (UApp l m)
+
+hasToTermW :: forall (n :: Nat) (t :: UTerm n). HasTerm t -> TermW t
+hasToTermW (MkHasTerm u) = mkTermW u
 
 -- | Runtime witness producing the retained index `r x` for each variable `x :: Fin m`.
 type RenW :: forall (m :: Nat) (n :: Nat). Rename m n -> Type
@@ -632,6 +659,45 @@ substCommute sw w t =
       Refl -> sym (subSub @(Succ m) @(Succ n) @n @(extsU s) @(singleSubstU (substU s w))
                      (extsW @m @n @s sw) (singleHasW @n @(substU s w) (evalSubst @m @n @s sw w)) t)
 
+-- | Renaming commutes with single-variable substitution (`rename-subst-single`):
+-- `renameU r (substSingleU t w) ≡ substSingleU (renameU (extU r) t) (renameU r w)`.
+renCommute :: forall m n (r :: Rename m n).
+              RenW @m @n r
+           -> foreach (w :: UTerm m)
+           -> foreach (t :: UTerm (Succ m))
+           -> renameU r (substSingleU t w)
+          :~: substSingleU (renameU (extU r) t) (renameU r w)
+renCommute rw w t =
+  let sw :: SubW @m @n (ren r)
+      sw x = case rw x of MkHasFin y -> MkHasTerm (UVar y)
+  in case evalSubst @(Succ m) @m @(singleSubstU w) (singleW @m w) t of
+    MkHasTerm tw ->
+      case renSubst @m @n @r tw of
+        Refl -> case substCommute @m @n @(ren r) sw w t of
+          Refl -> case renSubst @m @n @r w of
+            Refl -> case congSubst @(Succ m) @(Succ n) @(extsU (ren r)) @(ren (extU r))
+                           (extsRen @m @n @r) t of
+              Refl -> case renSubst @(Succ m) @(Succ n) @(extU r) t of
+                Refl -> Refl
+
+-- | Beta-commutation for extended substitutions:
+-- `substSingleU (substU (extsU s) b) w ≡ substU (consSubst w s) b`.
+extsSingleBeta :: forall m n (s :: Subst m n).
+                  SubW @m @n s
+               -> foreach (w :: UTerm n)
+               -> foreach (b :: UTerm (Succ m))
+               -> substSingleU (substU (extsU s) b) w :~: substU (consSubst w s) b
+extsSingleBeta sw w b =
+  case subSub @(Succ m) @(Succ n) @n @(extsU s) @(singleSubstU w)
+         (extsW @m @n @s sw) (singleW @n w) b of
+    Refl -> congSubst @(Succ m) @n
+              @(seqSubst (extsU s) (singleSubstU w)) @(consSubst w s)
+              go b
+  where
+    go :: SubEq @(Succ m) @n (seqSubst (extsU s) (singleSubstU w)) (consSubst w s)
+    go FZ     = Refl
+    go (FS x) = sym (commuteAt @n @w @(s x) (sw x))
+
 -- | Barendregt's Substitution Lemma (`substitution`):
 -- `M [ N ] [ L ] ≡ M [ exts (L • ids) ] [ N [ L ] ]`!
 substitution :: forall m.
@@ -667,7 +733,7 @@ identity renaming (`idFin x = x`) leaves every `UTerm m` unchanged.
   `substRename`, `renameSubst`, `extsSeq`, `subSub`, `substSingleAsCons`,
   **`substCommute`**, and Barendregt's **`substitution`** lemma) directly over
   [Untyped](/Untyped/)'s ordinary `renameU`/`substU`/`substSingleU` with zero
-  type families, zero promoted-constructor ticks, and zero `[WIP NOTICE]` boxes.
+  type families and zero promoted-constructor ticks.
 - **Explicit extensionality note:** In upstream PLFA `Substitution.lagda.md`
   (lines 56–60 and 273–295), lifting pointwise σ-algebra identities (`Z-shift`,
   `sub-η`, `sub-idL`, `sub-idR`, `sub-dist`, `sub-assoc`) to function-to-function

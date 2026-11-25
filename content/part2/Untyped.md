@@ -35,6 +35,10 @@ the foundation for [BigStep](/BigStep/), [Substitution](/Substitution/),
 module PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
+  , FinW (..)
+  , TermW (..)
+  , mkFinW
+  , mkTermW
   , shiftFin
   , extU
   , renameU
@@ -42,14 +46,14 @@ module PLFH.Part2.Untyped
   , substU
   , singleSubstU
   , substSingleU
-  , BumpFin (..)
-  , ShiftU (..)
-  , RemoveFin (..)
-  , SubstAtU (..)
   , Neutral (..)
   , Normal (..)
   , BetaStep (..)
   , BetaSteps (..)
+  , bsTrans
+  , bsApp1
+  , bsApp2
+  , bsLam
   , IdTerm
   , SelfApp
   , OmegaTerm
@@ -65,14 +69,6 @@ module PLFH.Part2.Untyped
   , idAppStep
   , omegaStep
   , kOmegaStep
-  , BumpRes (..)
-  , bumpProof
-  , ShiftRes (..)
-  , shiftProof
-  , CmpFin (..)
-  , cmpFin
-  , SubstRes (..)
-  , substProof
   , StepRes (..)
   , stepNormal
   , EvalRes (..)
@@ -106,6 +102,28 @@ data UTerm (n :: Nat) where
   UVar :: Fin n -> UTerm n
   ULam :: UTerm (Succ n) -> UTerm n
   UApp :: UTerm n -> UTerm n -> UTerm n
+
+-- | Inductive structural witness for a de Bruijn index `x :: Fin n`.
+type FinW :: forall (n :: Nat). Fin n -> Type
+data FinW x where
+  WFZ :: forall (m :: Nat). FinW (FZ :: Fin (Succ m))
+  WFS :: forall (m :: Nat) (x :: Fin m). FinW x -> FinW (FS x)
+
+-- | Inductive structural witness for a well-scoped term `t :: UTerm n`.
+type TermW :: forall (n :: Nat). UTerm n -> Type
+data TermW t where
+  WVar :: FinW x -> TermW (UVar x)
+  WLam :: TermW b -> TermW (ULam b)
+  WApp :: TermW l -> TermW m -> TermW (UApp l m)
+
+mkFinW :: forall (n :: Nat). foreach (x :: Fin n) -> FinW x
+mkFinW FZ     = WFZ
+mkFinW (FS x) = WFS (mkFinW x)
+
+mkTermW :: forall (n :: Nat). foreach (t :: UTerm n) -> TermW t
+mkTermW (UVar x)   = WVar (mkFinW x)
+mkTermW (ULam b)   = WLam (mkTermW b)
+mkTermW (UApp l m) = WApp (mkTermW l) (mkTermW m)
 
 -- | Closed identity term: λx. x.
 idTerm :: UTerm Zero
@@ -169,60 +187,6 @@ substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (singleSubstU w) b
 ```
 
-## Relational capture-avoiding substitution (`SubstAtU`)
-
-<div class="wip-notice">
-<strong>[WIP NOTICE — Relational <code>SubstAtU</code> vs. functional <code>substSingleU</code>]</strong>
-PLFA writes the β-rule directly using the function
-<code>substSingleU b w</code>. To keep <code>BetaStep</code>—and all
-downstream theorems in <a href="/Confluence/">Confluence</a>,
-<a href="/Soundness/">Soundness</a>, <a href="/Adequacy/">Adequacy</a>, and
-<a href="/ContextualEquivalence/">ContextualEquivalence</a>—<strong>100%
-mathematically sound</strong> with zero unconstrained type variables and
-explicit structural induction on substitution derivations, we state
-single-variable de Bruijn substitution inductively via <code>SubstAtU</code>
-below (verified by negative control <code>NegBadBetaStep</code>).
-</div>
-
-Each of the four inductive relations below is completely deterministic:
-- `BumpFin c x y`: shifts index `x` up by `1` whenever `x >= c`;
-- `ShiftU c m m'`: weakens a term `m` by shifting every free variable `>= c` up
-  by `1` (used to avoid capture when descending under a `ULam`);
-- `RemoveFin c x y`: closes the gap left at `c` for every distinct variable
-  `x /= c`;
-- `SubstAtU c w m m'`: substitutes `w` for variable `c` in `m`, yielding `m'`.
-
-```haskell
--- | Shift a variable `x :: Fin n` up by one slot at cutoff `c :: Fin (Succ n)`.
-type BumpFin :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Fin (Succ n) -> Type
-data BumpFin c x y where
-  BumpZ  :: BumpFin FZ x (FS x)
-  BumpSZ :: forall {n} (c :: Fin (Succ n)). BumpFin (FS c) FZ FZ
-  BumpSS :: BumpFin c x y -> BumpFin (FS c) (FS x) (FS y)
-
--- | Capture-avoiding weakening: shift all free variables >= `c` up by one.
-type ShiftU :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
-data ShiftU c m m' where
-  ShiftVar :: BumpFin c x y -> ShiftU c (UVar x) (UVar y)
-  ShiftLam :: ShiftU (FS c) b b' -> ShiftU c (ULam b) (ULam b')
-  ShiftApp :: ShiftU c l l' -> ShiftU c m m' -> ShiftU c (UApp l m) (UApp l' m')
-
--- | Remove slot `c` from any distinct variable `x /= c` in `Fin (Succ n)`.
-type RemoveFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Fin n -> Type
-data RemoveFin c x y where
-  RemGt :: forall {n} (y :: Fin n). RemoveFin FZ (FS y) y
-  RemLt :: forall {n} (c :: Fin (Succ n)). RemoveFin (FS c) FZ FZ
-  RemSS :: RemoveFin c x y -> RemoveFin (FS c) (FS x) (FS y)
-
--- | Deterministic relational single-variable substitution `m [ c := w ] ↦ m'`.
-type SubstAtU :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> UTerm n -> Type
-data SubstAtU c w m m' where
-  SUEq  :: SubstAtU c w (UVar c) w
-  SUNeq :: RemoveFin c x y -> SubstAtU c w (UVar x) (UVar y)
-  SULam :: ShiftU FZ w w' -> SubstAtU (FS c) w' b b' -> SubstAtU c w (ULam b) (ULam b')
-  SUApp :: SubstAtU c w l l' -> SubstAtU c w m m' -> SubstAtU c w (UApp l m) (UApp l' m')
-```
-
 ## Neutral forms, Normal forms, and Full β-Reduction
 
 In [Lambda](/Lambda/), we used call-by-value reduction on *closed* terms, which
@@ -240,8 +204,9 @@ mutually by **neutral terms** and **normal forms**:
 - A **normal form** (`Normal t`) is either a neutral term (`NNeu`) or a lambda
   abstraction whose body is itself in normal form (`NLam`).
 
-Just as in [DeBruijn](/DeBruijn/), GHC accepts **promoting the indexed GADT
-`UTerm n`** to index `Neutral`, `Normal`, `BetaStep`, and `BetaSteps`!
+Just as in [DeBruijn](/DeBruijn/), GHC promotes the indexed GADT `UTerm n` and
+evaluates our ordinary functional `substSingleU b w` directly inside the `Beta`
+constructor of `BetaStep`!
 
 ```haskell
 -- | Neutral terms: a variable applied to zero or more normal arguments.
@@ -262,20 +227,39 @@ data BetaStep t t' where
   XiApp1 :: BetaStep l l' -> BetaStep (UApp l m) (UApp l' m)
   XiApp2 :: BetaStep m m' -> BetaStep (UApp l m) (UApp l m')
   XiLam  :: BetaStep b b' -> BetaStep (ULam b) (ULam b')
-  Beta   :: forall (n :: Nat) (w :: UTerm n) (b :: UTerm (Succ n)) (r :: UTerm n).
-            SubstAtU FZ w b r -> BetaStep (UApp (ULam b) w) r
+  Beta   :: forall (n :: Nat) (b :: UTerm (Succ n)) (w :: UTerm n).
+            BetaStep (UApp (ULam b) w) (substSingleU b w)
 
 -- | Multi-step full β-reduction.
 type BetaSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
+
+-- | Transitivity of multi-step β-reduction.
+bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
+bsTrans BRefl       q = q
+bsTrans (BCons s p) q = BCons s (bsTrans p q)
+
+-- | Congruence of multi-step β-reduction in function, argument, and lambda body.
+bsApp1 :: BetaSteps l l' -> BetaSteps (UApp l m) (UApp l' m)
+bsApp1 BRefl       = BRefl
+bsApp1 (BCons s p) = BCons (XiApp1 s) (bsApp1 p)
+
+bsApp2 :: BetaSteps m m' -> BetaSteps (UApp l m) (UApp l m')
+bsApp2 BRefl       = BRefl
+bsApp2 (BCons s p) = BCons (XiApp2 s) (bsApp2 p)
+
+bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
+bsLam BRefl       = BRefl
+bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 ```
 
 ### Concrete examples: `id`, `id · id —→ id`, and `Ω —→ Ω`
 
-Because `BetaStep` works on promoted `UTerm Zero` values, we can verify concrete
-normal forms and β-reductions directly in the type system:
+Because `BetaStep` computes `substSingleU b w` directly at the type level,
+concrete β-reductions such as `(λx. x) (λx. x) —→ λx. x`, `Ω —→ Ω`, and
+`(λx y. y) Ω —→ λy. y` are each witnessed by a single constructor **`Beta`**:
 
 ```haskell
 -- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
@@ -287,13 +271,13 @@ type OmegaTerm = (UApp SelfApp SelfApp :: UTerm Zero)
 idIsNormal :: Normal IdTerm
 idIsNormal = NLam (NNeu NVar)
 
--- | Concrete sound β-step: (λx. x) (λx. x) —→ (λx. x).
+-- | Concrete β-step: (λx. x) (λx. x) —→ (λx. x).
 idAppStep :: BetaStep (UApp IdTerm IdTerm) IdTerm
-idAppStep = Beta SUEq
+idAppStep = Beta
 
--- | Concrete sound β-step: Ω —→ Ω!
+-- | Concrete β-step: Ω —→ Ω!
 omegaStep :: BetaStep OmegaTerm OmegaTerm
-omegaStep = Beta (SUApp SUEq SUEq)
+omegaStep = Beta
 
 -- | Church numerals 0, 1, 2 in the untyped λ-calculus (λ s. λ z. s^n z).
 type CZero = (ULam (ULam (UVar FZ)) :: UTerm Zero)
@@ -313,28 +297,22 @@ cTwoIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu (NApp NVar (NNeu NVar))))))
 -- | Normal-order termination on a diverging argument (`K-omega`):
 -- `(λ x. λ y. y) Ω —→ λ y. y` in a single outermost β-step!
 kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
-kOmegaStep =
-  Beta (SULam
-    (ShiftApp
-      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ)))
-      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ))))
-    (SUNeq RemLt))
+kOmegaStep = Beta
 ```
 
 ### Negative control: bogus β-step endpoint is rejected
 
-Because `Beta` enforces deterministic `SubstAtU FZ w b r` (with zero
-unconstrained function type variables!), attempting to reduce `(λx. x) (λx. x)`
-to `Ω` is rejected by GHC with `GHC-83865`:
+Because `Beta` evaluates `substSingleU b w` directly, attempting to claim that
+`(λx. x) (λx. x)` reduces to `Ω` is rejected by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegBadBetaStep" expect="GHC-83865"}
 {-# LANGUAGE DependentTypes #-}
 module NegBadBetaStep (badBeta) where
 
-import PLFH.Part2.Untyped (BetaStep (..), IdTerm, OmegaTerm, SubstAtU (..), UTerm (..))
+import PLFH.Part2.Untyped (BetaStep (..), IdTerm, OmegaTerm, UTerm (..))
 
 badBeta :: BetaStep (UApp IdTerm IdTerm) OmegaTerm
-badBeta = Beta SUEq
+badBeta = Beta
 ```
 
 ## Normal-order vs. applicative-order reduction
@@ -347,88 +325,13 @@ forever reducing `Ω` inside the argument!
 By the Standardization Theorem, **normal-order** (leftmost-outermost) reduction
 is guaranteed to reach a normal form whenever one exists.
 
-Because GHC supports binding indexed GADTs (`Fin n`, `UTerm n`) as retained
-`foreach` fields inside data constructors, we can write PLFA's **constructive
-normal-order evaluator** (`stepNormal` and `evalNormal`) directly in Haskell!
-Each helper (`bumpProof`, `shiftProof`, `cmpFin`, `substProof`) computes the
-shifted or substituted term *together with* its checked `ShiftU` / `SubstAtU`
-derivation, so `evalNormal` returns a certified multi-step `BetaSteps` trace
-plus a `Normal` proof whenever it finishes within the gas budget:
+Because GHC binds indexed GADTs (`UTerm n`) as retained `foreach` fields inside
+`StepRes` and `EvalRes` and reduces `substSingleU b m` directly, PLFA's
+**constructive normal-order evaluator** (`stepNormal` and `evalNormal`) takes
+only 30 lines, returning a certified multi-step `BetaSteps` trace plus a
+`Normal` proof whenever evaluation finishes within the gas budget:
 
 ```haskell
--- | Constructive witness for `BumpFin c x y`.
-type BumpRes :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Type
-data BumpRes c x where
-  MkBump :: foreach (y :: Fin (Succ n)) -> BumpFin c x y -> BumpRes c x
-
--- | Compute the bumped variable `y` together with its `BumpFin` proof.
-bumpProof :: forall (n :: Nat).
-             foreach (c :: Fin (Succ n)) -> foreach (x :: Fin n) -> BumpRes c x
-bumpProof FZ      x       = MkBump (FS x) BumpZ
-bumpProof (FS c') FZ      = MkBump FZ (BumpSZ @c')
-bumpProof (FS c') (FS x') = case bumpProof c' x' of
-  MkBump y b -> MkBump (FS y) (BumpSS b)
-
--- | Constructive witness for `ShiftU c m m'`.
-type ShiftRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> Type
-data ShiftRes c m where
-  MkShift :: foreach (m' :: UTerm (Succ n)) -> ShiftU c m m' -> ShiftRes c m
-
--- | Compute capture-avoiding weakening together with its `ShiftU` proof.
-shiftProof :: forall (n :: Nat).
-              foreach (c :: Fin (Succ n)) -> foreach (m :: UTerm n) -> ShiftRes c m
-shiftProof c (UVar x)   = case bumpProof c x of
-  MkBump y b -> MkShift (UVar y) (ShiftVar b)
-shiftProof c (ULam b)   = case shiftProof (FS c) b of
-  MkShift b' sb -> MkShift (ULam b') (ShiftLam sb)
-shiftProof c (UApp l r) = case shiftProof c l of
-  MkShift l' sl -> case shiftProof c r of
-    MkShift r' sr -> MkShift (UApp l' r') (ShiftApp sl sr)
-
--- | Compare two indices in `Fin (Succ n)`: either equal or separated by `RemoveFin`.
-type CmpFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Type
-data CmpFin c x where
-  CmpEq  :: CmpFin c c
-  CmpNeq :: foreach (y :: Fin n) -> RemoveFin c x y -> CmpFin c x
-
--- | Helper for comparing `FS c'` once inspecting `c'` has refined the outer index to `Succ m`.
-cmpFinFS :: forall (m :: Nat).
-            foreach (c' :: Fin (Succ m)) -> foreach (x :: Fin (Succ (Succ m)))
-         -> CmpFin (FS c') x
-cmpFinFS c' FZ      = CmpNeq FZ (RemLt @c')
-cmpFinFS c' (FS x') = case cmpFin c' x' of
-  CmpEq      -> CmpEq
-  CmpNeq y r -> CmpNeq (FS y) (RemSS r)
-
--- | Decidable comparison with `RemoveFin` evidence.
-cmpFin :: forall (n :: Nat).
-          foreach (c :: Fin (Succ n)) -> foreach (x :: Fin (Succ n)) -> CmpFin c x
-cmpFin FZ            FZ     = CmpEq
-cmpFin FZ            (FS y) = CmpNeq y (RemGt @y)
-cmpFin (FS FZ)       x      = cmpFinFS FZ x
-cmpFin (FS (FS c'')) x      = cmpFinFS (FS c'') x
-
--- | Constructive witness for `SubstAtU c w m r`.
-type SubstRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
-data SubstRes c w m where
-  MkSubst :: foreach (r :: UTerm n) -> SubstAtU c w m r -> SubstRes c w m
-
--- | Compute single-variable substitution `m [ c := w ]` with its `SubstAtU` proof.
-substProof :: forall (n :: Nat).
-              foreach (c :: Fin (Succ n))
-           -> foreach (w :: UTerm n)
-           -> foreach (m :: UTerm (Succ n))
-           -> SubstRes c w m
-substProof c w (UVar x)   = case cmpFin c x of
-  CmpEq      -> MkSubst w SUEq
-  CmpNeq y r -> MkSubst (UVar y) (SUNeq r)
-substProof c w (ULam b)   = case shiftProof FZ w of
-  MkShift w' sw -> case substProof (FS c) w' b of
-    MkSubst b' sb -> MkSubst (ULam b') (SULam sw sb)
-substProof c w (UApp l r) = case substProof c w l of
-  MkSubst l' sl -> case substProof c w r of
-    MkSubst r' sr -> MkSubst (UApp l' r') (SUApp sl sr)
-
 -- | Outcome of one leftmost-outermost (normal-order) reduction step.
 type StepRes :: forall (n :: Nat). UTerm n -> Type
 data StepRes t where
@@ -438,8 +341,7 @@ data StepRes t where
 -- | Normal-order step for an application `UApp l m`.
 stepApp :: forall (n :: Nat).
            foreach (l m :: UTerm n) -> StepRes (UApp l m)
-stepApp (ULam b)     m = case substProof FZ m b of
-  MkSubst r sr -> Reduct r (Beta sr)
+stepApp (ULam b)     m = Reduct (substSingleU b m) Beta
 stepApp (UVar x)     m = case stepNormal m of
   Reduct m' sm -> Reduct (UApp (UVar x) m') (XiApp2 sm)
   IsNorm nm    -> IsNorm (NNeu (NApp NVar nm))
@@ -491,8 +393,8 @@ and check that `cZero = ULam (ULam (UVar FZ))` and `cOne = ULam (ULam (UApp (UVa
 
 #### Exercise `K-omega` (practice)
 
-Using `Beta`, `SULam`, and `SUNeq`, construct a one-step reduction proof showing
-that `(λ x. λ y. y) Ω` reduces in a single step to `IdTerm`, illustrating why
+Use `Beta` to construct a one-step reduction proof showing that
+`(λ x. λ y. y) Ω` reduces in a single step to `IdTerm`, illustrating why
 normal-order reduction terminates on terms where call-by-value diverges!
 
 ## Changes from PLFA
@@ -500,12 +402,11 @@ normal-order reduction terminates on terms where call-by-value diverges!
 - Adapted from [Untyped](https://plfa.inf.ed.ac.uk/Untyped/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Untyped.lagda.md)),
   licensed under CC BY 4.0.
-- Checked direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`,
-  `substU`, `substSingleU`, `Neutral`, `Normal`, `BetaStep`, `BetaSteps`,
-  `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`, `cZeroIsNormal`/
-  `cOneIsNormal`/`cTwoIsNormal`, `kOmegaStep`, and the complete constructive
-  normal-order evaluator (`bumpProof`, `shiftProof`, `cmpFin`, `substProof`,
-  `stepNormal`, `evalNormal`, `evalNormalTerm`), reducing `(λx y. y) Ω —↠ id`
-  with a certified `BetaSteps` + `Normal` derivation!
-- Uses deterministic relational `SubstAtU` in `Beta` (verified by negative
-  control `NegBadBetaStep`) for structural induction in downstream chapters.
+- Direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`, `substU`,
+  `substSingleU`, `Neutral`, `Normal`, functional `BetaStep` (`Beta` over
+  `substSingleU b w`, verified by negative control `NegBadBetaStep`),
+  `BetaSteps`, `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`,
+  `cZeroIsNormal`/`cOneIsNormal`/`cTwoIsNormal`, `kOmegaStep`, and the
+  constructive normal-order evaluator (`stepNormal`, `evalNormal`,
+  `evalNormalTerm`), reducing `(λx y. y) Ω —↠ id` with a certified `BetaSteps`
+  and `Normal` derivation.

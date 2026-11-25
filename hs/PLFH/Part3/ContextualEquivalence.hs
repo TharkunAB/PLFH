@@ -9,9 +9,11 @@ module PLFH.Part3.ContextualEquivalence
   , terminatesStep
   , CtxEquiv
   , plugTermW
+  , denotEqualCtxBigStepW
   , denotEqualCtxBigStep
   , denotEqualCtxEquivW
   , denotEqualCtxEquiv
+  , betaCtxBigStepW
   , betaCtxBigStep
   , betaCtxEquiv
   ) where
@@ -19,15 +21,14 @@ module PLFH.Part3.ContextualEquivalence
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 import PLFH.Part2.BigStep (CbnTerminates (..), Env (..))
-import PLFH.Part2.Confluence (TermW (..), mkTermW)
-import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), UTerm (..))
+import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), TermW (..), UTerm (..), mkTermW)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacy, cbnToReduceW)
 import qualified PLFH.Part3.Compositional as C
 import PLFH.Part3.Compositional (UCtx (..), compositionality)
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
-import PLFH.Part3.Soundness (denotEquivSteps)
+import PLFH.Part3.Soundness (denotEquivStepsW)
 
-{-# LINE 77 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 78 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where
@@ -50,26 +51,6 @@ type CtxEquiv (m :: UTerm k) (n :: UTerm k) =
     , Terminates (C.plug c n) -> Terminates (C.plug c m)
     )
 
--- | Closed-term helper composing Soundness and Big-Step Adequacy directly.
-denotEqualClosedBigStep
-  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
-     DenEq (Den cm) (Den cn)
-  -> Terminates cm
-  -> HaltsBig ENil cn
-denotEqualClosedBigStep eqC (MkTerminates cmToLam) =
-  adequacy (denEqTrans (denEqSym eqC) (denotEquivSteps cmToLam))
-
--- | Unconditional big-step contextual termination across all closing contexts `UCtx k Zero`:
--- composes Compositionality + Soundness + Big-Step Adequacy in one line!
-denotEqualCtxBigStep
-  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
-     foreach (c :: UCtx k Zero)
-  -> DenEq (Den m) (Den n)
-  -> Terminates (C.plug c m)
-  -> HaltsBig ENil (C.plug c n)
-denotEqualCtxBigStep c eqM =
-  denotEqualClosedBigStep (compositionality c eqM)
-
 -- | Plugging a witnessed term into a retained context yields a witnessed term.
 plugTermW :: forall (m n :: Nat) (t :: UTerm m).
              foreach (c :: UCtx m n) -> TermW t -> TermW (C.plug c t)
@@ -77,6 +58,37 @@ plugTermW CHole       wt = wt
 plugTermW (CLam c)    wt = WLam (plugTermW c wt)
 plugTermW (CAppL c r) wt = WApp (plugTermW c wt) (mkTermW r)
 plugTermW (CAppR l c) wt = WApp (mkTermW l) (plugTermW c wt)
+
+-- | Closed-term helper composing Soundness and Big-Step Adequacy directly.
+denotEqualClosedBigStep
+  :: forall (cm :: UTerm Zero) (cn :: UTerm Zero).
+     TermW cm
+  -> DenEq (Den cm) (Den cn)
+  -> Terminates cm
+  -> HaltsBig ENil cn
+denotEqualClosedBigStep wcm eqC (MkTerminates cmToLam) =
+  adequacy (denEqTrans (denEqSym eqC) (denotEquivStepsW wcm cmToLam))
+
+-- | Unconditional big-step contextual termination across all closing contexts `UCtx k Zero`:
+-- composes Compositionality + Soundness + Big-Step Adequacy in one line!
+denotEqualCtxBigStepW
+  :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
+     TermW m
+  -> foreach (c :: UCtx k Zero)
+  -> DenEq (Den m) (Den n)
+  -> Terminates (C.plug c m)
+  -> HaltsBig ENil (C.plug c n)
+denotEqualCtxBigStepW wm c eqM =
+  denotEqualClosedBigStep (plugTermW c wm) (compositionality c eqM)
+
+denotEqualCtxBigStep
+  :: forall (k :: Nat) (n :: UTerm k).
+     foreach (m :: UTerm k)
+  -> foreach (c :: UCtx k Zero)
+  -> DenEq (Den m) (Den n)
+  -> Terminates (C.plug c m)
+  -> HaltsBig ENil (C.plug c n)
+denotEqualCtxBigStep m c eqM tm = denotEqualCtxBigStepW (mkTermW m) c eqM tm
 
 -- | Unconditional Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
 -- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`!
@@ -88,11 +100,11 @@ denotEqualCtxEquivW
 denotEqualCtxEquivW wm wn eqM c =
   let stepFwd :: Terminates (C.plug c m) -> Terminates (C.plug c n)
       stepFwd tm = case cbnToReduceW (plugTermW c wn)
-                          (denotEqualCtxBigStep c eqM tm) of
+                          (denotEqualCtxBigStepW wm c eqM tm) of
         MkCbnTerminates steps -> MkTerminates steps
       stepBwd :: Terminates (C.plug c n) -> Terminates (C.plug c m)
       stepBwd tn = case cbnToReduceW (plugTermW c wm)
-                          (denotEqualCtxBigStep @k @n @m c (denEqSym eqM) tn) of
+                          (denotEqualCtxBigStepW @k @n @m wn c (denEqSym eqM) tn) of
         MkCbnTerminates steps -> MkTerminates steps
   in (stepFwd, stepBwd)
 
@@ -106,20 +118,30 @@ denotEqualCtxEquiv m n eqM = denotEqualCtxEquivW @k @m @n (mkTermW m) (mkTermW n
 -- | Unconditional corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms!),
 -- then for any closing context `c`, `plug c m` terminating implies `plug c n` halts
 -- under call-by-name big-step evaluation!
-betaCtxBigStep
+betaCtxBigStepW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
-     foreach (c :: UCtx k Zero)
+     TermW m
+  -> foreach (c :: UCtx k Zero)
   -> BetaSteps m n
   -> Terminates (C.plug c m)
   -> HaltsBig ENil (C.plug c n)
-betaCtxBigStep c steps = denotEqualCtxBigStep c (denotEquivSteps steps)
+betaCtxBigStepW wm c steps = denotEqualCtxBigStepW wm c (denotEquivStepsW wm steps)
+
+betaCtxBigStep
+  :: forall (k :: Nat) (n :: UTerm k).
+     foreach (m :: UTerm k)
+  -> foreach (c :: UCtx k Zero)
+  -> BetaSteps m n
+  -> Terminates (C.plug c m)
+  -> HaltsBig ENil (C.plug c n)
+betaCtxBigStep m c steps tm = betaCtxBigStepW (mkTermW m) c steps tm
 
 -- | Unconditional Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
 -- terms are contextually equivalent across all closing contexts `UCtx k Zero`!
 betaCtxEquivW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m -> TermW n -> BetaSteps m n -> CtxEquiv m n
-betaCtxEquivW wm wn steps = denotEqualCtxEquivW wm wn (denotEquivSteps steps)
+betaCtxEquivW wm wn steps = denotEqualCtxEquivW wm wn (denotEquivStepsW wm steps)
 
 betaCtxEquiv
   :: forall (k :: Nat).

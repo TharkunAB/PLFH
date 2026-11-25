@@ -111,17 +111,17 @@ eqIdApp (U.UApp l m) = case (eqId l, eqId m) of
 checkBetaToPar :: U.UTerm Zero -> Bool
 checkBetaToPar t = case eqIdApp t of
   Just Refl -> case betaToPar t idAppStep of
-    PBeta PVar (PLam PVar) _ -> True
-    _                        -> False
+    PBeta PVar (PLam PVar) -> True
+    _                      -> False
   Nothing -> False
 
 checkParDiamond :: U.UTerm Zero -> Bool
 checkParDiamond t = case eqIdApp t of
   Just Refl ->
     case parDiamond @Zero @(U.UApp U.IdTerm U.IdTerm) @U.IdTerm
-           t (PApp (PLam PVar) (PLam PVar)) (PBeta PVar (PLam PVar) U.SUEq) of
-      Conf.Join (PBeta PVar (PLam PVar) U.SUEq) (PLam PVar) -> True
-      _                                                     -> False
+           t (PApp (PLam PVar) (PLam PVar)) (PBeta PVar (PLam PVar)) of
+      Conf.Join (PBeta PVar (PLam PVar)) (PLam PVar) -> True
+      _                                              -> False
   Nothing -> False
 
 checkChurchRosser :: U.UTerm Zero -> Bool
@@ -154,31 +154,48 @@ plugHole (CLam _)    = Nothing
 plugHole (CAppL _ _) = Nothing
 plugHole (CAppR _ _) = Nothing
 
-checkBetaCtxHole :: foreach (c :: UCtx Zero Zero) -> Bool
-checkBetaCtxHole c =
-  case (plugHole @(U.UApp U.IdTerm U.IdTerm) c, plugHole @U.IdTerm c) of
-    (Just Refl, Just Refl) ->
-      case betaCtxBigStep @Zero @(U.UApp U.IdTerm U.IdTerm) @U.IdTerm
-             c (BCons idAppStep BRefl) (terminatesStep idAppStep terminatesLam) of
-        MkHaltsBig ELam -> True
-        _               -> False
-    _ -> False
+checkBetaCtxHole :: foreach (m :: U.UTerm Zero) -> foreach (c :: UCtx Zero Zero) -> Bool
+checkBetaCtxHole m c =
+  case eqIdApp m of
+    Just Refl ->
+      case (plugHole @m c, plugHole @U.IdTerm c) of
+        (Just Refl, Just Refl) ->
+          case betaCtxBigStep @Zero @U.IdTerm
+                 m c (BCons idAppStep BRefl) (terminatesStep idAppStep terminatesLam) of
+            MkHaltsBig ELam -> True
+            _               -> False
+        _ -> False
+    Nothing -> False
 
-checkBetaCtxBigStep :: UCtx Zero Zero -> Bool
-checkBetaCtxBigStep c = checkBetaCtxHole c
+checkBetaCtxBigStep :: U.UTerm Zero -> UCtx Zero Zero -> Bool
+checkBetaCtxBigStep m c = checkBetaCtxHole m c
 
 checkCbnToReduce :: U.UTerm Zero -> Bool
 checkCbnToReduce t = case eqIdApp t of
   Just Refl -> case cbnToReduce t evalIdApp of
-    MkCbnTerminates (BCons (Beta _) BRefl) -> True
-    _                                      -> False
+    MkCbnTerminates (BCons Beta BRefl) -> True
+    _                                  -> False
   Nothing -> False
 
 checkAdequacyCbnToReduce :: U.UTerm Zero -> Bool
 checkAdequacyCbnToReduce t = case eqIdApp t of
   Just Refl -> case Adq.cbnToReduce t adequacyIdApp of
-    MkCbnTerminates (BCons (Beta _) BRefl) -> True
-    _                                      -> False
+    MkCbnTerminates (BCons Beta BRefl) -> True
+    _                                  -> False
+  Nothing -> False
+
+checkDenotReflect :: U.UTerm Zero -> Bool
+checkDenotReflect t = case eqIdApp t of
+  Just Refl -> case denotReflect (MkValW (Arr Bot Bot)) t idAppStep denotId of
+    DElim _ (DIntro _) _ -> True
+    _                    -> False
+  Nothing -> False
+
+checkReduceToCbn :: U.UTerm Zero -> Bool
+checkReduceToCbn t = case eqIdApp t of
+  Just Refl -> case reduceToCbn t (BCons idAppStep BRefl) of
+    MkHaltsBig (EApp _ _) -> True
+    _                     -> False
   Nothing -> False
 
 checkBetaCtxEquivHole :: foreach (m n :: U.UTerm Zero) -> foreach (c :: UCtx Zero Zero) -> Bool
@@ -631,10 +648,10 @@ main = do
   assertEq "More.progress Absurd (Mu ...) -> XiAbsurd BetaMu" True
     (case M.progress moreAbsurd of { M.PStep (M.XiAbsurd M.BetaMu) -> True; _ -> False })
 
-  assertEq "Untyped.idAppStep" True (case idAppStep of { Beta _ -> True; _ -> False })
-  assertEq "Untyped.omegaStep" True (case omegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Untyped.idAppStep" True (case idAppStep of { Beta -> True; _ -> False })
+  assertEq "Untyped.omegaStep" True (case omegaStep of { Beta -> True; _ -> False })
   assertEq "Untyped.cTwoIsNormal (Church 2)" True (case cTwoIsNormal of { NLam (NLam _) -> True })
-  assertEq "Untyped.kOmegaStep ((\\x y. y) Omega -> id)" True (case kOmegaStep of { Beta _ -> True; _ -> False })
+  assertEq "Untyped.kOmegaStep ((\\x y. y) Omega -> id)" True (case kOmegaStep of { Beta -> True; _ -> False })
   assertEq "Untyped.evalNormal 10 (id id) -> id" True
     (case U.evalNormalTerm 10 (U.UApp U.idTerm U.idTerm) of
       Just (U.ULam (U.UVar U.FZ)) -> True
@@ -655,7 +672,7 @@ main = do
     (checkChurchRosser (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.uniqueNormalForm (unconditional on id id)" True
     (checkUniqueNormalForm (U.UApp U.idTerm U.idTerm))
-  assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons (Beta _) BRefl -> True; _ -> False })
+  assertEq "Confluence.parToBetas omegaPar" True (case parToBetas omegaPar of { BCons Beta BRefl -> True; _ -> False })
   assertEq "Confluence.normalNoBetaSteps idIsNormal" True (case normalNoBetaSteps idIsNormal BRefl of Refl -> True)
   assertEq "Confluence.normalPar idIsNormal" True (case normalPar idIsNormal (PLam PVar) of Refl -> True)
   assertEq "Confluence.normalParSteps idIsNormal" True (case normalParSteps idIsNormal (PSCons (PLam PVar) PSRefl) of Refl -> True)
@@ -714,13 +731,13 @@ main = do
   assertEq "Soundness.denotPreserve idAppStep" True
     (case denotPreserve (MkValW (Arr Bot Bot)) (denotIdAppId (MkValW Bot)) idAppStep of { DIntro _ -> True; _ -> False })
   assertEq "Soundness.denotReflect idAppStep" True
-    (case denotReflect (MkValW (Arr Bot Bot)) idAppStep denotId of { DElim _ (DIntro _) _ -> True; _ -> False })
+    (checkDenotReflect (U.UApp U.idTerm U.idTerm))
   assertEq "Adequacy.adequacyIdApp (unconditional Big-Step Adequacy!)" True
     (case adequacyIdApp of { MkHaltsBig (EApp _ _) -> True; _ -> False })
   assertEq "Adequacy.adequacyDelta (unconditional Delta halts!)" True
     (case adequacyDelta of { MkHaltsBig ELam -> True; _ -> False })
   assertEq "Adequacy.reduceToCbn idAppStep (small-step -> big-step!)" True
-    (case reduceToCbn (BCons idAppStep BRefl) of { MkHaltsBig (EApp _ _) -> True; _ -> False })
+    (checkReduceToCbn (U.UApp U.idTerm U.idTerm))
   assertEq "Adequacy.cbnToReduce adequacyIdApp (denotational -> big-step -> small-step!)" True
     (checkAdequacyCbnToReduce (U.UApp U.idTerm U.idTerm))
   assertEq "ContextualEquivalence.betaCtxEquiv (unconditional open-term CtxEquiv!)" True
@@ -728,6 +745,6 @@ main = do
   assertEq "ContextualEquivalence.terminatesStep idAppStep terminatesLam" True
     (case terminatesStep idAppStep terminatesLam of { MkTerminates (BCons _ BRefl) -> True; _ -> False })
   assertEq "ContextualEquivalence.betaCtxBigStep CHole idAppStep (unconditional!)" True
-    (checkBetaCtxBigStep CHole)
+    (checkBetaCtxBigStep (U.UApp U.idTerm U.idTerm) CHole)
 
   putStrLn "All runtime smoke tests passed."

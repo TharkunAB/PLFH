@@ -33,6 +33,7 @@ module PLFH.Part3.Adequacy
   , HaltsBig (..)
   , adequacyBigStep
   , adequacy
+  , reduceToCbnW
   , reduceToCbn
   , cbnToReduceW
   , cbnToReduce
@@ -49,8 +50,7 @@ import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
 import qualified PLFH.Part2.BigStep as B
 import PLFH.Part2.BigStep (CbnTerminates (..), Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
-import PLFH.Part2.Confluence (TermW)
-import PLFH.Part2.Untyped (BetaSteps (..), Fin (..), OmegaTerm, UTerm (..))
+import PLFH.Part2.Untyped (BetaSteps (..), Fin (..), OmegaTerm, TermW, UTerm (..), mkTermW)
 import PLFH.Part3.Denotational
   ( Den (..)
   , DenEq
@@ -71,7 +71,7 @@ import PLFH.Part3.Denotational
   , unArrW
   , unJoinW
   )
-import PLFH.Part3.Soundness (denotEquivSteps)
+import PLFH.Part3.Soundness (denotEquivStepsW)
 
 {-# LINE 136 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
@@ -291,8 +291,11 @@ adequacy eq = case snd (eq (MkValW (Arr Bot Bot))) (MkDen (DIntro DBot)) of
   MkDen d -> adequacyBigStep (MkValW (Arr Bot Bot)) d aboveFunArr
 
 -- | Small-step reduction to a lambda implies big-step termination (`reduce→cbn`)!
-reduceToCbn :: BetaSteps m (ULam b) -> HaltsBig ENil m
-reduceToCbn steps = adequacy (denotEquivSteps steps)
+reduceToCbnW :: TermW m -> BetaSteps m (ULam b) -> HaltsBig ENil m
+reduceToCbnW wm steps = adequacy (denotEquivStepsW wm steps)
+
+reduceToCbn :: foreach (m :: UTerm Zero) -> BetaSteps m (ULam b) -> HaltsBig ENil m
+reduceToCbn m steps = reduceToCbnW (mkTermW m) steps
 
 -- | Big-step termination implies small-step reduction to a lambda (`cbn→reduce`)!
 cbnToReduceW :: TermW u -> HaltsBig ENil u -> CbnTerminates u

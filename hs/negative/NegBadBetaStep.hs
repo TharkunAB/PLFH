@@ -2,7 +2,7 @@
 -- EXPECT-ERROR: GHC-83865
 module NegBadBetaStep (badBeta) where
 
-import PLFH.Part2.Untyped (BetaStep (..), IdTerm, OmegaTerm, SubstAtU (..), UTerm (..))
+import PLFH.Part2.Untyped (BetaStep (..), IdTerm, OmegaTerm, UTerm (..))
 
 badBeta :: BetaStep (UApp IdTerm IdTerm) OmegaTerm
-badBeta = Beta SUEq
+badBeta = Beta

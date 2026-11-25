@@ -6,6 +6,10 @@
 module PLFH.Part2.Untyped
   ( Fin (..)
   , UTerm (..)
+  , FinW (..)
+  , TermW (..)
+  , mkFinW
+  , mkTermW
   , shiftFin
   , extU
   , renameU
@@ -13,14 +17,14 @@ module PLFH.Part2.Untyped
   , substU
   , singleSubstU
   , substSingleU
-  , BumpFin (..)
-  , ShiftU (..)
-  , RemoveFin (..)
-  , SubstAtU (..)
   , Neutral (..)
   , Normal (..)
   , BetaStep (..)
   , BetaSteps (..)
+  , bsTrans
+  , bsApp1
+  , bsApp2
+  , bsLam
   , IdTerm
   , SelfApp
   , OmegaTerm
@@ -36,14 +40,6 @@ module PLFH.Part2.Untyped
   , idAppStep
   , omegaStep
   , kOmegaStep
-  , BumpRes (..)
-  , bumpProof
-  , ShiftRes (..)
-  , shiftProof
-  , CmpFin (..)
-  , cmpFin
-  , SubstRes (..)
-  , substProof
   , StepRes (..)
   , stepNormal
   , EvalRes (..)
@@ -54,7 +50,7 @@ module PLFH.Part2.Untyped
 import Data.Kind (Type)
 import HaskLib.Nat (Nat (..))
 
-{-# LINE 99 "content/part2/Untyped.md" #-}
+{-# LINE 95 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
 data Fin (n :: Nat) where
   FZ :: Fin (Succ n)
@@ -65,6 +61,28 @@ data UTerm (n :: Nat) where
   UVar :: Fin n -> UTerm n
   ULam :: UTerm (Succ n) -> UTerm n
   UApp :: UTerm n -> UTerm n -> UTerm n
+
+-- | Inductive structural witness for a de Bruijn index `x :: Fin n`.
+type FinW :: forall (n :: Nat). Fin n -> Type
+data FinW x where
+  WFZ :: forall (m :: Nat). FinW (FZ :: Fin (Succ m))
+  WFS :: forall (m :: Nat) (x :: Fin m). FinW x -> FinW (FS x)
+
+-- | Inductive structural witness for a well-scoped term `t :: UTerm n`.
+type TermW :: forall (n :: Nat). UTerm n -> Type
+data TermW t where
+  WVar :: FinW x -> TermW (UVar x)
+  WLam :: TermW b -> TermW (ULam b)
+  WApp :: TermW l -> TermW m -> TermW (UApp l m)
+
+mkFinW :: forall (n :: Nat). foreach (x :: Fin n) -> FinW x
+mkFinW FZ     = WFZ
+mkFinW (FS x) = WFS (mkFinW x)
+
+mkTermW :: forall (n :: Nat). foreach (t :: UTerm n) -> TermW t
+mkTermW (UVar x)   = WVar (mkFinW x)
+mkTermW (ULam b)   = WLam (mkTermW b)
+mkTermW (UApp l m) = WApp (mkTermW l) (mkTermW m)
 
 -- | Closed identity term: λx. x.
 idTerm :: UTerm Zero
@@ -77,7 +95,7 @@ omegaTerm = UApp selfApp selfApp
     selfApp :: UTerm Zero
     selfApp = ULam (UApp (UVar FZ) (UVar FZ))
 
-{-# LINE 136 "content/part2/Untyped.md" #-}
+{-# LINE 154 "content/part2/Untyped.md" #-}
 -- | Shift a variable up by one de Bruijn level.
 shiftFin :: Fin m -> Fin (Succ m)
 shiftFin x = FS x
@@ -113,37 +131,7 @@ singleSubstU _ (FS x) = UVar x
 substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (singleSubstU w) b
 
-{-# LINE 196 "content/part2/Untyped.md" #-}
--- | Shift a variable `x :: Fin n` up by one slot at cutoff `c :: Fin (Succ n)`.
-type BumpFin :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Fin (Succ n) -> Type
-data BumpFin c x y where
-  BumpZ  :: BumpFin FZ x (FS x)
-  BumpSZ :: forall {n} (c :: Fin (Succ n)). BumpFin (FS c) FZ FZ
-  BumpSS :: BumpFin c x y -> BumpFin (FS c) (FS x) (FS y)
-
--- | Capture-avoiding weakening: shift all free variables >= `c` up by one.
-type ShiftU :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
-data ShiftU c m m' where
-  ShiftVar :: BumpFin c x y -> ShiftU c (UVar x) (UVar y)
-  ShiftLam :: ShiftU (FS c) b b' -> ShiftU c (ULam b) (ULam b')
-  ShiftApp :: ShiftU c l l' -> ShiftU c m m' -> ShiftU c (UApp l m) (UApp l' m')
-
--- | Remove slot `c` from any distinct variable `x /= c` in `Fin (Succ n)`.
-type RemoveFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Fin n -> Type
-data RemoveFin c x y where
-  RemGt :: forall {n} (y :: Fin n). RemoveFin FZ (FS y) y
-  RemLt :: forall {n} (c :: Fin (Succ n)). RemoveFin (FS c) FZ FZ
-  RemSS :: RemoveFin c x y -> RemoveFin (FS c) (FS x) (FS y)
-
--- | Deterministic relational single-variable substitution `m [ c := w ] ↦ m'`.
-type SubstAtU :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> UTerm n -> Type
-data SubstAtU c w m m' where
-  SUEq  :: SubstAtU c w (UVar c) w
-  SUNeq :: RemoveFin c x y -> SubstAtU c w (UVar x) (UVar y)
-  SULam :: ShiftU FZ w w' -> SubstAtU (FS c) w' b b' -> SubstAtU c w (ULam b) (ULam b')
-  SUApp :: SubstAtU c w l l' -> SubstAtU c w m m' -> SubstAtU c w (UApp l m) (UApp l' m')
-
-{-# LINE 247 "content/part2/Untyped.md" #-}
+{-# LINE 212 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
 type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
@@ -162,8 +150,8 @@ data BetaStep t t' where
   XiApp1 :: BetaStep l l' -> BetaStep (UApp l m) (UApp l' m)
   XiApp2 :: BetaStep m m' -> BetaStep (UApp l m) (UApp l m')
   XiLam  :: BetaStep b b' -> BetaStep (ULam b) (ULam b')
-  Beta   :: forall (n :: Nat) (w :: UTerm n) (b :: UTerm (Succ n)) (r :: UTerm n).
-            SubstAtU FZ w b r -> BetaStep (UApp (ULam b) w) r
+  Beta   :: forall (n :: Nat) (b :: UTerm (Succ n)) (w :: UTerm n).
+            BetaStep (UApp (ULam b) w) (substSingleU b w)
 
 -- | Multi-step full β-reduction.
 type BetaSteps :: forall (n :: Nat). UTerm n -> UTerm n -> Type
@@ -171,7 +159,25 @@ data BetaSteps t t' where
   BRefl :: BetaSteps t t
   BCons :: BetaStep s t -> BetaSteps t u -> BetaSteps s u
 
-{-# LINE 281 "content/part2/Untyped.md" #-}
+-- | Transitivity of multi-step β-reduction.
+bsTrans :: BetaSteps s t -> BetaSteps t u -> BetaSteps s u
+bsTrans BRefl       q = q
+bsTrans (BCons s p) q = BCons s (bsTrans p q)
+
+-- | Congruence of multi-step β-reduction in function, argument, and lambda body.
+bsApp1 :: BetaSteps l l' -> BetaSteps (UApp l m) (UApp l' m)
+bsApp1 BRefl       = BRefl
+bsApp1 (BCons s p) = BCons (XiApp1 s) (bsApp1 p)
+
+bsApp2 :: BetaSteps m m' -> BetaSteps (UApp l m) (UApp l m')
+bsApp2 BRefl       = BRefl
+bsApp2 (BCons s p) = BCons (XiApp2 s) (bsApp2 p)
+
+bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
+bsLam BRefl       = BRefl
+bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
+
+{-# LINE 265 "content/part2/Untyped.md" #-}
 -- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
 type IdTerm    = (ULam (UVar FZ) :: UTerm Zero)
 type SelfApp   = (ULam (UApp (UVar FZ) (UVar FZ)) :: UTerm Zero)
@@ -181,13 +187,13 @@ type OmegaTerm = (UApp SelfApp SelfApp :: UTerm Zero)
 idIsNormal :: Normal IdTerm
 idIsNormal = NLam (NNeu NVar)
 
--- | Concrete sound β-step: (λx. x) (λx. x) —→ (λx. x).
+-- | Concrete β-step: (λx. x) (λx. x) —→ (λx. x).
 idAppStep :: BetaStep (UApp IdTerm IdTerm) IdTerm
-idAppStep = Beta SUEq
+idAppStep = Beta
 
--- | Concrete sound β-step: Ω —→ Ω!
+-- | Concrete β-step: Ω —→ Ω!
 omegaStep :: BetaStep OmegaTerm OmegaTerm
-omegaStep = Beta (SUApp SUEq SUEq)
+omegaStep = Beta
 
 -- | Church numerals 0, 1, 2 in the untyped λ-calculus (λ s. λ z. s^n z).
 type CZero = (ULam (ULam (UVar FZ)) :: UTerm Zero)
@@ -207,87 +213,9 @@ cTwoIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu (NApp NVar (NNeu NVar))))))
 -- | Normal-order termination on a diverging argument (`K-omega`):
 -- `(λ x. λ y. y) Ω —→ λ y. y` in a single outermost β-step!
 kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
-kOmegaStep =
-  Beta (SULam
-    (ShiftApp
-      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ)))
-      (ShiftLam (ShiftApp (ShiftVar BumpSZ) (ShiftVar BumpSZ))))
-    (SUNeq RemLt))
+kOmegaStep = Beta
 
-{-# LINE 359 "content/part2/Untyped.md" #-}
--- | Constructive witness for `BumpFin c x y`.
-type BumpRes :: forall (n :: Nat). Fin (Succ n) -> Fin n -> Type
-data BumpRes c x where
-  MkBump :: foreach (y :: Fin (Succ n)) -> BumpFin c x y -> BumpRes c x
-
--- | Compute the bumped variable `y` together with its `BumpFin` proof.
-bumpProof :: forall (n :: Nat).
-             foreach (c :: Fin (Succ n)) -> foreach (x :: Fin n) -> BumpRes c x
-bumpProof FZ      x       = MkBump (FS x) BumpZ
-bumpProof (FS c') FZ      = MkBump FZ (BumpSZ @c')
-bumpProof (FS c') (FS x') = case bumpProof c' x' of
-  MkBump y b -> MkBump (FS y) (BumpSS b)
-
--- | Constructive witness for `ShiftU c m m'`.
-type ShiftRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> Type
-data ShiftRes c m where
-  MkShift :: foreach (m' :: UTerm (Succ n)) -> ShiftU c m m' -> ShiftRes c m
-
--- | Compute capture-avoiding weakening together with its `ShiftU` proof.
-shiftProof :: forall (n :: Nat).
-              foreach (c :: Fin (Succ n)) -> foreach (m :: UTerm n) -> ShiftRes c m
-shiftProof c (UVar x)   = case bumpProof c x of
-  MkBump y b -> MkShift (UVar y) (ShiftVar b)
-shiftProof c (ULam b)   = case shiftProof (FS c) b of
-  MkShift b' sb -> MkShift (ULam b') (ShiftLam sb)
-shiftProof c (UApp l r) = case shiftProof c l of
-  MkShift l' sl -> case shiftProof c r of
-    MkShift r' sr -> MkShift (UApp l' r') (ShiftApp sl sr)
-
--- | Compare two indices in `Fin (Succ n)`: either equal or separated by `RemoveFin`.
-type CmpFin :: forall (n :: Nat). Fin (Succ n) -> Fin (Succ n) -> Type
-data CmpFin c x where
-  CmpEq  :: CmpFin c c
-  CmpNeq :: foreach (y :: Fin n) -> RemoveFin c x y -> CmpFin c x
-
--- | Helper for comparing `FS c'` once inspecting `c'` has refined the outer index to `Succ m`.
-cmpFinFS :: forall (m :: Nat).
-            foreach (c' :: Fin (Succ m)) -> foreach (x :: Fin (Succ (Succ m)))
-         -> CmpFin (FS c') x
-cmpFinFS c' FZ      = CmpNeq FZ (RemLt @c')
-cmpFinFS c' (FS x') = case cmpFin c' x' of
-  CmpEq      -> CmpEq
-  CmpNeq y r -> CmpNeq (FS y) (RemSS r)
-
--- | Decidable comparison with `RemoveFin` evidence.
-cmpFin :: forall (n :: Nat).
-          foreach (c :: Fin (Succ n)) -> foreach (x :: Fin (Succ n)) -> CmpFin c x
-cmpFin FZ            FZ     = CmpEq
-cmpFin FZ            (FS y) = CmpNeq y (RemGt @y)
-cmpFin (FS FZ)       x      = cmpFinFS FZ x
-cmpFin (FS (FS c'')) x      = cmpFinFS (FS c'') x
-
--- | Constructive witness for `SubstAtU c w m r`.
-type SubstRes :: forall (n :: Nat). Fin (Succ n) -> UTerm n -> UTerm (Succ n) -> Type
-data SubstRes c w m where
-  MkSubst :: foreach (r :: UTerm n) -> SubstAtU c w m r -> SubstRes c w m
-
--- | Compute single-variable substitution `m [ c := w ]` with its `SubstAtU` proof.
-substProof :: forall (n :: Nat).
-              foreach (c :: Fin (Succ n))
-           -> foreach (w :: UTerm n)
-           -> foreach (m :: UTerm (Succ n))
-           -> SubstRes c w m
-substProof c w (UVar x)   = case cmpFin c x of
-  CmpEq      -> MkSubst w SUEq
-  CmpNeq y r -> MkSubst (UVar y) (SUNeq r)
-substProof c w (ULam b)   = case shiftProof FZ w of
-  MkShift w' sw -> case substProof (FS c) w' b of
-    MkSubst b' sb -> MkSubst (ULam b') (SULam sw sb)
-substProof c w (UApp l r) = case substProof c w l of
-  MkSubst l' sl -> case substProof c w r of
-    MkSubst r' sr -> MkSubst (UApp l' r') (SUApp sl sr)
-
+{-# LINE 335 "content/part2/Untyped.md" #-}
 -- | Outcome of one leftmost-outermost (normal-order) reduction step.
 type StepRes :: forall (n :: Nat). UTerm n -> Type
 data StepRes t where
@@ -297,8 +225,7 @@ data StepRes t where
 -- | Normal-order step for an application `UApp l m`.
 stepApp :: forall (n :: Nat).
            foreach (l m :: UTerm n) -> StepRes (UApp l m)
-stepApp (ULam b)     m = case substProof FZ m b of
-  MkSubst r sr -> Reduct r (Beta sr)
+stepApp (ULam b)     m = Reduct (substSingleU b m) Beta
 stepApp (UVar x)     m = case stepNormal m of
   Reduct m' sm -> Reduct (UApp (UVar x) m') (XiApp2 sm)
   IsNorm nm    -> IsNorm (NNeu (NApp NVar nm))
