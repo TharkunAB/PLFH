@@ -371,8 +371,12 @@ const HASKLIB_NAT_EXPORTS = new Set([
   "plus",
   "eqSize",
   "eqSizeRefl",
+  "natToInt",
   "plusZero",
   "plusSucc",
+  "plusComm",
+  "plusAssoc",
+  "congSucc",
   "congFirst",
   "(+)",
 ]);

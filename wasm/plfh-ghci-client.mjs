@@ -1081,26 +1081,23 @@ const PLAYGROUND_PRESETS = [
 module Playground where
 
 import Data.Type.Equality ((:~:) (Refl), trans)
-import HaskLib.Nat (Nat (..), congSucc, plus, type (+))
+import HaskLib.Nat (Nat (..), natToInt, plus, type (+))
+import PLFH.Part1.Induction (cong)
 
 twoPlusThree :: (2 + 3 :: Nat) :~: 5
 twoPlusThree = Refl
 
 plusIdentityR :: foreach (m :: Nat) -> plus m Zero :~: m
 plusIdentityR Zero     = Refl
-plusIdentityR (Succ m) = congSucc (plusIdentityR m)
+plusIdentityR (Succ m) = cong Succ (plusIdentityR m)
 
 plusSuc :: foreach (m n :: Nat) -> plus m (Succ n) :~: Succ (plus m n)
 plusSuc Zero     _ = Refl
-plusSuc (Succ m) n = congSucc (plusSuc m n)
+plusSuc (Succ m) n = cong Succ (plusSuc m n)
 
 plusComm :: foreach (m n :: Nat) -> plus m n :~: plus n m
 plusComm m Zero     = plusIdentityR m
-plusComm m (Succ k) = plusSuc m k \`trans\` congSucc (plusComm m k)
-
-natToInt :: Nat -> Int
-natToInt Zero     = 0
-natToInt (Succ n) = 1 + natToInt n
+plusComm m (Succ k) = plusSuc m k \`trans\` cong Succ (plusComm m k)
 `,
   },
   {
@@ -1133,18 +1130,19 @@ module Playground where
 
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Types (List)
-import HaskLib (congSucc, size)
+import HaskLib (size)
 import HaskLib.Nat (Nat (..), plus)
+import PLFH.Part1.Induction (cong)
 
 lengthAppend :: forall a. foreach (xs ys :: List a)
              -> size (xs ++ ys) :~: plus (size xs) (size ys)
 lengthAppend []       _  = Refl
-lengthAppend (_ : xs) ys = congSucc (lengthAppend xs ys)
+lengthAppend (_ : xs) ys = cong Succ (lengthAppend xs ys)
 
 lengthMap :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
           -> size (map f xs) :~: size xs
 lengthMap _ []       = Refl
-lengthMap f (_ : xs) = congSucc (lengthMap f xs)
+lengthMap f (_ : xs) = cong Succ (lengthMap f xs)
 `,
   },
   {
@@ -1156,20 +1154,43 @@ module Playground where
 
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Sigma (Sigma (Pair))
-import HaskLib.Nat (Nat (..), plus)
+import HaskLib.Nat (Nat (..), natToInt, plus)
 
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
 halfOfFour :: EvenSigma 4
 halfOfFour = Pair 2 Refl
 
-natToInt :: Nat -> Int
-natToInt Zero     = 0
-natToInt (Succ n) = 1 + natToInt n
-
 extractHalf :: Int
 extractHalf = case halfOfFour of
   Pair k Refl -> natToInt k
+`,
+  },
+  {
+    id: "vec",
+    label: "Length-Indexed Vectors",
+    replHint: "lookupVec (FS FZ) combined",
+    code: `{-# LANGUAGE DependentTypes #-}
+module Playground where
+
+import HaskLib.Fin (Fin (..), lookupVec)
+import HaskLib.Nat (Nat (..))
+import HaskLib.Vec (Vec (..), appendVec, headVec, mapVec)
+
+xs :: Vec String 2
+xs = VCons "dependent" (VCons "haskell" VNil)
+
+ys :: Vec String 1
+ys = VCons "works" VNil
+
+combined :: Vec String 3
+combined = appendVec xs ys
+
+lengths :: Vec Int 3
+lengths = mapVec length combined
+
+firstWord :: String
+firstWord = headVec combined
 `,
   },
   {
