@@ -36,8 +36,10 @@ expressions at the `ghci>` prompt.
 
 Standard Haskell separates compile-time type arguments (`forall a. b`, erased
 at runtime) from runtime value arguments (`a -> b`, invisible to types).
-`-XDependentTypes` adds one new quantifier, **`foreach (x :: a) -> b`**, which
-passes `x` at runtime and lets `b` mention `x`.
+`-XDependentTypes` adds two retained quantifiers: **`foreach (x :: a) -> b`**
+for dependent functions (passing `x` at runtime and letting `b` mention `x`),
+and **`some (x :: a) | b`** for dependent pairs (packaging a runtime value `x`
+with a value whose type `b` mentions `x`).
 
 Pick a domain below to see what disappears when types can inspect ordinary
 Haskell values directly. Every tab compiles and runs in your browser through
