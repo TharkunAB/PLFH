@@ -14,7 +14,7 @@ GHC ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/
   [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base),
   [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
   [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq)
-- Licence: &copy; 2026 Tharkun AB, [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
+- License: &copy; 2026 Tharkun AB, [Creative Commons Attribution 4.0 International (CC BY 4.0)](LICENSE)
 
 ## Repository layout
 

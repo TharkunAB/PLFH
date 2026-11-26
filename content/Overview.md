@@ -34,16 +34,18 @@ expressions at the `ghci>` prompt.
 
 ## 1. Real-world Haskell, by domain
 
-Standard Haskell separates compile-time type arguments (`forall a. b`, erased
-at runtime) from runtime value arguments (`a -> b`, invisible to types).
-`-XDependentTypes` adds two retained quantifiers: **`foreach (x :: a) -> b`**
-for dependent functions (passing `x` at runtime and letting `b` mention `x`),
-and **`some (x :: a) | b`** for dependent pairs (packaging a runtime value `x`
-with a value whose type `b` mentions `x`).
+Standard Haskell separates compile-time type arguments (`forall a. b` and
+`forall a -> b`, erased at runtime) from runtime value arguments (`a -> b`,
+invisible to types). `-XDependentTypes` completes the grid with three dependent
+quantifiers: retained **`foreach (x :: a) -> b`** (and invisible
+`foreach (x :: a). b`) for dependent functions, retained **`some (x :: a) | b`**
+for dependent pairs, and erased **`exists (x :: a) | b`** (Proposal `#473`) for
+erased existentials.
 
 Pick a domain below to see what disappears when types can inspect ordinary
 Haskell values directly. Every tab compiles and runs in your browser through
-WebAssembly, and **Check All Modules** above verifies all eight tabs together.
+WebAssembly, and **Check Part 1 (8 modules)** above verifies all eight tabs
+together.
 
 :::: {.plfh-domain-tabs id="domain-showcase"}
 
@@ -1005,7 +1007,7 @@ zippedDemo =
 Under `-XDependentTypes`, ordinary functions compute inside types alongside
 inline `case`, `let`, local `type` synonyms inside term `let`/`where` blocks,
 type-level lambdas, and explicit matchability (`%M` / `%U` / `%m`). None of the
-four modules below uses `TypeFamilies`.
+three modules below uses `TypeFamilies`.
 
 ### 3.1 Stock `Prelude` lists and open function evaluation {#card-lists}
 
@@ -1547,7 +1549,7 @@ sampleAccVec = toListVec (roundtripAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil
 | Repository | Role |
 | --- | --- |
 | [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)) |
-| [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,Decision,...}.Dependent`); see the [API reference](/DependentBase/) |
+| [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.Decision`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,...}.Dependent`); see the [API reference](/DependentBase/) |
 | [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) | `HoleFitPlugin` (`-fplugin=Dependent.Plugin.ProofSearch`) for congruence/transitivity subgoal refinements and bounded proof synthesis |
 | [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for observational-equality testing and counterexample shrinking |
 | [`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH) | 25-chapter interactive textbook adapted from PLFA ([Table of Contents](/), [Coverage](/Status/), [Setup](/Setup/)) |
