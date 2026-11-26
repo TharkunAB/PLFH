@@ -497,30 +497,28 @@ runSession =
 
 ::: {.plfh-domain-tab id="tab-nets" data-tab-label="Neural Nets" data-tab-audience="grenade / hmatrix"}
 
-### 1.5 Shape-checked neural networks and `ObsEq` tensor reshapes {#card-nets}
+### 1.5 Shape-checked neural networks and constructive tensor reshapes {#card-nets}
 
 <div class="showcase-credits">
   <strong>Replaces:</strong> <code>grenade</code> / <code>hmatrix</code> / <code>vector-sized</code> (<code>KnownNat</code>, <code>SingI</code>, <code>ghc-typelits-natnormalise</code>, <code>unsafeCoerce</code>) &middot;
-  <strong>Features:</strong> <code>Data.Vec.Dependent</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+  <strong>Features:</strong> <code>Data.Vec.Dependent</code> &middot; <code>Data.Nat.Dependent.Properties</code> (<code>mulComm</code>)
 </div>
 
 Matrix multiplication (`matVec`) and multi-layer networks (`Net inp out`) track
 dimensions with ordinary Peano `Nat` numerals and `Vec`, rejecting mismatched
-weight matrices at compile time. `reshapeTranspose` discharges
-`mul r c :~: mul c r` through `Dependent.Plugin.ObsEq` without a bespoke
-`ghc-typelits` solver. Evaluate `netDemo` at the `ghci>` prompt.
+weight matrices at compile time. `reshapeTranspose` transports
+`Vec Double (mul r c)` to `Vec Double (mul c r)` in one line with
+`dependent-base`'s constructively proved `mulComm`, without `TypeFamilies` or a
+bespoke `ghc-typelits` solver plugin. Evaluate `netDemo` at the `ghci>` prompt.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=20 #-}
 module TypedNet where
 
 import Data.Nat.Dependent (Nat (..), mul)
+import Data.Nat.Dependent.Properties (mulComm)
+import Data.Type.Equality.Dependent (rewrite)
 import Data.Vec.Dependent (Vec (..), appendVec, foldrVec, mapVec, toListVec, zipWithVec)
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
-
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 6 (withPartialPct 0 defaultObsConfig)
 
 type Matrix r c = Vec (Vec Double c) r
 
@@ -544,10 +542,9 @@ flatten :: foreach (r c :: Nat) -> Matrix r c -> Vec Double (mul r c)
 flatten Zero     _ VNil           = VNil
 flatten (Succ r) c (VCons row rs) = appendVec row (flatten r c rs)
 
--- Transport `Vec Double (mul r c)` -> `Vec Double (mul c r)` via ObsEq:
+-- Constructive reshape via dependent-base's proved `mulComm` (no ghc-typelits plugin needed):
 reshapeTranspose :: foreach (r c :: Nat) -> Vec Double (mul r c) -> Vec Double (mul c r)
-reshapeTranspose r c v =
-  withObsEqWith totalCfg @(mul r c) @(mul c r) @(Vec Double (mul c r)) v
+reshapeTranspose r c v = rewrite (mulComm r c) v
 
 layer1 :: Matrix 2 3
 layer1 =
@@ -569,163 +566,164 @@ netDemo =
 
 :::
 
-::: {.plfh-domain-tab id="tab-codecs" data-tab-label="Wire Codecs" data-tab-audience="autodocodec / ObsEq"}
+::: {.plfh-domain-tab id="tab-codecs" data-tab-label="Wire Codecs" data-tab-audience="autodocodec / aeson"}
 
-### 1.6 Self-documenting wire codec with compile-time roundtrip checking {#card-codecs}
+### 1.6 Self-documenting wire codec and schema framing without `TypeFamilies` {#card-codecs}
 
 <div class="showcase-credits">
-  <strong>Replaces:</strong> <code>autodocodec</code> / <code>aeson-schemas</code> / separate QuickCheck roundtrip suites &middot;
-  <strong>Features:</strong> <code>foreach</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+  <strong>Replaces:</strong> <code>autodocodec</code> / <code>aeson-schemas</code> / separate schema &amp; codec definitions &middot;
+  <strong>Features:</strong> Term-to-<code>Type</code> large elimination &middot; Constructive schema associativity
 </div>
 
-One `Schema` value derives the payload type (`Payload s`), documentation
-(`docSchema`), encoder (`encode`), and decoder (`decode`), while `ObsEq` checks
-the `encode`/`decode` roundtrip at compile time. Change `TokBool b` to
-`TokBool (not b)` in `encode` and press `Ctrl/Cmd+Enter` to watch GHC refuse to
-compile with a minimal counterexample. Evaluate `codecDemo` at the `ghci>`
-prompt.
+One `Schema` value with ordinary `String` field names drives the payload type
+(`payload :: Schema -> Type`, with zero `TypeFamilies`), documentation
+(`docSchema`), encoder (`encode`), and decoder (`decode`). Constructive
+associativity (`appendSchemaAssoc`) is consumed directly by `reassocPacket` to
+re-frame concatenated packet schemas without copying wire tokens. Evaluate
+`codecDemo` at the `ghci>` prompt.
 
 ```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module CheckedCodec where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:))
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong, rewrite)
 
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+data Schema = SEnd | SInt String Schema | SBool String Schema
 
-data FieldTag = FId | FActive | FScore
-data Schema   = SEnd | SInt FieldTag Schema | SBool FieldTag Schema
+-- 1. Ordinary term-to-Type function computes the Haskell payload type (no TypeFamilies):
+payload :: Schema -> Type
+payload SEnd        = type ()
+payload (SInt  _ r) = type (Int,  payload r)
+payload (SBool _ r) = type (Bool, payload r)
 
-type family Payload (s :: Schema) :: Type where
-  Payload SEnd        = ()
-  Payload (SInt _ r)  = (Int,  Payload r)
-  Payload (SBool _ r) = (Bool, Payload r)
-
-tagName :: FieldTag -> String
-tagName FId     = "id"
-tagName FActive = "active"
-tagName FScore  = "score"
-
--- 1. Documentation from the same Schema value:
+-- 2. Documentation from the same Schema value:
 docSchema :: Schema -> String
 docSchema SEnd        = "{}"
-docSchema (SInt f r)  = tagName f ++ ":int, "  ++ docSchema r
-docSchema (SBool f r) = tagName f ++ ":bool, " ++ docSchema r
+docSchema (SInt  f r) = f ++ ":int, "  ++ docSchema r
+docSchema (SBool f r) = f ++ ":bool, " ++ docSchema r
 
 data Tok = TokInt Int | TokBool Bool deriving (Eq, Show)
 
--- 2. Bidirectional wire codec sharing one Schema value:
-encode :: foreach (s :: Schema) -> Payload s -> [Tok]
+-- 3. Bidirectional wire codec sharing one Schema value:
+encode :: foreach (s :: Schema) -> payload s -> [Tok]
 encode SEnd        ()      = []
-encode (SInt _ r)  (n, xs) = TokInt n  : encode r xs
+encode (SInt  _ r) (n, xs) = TokInt  n : encode r xs
 encode (SBool _ r) (b, xs) = TokBool b : encode r xs
 
-decode :: foreach (s :: Schema) -> [Tok] -> Either String (Payload s)
+decode :: foreach (s :: Schema) -> [Tok] -> Either String (payload s)
 decode SEnd        []               = Right ()
 decode SEnd        _                = Left "trailing tokens"
-decode (SInt _ r)  (TokInt n  : ts) = fmap (\xs -> (n, xs)) (decode r ts)
+decode (SInt  _ r) (TokInt  n : ts) = fmap (\xs -> (n, xs)) (decode r ts)
 decode (SBool _ r) (TokBool b : ts) = fmap (\xs -> (b, xs)) (decode r ts)
-decode (SInt f _)  _                = Left ("expected int for "  ++ tagName f)
-decode (SBool f _) _                = Left ("expected bool for " ++ tagName f)
+decode (SInt  f _) _                = Left ("expected int for "  ++ f)
+decode (SBool f _) _                = Left ("expected bool for " ++ f)
 
-data UserRec = MkUser Int Bool Int deriving (Eq, Show)
+-- 4. Schema concatenation + constructive associativity used to re-frame packets:
+appendSchema :: Schema -> Schema -> Schema
+appendSchema SEnd        s2 = s2
+appendSchema (SInt  f r) s2 = SInt  f (appendSchema r s2)
+appendSchema (SBool f r) s2 = SBool f (appendSchema r s2)
 
-roundtripUser :: UserRec -> Maybe UserRec
-roundtripUser u = case u of
-  MkUser uid act sc ->
-    case decode (SInt FId (SBool FActive (SInt FScore SEnd)))
-                (encode (SInt FId (SBool FActive (SInt FScore SEnd))) (uid, (act, (sc, ())))) of
-      Right (uid', (act', (sc', ()))) -> Just (MkUser uid' act' sc')
-      Left  _                         -> Nothing
+appendSchemaAssoc :: foreach (a b c :: Schema)
+                  -> appendSchema (appendSchema a b) c :~: appendSchema a (appendSchema b c)
+appendSchemaAssoc SEnd        _ _ = Refl
+appendSchemaAssoc (SInt  f r) b c = cong (SInt  f) (appendSchemaAssoc r b c)
+appendSchemaAssoc (SBool f r) b c = cong (SBool f) (appendSchemaAssoc r b c)
 
--- 3. Compile-time roundtrip check! Break `encode` (e.g. `not b`) to see a shrunk counterexample:
-userRoundtrip :: foreach (u :: UserRec) -> roundtripUser u :~: Just u
-userRoundtrip _ = obsEqWith totalCfg
+newtype Packet (s :: Schema) = MkPacket { unPacket :: [Tok] } deriving Show
 
-codecDemo :: (String, [Tok], Maybe UserRec)
+reassocPacket :: foreach (a b c :: Schema)
+              -> Packet (appendSchema (appendSchema a b) c)
+              -> Packet (appendSchema a (appendSchema b c))
+reassocPacket a b c p = rewrite (appendSchemaAssoc a b c) p
+
+codecDemo :: (String, [Tok], Either String (Int, (Bool, (Int, ()))))
 codecDemo =
-  let s    = SInt FId (SBool FActive (SInt FScore SEnd))
-      wire = encode s (7, (True, (99, ())))
-  in (docSchema s, wire, roundtripUser (MkUser 7 True 99))
+  let wire = encode (SInt "id" (SBool "active" (SInt "score" SEnd))) (7, (True, (99, ())))
+      pkt  = reassocPacket (SInt "id" SEnd) (SBool "active" SEnd) (SInt "score" SEnd) (MkPacket wire)
+  in ( docSchema (SInt "id" (SBool "active" (SInt "score" SEnd)))
+     , unPacket pkt
+     , decode (SInt "id" (SBool "active" (SInt "score" SEnd))) (unPacket pkt)
+     )
 ```
 
 :::
 
-::: {.plfh-domain-tab id="tab-units" data-tab-label="Units of Measure" data-tab-audience="uom-plugin / ObsEq"}
+::: {.plfh-domain-tab id="tab-units" data-tab-label="Units of Measure" data-tab-audience="dimensional / uom-plugin"}
 
 ### 1.7 Physical units of measure without `uom-plugin` or `TypeFamilies` {#card-units}
 
 <div class="showcase-credits">
   <strong>Replaces:</strong> <code>dimensional</code> / <code>units</code> / bespoke <code>uom-plugin</code> <code>TcPlugin</code> &middot;
-  <strong>Features:</strong> Ordinary <code>Int</code> dimension arithmetic &middot; Erased visible <code>forall ... -&gt;</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+  <strong>Features:</strong> Stock <code>plus</code> &amp; <code>minus</code> &middot; Constructive <code>plusComm</code> &amp; <code>minusDiag</code>
 </div>
 
 Adding meters to seconds (`dist +! time`) fails at compile time with
-`GHC-83865`. Ordinary `Int` arithmetic (`+` and `negate`) computes product and
-quotient dimensions with zero `TypeFamilies` or `KnownNat` plumbing. Visible
-erased `forall (d :: Dim) ->` passes no dimension data at runtime, and `ObsEq`
-discharges dimension commutativity (`commDim`) and inverse cancellation
-(`cancelDim`) without writing a custom units-of-measure solver plugin. Evaluate
-`physicsDemo` at the `ghci>` prompt.
+`GHC-83865`. Each zero-cost `Qty mp mn sp sn` tracks numerator and denominator
+exponents ($m^{mp - mn} \cdot s^{sp - sn}$) using ordinary `plus` and `minus`
+from `dependent-base`, with zero `TypeFamilies` or `KnownNat` plumbing.
+`commUnit` and `cancelSelf` prove commutativity and inverse cancellation
+constructively for all dimensions via `plusComm` and `minusDiag`, without
+writing a custom units-of-measure plugin. Evaluate `physicsDemo` at the `ghci>`
+prompt.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
 module UnitsOfMeasure where
 
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+import Data.Nat.Dependent (Nat (..), minus, plus)
+import Data.Nat.Dependent.Properties (minusDiag, plusComm)
+import Data.Type.Equality.Dependent (rewrite)
 
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+-- Zero-cost quantity indexed by numerator/denominator exponents: m^(mp - mn) * s^(sp - sn).
+newtype Qty (mp :: Nat) (mn :: Nat) (sp :: Nat) (sn :: Nat) = Qty { unQty :: Double }
+  deriving Show
 
-data Dim = MkDim Int Int Int  -- (meters, seconds, kilograms)
+type Scalar = Qty 0 0 0 0
+type Meter  = Qty 1 0 0 0
+type Sec    = Qty 0 0 1 0
+type Speed  = Qty 1 0 0 1  -- m^1 * s^-1
 
-addDim :: Dim -> Dim -> Dim
-addDim d1 d2 = case (d1, d2) of
-  (MkDim m1 s1 k1, MkDim m2 s2 k2) -> MkDim (m1 + m2) (s1 + s2) (k1 + k2)
-
-negDim :: Dim -> Dim
-negDim d = case d of
-  MkDim m s k -> MkDim (negate m) (negate s) (negate k)
-
-data UnitKind = UScalar | UMeter | USec | UKg
-
-unitDim :: UnitKind -> Dim
-unitDim UScalar = MkDim 0 0 0
-unitDim UMeter  = MkDim 1 0 0
-unitDim USec    = MkDim 0 1 0
-unitDim UKg     = MkDim 0 0 1
-
-newtype Qty (d :: Dim) = Qty { unQty :: Double } deriving Show
-
-(+!) :: Qty d -> Qty d -> Qty d
+-- Adding incompatible units (e.g. `dist +! time`) fails at compile time with GHC-83865:
+(+!) :: Qty mp mn sp sn -> Qty mp mn sp sn -> Qty mp mn sp sn
 Qty x +! Qty y = Qty (x + y)
 
-(*!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 d2)
+(*!) :: Qty mp1 mn1 sp1 sn1 -> Qty mp2 mn2 sp2 sn2
+     -> Qty (plus mp1 mp2) (plus mn1 mn2) (plus sp1 sp2) (plus sn1 sn2)
 Qty x *! Qty y = Qty (x * y)
 
-(/!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 (negDim d2))
+(/!) :: Qty mp1 mn1 sp1 sn1 -> Qty mp2 mn2 sp2 sn2
+     -> Qty (plus mp1 mn2) (plus mn1 mp2) (plus sp1 sn2) (plus sn1 sp2)
 Qty x /! Qty y = Qty (x / y)
 
--- Zero runtime overhead: visible erased forall (d :: Dim) -> passes no value at runtime!
-commDim :: forall (d1 d2 :: Dim) -> Qty (addDim d1 d2) -> Qty (addDim d2 d1)
-commDim (type d1) (type d2) q =
-  withObsEqWith totalCfg @(addDim d1 d2) @(addDim d2 d1) @(Qty (addDim d2 d1)) q
+-- Cancel common powers in numerator and denominator using stock `minus`:
+normalize :: Qty mp mn sp sn -> Qty (minus mp mn) (minus mn mp) (minus sp sn) (minus sn sp)
+normalize (Qty x) = Qty x
 
-cancelDim :: forall (d :: Dim) -> Qty (addDim d (negDim d)) -> Qty (unitDim UScalar)
-cancelDim (type d) q =
-  withObsEqWith totalCfg @(addDim d (negDim d)) @(unitDim UScalar) @(Qty (unitDim UScalar)) q
+-- Constructive commutativity and self-cancellation for ALL dimensions via dependent-base:
+commUnit :: foreach (mp1 mn1 sp1 sn1 mp2 mn2 sp2 sn2 :: Nat)
+         -> Qty (plus mp1 mp2) (plus mn1 mn2) (plus sp1 sp2) (plus sn1 sn2)
+         -> Qty (plus mp2 mp1) (plus mn2 mn1) (plus sp2 sp1) (plus sn2 sn1)
+commUnit mp1 mn1 sp1 sn1 mp2 mn2 sp2 sn2 q =
+  rewrite (plusComm mp1 mp2) (rewrite (plusComm mn1 mn2)
+    (rewrite (plusComm sp1 sp2) (rewrite (plusComm sn1 sn2) q)))
+
+cancelSelf :: foreach (mp mn sp sn :: Nat)
+           -> Qty (plus mp mn) (plus mn mp) (plus sp sn) (plus sn sp)
+           -> Scalar
+cancelSelf mp mn sp sn q =
+  rewrite (plusComm mn mp)
+    (rewrite (plusComm sn sp)
+      (rewrite (minusDiag (plus mp mn))
+        (rewrite (minusDiag (plus sp sn)) (normalize q))))
 
 physicsDemo :: (Double, Double)
 physicsDemo =
-  let dist  = Qty 100.0 :: Qty (unitDim UMeter)
-      time  = Qty 10.0  :: Qty (unitDim USec)
-      speed = dist /! time
-      ratio = cancelDim (type (unitDim UMeter)) (dist /! dist)
+  let dist  = Qty 100.0 :: Meter
+      time  = Qty 10.0  :: Sec
+      speed = normalize (dist /! time) :: Speed
+      ratio = cancelSelf 1 0 0 0 (dist /! dist)
   in (unQty speed, unQty ratio)
 ```
 
@@ -1526,6 +1524,8 @@ evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
 evenRoundtrip n = obsEqGen genEvenInt
 
 -- Transport a length-indexed `Vec` across an observational witness at runtime:
+-- `gcastWith (obsEqWith totalCfg)` transports via an explicit `(:~:)` witness,
+-- while `withObsEqWith totalCfg` brings the tested `a ~ b` constraint into scope directly.
 toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
 toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
 

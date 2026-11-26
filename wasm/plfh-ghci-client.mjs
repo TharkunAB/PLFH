@@ -2218,15 +2218,12 @@ effDemo = runStack [EEnv, ECount, ELog] "prod"
     label: "Shape-Checked Neural Net",
     replHint: "netDemo",
     code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=20 #-}
 module Playground where
 
 import Data.Nat.Dependent (Nat (..), mul)
+import Data.Nat.Dependent.Properties (mulComm)
+import Data.Type.Equality.Dependent (rewrite)
 import Data.Vec.Dependent (Vec (..), appendVec, foldrVec, mapVec, toListVec, zipWithVec)
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
-
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 6 (withPartialPct 0 defaultObsConfig)
 
 type Matrix r c = Vec (Vec Double c) r
 
@@ -2248,9 +2245,9 @@ flatten :: foreach (r c :: Nat) -> Matrix r c -> Vec Double (mul r c)
 flatten Zero     _ VNil           = VNil
 flatten (Succ r) c (VCons row rs) = appendVec row (flatten r c rs)
 
+-- Constructive reshape via dependent-base's proved mulComm (no ghc-typelits plugin):
 reshapeTranspose :: foreach (r c :: Nat) -> Vec Double (mul r c) -> Vec Double (mul c r)
-reshapeTranspose r c v =
-  withObsEqWith totalCfg @(mul r c) @(mul c r) @(Vec Double (mul c r)) v
+reshapeTranspose r c v = rewrite (mulComm r c) v
 
 layer1 :: Matrix 2 3
 layer1 =
@@ -2272,129 +2269,124 @@ netDemo =
   },
   {
     id: "checked-codec",
-    label: "Checked Wire Codec (ObsEq)",
+    label: "Checked Wire Codec",
     replHint: "codecDemo",
-    code: `{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module Playground where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:))
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong, rewrite)
 
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+data Schema = SEnd | SInt String Schema | SBool String Schema
 
-data FieldTag = FId | FActive | FScore
-data Schema   = SEnd | SInt FieldTag Schema | SBool FieldTag Schema
-
-type family Payload (s :: Schema) :: Type where
-  Payload SEnd        = ()
-  Payload (SInt _ r)  = (Int,  Payload r)
-  Payload (SBool _ r) = (Bool, Payload r)
-
-tagName :: FieldTag -> String
-tagName FId     = "id"
-tagName FActive = "active"
-tagName FScore  = "score"
+payload :: Schema -> Type
+payload SEnd        = type ()
+payload (SInt  _ r) = type (Int,  payload r)
+payload (SBool _ r) = type (Bool, payload r)
 
 docSchema :: Schema -> String
 docSchema SEnd        = "{}"
-docSchema (SInt f r)  = tagName f ++ ":int, "  ++ docSchema r
-docSchema (SBool f r) = tagName f ++ ":bool, " ++ docSchema r
+docSchema (SInt  f r) = f ++ ":int, "  ++ docSchema r
+docSchema (SBool f r) = f ++ ":bool, " ++ docSchema r
 
 data Tok = TokInt Int | TokBool Bool deriving (Eq, Show)
 
-encode :: foreach (s :: Schema) -> Payload s -> [Tok]
+encode :: foreach (s :: Schema) -> payload s -> [Tok]
 encode SEnd        ()      = []
-encode (SInt _ r)  (n, xs) = TokInt n  : encode r xs
+encode (SInt  _ r) (n, xs) = TokInt  n : encode r xs
 encode (SBool _ r) (b, xs) = TokBool b : encode r xs
 
-decode :: foreach (s :: Schema) -> [Tok] -> Either String (Payload s)
+decode :: foreach (s :: Schema) -> [Tok] -> Either String (payload s)
 decode SEnd        []               = Right ()
 decode SEnd        _                = Left "trailing tokens"
-decode (SInt _ r)  (TokInt n  : ts) = fmap (\\xs -> (n, xs)) (decode r ts)
+decode (SInt  _ r) (TokInt  n : ts) = fmap (\\xs -> (n, xs)) (decode r ts)
 decode (SBool _ r) (TokBool b : ts) = fmap (\\xs -> (b, xs)) (decode r ts)
-decode (SInt f _)  _                = Left ("expected int for "  ++ tagName f)
-decode (SBool f _) _                = Left ("expected bool for " ++ tagName f)
+decode (SInt  f _) _                = Left ("expected int for "  ++ f)
+decode (SBool f _) _                = Left ("expected bool for " ++ f)
 
-data UserRec = MkUser Int Bool Int deriving (Eq, Show)
+appendSchema :: Schema -> Schema -> Schema
+appendSchema SEnd        s2 = s2
+appendSchema (SInt  f r) s2 = SInt  f (appendSchema r s2)
+appendSchema (SBool f r) s2 = SBool f (appendSchema r s2)
 
-roundtripUser :: UserRec -> Maybe UserRec
-roundtripUser u = case u of
-  MkUser uid act sc ->
-    case decode (SInt FId (SBool FActive (SInt FScore SEnd)))
-                (encode (SInt FId (SBool FActive (SInt FScore SEnd))) (uid, (act, (sc, ())))) of
-      Right (uid', (act', (sc', ()))) -> Just (MkUser uid' act' sc')
-      Left  _                         -> Nothing
+appendSchemaAssoc :: foreach (a b c :: Schema)
+                  -> appendSchema (appendSchema a b) c :~: appendSchema a (appendSchema b c)
+appendSchemaAssoc SEnd        _ _ = Refl
+appendSchemaAssoc (SInt  f r) b c = cong (SInt  f) (appendSchemaAssoc r b c)
+appendSchemaAssoc (SBool f r) b c = cong (SBool f) (appendSchemaAssoc r b c)
 
--- Try changing \`TokBool b\` to \`TokBool (not b)\` above to see ObsEq shrink a counterexample!
-userRoundtrip :: foreach (u :: UserRec) -> roundtripUser u :~: Just u
-userRoundtrip _ = obsEqWith totalCfg
+newtype Packet (s :: Schema) = MkPacket { unPacket :: [Tok] } deriving Show
 
-codecDemo :: (String, [Tok], Maybe UserRec)
+reassocPacket :: foreach (a b c :: Schema)
+              -> Packet (appendSchema (appendSchema a b) c)
+              -> Packet (appendSchema a (appendSchema b c))
+reassocPacket a b c p = rewrite (appendSchemaAssoc a b c) p
+
+codecDemo :: (String, [Tok], Either String (Int, (Bool, (Int, ()))))
 codecDemo =
-  let s    = SInt FId (SBool FActive (SInt FScore SEnd))
-      wire = encode s (7, (True, (99, ())))
-  in (docSchema s, wire, roundtripUser (MkUser 7 True 99))
+  let wire = encode (SInt "id" (SBool "active" (SInt "score" SEnd))) (7, (True, (99, ())))
+      pkt  = reassocPacket (SInt "id" SEnd) (SBool "active" SEnd) (SInt "score" SEnd) (MkPacket wire)
+  in ( docSchema (SInt "id" (SBool "active" (SInt "score" SEnd)))
+     , unPacket pkt
+     , decode (SInt "id" (SBool "active" (SInt "score" SEnd))) (unPacket pkt)
+     )
 `,
   },
   {
     id: "units-of-measure",
-    label: "Units of Measure (ObsEq)",
+    label: "Units of Measure",
     replHint: "physicsDemo",
     code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
 module Playground where
 
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+import Data.Nat.Dependent (Nat (..), minus, plus)
+import Data.Nat.Dependent.Properties (minusDiag, plusComm)
+import Data.Type.Equality.Dependent (rewrite)
 
-totalCfg :: ObsConfig
-totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+newtype Qty (mp :: Nat) (mn :: Nat) (sp :: Nat) (sn :: Nat) = Qty { unQty :: Double }
+  deriving Show
 
-data Dim = MkDim Int Int Int
+type Scalar = Qty 0 0 0 0
+type Meter  = Qty 1 0 0 0
+type Sec    = Qty 0 0 1 0
+type Speed  = Qty 1 0 0 1
 
-addDim :: Dim -> Dim -> Dim
-addDim d1 d2 = case (d1, d2) of
-  (MkDim m1 s1 k1, MkDim m2 s2 k2) -> MkDim (m1 + m2) (s1 + s2) (k1 + k2)
-
-negDim :: Dim -> Dim
-negDim d = case d of
-  MkDim m s k -> MkDim (negate m) (negate s) (negate k)
-
-data UnitKind = UScalar | UMeter | USec | UKg
-
-unitDim :: UnitKind -> Dim
-unitDim UScalar = MkDim 0 0 0
-unitDim UMeter  = MkDim 1 0 0
-unitDim USec    = MkDim 0 1 0
-unitDim UKg     = MkDim 0 0 1
-
-newtype Qty (d :: Dim) = Qty { unQty :: Double } deriving Show
-
-(+!) :: Qty d -> Qty d -> Qty d
+(+!) :: Qty mp mn sp sn -> Qty mp mn sp sn -> Qty mp mn sp sn
 Qty x +! Qty y = Qty (x + y)
 
-(*!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 d2)
+(*!) :: Qty mp1 mn1 sp1 sn1 -> Qty mp2 mn2 sp2 sn2
+     -> Qty (plus mp1 mp2) (plus mn1 mn2) (plus sp1 sp2) (plus sn1 sn2)
 Qty x *! Qty y = Qty (x * y)
 
-(/!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 (negDim d2))
+(/!) :: Qty mp1 mn1 sp1 sn1 -> Qty mp2 mn2 sp2 sn2
+     -> Qty (plus mp1 mn2) (plus mn1 mp2) (plus sp1 sn2) (plus sn1 sp2)
 Qty x /! Qty y = Qty (x / y)
 
-commDim :: forall (d1 d2 :: Dim) -> Qty (addDim d1 d2) -> Qty (addDim d2 d1)
-commDim (type d1) (type d2) q =
-  withObsEqWith totalCfg @(addDim d1 d2) @(addDim d2 d1) @(Qty (addDim d2 d1)) q
+normalize :: Qty mp mn sp sn -> Qty (minus mp mn) (minus mn mp) (minus sp sn) (minus sn sp)
+normalize (Qty x) = Qty x
 
-cancelDim :: forall (d :: Dim) -> Qty (addDim d (negDim d)) -> Qty (unitDim UScalar)
-cancelDim (type d) q =
-  withObsEqWith totalCfg @(addDim d (negDim d)) @(unitDim UScalar) @(Qty (unitDim UScalar)) q
+commUnit :: foreach (mp1 mn1 sp1 sn1 mp2 mn2 sp2 sn2 :: Nat)
+         -> Qty (plus mp1 mp2) (plus mn1 mn2) (plus sp1 sp2) (plus sn1 sn2)
+         -> Qty (plus mp2 mp1) (plus mn2 mn1) (plus sp2 sp1) (plus sn2 sn1)
+commUnit mp1 mn1 sp1 sn1 mp2 mn2 sp2 sn2 q =
+  rewrite (plusComm mp1 mp2) (rewrite (plusComm mn1 mn2)
+    (rewrite (plusComm sp1 sp2) (rewrite (plusComm sn1 sn2) q)))
+
+cancelSelf :: foreach (mp mn sp sn :: Nat)
+           -> Qty (plus mp mn) (plus mn mp) (plus sp sn) (plus sn sp)
+           -> Scalar
+cancelSelf mp mn sp sn q =
+  rewrite (plusComm mn mp)
+    (rewrite (plusComm sn sp)
+      (rewrite (minusDiag (plus mp mn))
+        (rewrite (minusDiag (plus sp sn)) (normalize q))))
 
 physicsDemo :: (Double, Double)
 physicsDemo =
-  let dist  = Qty 100.0 :: Qty (unitDim UMeter)
-      time  = Qty 10.0  :: Qty (unitDim USec)
-      speed = dist /! time
-      ratio = cancelDim (type (unitDim UMeter)) (dist /! dist)
+  let dist  = Qty 100.0 :: Meter
+      time  = Qty 10.0  :: Sec
+      speed = normalize (dist /! time) :: Speed
+      ratio = cancelSelf 1 0 0 0 (dist /! dist)
   in (unQty speed, unQty ratio)
 `,
   },
@@ -2550,6 +2542,8 @@ accPlusCorrect m n = obsEqWith totalCfg
 evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
 evenRoundtrip n = obsEqGen genEvenInt
 
+-- Transport a Vec across an observational witness:
+-- gcastWith transports via (:~:); withObsEqWith brings (a ~ b) into scope directly under totalCfg.
 toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
 toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
 
