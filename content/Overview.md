@@ -1,84 +1,82 @@
 ---
 title: "Dependent Haskell in GHC"
-description: "Full-spectrum dependent types in GHC 10.1 (-XDependentTypes): type-safe web routes as values, runtime monad stacks, type-level case and lambdas, Agda-mode holes, and a 25-chapter textbook running live in WebAssembly."
+description: "Full-spectrum dependent types in GHC 10.1 (-XDependentTypes): type-safe web routes as values, runtime monad stacks, type-level case and lambdas, linear protocols, Agda-mode holes, and a 25-chapter textbook running live in WebAssembly."
 prev: /
 next: /Playground/
 src: content/Overview.md
 playground: true
 ---
 
+`-XDependentTypes` adds full-spectrum dependent types to GHC 10.1
+([`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
+Ordinary Haskell datatypes and functions compute inside types directly, while
+keeping type erasure by default, separate compilation, and full compatibility
+with existing Haskell code.
+
 <div class="hero-actions">
   <a class="hero-btn hero-btn--primary" href="/Playground/">Open Playground</a>
   <a class="hero-btn" href="/">Read the Book (25 Chapters)</a>
   <a class="hero-btn" href="https://github.com/TharkunAB/ghc/tree/dependent-haskell">GHC Fork</a>
-  <a class="hero-btn" href="https://github.com/TharkunAB/dependent-proof-search">ProofSearch Plugin</a>
-  <a class="hero-btn" href="https://github.com/TharkunAB/dependent-obs-eq">ObsEq Plugin</a>
+  <a class="hero-btn" href="https://github.com/TharkunAB/dependent-proof-search">ProofSearch</a>
+  <a class="hero-btn" href="https://github.com/TharkunAB/dependent-obs-eq">ObsEq</a>
 </div>
 
-[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
-(branch `dependent-haskell`, tag `dependent-haskell-alpha`) adds full-spectrum
-dependent types to GHC 10.1 under `-XDependentTypes`, keeping type erasure by
-default, separate compilation, and compatibility with existing Haskell code.
-Companion libraries and plugins live in
-[`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base),
-[`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
-and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).
+Every module on this page compiles and runs in your browser through WebAssembly
+(`wasm32-wasi`). Click **Check in GHCi (Wasm)** on any block, or click **Edit**
+and press **`Ctrl/Cmd+Enter`** to change the code and inspect types or evaluate
+expressions at the `ghci>` prompt.
 
-Every code block below compiles and runs in your browser through WebAssembly
-(`wasm32-wasi`). Click **Check in GHCi (Wasm)** on any example, or click
-**Edit** and press **`Ctrl/Cmd+Enter`** to change the code and inspect types or
-evaluate expressions at the `ghci>` prompt.
+:::::: {.plfh-walkthrough-scope}
 
 <div id="plfh-showcase-bar" class="plfh-chapter-bar plfh-showcase-sticky"></div>
 
-::: {.plfh-showcase-act id="act-1" data-act-num="1" data-act-title="Routes & Stacks"}
+::::: {.plfh-showcase-act id="act-1" data-act-num="1" data-act-title="By Domain"}
 
-### 1. Lead example: web routes as values and runtime monad stacks
+## 1. Real-world Haskell, by domain
 
-In libraries such as Servant, HTTP routes live at the type level. That design
-catches handler mismatches at compile time, but routes cannot sit in ordinary
-lists or pass through plain functions. Every new interpretation needs its own
-type class (`HasServer`, `HasClient`, `HasDocs`) plus `Proxy` and `KnownSymbol`
-machinery.
+Standard Haskell separates compile-time type arguments (`forall a. b`, erased
+at runtime) from runtime value arguments (`a -> b`, invisible to types).
+`-XDependentTypes` adds one new quantifier, **`foreach (x :: a) -> b`**, which
+passes `x` at runtime and lets `b` mention `x`.
 
-With `-XDependentTypes`, a `Route` is an ordinary Haskell datatype and a
-`RunMode` is an ordinary configuration value. In the module below, one route
-definition (`apiRoute UserPost`) drives three things:
+Pick a domain below to see what disappears when types can inspect ordinary
+Haskell values directly. Every tab compiles and runs in your browser through
+WebAssembly, and **Check All Modules** above verifies all eight tabs together.
 
-1. Documentation (`describeRoute`) is a three-line ordinary function.
-2. URL construction (`buildLink (apiRoute UserPost)`) has the computed type
-   `Int -> String -> String`, so passing arguments in the wrong order fails at
-   compile time.
-3. Request dispatch (`dispatch`) selects a `transformers` monad stack from
-   `RunMode` using a type-level `case` (`Identity`, `WriterT [String] Identity`,
-   or `StateT Int (WriterT [String] Identity)`), checks that the handler matches
-   both the route and the stack, and returns the exact unwrapped result type.
+:::: {.plfh-domain-tabs id="domain-showcase"}
 
-#### 1.1 Type-safe routes and runtime monad stacks {#card-servant-stack}
+::: {.plfh-domain-tab id="tab-routes" data-tab-label="Web & Effects" data-tab-audience="Servant / transformers"}
+
+### 1.1 Web routes as values and runtime monad stacks {#card-servant-stack}
 
 <div class="showcase-credits">
-  <strong>Features &amp; specs:</strong>
-  <code>foreach</code> (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">#378</a>) &middot;
-  Type-level <code>case</code> (<a href="https://ghc.serokell.io/dh#type-level-case-expressions">R19</a>) &middot;
-  Term-to-<code>Type</code> large elimination (<a href="https://ghc.serokell.io/dh#function-promotion">R13</a>) &middot;
-  <code>transformers</code> (<code>Identity</code>, <code>WriterT</code>, <code>StateT</code>)
+  <strong>Replaces:</strong> <code>Servant</code> <code>HasServer</code>/<code>HasClient</code>/<code>HasDocs</code>, <code>Proxy</code>, <code>KnownSymbol</code> &middot;
+  <strong>Features:</strong> <code>foreach</code> (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">#378</a>) &middot;
+  Type-level <code>case</code> &amp; lambdas (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0242-unsaturated-type-families.html">#242</a>) &middot;
+  <code>transformers</code>
 </div>
 
-Click **Check in GHCi (Wasm)** and evaluate `demo` at the `ghci>` prompt, or
-swap `Int` and `String` in `handleUserPost` to see GHC reject the mismatch.
+One `Route` value drives three things without type-class boilerplate:
+documentation (`describeRoute`) is a three-line function, URL construction
+(`buildLink (apiRoute UserPost)`) has computed type `Int -> String -> String`,
+and `dispatch` selects a `transformers` monad stack (`Identity`, `WriterT`, or
+`StateT`) from `RunMode` at runtime. Click **Check in GHCi (Wasm)** and run
+`demo`, or swap `Int` and `String` in `handleUserPost` to trigger a compile
+error.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
-module ShowcaseServantStack where
+module RoutesAndEffects where
 
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
+import GHC.Matchability (U)
 import Text.Read (readMaybe)
 
--- 1. Select a monad transformer stack from a runtime mode value (type-level case).
+-- 1. Select a monad transformer stack from a runtime value (type-level case).
 data RunMode = PureMode | LoggedMode | MeteredMode
 
 type StackM (m :: RunMode) = case m of
@@ -106,7 +104,7 @@ recordHit PureMode    _   = pure ()
 recordHit LoggedMode  msg = tell [msg]
 recordHit MeteredMode msg = modify' (+ 1) >> lift (tell [msg])
 
--- 2. Define HTTP routes as ordinary Haskell values.
+-- 2. Define HTTP routes as ordinary values.
 data WireTy = TInt | TString | TBool
 
 interp :: WireTy -> Type
@@ -126,15 +124,17 @@ apiRoute :: Endpoint -> Route
 apiRoute UserPost    = Lit Users :> Cap TInt :> Lit Posts :> Cap TString :> Get TBool
 apiRoute HealthCheck = Lit Health :> Get TString
 
-type family HandlerType (m :: RunMode) (r :: Route) :: Type where
-  HandlerType m (Lit _  :> rest) = HandlerType m rest
-  HandlerType m (Cap ty :> rest) = interp ty -> HandlerType m rest
-  HandlerType m (Get res)        = StackM m (Either String (interp res))
+-- 3. Higher-order fold + type-level lambdas derive both handler and link types.
+type family RouteType (ret :: WireTy %U -> Type) (r :: Route) :: Type where
+  RouteType ret (Lit _  :> rest) = RouteType ret rest
+  RouteType ret (Cap ty :> rest) = interp ty -> RouteType ret rest
+  RouteType ret (Get res)        = ret res
 
-type family LinkType (r :: Route) :: Type where
-  LinkType (Lit _  :> rest) = LinkType rest
-  LinkType (Cap ty :> rest) = interp ty -> LinkType rest
-  LinkType (Get _)          = String
+type HandlerRet (m :: RunMode) = \res -> StackM m (Either String (interp res))
+type LinkRet                   = \res -> String
+
+type HandlerType m r = RouteType (HandlerRet m) r
+type LinkType      r = RouteType LinkRet r
 
 segPath :: Seg -> String
 segPath Users  = "users"
@@ -177,7 +177,8 @@ dispatch :: foreach (m :: RunMode) -> foreach (r :: Route)
 dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
   where
     go :: Monad (StackM m)
-       => foreach (r' :: Route) -> HandlerType m r' -> [String] -> StackM m (Either String String)
+       => foreach (r' :: Route) -> HandlerType m r' -> [String]
+       -> StackM m (Either String String)
     go (Lit s :> rest) h ps = case ps of
       (p : ps') | p == segPath s -> go rest h ps'
                 | otherwise      -> pure (Left ("404: expected /" ++ segPath s))
@@ -190,7 +191,9 @@ dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
     go (Get res) h ps = case ps of
       [] -> do
         out <- h
-        pure (case out of { Left err -> Left err; Right val -> Right (renderWire res val) })
+        pure (case out of
+          Left err  -> Left err
+          Right val -> Right (renderWire res val))
       _  -> pure (Left "404: trailing path")
 
 -- One handler runs across PureMode, LoggedMode, and MeteredMode:
@@ -199,37 +202,599 @@ handleUserPost m uid slug = withStackMonad m (do
   recordHit m ("GET /users/" ++ show uid ++ "/posts/" ++ slug)
   pure (Right (uid > 0 && not (null slug))))
 
-demo :: (String, String, Either String String, (Either String String, [String]), ((Either String String, Int), [String]))
+type DemoOut =
+  ( String
+  , String
+  , Either String String
+  , (Either String String, [String])
+  , ((Either String String, Int), [String])
+  )
+
+demo :: DemoOut
 demo =
   ( describeRoute (apiRoute UserPost)
   , buildLink (apiRoute UserPost) 42 "dependent-haskell"
-  , dispatch PureMode    (apiRoute UserPost) (handleUserPost PureMode)    ["users", "42", "posts", "dependent-haskell"]
-  , dispatch LoggedMode  (apiRoute UserPost) (handleUserPost LoggedMode)  ["users", "42", "posts", "dependent-haskell"]
-  , dispatch MeteredMode (apiRoute UserPost) (handleUserPost MeteredMode) ["users", "42", "posts", "dependent-haskell"]
+  , dispatch PureMode    (apiRoute UserPost) (handleUserPost PureMode)    req
+  , dispatch LoggedMode  (apiRoute UserPost) (handleUserPost LoggedMode)  req
+  , dispatch MeteredMode (apiRoute UserPost) (handleUserPost MeteredMode) req
+  )
+  where
+    req = ["users", "42", "posts", "dependent-haskell"]
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-sql" data-tab-label="Typed SQL" data-tab-audience="squeal / beam / vinyl"}
+
+### 1.2 Typed SQL schemas, DDL, and `JOIN` without `TypeFamilies` {#card-typed-sql}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> <code>squeal</code> / <code>beam</code> / <code>vinyl</code> / <code>Frames</code> (<code>KnownSymbol</code>, <code>NP</code>, <code>OverloadedLabels</code>, TH) &middot;
+  <strong>Features:</strong> Term-to-<code>Type</code> large elimination &middot; Promoted Prelude <code>(++)</code> &middot; <code>foreach</code>
+</div>
+
+One ordinary `List Col` value drives `CREATE TABLE` DDL (`createTableDDL`),
+compile-time checked column projection (`getCol`), and `INNER JOIN`
+(`joinRow` concatenating schemas with stock `Prelude.(++)`), with zero
+`TypeFamilies`. Evaluate `sqlDemo` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module TypedSQL where
+
+import Data.Kind (Type)
+import GHC.Tuple (Tuple2)
+import GHC.Types (List)
+
+data ColId = CId | CName | CActive
+data SqlTy = SInt | SText | SBool
+data Col   = MkCol ColId SqlTy
+
+-- Ordinary term-to-Type function maps SQL column types to Haskell types:
+sqlVal :: SqlTy -> Type
+sqlVal SInt  = type Int
+sqlVal SText = type String
+sqlVal SBool = type Bool
+
+data Row (s :: List Col) where
+  RNil  :: Row []
+  RCons :: sqlVal t -> Row rest -> Row (MkCol c t : rest)
+
+data InSchema (col :: Col) (s :: List Col) where
+  Here  :: InSchema col (col : rest)
+  There :: InSchema col rest -> InSchema col (other : rest)
+
+data Table where
+  MkTable :: foreach (s :: List Col) -> List (Row s) -> Table
+
+colName :: ColId -> String
+colName CId     = "id"
+colName CName   = "name"
+colName CActive = "active"
+
+sqlTypeName :: SqlTy -> String
+sqlTypeName SInt  = "INT"
+sqlTypeName SText = "TEXT"
+sqlTypeName SBool = "BOOL"
+
+createTableDDL :: String -> List Col -> String
+createTableDDL tbl cols = "CREATE TABLE " ++ tbl ++ " (" ++ go cols ++ ");"
+  where
+    go []                 = ""
+    go [MkCol c t]        = colName c ++ " " ++ sqlTypeName t
+    go (MkCol c t : rest) = colName c ++ " " ++ sqlTypeName t ++ ", " ++ go rest
+
+getCol :: InSchema (MkCol c t) s -> Row s -> sqlVal t
+getCol Here      (RCons v _)    = v
+getCol (There p) (RCons _ rest) = getCol p rest
+
+-- INNER JOIN combines two row schemas directly with stock Prelude (++):
+joinRow :: Row s1 -> Row s2 -> Row (s1 ++ s2)
+joinRow RNil         r2 = r2
+joinRow (RCons v r1) r2 = RCons v (joinRow r1 r2)
+
+type UserSchema = [MkCol CId SInt, MkCol CName SText, MkCol CActive SBool]
+
+userRows :: List (Row UserSchema)
+userRows =
+  [ RCons 1 (RCons "Ada"   (RCons True RNil))
+  , RCons 2 (RCons "Grace" (RCons True RNil))
+  ]
+
+usersTable :: Table
+usersTable = MkTable [MkCol CId SInt, MkCol CName SText, MkCol CActive SBool] userRows
+
+tableDDL :: String -> Table -> String
+tableDDL name (MkTable s _) = createTableDDL name s
+
+sqlDemo :: Tuple2 String (List String)
+sqlDemo =
+  ( tableDDL "users" usersTable
+  , map (getCol (There Here)) userRows
   )
 ```
 
 :::
 
-::: {.plfh-showcase-act id="act-2" data-act-num="2" data-act-title="Quantifiers & Data"}
+::: {.plfh-domain-tab id="tab-effects" data-tab-label="Effect Stacks" data-tab-audience="mtl / effectful"}
 
-### 2. Retained quantifiers, dependent pairs, and records
-
-Standard Haskell has two function arrows: `forall (x :: a). b` passes `x` at
-compile time and erases it before execution, while `a -> b` passes a runtime
-value that cannot appear in `b`. Dependent Haskell adds a third quantifier,
-`foreach (x :: a) -> b` (written `∏` under `-XUnicodeSyntax`), which retains
-`x` at runtime and lets `b` mention `x`.
-
-#### 2.1 Retained `foreach`, Peano arithmetic, and decimal numerals {#card-nat}
+### 1.3 Composable `transformers` stacks from an ordinary `List Eff` {#card-effects}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">GHC Proposal #378 §4.4–4.5</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0364-unify-natural.html">#364 Unify <code>Nat</code> &amp; <code>Natural</code></a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
-  <a href="https://ghc.serokell.io/dh#promote-literals">R07</a>,
-  <a href="https://ghc.serokell.io/dh#promote-natural">R09</a>
+  <strong>Replaces:</strong> <code>mtl</code> <em>O</em>(<em>n</em>&sup2;) lifting instances &middot; <code>polysemy</code> / <code>effectful</code> overlapping <code>Member</code> search &middot;
+  <strong>Features:</strong> <code>foreach (es :: List Eff)</code> &middot; <code>transformers</code> (<code>ReaderT</code>, <code>StateT</code>, <code>WriterT</code>)
+</div>
+
+Pass any list of effects (`[EEnv, ECount, ELog]`) as an ordinary value.
+`StackM` builds the nested `transformers` stack, `runStack` peels each layer at
+runtime, and `Has e es` lifts `askEff`, `tickEff`, and `tellEff` structurally
+without `mtl` instances or overlapping type classes. Evaluate `effDemo` at the
+`ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, TypeFamilies, UndecidableInstances #-}
+module EffectStack where
+
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
+import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
+import Data.Functor.Identity (Identity (runIdentity))
+import Data.Kind (Type)
+import GHC.Tuple (Tuple2, Unit)
+import GHC.Types (List)
+
+data Eff = EEnv | ECount | ELog
+
+type family StackM (es :: List Eff) :: Type -> Type where
+  StackM []            = Identity
+  StackM (EEnv   : es) = ReaderT String (StackM es)
+  StackM (ECount : es) = StateT  Int    (StackM es)
+  StackM (ELog   : es) = WriterT (List String) (StackM es)
+
+type family StackOut (es :: List Eff) (a :: Type) :: Type where
+  StackOut []            a = a
+  StackOut (EEnv   : es) a = StackOut es a
+  StackOut (ECount : es) a = StackOut es (Tuple2 a Int)
+  StackOut (ELog   : es) a = StackOut es (Tuple2 a (List String))
+
+withMonad :: foreach (es :: List Eff) -> (Monad (StackM es) => r) -> r
+withMonad []            k = k
+withMonad (EEnv   : es) k = withMonad es k
+withMonad (ECount : es) k = withMonad es k
+withMonad (ELog   : es) k = withMonad es k
+
+runStack :: foreach (es :: List Eff) -> String -> StackM es a -> StackOut es a
+runStack []            _   m = runIdentity m
+runStack (EEnv   : es) env m = runStack es env (runReaderT m env)
+runStack (ECount : es) env m = runStack es env (runStateT  m 0)
+runStack (ELog   : es) env m = runStack es env (runWriterT m)
+
+-- Structural lifting witness replaces O(n^2) mtl instances and overlapping Member:
+data Has (e :: Eff) (es :: List Eff) where
+  Here  :: Has e (e : es)
+  There :: Has e es -> Has e (x : es)
+
+liftStep :: foreach (x :: Eff) (es :: List Eff)
+         -> (Monad (StackM es) => StackM es a -> StackM (x : es) a)
+liftStep EEnv   _ m = lift m
+liftStep ECount _ m = lift m
+liftStep ELog   _ m = lift m
+
+askEff :: foreach (es :: List Eff) -> Has EEnv es -> StackM es String
+askEff []       h = case h of {}
+askEff (x : es) h = case x of
+  EEnv   -> case h of { Here -> withMonad es ask; There p -> withMonad es (liftStep EEnv es (askEff es p)) }
+  ECount -> case h of { There p -> withMonad es (liftStep ECount es (askEff es p)) }
+  ELog   -> case h of { There p -> withMonad es (liftStep ELog es (askEff es p)) }
+
+tickEff :: foreach (es :: List Eff) -> Has ECount es -> StackM es Unit
+tickEff []       h = case h of {}
+tickEff (x : es) h = case x of
+  EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tickEff es p)) }
+  ECount -> case h of { Here -> withMonad es (modify' (+ 1)); There p -> withMonad es (liftStep ECount es (tickEff es p)) }
+  ELog   -> case h of { There p -> withMonad es (liftStep ELog es (tickEff es p)) }
+
+tellEff :: foreach (es :: List Eff) -> Has ELog es -> String -> StackM es Unit
+tellEff []       h _   = case h of {}
+tellEff (x : es) h msg = case x of
+  EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tellEff es p msg)) }
+  ECount -> case h of { There p -> withMonad es (liftStep ECount es (tellEff es p msg)) }
+  ELog   -> case h of { Here -> withMonad es (tell [msg]); There p -> withMonad es (liftStep ELog es (tellEff es p msg)) }
+
+-- One polymorphic worker runs in any stack containing EEnv, ECount, and ELog:
+worker :: foreach (es :: List Eff)
+       -> Has EEnv es -> Has ECount es -> Has ELog es
+       -> StackM es String
+worker es hEnv hCount hLog = withMonad es (do
+  env <- askEff es hEnv
+  tellEff es hLog ("boot:" ++ env)
+  tickEff es hCount
+  tickEff es hCount
+  tellEff es hLog "done"
+  pure ("ok@" ++ env))
+
+effDemo :: Tuple2 (Tuple2 String Int) (List String)
+effDemo = runStack [EEnv, ECount, ELog] "prod"
+  (worker [EEnv, ECount, ELog] Here (There Here) (There (There Here)))
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-protocols" data-tab-label="Linear Protocols" data-tab-audience="typed-protocols"}
+
+### 1.4 Session-typed network protocol with linear `foreach` {#card-linear}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> <code>typed-protocols</code> (<code>StateToken</code>, <code>PeerHasAgency</code>, <code>exclusionLemma</code>) &middot;
+  <strong>Proposals:</strong> <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0111-linear-types.html">#111 Linear Types</a> &middot;
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">#378 §4.4</a>
+</div>
+
+Dependent `foreach` binders combine directly with `-XLinearTypes`. An ordinary
+promoted function (`agency`) enforces turn-taking while linear
+`Chan from %1 -> Chan to` guarantees every channel handle is consumed once:
+sending in `StDone`, reusing `c1`, or forgetting `closeChan` all fail at
+compile time. Evaluate `runSession` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, LinearTypes, ListTuplePuns #-}
+module LinearProtocol where
+
+import Data.Type.Equality ((:~:) (Refl))
+
+data Ur a where
+  Ur :: a -> Ur a
+
+data ProtoState = StInit | StAuthed | StDone
+data Agency     = ClientTurn | Closed
+
+-- Ordinary promoted function replaces StateToken / PeerHasAgency / exclusionLemma:
+agency :: ProtoState -> Agency
+agency StInit   = ClientTurn
+agency StAuthed = ClientTurn
+agency StDone   = Closed
+
+type Payload (st :: ProtoState) = case st of
+  StInit   -> String
+  StAuthed -> Int
+  StDone   -> ()
+
+data Msg (from :: ProtoState) (to :: ProtoState) where
+  MLogin  :: Payload StInit   -> Msg StInit   StAuthed
+  MQuery  :: Payload StAuthed -> Msg StAuthed StAuthed
+  MLogout ::                     Msg StAuthed StDone
+
+data Chan (st :: ProtoState) = MkChan (Ur [String])
+
+-- Linear retained transition: consumes `from` and `Chan from` once,
+-- and statically requires `agency from :~: ClientTurn`.
+send :: foreach (from %1 :: ProtoState)
+     -> (agency from :~: ClientTurn)
+     -> Msg from to -> Chan from %1 -> Chan to
+send StInit   Refl (MLogin tok) (MkChan (Ur log0)) = MkChan (Ur (("AUTH "  ++ tok)      : log0))
+send StAuthed Refl (MQuery qid) (MkChan (Ur log0)) = MkChan (Ur (("QUERY " ++ show qid) : log0))
+send StAuthed Refl MLogout      (MkChan (Ur log0)) = MkChan (Ur ("BYE"                  : log0))
+
+closeChan :: Chan StDone %1 -> [String]
+closeChan (MkChan (Ur log0)) = reverse log0
+
+runSession :: [String]
+runSession =
+  let c0 = MkChan (Ur []) :: Chan StInit
+      c1 = send StInit   Refl (MLogin "tok-42") c0
+      c2 = send StAuthed Refl (MQuery 7)        c1
+      c3 = send StAuthed Refl MLogout           c2
+  in closeChan c3
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-nets" data-tab-label="Neural Nets" data-tab-audience="grenade / hmatrix"}
+
+### 1.5 Shape-checked neural networks and `ObsEq` tensor reshapes {#card-nets}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> <code>grenade</code> / <code>hmatrix</code> / <code>vector-sized</code> (<code>KnownNat</code>, <code>SingI</code>, <code>ghc-typelits-natnormalise</code>, <code>unsafeCoerce</code>) &middot;
+  <strong>Features:</strong> <code>Data.Vec.Dependent</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+</div>
+
+Matrix multiplication (`matVec`) and multi-layer networks (`Net inp out`) track
+dimensions with ordinary Peano `Nat` numerals and `Vec`, rejecting mismatched
+weight matrices at compile time. `reshapeTranspose` discharges
+`mul r c :~: mul c r` through `Dependent.Plugin.ObsEq` without a bespoke
+`ghc-typelits` solver. Evaluate `netDemo` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=20 #-}
+module TypedNet where
+
+import Data.Nat.Dependent (Nat (..), mul)
+import Data.Vec.Dependent (Vec (..), appendVec, foldrVec, mapVec, toListVec, zipWithVec)
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 6 (withPartialPct 0 defaultObsConfig)
+
+type Matrix r c = Vec (Vec Double c) r
+
+dot :: Vec Double n -> Vec Double n -> Double
+dot xs ys = foldrVec (+) 0 (zipWithVec (*) xs ys)
+
+-- Dimension-checked dense layer (mismatched weights fail at compile time):
+matVec :: Matrix out inp -> Vec Double inp -> Vec Double out
+matVec weights x = mapVec (`dot` x) weights
+
+data Net (inp :: Nat) (out :: Nat) where
+  NId    :: Net n n
+  NDense :: Matrix h i -> Net h o -> Net i o
+
+forward :: Net i o -> Vec Double i -> Vec Double o
+forward NId          x = x
+forward (NDense w n) x = forward n (mapVec (max 0) (matVec w x))
+
+-- Flatten a matrix into a vector of length `mul r c`:
+flatten :: foreach (r c :: Nat) -> Matrix r c -> Vec Double (mul r c)
+flatten Zero     _ VNil           = VNil
+flatten (Succ r) c (VCons row rs) = appendVec row (flatten r c rs)
+
+-- Transport `Vec Double (mul r c)` -> `Vec Double (mul c r)` via ObsEq:
+reshapeTranspose :: foreach (r c :: Nat) -> Vec Double (mul r c) -> Vec Double (mul c r)
+reshapeTranspose r c v =
+  withObsEqWith totalCfg @(mul r c) @(mul c r) @(Vec Double (mul c r)) v
+
+layer1 :: Matrix 2 3
+layer1 =
+  VCons (VCons 1.0 (VCons 2.0 (VCons (-1.0) VNil)))
+ (VCons (VCons 0.5 (VCons (-1.0) (VCons 2.0 VNil))) VNil)
+
+layer2 :: Matrix 1 2
+layer2 = VCons (VCons 2.0 (VCons 3.0 VNil)) VNil
+
+sampleNet :: Net 3 1
+sampleNet = NDense layer1 (NDense layer2 NId)
+
+netDemo :: ([Double], [Double])
+netDemo =
+  ( toListVec (forward sampleNet (VCons 1.0 (VCons 1.0 (VCons 1.0 VNil))))
+  , toListVec (reshapeTranspose 2 3 (flatten 2 3 layer1))
+  )
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-codecs" data-tab-label="Wire Codecs" data-tab-audience="autodocodec / ObsEq"}
+
+### 1.6 Self-documenting wire codec with compile-time roundtrip checking {#card-codecs}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> <code>autodocodec</code> / <code>aeson-schemas</code> / separate QuickCheck roundtrip suites &middot;
+  <strong>Features:</strong> <code>foreach</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+</div>
+
+One `Schema` value derives the payload type (`Payload s`), documentation
+(`docSchema`), encoder (`encode`), and decoder (`decode`), while `ObsEq` checks
+the `encode`/`decode` roundtrip at compile time. Change `TokBool b` to
+`TokBool (not b)` in `encode` and press `Ctrl/Cmd+Enter` to watch GHC refuse to
+compile with a minimal counterexample. Evaluate `codecDemo` at the `ghci>`
+prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+module CheckedCodec where
+
+import Data.Kind (Type)
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+
+data FieldTag = FId | FActive | FScore
+data Schema   = SEnd | SInt FieldTag Schema | SBool FieldTag Schema
+
+type family Payload (s :: Schema) :: Type where
+  Payload SEnd        = ()
+  Payload (SInt _ r)  = (Int,  Payload r)
+  Payload (SBool _ r) = (Bool, Payload r)
+
+tagName :: FieldTag -> String
+tagName FId     = "id"
+tagName FActive = "active"
+tagName FScore  = "score"
+
+-- 1. Documentation from the same Schema value:
+docSchema :: Schema -> String
+docSchema SEnd        = "{}"
+docSchema (SInt f r)  = tagName f ++ ":int, "  ++ docSchema r
+docSchema (SBool f r) = tagName f ++ ":bool, " ++ docSchema r
+
+data Tok = TokInt Int | TokBool Bool deriving (Eq, Show)
+
+-- 2. Bidirectional wire codec sharing one Schema value:
+encode :: foreach (s :: Schema) -> Payload s -> [Tok]
+encode SEnd        ()      = []
+encode (SInt _ r)  (n, xs) = TokInt n  : encode r xs
+encode (SBool _ r) (b, xs) = TokBool b : encode r xs
+
+decode :: foreach (s :: Schema) -> [Tok] -> Either String (Payload s)
+decode SEnd        []               = Right ()
+decode SEnd        _                = Left "trailing tokens"
+decode (SInt _ r)  (TokInt n  : ts) = fmap (\xs -> (n, xs)) (decode r ts)
+decode (SBool _ r) (TokBool b : ts) = fmap (\xs -> (b, xs)) (decode r ts)
+decode (SInt f _)  _                = Left ("expected int for "  ++ tagName f)
+decode (SBool f _) _                = Left ("expected bool for " ++ tagName f)
+
+data UserRec = MkUser Int Bool Int deriving (Eq, Show)
+
+roundtripUser :: UserRec -> Maybe UserRec
+roundtripUser u = case u of
+  MkUser uid act sc ->
+    case decode (SInt FId (SBool FActive (SInt FScore SEnd)))
+                (encode (SInt FId (SBool FActive (SInt FScore SEnd))) (uid, (act, (sc, ())))) of
+      Right (uid', (act', (sc', ()))) -> Just (MkUser uid' act' sc')
+      Left  _                         -> Nothing
+
+-- 3. Compile-time roundtrip check! Break `encode` (e.g. `not b`) to see a shrunk counterexample:
+userRoundtrip :: foreach (u :: UserRec) -> roundtripUser u :~: Just u
+userRoundtrip _ = obsEqWith totalCfg
+
+codecDemo :: (String, [Tok], Maybe UserRec)
+codecDemo =
+  let s    = SInt FId (SBool FActive (SInt FScore SEnd))
+      wire = encode s (7, (True, (99, ())))
+  in (docSchema s, wire, roundtripUser (MkUser 7 True 99))
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-units" data-tab-label="Units of Measure" data-tab-audience="uom-plugin / ObsEq"}
+
+### 1.7 Physical units of measure without `uom-plugin` or `TypeFamilies` {#card-units}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> <code>dimensional</code> / <code>units</code> / bespoke <code>uom-plugin</code> <code>TcPlugin</code> &middot;
+  <strong>Features:</strong> Ordinary <code>Int</code> dimension arithmetic &middot; Erased visible <code>forall ... -&gt;</code> &middot; <code>Dependent.Plugin.ObsEq</code>
+</div>
+
+Adding meters to seconds (`dist +! time`) fails at compile time with
+`GHC-83865`. Ordinary `Int` arithmetic (`+` and `negate`) computes product and
+quotient dimensions with zero `TypeFamilies` or `KnownNat` plumbing. Visible
+erased `forall (d :: Dim) ->` passes no dimension data at runtime, and `ObsEq`
+discharges dimension commutativity (`commDim`) and inverse cancellation
+(`cancelDim`) without writing a custom units-of-measure solver plugin. Evaluate
+`physicsDemo` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+module UnitsOfMeasure where
+
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+
+data Dim = MkDim Int Int Int  -- (meters, seconds, kilograms)
+
+addDim :: Dim -> Dim -> Dim
+addDim d1 d2 = case (d1, d2) of
+  (MkDim m1 s1 k1, MkDim m2 s2 k2) -> MkDim (m1 + m2) (s1 + s2) (k1 + k2)
+
+negDim :: Dim -> Dim
+negDim d = case d of
+  MkDim m s k -> MkDim (negate m) (negate s) (negate k)
+
+data UnitKind = UScalar | UMeter | USec | UKg
+
+unitDim :: UnitKind -> Dim
+unitDim UScalar = MkDim 0 0 0
+unitDim UMeter  = MkDim 1 0 0
+unitDim USec    = MkDim 0 1 0
+unitDim UKg     = MkDim 0 0 1
+
+newtype Qty (d :: Dim) = Qty { unQty :: Double } deriving Show
+
+(+!) :: Qty d -> Qty d -> Qty d
+Qty x +! Qty y = Qty (x + y)
+
+(*!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 d2)
+Qty x *! Qty y = Qty (x * y)
+
+(/!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 (negDim d2))
+Qty x /! Qty y = Qty (x / y)
+
+-- Zero runtime overhead: visible erased forall (d :: Dim) -> passes no value at runtime!
+commDim :: forall (d1 d2 :: Dim) -> Qty (addDim d1 d2) -> Qty (addDim d2 d1)
+commDim (type d1) (type d2) q =
+  withObsEqWith totalCfg @(addDim d1 d2) @(addDim d2 d1) @(Qty (addDim d2 d1)) q
+
+cancelDim :: forall (d :: Dim) -> Qty (addDim d (negDim d)) -> Qty (unitDim UScalar)
+cancelDim (type d) q =
+  withObsEqWith totalCfg @(addDim d (negDim d)) @(unitDim UScalar) @(Qty (unitDim UScalar)) q
+
+physicsDemo :: (Double, Double)
+physicsDemo =
+  let dist  = Qty 100.0 :: Qty (unitDim UMeter)
+      time  = Qty 10.0  :: Qty (unitDim USec)
+      speed = dist /! time
+      ratio = cancelDim (type (unitDim UMeter)) (dist /! dist)
+  in (unQty speed, unQty ratio)
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-printf" data-tab-label="Type-Safe Printf" data-tab-audience="Text.Printf"}
+
+### 1.8 Type-safe `printf` without `TypeFamilies` {#card-printf}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> Runtime <code>Text.Printf</code> crashes &amp; polyvariadic type classes &middot;
+  <strong>Proposal:</strong> <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-application-and-the-static-subset">#378 §4.7 Dependent Application</a>
+</div>
+
+An ordinary Haskell function `fmtType :: Fmt -> Type` computes both the arity
+and argument types of `printf` directly from a `Fmt` value, with zero
+`TypeFamilies`. GHC checks that `"Haskell" :: String` and `25 :: Int` match
+`S` followed by `D` and rejects mismatched arguments at compile time. Evaluate
+`greeting` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module Printf where
+
+import Data.Kind (Type)
+
+data Fmt
+  = End
+  | Lit String Fmt
+  | D Fmt
+  | S Fmt
+
+-- Ordinary term-to-Type function (no `type family` required):
+fmtType :: Fmt -> Type
+fmtType End       = type String
+fmtType (Lit _ r) = type (fmtType r)
+fmtType (D r)     = type (Int -> fmtType r)
+fmtType (S r)     = type (String -> fmtType r)
+
+printf :: foreach (f :: Fmt) -> fmtType f
+printf f = go f ""
+  where
+    go :: foreach (f' :: Fmt) -> String -> fmtType f'
+    go End       acc = acc
+    go (Lit s r) acc = go r (acc ++ s)
+    go (D r)     acc = \n -> go r (acc ++ show n)
+    go (S r)     acc = \s -> go r (acc ++ s)
+
+-- GHC checks that `"Haskell" :: String` and `25 :: Int` match `S` followed by `D`:
+greeting :: String
+greeting = printf (Lit "Hello " (S (Lit ", " (D (Lit " chapters checked!" End))))) "Haskell" 25
+```
+
+:::
+
+::::
+
+:::::
+
+::::: {.plfh-showcase-act id="act-2" data-act-num="2" data-act-title="Quantifiers & Data"}
+
+## 2. Retained quantifiers, dependent pairs, records, and runtime types
+
+This section walks through the core building blocks of `-XDependentTypes`:
+retained `foreach` (written `∏` under `-XUnicodeSyntax`), dependent pairs
+(`some`), dependent records, runtime `Type` matching, and GADT refutation.
+
+### 2.1 Retained `foreach`, Peano arithmetic, and decimal numerals {#card-nat}
+
+<div class="showcase-credits">
+  <strong>Proposals:</strong>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">#378 §4.4–4.5 Quantifiers</a> &middot;
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0364-unify-natural.html">#364 Unify <code>Nat</code> &amp; <code>Natural</code></a>
 </div>
 
 When a function takes `foreach (m :: Nat) -> plus m Zero :~: m`, pattern
@@ -242,7 +807,7 @@ separate `type family` or singleton copy.
 
 ```haskell
 {-# LANGUAGE DependentTypes #-}
-module ShowcaseNat where
+module Peano where
 
 import Data.Nat.Dependent (Nat (..), natToInt, plus, type (+))
 import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
@@ -265,13 +830,12 @@ five :: Int
 five = natToInt (plus 2 3)
 ```
 
-#### 2.2 Dependent pairs (`some` / `Sigma`) and `OverloadedRecordDot` {#card-sigma}
+### 2.2 Dependent pairs (`some` / `Sigma`) and `OverloadedRecordDot` {#card-sigma}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals:</strong>
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#erasure">#378 §4.2 Predictable Erasure</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html">#282 Record Dot Syntax</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-sums">R04</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html">#282 Record Dot Syntax</a>
 </div>
 
 A dependent pair type `some (x :: a) | p x` (backed by `GHC.Sigma.Sigma`) pairs
@@ -287,7 +851,7 @@ type `Vec a (first p)`.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot, UndecidableInstances #-}
-module ShowcaseSigma where
+module DependentPairs where
 
 import Data.Nat.Dependent (Nat (..), natToInt, plus)
 import Data.Sigma.Dependent (Sigma (Pair), first)
@@ -318,12 +882,12 @@ sigmaDemo :: (Int, Int, String)
 sigmaDemo = (extractHalf, natToInt packedChars.first, toListVec (projectVec packedChars))
 ```
 
-#### 2.3 Dependent records and type-changing updates {#card-records}
+### 2.3 Dependent records and type-changing updates {#card-records}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals:</strong>
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html">#282 Record Dot Syntax</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-sums">R04</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">#378 Dependent Types</a>
 </div>
 
 Dependent records generalize `Sigma` to named fields: later fields can mention
@@ -333,7 +897,7 @@ to `SizedRow String`) while preserving the stored length `rowLen`.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot #-}
-module ShowcaseDependentRecords where
+module DependentRecords where
 
 import Data.Nat.Dependent (Nat (..), natToInt)
 import Data.Vec.Dependent (Vec (..), mapVec, toListVec)
@@ -357,87 +921,51 @@ rowSummary :: (Int, [String])
 rowSummary = (natToInt shownRow.rowLen, toListVec shownRow.rowItems)
 ```
 
-#### 2.4 Runtime `Type` pattern matching (`foreach (a :: Type)`) {#card-typecase}
+### 2.4 Runtime `Type` pattern matching: type-directed JSON {#card-typecase}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#phase-distinction">#378 §4.9 Phase Distinction</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
-  <a href="https://ghc.serokell.io/dh#type-level-case-expressions">R19</a>
+  <strong>Proposal:</strong>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#phase-distinction">#378 §4.9 Phase Distinction</a>
 </div>
 
 A `foreach (a :: Type)` argument retains a type representation at runtime.
-Matching on `a` with an ordinary `case` refines `a` in each branch, so
-`defaultVal` returns `Just 42 :: Maybe Int` or `Just "dependent haskell" ::
-Maybe String` without `Typeable` casts.
+Matching on `a` with an ordinary `case` handles both atomic (`Int`, `Bool`)
+and compound (`[Char]`, `Maybe Int`, `(Int, Bool)`) type patterns, refining `v
+:: a` in every branch without `Typeable` casts, `eqT` pyramids, or type classes.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseTypeCase where
+module RuntimeTypeJson where
 
 import Data.Kind (Type)
 
-defaultVal :: foreach (a :: Type) -> Maybe a
-defaultVal a = case a of
-  Int    -> Just 42
-  Bool   -> Just True
-  [Char] -> Just "dependent haskell"
-  _      -> Nothing
+-- Type-directed JSON serializer with compound Type patterns (no Typeable or classes):
+toJson :: foreach (a :: Type) -> a -> String
+toJson a v = case a of
+  Int         -> show v
+  Bool        -> if v then "true" else "false"
+  [Char]      -> "\"" ++ v ++ "\""
+  Maybe Int   -> maybe "null" show v
+  (Int, Bool) -> "[" ++ show (fst v) ++ "," ++ toJson Bool (snd v) ++ "]"
+  _           -> "\"<opaque>\""
 
-demoDefaults :: (Maybe Int, Maybe Bool, Maybe String, Maybe Double)
-demoDefaults = (defaultVal Int, defaultVal Bool, defaultVal String, defaultVal Double)
+jsonDemo :: [String]
+jsonDemo =
+  [ toJson Int         42
+  , toJson Bool        True
+  , toJson [Char]      "dependent haskell"
+  , toJson (Maybe Int) (Just 7)
+  , toJson (Int, Bool) (3, False)
+  , toJson Double      3.14
+  ]
 ```
 
-#### 2.5 Linear `foreach` binders (`foreach (x %1 :: a)`) {#card-linear}
+### 2.5 Off-diagonal GADT refutation (`zipEqualVec`) {#card-refute}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0111-linear-types.html">#111 Linear Types</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">#378 §4.4</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
-  <a href="https://ghc.serokell.io/dh#dependent-core-language">R05</a>
-</div>
-
-Dependent `foreach` binders combine with `-XLinearTypes`. A linear retained
-argument (`%1`) must be consumed once at runtime, while appearing freely in
-erased type indices.
-
-```haskell
-{-# LANGUAGE DependentTypes, LinearTypes, ListTuplePuns #-}
-module ShowcaseLinearForEach where
-
-import Data.Nat.Dependent (Nat (..), natToInt)
-
-data SingBool (b :: Bool) where
-  STrue  :: SingBool True
-  SFalse :: SingBool False
-
-data SamePair (m :: Nat) (n :: Nat) = SamePair
-
--- Consume `b` linearly at runtime while refining the result type `SingBool b`:
-linearSingBool :: foreach (b %1 :: Bool) -> SingBool b
-linearSingBool True  = STrue
-linearSingBool False = SFalse
-
--- `n` appears twice in the erased index `SamePair n n`, and once at runtime:
-dupInTypeLinear :: foreach (n %1 :: Nat) -> SamePair n n -> Nat
-dupInTypeLinear n SamePair = n
-
-linearDemo :: (Bool, Int)
-linearDemo =
-  let bOk = case linearSingBool True of STrue -> True
-      nOk = natToInt (dupInTypeLinear (Succ Zero) SamePair)
-  in (bOk, nOk)
-```
-
-#### 2.6 Off-diagonal GADT refutation (`zipEqualVec`) {#card-refute}
-
-<div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals:</strong>
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-pattern-match">#378 §4.5</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0402-gadt-syntax.html">#402 GADT Syntax</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11</a>,
-  <a href="https://ghc.serokell.io/dh#nested-quantification-in-gadts">R41</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0402-gadt-syntax.html">#402 GADT Syntax</a>
 </div>
 
 When two retained lengths `m` and `n` are tied by `m :~: n`, GHC's pattern
@@ -446,7 +974,7 @@ Only the two diagonal equations need to be written.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseRefute where
+module ZipEqual where
 
 import Data.Nat.Dependent (Nat (..))
 import Data.Type.Equality ((:~:) (Refl))
@@ -466,26 +994,23 @@ zippedDemo =
   in toListVec (zipEqualVec two two xs ys Refl)
 ```
 
-:::
+:::::
 
-::: {.plfh-showcase-act id="act-3" data-act-num="3" data-act-title="Types as Code"}
+::::: {.plfh-showcase-act id="act-3" data-act-num="3" data-act-title="Types as Code"}
 
-### 3. Term promotion, type-level expressions, and matchability
+## 3. Term promotion, type-level expressions, and matchability
 
-This section covers the type-level language added by the fork: open evaluation
-of ordinary functions, inline `case` and `let` inside types, local `type`
-synonyms inside term `let`/`where` blocks, type-level lambdas, and explicit
-matchability (`%M` / `%U` / `%m`).
+Under `-XDependentTypes`, ordinary functions compute inside types alongside
+inline `case`, `let`, local `type` synonyms inside term `let`/`where` blocks,
+type-level lambdas, and explicit matchability (`%M` / `%U` / `%m`). None of the
+four modules below uses `TypeFamilies`.
 
-#### 3.1 Stock `Prelude` lists and open function evaluation {#card-lists}
+### 3.1 Stock `Prelude` lists and open function evaluation {#card-lists}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals:</strong>
   <a href="https://github.com/ghc-proposals/ghc-proposals/pull/509">#509 Type-Level Functions</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0475-tuple-syntax.html">#475 Non-Punning List &amp; Tuple Syntax</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#function-promotion">R13</a>,
-  <a href="https://ghc.serokell.io/dh#open-term-evaluator">R16</a>,
-  <a href="https://ghc.serokell.io/dh#no-list-or-tuple-puns">R38</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0475-tuple-syntax.html">#475 Non-Punning List &amp; Tuple Syntax</a>
 </div>
 
 Ordinary functions on `Prelude` lists (`(++)`, `map`, `Data.List.Dependent.size`)
@@ -497,7 +1022,7 @@ ticks.
 ```haskell
 {-# LANGUAGE DependentTypes, NoListTuplePuns #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
-module ShowcaseLists where
+module ListLaws where
 
 import Data.List.Dependent (size)
 import Data.Nat.Dependent (Nat (..), natToInt, plus)
@@ -523,14 +1048,11 @@ demoLen :: Int
 demoLen = natToInt (size ("dependent" ++ " haskell"))
 ```
 
-#### 3.2 Type-level `case`, type-level `let`, and local `type` synonyms {#card-type-case-let}
+### 3.2 Type-level `case`, type-level `let`, and local `type` synonyms {#card-type-case-let}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
-  <a href="https://github.com/ghc-proposals/ghc-proposals/pull/523">#523 Extended <code>let</code></a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#type-level-let-bindings">R18 Type-level lets</a>,
-  <a href="https://ghc.serokell.io/dh#type-level-case-expressions">R19 Type-level cases</a>,
-  <a href="https://ghc.serokell.io/dh#dependency-analysis">R21</a>
+  <strong>Proposal:</strong>
+  <a href="https://github.com/ghc-proposals/ghc-proposals/pull/523">#523 Extended <code>let</code></a>
 </div>
 
 Type expressions support inline `case` matching (`case isNumeric of True ->
@@ -540,7 +1062,7 @@ local `type` synonyms can capture retained `foreach` variables in scope.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseTypeCaseLet where
+module TypeCaseLet where
 
 import Data.Nat.Dependent (Nat (..))
 import Data.Vec.Dependent (Vec (..))
@@ -584,30 +1106,34 @@ localTypeSynDemo =
         replicateZero (Succ k) = VCons 0 (replicateZero k)
 ```
 
-#### 3.3 Type-level lambdas and explicit matchability (`%M`, `%U`, `%m`) {#card-type-lambda}
+### 3.3 Type-level lambdas, higher-order forms, and matchability (`%M`, `%U`, `%m`) {#card-type-lambda}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals &amp; paper:</strong>
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0242-unsaturated-type-families.html">#242 Unsaturated Type Families</a>
   (Kiss et al., <a href="https://doi.org/10.1145/3341706">ICFP 2019</a>) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0281-visible-forall.html">#281 Visible <code>forall</code></a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0370-modifiers.html">#370 Modifiers</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#type-level-lambdas">R17</a>,
-  <a href="https://ghc.serokell.io/dh#unsaturated-type-families">R23</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0370-modifiers.html">#370 Modifiers</a>
 </div>
 
 GHC distinguishes two kinds of type-level arrows. A **matchable** arrow (`a %M
--> b`) is injective and generative, such as a type or data constructor (`Maybe`,
-`Succ`): if `f x ~ f y`, GHC can conclude `x ~ y`. An **unmatchable** arrow
-(`a %U -> b`) allows arbitrary computation, including type-level lambdas (`\f
--> f Int`) and partially applied promoted functions (`plus 1`), where `f x ~ f
-y` does not imply `x ~ y`. Polymorphic arrows (`a %m -> b`) accept both: a
-single `cong` works on `%M` constructors (`Succ`), `%U` partial applications
-(`plus m`), and operator sections (`(x :)`, `(: ys)`).
+-> b`) is injective and generative, such as `Maybe` or `Succ`: if `f x ~ f y`,
+GHC concludes `x ~ y`. An **unmatchable** arrow (`a %U -> b`) allows arbitrary
+computation, including type-level lambdas (`\t -> Either String (Maybe t)`) and
+partially applied promoted functions (`plus 1`).
+
+In higher-kinded data libraries (`barbies`, `vinyl`, `singletons`), passing a
+composed wrapper to a record requires `Compose`/`Identity` newtypes or
+`TyFun`/`@@` defunctionalization because standard `Type -> Type` is restricted
+to matchable constructors. Here `Form (f :: Type %U -> Type)` accepts inline
+type-level lambdas directly, `Prelude.map (plus 1)` promotes without a
+`type family`, and matchability-polymorphic `cong` (`a %m -> b`) handles `%M`,
+`%U`, and operator sections uniformly.
 
 ```haskell
-{-# LANGUAGE DependentTypes, TypeFamilies #-}
-module ShowcaseTypeLambdaMatch where
+{-# LANGUAGE DependentTypes #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module FormValidation where
 
 import Data.Kind (Type)
 import Data.Nat.Dependent (Nat (..), plus)
@@ -615,32 +1141,50 @@ import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 import GHC.Matchability (M, U)
 import GHC.Types (List)
 
--- `%U` (unmatchable): accepts type-level lambdas and promoted functions.
-type family MapT (f :: a %U -> b) (xs :: List a) :: List b where
-  MapT _ []       = []
-  MapT f (x : xs) = f x : MapT f xs
-
--- Inline type-level lambda (`\f -> f Int`) mapped over a list of type constructors:
-type AppliedToInt = MapT (\f -> f Int) [Maybe, Either String, IO]
-
-appliedProof :: AppliedToInt :~: [Maybe Int, Either String Int, IO Int]
-appliedProof = Refl
-
--- Partially applied promoted arithmetic (`plus 1`) passed directly to `MapT`:
-type Incremented = MapT (plus 1) [Zero, Succ Zero, Succ (Succ Zero)]
+-- Ordinary Prelude.map promotes directly with partially applied `plus 1` (no type family):
+type Incremented = map (plus 1) [Zero, Succ Zero, Succ (Succ Zero)]
 
 incProof :: Incremented :~: [Succ Zero, Succ (Succ Zero), Succ (Succ (Succ Zero))]
 incProof = Refl
 
--- `%M` (matchable): accepts injective constructors such as `Maybe`,
--- and rejects unmatchable lambdas such as `(\a -> Either String a)`.
+-- `%U` (unmatchable): accepts inline type-level lambdas directly, with no Compose/TyFun:
+data Form (f :: Type %U -> Type) (ts :: List Type) where
+  FNil  :: Form f []
+  FCons :: f t -> Form f ts -> Form f (t : ts)
+
+type OptField    = \t -> Maybe t
+type ValidField  = \t -> Either String t
+type StagedField = \t -> Either String (Maybe t)
+
+type PartialForm   ts = Form OptField ts
+type ValidatedForm ts = Form ValidField ts
+type StagedForm    ts = Form StagedField ts
+
+type UserFields = [String, Int, Bool]
+
+requireFields :: List String -> PartialForm ts -> ValidatedForm ts
+requireFields _        FNil            = FNil
+requireFields (l : ls) (FCons mv rest) =
+  FCons (maybe (Left ("Missing " ++ l)) Right mv) (requireFields ls rest)
+requireFields []       (FCons mv rest) =
+  FCons (maybe (Left "Missing field") Right mv) (requireFields [] rest)
+
+sampleValidated :: ValidatedForm UserFields
+sampleValidated =
+  requireFields ["name", "age", "active"]
+    (FCons (Just "Ada") (FCons Nothing (FCons (Just True) FNil)))
+
+sampleStaged :: StagedForm UserFields
+sampleStaged =
+  FCons (Right (Just "Ada")) (FCons (Left "invalid") (FCons (Right Nothing) FNil))
+
+-- `%M` (matchable): accepts injective constructors (`Maybe`), rejects lambdas.
 data BoxM (f :: Type %M -> Type) (a :: Type) = MkBoxM (f a)
 
 boxedMaybe :: BoxM Maybe Int
 boxedMaybe = MkBoxM (Just 42)
 
--- Matchability-polymorphic `cong` (`forall (f :: a %m -> b) -> ...`) handles
--- `%M` constructors, `%U` promoted functions, and operator sections uniformly:
+-- Matchability-polymorphic `cong` (`a %m -> b`) handles `%M`, `%U`, and sections uniformly:
 congMatchable :: forall (m n :: Nat). m :~: n -> Succ m :~: Succ n
 congMatchable eq = cong Succ eq
 
@@ -651,63 +1195,13 @@ congUnmatchable m eq = cong (plus m) eq
 congConsLeft :: forall a (x :: a) (ys1 ys2 :: List a).
                 ys1 :~: ys2 -> (x : ys1) :~: (x : ys2)
 congConsLeft eq = cong (x :) eq
-
-congConsRight :: forall a (x1 x2 :: a) (ys :: List a).
-                 x1 :~: x2 -> (x1 : ys) :~: (x2 : ys)
-congConsRight eq = cong (: ys) eq
 ```
 
-#### 3.4 Type-safe `printf` via `foreach` {#card-printf}
+:::::
 
-<div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-application-and-the-static-subset">#378 §4.7 Dependent Application</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#closed-term-evaluator">R15</a>,
-  <a href="https://ghc.serokell.io/dh#dependency-analysis">R21</a>
-</div>
+::::: {.plfh-showcase-act id="act-4" data-act-num="4" data-act-title="Exists & Base"}
 
-A format descriptor value (`Fmt`) determines both the arity and argument types
-of `printf`. For `Lit "Hello " (S (Lit ", " (D (Lit " chapters checked!" End))))`,
-GHC computes the curried type `String -> Int -> String` and rejects arguments of
-the wrong type or count at compile time.
-
-```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies #-}
-module ShowcasePrintf where
-
-import Data.Kind (Type)
-
-data Fmt
-  = End
-  | Lit String Fmt
-  | D Fmt
-  | S Fmt
-
-type family FmtType (f :: Fmt) :: Type where
-  FmtType End       = String
-  FmtType (Lit _ r) = FmtType r
-  FmtType (D r)     = Int -> FmtType r
-  FmtType (S r)     = String -> FmtType r
-
-printf :: foreach (f :: Fmt) -> FmtType f
-printf f = go f ""
-  where
-    go :: foreach (f' :: Fmt) -> String -> FmtType f'
-    go End       acc = acc
-    go (Lit s r) acc = go r (acc ++ s)
-    go (D r)     acc = \n -> go r (acc ++ show n)
-    go (S r)     acc = \s -> go r (acc ++ s)
-
--- GHC checks that `"Matti" :: String` and `25 :: Int` match `S` followed by `D`:
-greeting :: String
-greeting = printf (Lit "Hello " (S (Lit ", " (D (Lit " chapters checked!" End))))) "Matti" 25
-```
-
-:::
-
-::: {.plfh-showcase-act id="act-4" data-act-num="4" data-act-title="Exists & Base"}
-
-### 4. Erased existentials and `dependent-base`
+## 4. Erased existentials and `dependent-base`
 
 [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
 (documented in the [`dependent-base` Reference](/DependentBase/)) builds a
@@ -715,26 +1209,24 @@ standard library directly on stock `Prelude` types (`Bool`, `Maybe`, `Either`,
 `(,)`, `[a]`, `(:~:)`, `Void`) and compiles `.hi` interfaces that ordinary
 `Haskell2010` modules can import without enabling `-XDependentTypes`.
 
-#### 4.1 Erased existentials (`GHC.Exists` & `Data.Exists.Dependent`) {#card-exists}
+### 4.1 Erased existentials (`GHC.Exists` & `Data.Exists.Dependent`) {#card-exists}
 
 <div class="showcase-credits">
-  <strong>Specs &amp; roadmap:</strong>
+  <strong>Proposals:</strong>
   <a href="https://github.com/ghc-proposals/ghc-proposals/pull/473">#473 Existential Types</a> &middot;
-  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0581-namespace-specified-imports.html">#581 Namespace-Specified Imports</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#existential-quantification">R22</a>,
-  <a href="https://ghc.serokell.io/dh#namespace-management">R35</a>
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0581-namespace-specified-imports.html">#581 Namespace-Specified Imports</a>
 </div>
 
 Proposal `#473` separates retained dependent pairs (`some` / `Sigma`) from
 erased existential packages (`Exists p = exists x | p x`). In an `Exists`
 package, the hidden witness is erased before runtime: callers can use a packed
-type-class dictionary (`Show a /\ a`) or apply a polymorphic transformation
+type class dictionary (`Show a /\ a`) or apply a polymorphic transformation
 (`mapExists`), but cannot branch on the hidden type or read a runtime length
 tag.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseExists where
+module ExistsDemo where
 
 import Data.Char (toUpper)
 import Data.Exists.Dependent
@@ -776,7 +1268,7 @@ existsDemo =
   in (map renderShow items, withExists shoutWord (\_ xs -> toListVec xs), witOk)
 ```
 
-#### 4.2 First-class dependent composition `(.)` {#card-dep-compose}
+### 4.2 First-class dependent composition `(.)` {#card-dep-compose}
 
 <div class="showcase-credits">
   <strong>Package:</strong>
@@ -792,7 +1284,7 @@ passed to `cong` (`cong (Succ . plus m)`), and ordinary `Int -> Int` functions.
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
-module ShowcaseDepCompose where
+module DepCompose where
 
 import Prelude hiding ((.))
 import Data.Function.Dependent ((.))
@@ -826,7 +1318,7 @@ composeDemo :: ([Int], Int)
 composeDemo = (map natToInt (toListVec (zerosPlus1 2)), ordinaryCompose (* 2) (+ 1) 20)
 ```
 
-#### 4.3 Length-indexed `Vec` and bounded `Fin` indexing {#card-vec-fin}
+### 4.3 Length-indexed `Vec` and bounded `Fin` indexing {#card-vec-fin}
 
 <div class="showcase-credits">
   <strong>Package:</strong>
@@ -837,13 +1329,13 @@ composeDemo = (map natToInt (toListVec (zerosPlus1 2)), ordinaryCompose (* 2) (+
 
 `Data.Vec.Dependent` and `Data.Fin.Dependent` pair length-checked operations
 (`appendVec`, `zipVec`, total `lookupVec`) with runtime list conversions
-(`packListVec`, `toListVec`). `Fin` currently names its constructors `FZ` and
-`FS` so `Prelude.Dependent` can export `Nat (Zero, Succ)` and `Fin (FZ, FS)`
+(`packListVec`, `toListVec`). `Fin` names its constructors `FZ` and `FS` so
+`Prelude.Dependent` can export `Nat (Zero, Succ)` and `Fin (FZ, FS)`
 unqualified together, without a partial `Num` instance.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseVecFin where
+module VecFin where
 
 import Data.Fin.Dependent (Fin (..))
 import Data.Nat.Dependent (Nat (..), natToInt)
@@ -882,17 +1374,17 @@ firstAndPacked :: (String, (Int, String))
 firstAndPacked = (headVec combined, packAndRead "plfh")
 ```
 
-:::
+:::::
 
-::: {.plfh-showcase-act id="act-5" data-act-num="5" data-act-title="Plugins & Holes"}
+::::: {.plfh-showcase-act id="act-5" data-act-num="5" data-act-title="Plugins & Holes"}
 
-### 5. Interactive Agda-mode and compiler plugins
+## 5. Interactive Agda-mode and compiler plugins
 
 Proof search and observational equality are external GHC plugins. GHC's core
-solver and `GHC.Tc.Errors.Hole` stay general, and both plugins are statically
+solver and typed-hole machinery stay general, and both plugins are statically
 linked into the browser WebAssembly build so you can run them here.
 
-#### 5.1 Typed holes, case splits, and `Dependent.Plugin.ProofSearch` {#card-agda-mode}
+### 5.1 Typed holes, case splits, and `Dependent.Plugin.ProofSearch` {#card-agda-mode}
 
 <div class="showcase-credits">
   <strong>Plugin &amp; paper:</strong>
@@ -910,7 +1402,7 @@ suggests splitting on `m` to unblock `plus`, and uses
 
 ```{.haskell data-showcase-hole="1"}
 {-# LANGUAGE DependentTypes #-}
-module ShowcaseAgdaMode where
+module TypedHoles where
 
 import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
@@ -924,14 +1416,13 @@ plusAssoc :: foreach (m n p :: Nat)
 plusAssoc m n p = _
 ```
 
-#### 5.2 Observational equality with `Dependent.Plugin.ObsEq` {#card-obs-eq}
+### 5.2 Observational equality with `Dependent.Plugin.ObsEq` {#card-obs-eq}
 
 <div class="showcase-credits">
   <strong>Plugin &amp; credit:</strong>
   <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>TharkunAB/dependent-obs-eq</code></a>
   (<code>-fplugin=Dependent.Plugin.ObsEq</code>) &middot;
-  Idea by <strong>Jules (<code>@analytichegel</code>)</strong> &middot;
-  Uninterpreted open calls (<code>U:f</code>) + GHC <code>TcPlugin</code>
+  Idea by <strong>Jules (<code>@analytichegel</code>)</strong>
 </div>
 
 Non-structural, accumulator-based, or fuel-free functions such as `unfoldPlus`,
@@ -949,7 +1440,7 @@ shrunk counterexample (`m = Zero, n = Zero`).
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 {-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
-module ShowcaseObsEq where
+module ObsEqDemo where
 
 import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl), gcastWith)
@@ -1035,7 +1526,8 @@ toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
 toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
 
 fromAccVec :: foreach (m n :: Nat) -> Vec Int (accPlus m n) -> Vec Int (plus m n)
-fromAccVec m n v = withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
+fromAccVec m n v =
+  withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
 
 roundtripAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (plus m n)
 roundtripAccVec m n v = fromAccVec m n (toAccVec m n v)
@@ -1044,17 +1536,19 @@ sampleAccVec :: [Int]
 sampleAccVec = toListVec (roundtripAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil))))
 ```
 
-:::
+:::::
+
+::::::
 
 ## Repositories and design choices
 
 | Repository | Role |
 | --- | --- |
-| [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the open cards of the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)) |
+| [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)) |
 | [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,Decision,...}.Dependent`); see the [API reference](/DependentBase/) |
 | [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) | `HoleFitPlugin` (`-fplugin=Dependent.Plugin.ProofSearch`) for congruence/transitivity subgoal refinements and bounded proof synthesis |
-| [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for QuickCheck observational-equality testing and counterexample shrinking |
-| [`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH) | This 25-chapter interactive textbook adapted from PLFA ([Table of Contents](/), [Coverage](/Status/), [Setup](/Setup/)) |
+| [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for observational-equality testing and counterexample shrinking |
+| [`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH) | 25-chapter interactive textbook adapted from PLFA ([Table of Contents](/), [Coverage](/Status/), [Setup](/Setup/)) |
 
 <div class="showcase-decisions">
   <div class="decision-card">
@@ -1062,31 +1556,29 @@ sampleAccVec = toListVec (roundtripAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil
     <p>Syntax, flags, and typing rules follow
     <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">GHC Proposal #378</a>
     first, companion GHC proposals second, the Serokell roadmap for scope tracking,
-    and Agda/PLFA for surface syntax and conventions where proposals are silent.</p>
+    and Agda/PLFA for surface conventions where proposals are silent.</p>
   </div>
   <div class="decision-card">
     <h3>2. Opt-in extension and <code>Haskell2010</code> interop</h3>
     <p>Existing Haskell code compiles unchanged. One pragma (<code>-XDependentTypes</code>)
     enables retained binders, function promotion, and <code>NoListTuplePuns</code>.
-    Plain <code>Haskell2010</code> modules can import compiled <code>.hi</code> interfaces from
+    Plain <code>Haskell2010</code> modules import compiled interfaces from
     <code>dependent-base</code> without enabling dependent extensions.</p>
   </div>
   <div class="decision-card">
     <h3>3. Type safety without forced totality</h3>
-    <p>Following Weirich et al. (ICFP 2017), System FC remains type-safe even with
+    <p>Following Weirich et al. (ICFP 2017), System FC stays type-safe even with
     general recursion and non-termination. Structural totality diagnostics are opt-in
     (<code>-freport-totality</code>), while proof search and observational equality
     live in external GHC plugins.</p>
   </div>
   <div class="decision-card">
-    <h3>4. Deliberate compatibility boundaries</h3>
-    <p>Three boundaries stay fixed for Haskell compatibility: <code>Haskell98</code>
-    and <code>Haskell2010</code> keep <code>CUSKs</code> by default (while
-    <code>-XDependentTypes</code> implies <code>NoCUSKs</code>); internal
-    <code>HsExpr</code> and <code>HsType</code> ASTs remain separate with bare
-    <code>a -&gt; b</code> in patterns kept for <code>ViewPatterns</code>; effectful
-    <code>IO</code> and uncertified non-structural functions stay outside built-in
-    type conversion (<code>#378 §4.10</code>).</p>
+    <h3>4. Predictable boundaries</h3>
+    <p>Effectful <code>IO</code> actions and uncertified non-structural functions stay
+    outside built-in type conversion (<code>#378 §4.10</code>). Bare <code>-&gt;</code>
+    in patterns remains reserved for <code>ViewPatterns</code>, and
+    <code>Haskell2010</code> defaults stay intact when <code>-XDependentTypes</code>
+    is off.</p>
   </div>
 </div>
 

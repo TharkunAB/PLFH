@@ -1740,6 +1740,7 @@ import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
+import GHC.Matchability (U)
 import Text.Read (readMaybe)
 
 data RunMode = PureMode | LoggedMode | MeteredMode
@@ -1789,15 +1790,16 @@ apiRoute :: Endpoint -> Route
 apiRoute UserPost    = Lit Users :> Cap TInt :> Lit Posts :> Cap TString :> Get TBool
 apiRoute HealthCheck = Lit Health :> Get TString
 
-type family HandlerType (m :: RunMode) (r :: Route) :: Type where
-  HandlerType m (Lit _  :> rest) = HandlerType m rest
-  HandlerType m (Cap ty :> rest) = interp ty -> HandlerType m rest
-  HandlerType m (Get res)        = StackM m (Either String (interp res))
+type family RouteType (ret :: WireTy %U -> Type) (r :: Route) :: Type where
+  RouteType ret (Lit _  :> rest) = RouteType ret rest
+  RouteType ret (Cap ty :> rest) = interp ty -> RouteType ret rest
+  RouteType ret (Get res)        = ret res
 
-type family LinkType (r :: Route) :: Type where
-  LinkType (Lit _  :> rest) = LinkType rest
-  LinkType (Cap ty :> rest) = interp ty -> LinkType rest
-  LinkType (Get _)          = String
+type HandlerRet (m :: RunMode) = \\res -> StackM m (Either String (interp res))
+type LinkRet                   = \\res -> String
+
+type HandlerType m r = RouteType (HandlerRet m) r
+type LinkType      r = RouteType LinkRet r
 
 segPath :: Seg -> String
 segPath Users  = "users"
@@ -1992,7 +1994,412 @@ firstWord = headVec combined
 `,
   },
   {
-    id: "wave10",
+    id: "linear-protocol",
+    label: "Linear Session Protocol",
+    replHint: "runSession",
+    code: `{-# LANGUAGE DependentTypes, LinearTypes, ListTuplePuns #-}
+module Playground where
+
+import Data.Type.Equality ((:~:) (Refl))
+
+data Ur a where
+  Ur :: a -> Ur a
+
+data ProtoState = StInit | StAuthed | StDone
+data Agency     = ClientTurn | Closed
+
+agency :: ProtoState -> Agency
+agency StInit   = ClientTurn
+agency StAuthed = ClientTurn
+agency StDone   = Closed
+
+type Payload (st :: ProtoState) = case st of
+  StInit   -> String
+  StAuthed -> Int
+  StDone   -> ()
+
+data Msg (from :: ProtoState) (to :: ProtoState) where
+  MLogin  :: Payload StInit   -> Msg StInit   StAuthed
+  MQuery  :: Payload StAuthed -> Msg StAuthed StAuthed
+  MLogout ::                     Msg StAuthed StDone
+
+data Chan (st :: ProtoState) = MkChan (Ur [String])
+
+-- Linear retained transition: consumes the old channel once and requires ClientTurn.
+send :: foreach (from %1 :: ProtoState)
+     -> (agency from :~: ClientTurn)
+     -> Msg from to -> Chan from %1 -> Chan to
+send StInit   Refl (MLogin tok) (MkChan (Ur log0)) = MkChan (Ur (("AUTH "  ++ tok)      : log0))
+send StAuthed Refl (MQuery qid) (MkChan (Ur log0)) = MkChan (Ur (("QUERY " ++ show qid) : log0))
+send StAuthed Refl MLogout      (MkChan (Ur log0)) = MkChan (Ur ("BYE"                  : log0))
+
+closeChan :: Chan StDone %1 -> [String]
+closeChan (MkChan (Ur log0)) = reverse log0
+
+runSession :: [String]
+runSession =
+  let c0 = MkChan (Ur []) :: Chan StInit
+      c1 = send StInit   Refl (MLogin "tok-42") c0
+      c2 = send StAuthed Refl (MQuery 7)        c1
+      c3 = send StAuthed Refl MLogout           c2
+  in closeChan c3
+`,
+  },
+  {
+    id: "typed-sql",
+    label: "Typed SQL Schema",
+    replHint: "sqlDemo",
+    code: `{-# LANGUAGE DependentTypes, UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module Playground where
+
+import Data.Kind (Type)
+import GHC.Tuple (Tuple2)
+import GHC.Types (List)
+
+data ColId = CId | CName | CActive
+data SqlTy = SInt | SText | SBool
+data Col   = MkCol ColId SqlTy
+
+sqlVal :: SqlTy -> Type
+sqlVal SInt  = type Int
+sqlVal SText = type String
+sqlVal SBool = type Bool
+
+data Row (s :: List Col) where
+  RNil  :: Row []
+  RCons :: sqlVal t -> Row rest -> Row (MkCol c t : rest)
+
+data InSchema (col :: Col) (s :: List Col) where
+  Here  :: InSchema col (col : rest)
+  There :: InSchema col rest -> InSchema col (other : rest)
+
+data Table where
+  MkTable :: foreach (s :: List Col) -> List (Row s) -> Table
+
+colName :: ColId -> String
+colName CId     = "id"
+colName CName   = "name"
+colName CActive = "active"
+
+sqlTypeName :: SqlTy -> String
+sqlTypeName SInt  = "INT"
+sqlTypeName SText = "TEXT"
+sqlTypeName SBool = "BOOL"
+
+createTableDDL :: String -> List Col -> String
+createTableDDL tbl cols = "CREATE TABLE " ++ tbl ++ " (" ++ go cols ++ ");"
+  where
+    go []                 = ""
+    go [MkCol c t]        = colName c ++ " " ++ sqlTypeName t
+    go (MkCol c t : rest) = colName c ++ " " ++ sqlTypeName t ++ ", " ++ go rest
+
+getCol :: InSchema (MkCol c t) s -> Row s -> sqlVal t
+getCol Here      (RCons v _)    = v
+getCol (There p) (RCons _ rest) = getCol p rest
+
+-- INNER JOIN combines schemas directly with Prelude (++):
+joinRow :: Row s1 -> Row s2 -> Row (s1 ++ s2)
+joinRow RNil         r2 = r2
+joinRow (RCons v r1) r2 = RCons v (joinRow r1 r2)
+
+type UserSchema = [MkCol CId SInt, MkCol CName SText, MkCol CActive SBool]
+
+userRows :: List (Row UserSchema)
+userRows =
+  [ RCons 1 (RCons "Ada"   (RCons True  RNil))
+  , RCons 2 (RCons "Grace" (RCons True  RNil))
+  ]
+
+usersTable :: Table
+usersTable = MkTable [MkCol CId SInt, MkCol CName SText, MkCol CActive SBool] userRows
+
+tableDDL :: String -> Table -> String
+tableDDL name (MkTable s _) = createTableDDL name s
+
+sqlDemo :: Tuple2 String (List String)
+sqlDemo =
+  ( tableDDL "users" usersTable
+  , map (getCol (There Here)) userRows
+  )
+`,
+  },
+  {
+    id: "effect-stack",
+    label: "Composable Effect Stack",
+    replHint: "effDemo",
+    code: `{-# LANGUAGE DependentTypes, TypeFamilies, UndecidableInstances #-}
+module Playground where
+
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
+import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
+import Data.Functor.Identity (Identity (runIdentity))
+import Data.Kind (Type)
+import GHC.Tuple (Tuple2, Unit)
+import GHC.Types (List)
+
+data Eff = EEnv | ECount | ELog
+
+type family StackM (es :: List Eff) :: Type -> Type where
+  StackM []            = Identity
+  StackM (EEnv   : es) = ReaderT String (StackM es)
+  StackM (ECount : es) = StateT  Int    (StackM es)
+  StackM (ELog   : es) = WriterT (List String) (StackM es)
+
+type family StackOut (es :: List Eff) (a :: Type) :: Type where
+  StackOut []            a = a
+  StackOut (EEnv   : es) a = StackOut es a
+  StackOut (ECount : es) a = StackOut es (Tuple2 a Int)
+  StackOut (ELog   : es) a = StackOut es (Tuple2 a (List String))
+
+withMonad :: foreach (es :: List Eff) -> (Monad (StackM es) => r) -> r
+withMonad []            k = k
+withMonad (EEnv   : es) k = withMonad es k
+withMonad (ECount : es) k = withMonad es k
+withMonad (ELog   : es) k = withMonad es k
+
+runStack :: foreach (es :: List Eff) -> String -> StackM es a -> StackOut es a
+runStack []            _   m = runIdentity m
+runStack (EEnv   : es) env m = runStack es env (runReaderT m env)
+runStack (ECount : es) env m = runStack es env (runStateT  m 0)
+runStack (ELog   : es) env m = runStack es env (runWriterT m)
+
+data Has (e :: Eff) (es :: List Eff) where
+  Here  :: Has e (e : es)
+  There :: Has e es -> Has e (x : es)
+
+liftStep :: foreach (x :: Eff) (es :: List Eff)
+         -> (Monad (StackM es) => StackM es a -> StackM (x : es) a)
+liftStep EEnv   _ m = lift m
+liftStep ECount _ m = lift m
+liftStep ELog   _ m = lift m
+
+askEff :: foreach (es :: List Eff) -> Has EEnv es -> StackM es String
+askEff []       h = case h of {}
+askEff (x : es) h = case x of
+  EEnv   -> case h of { Here -> withMonad es ask; There p -> withMonad es (liftStep EEnv es (askEff es p)) }
+  ECount -> case h of { There p -> withMonad es (liftStep ECount es (askEff es p)) }
+  ELog   -> case h of { There p -> withMonad es (liftStep ELog es (askEff es p)) }
+
+tickEff :: foreach (es :: List Eff) -> Has ECount es -> StackM es Unit
+tickEff []       h = case h of {}
+tickEff (x : es) h = case x of
+  EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tickEff es p)) }
+  ECount -> case h of { Here -> withMonad es (modify' (+ 1)); There p -> withMonad es (liftStep ECount es (tickEff es p)) }
+  ELog   -> case h of { There p -> withMonad es (liftStep ELog es (tickEff es p)) }
+
+tellEff :: foreach (es :: List Eff) -> Has ELog es -> String -> StackM es Unit
+tellEff []       h _   = case h of {}
+tellEff (x : es) h msg = case x of
+  EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tellEff es p msg)) }
+  ECount -> case h of { There p -> withMonad es (liftStep ECount es (tellEff es p msg)) }
+  ELog   -> case h of { Here -> withMonad es (tell [msg]); There p -> withMonad es (liftStep ELog es (tellEff es p msg)) }
+
+worker :: foreach (es :: List Eff)
+       -> Has EEnv es -> Has ECount es -> Has ELog es
+       -> StackM es String
+worker es hEnv hCount hLog = withMonad es (do
+  env <- askEff es hEnv
+  tellEff es hLog ("boot:" ++ env)
+  tickEff es hCount
+  tickEff es hCount
+  tellEff es hLog "done"
+  pure ("ok@" ++ env))
+
+effDemo :: Tuple2 (Tuple2 String Int) (List String)
+effDemo = runStack [EEnv, ECount, ELog] "prod"
+  (worker [EEnv, ECount, ELog] Here (There Here) (There (There Here)))
+`,
+  },
+  {
+    id: "typed-net",
+    label: "Shape-Checked Neural Net",
+    replHint: "netDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=20 #-}
+module Playground where
+
+import Data.Nat.Dependent (Nat (..), mul)
+import Data.Vec.Dependent (Vec (..), appendVec, foldrVec, mapVec, toListVec, zipWithVec)
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 6 (withPartialPct 0 defaultObsConfig)
+
+type Matrix r c = Vec (Vec Double c) r
+
+dot :: Vec Double n -> Vec Double n -> Double
+dot xs ys = foldrVec (+) 0 (zipWithVec (*) xs ys)
+
+matVec :: Matrix out inp -> Vec Double inp -> Vec Double out
+matVec weights x = mapVec (\`dot\` x) weights
+
+data Net (inp :: Nat) (out :: Nat) where
+  NId    :: Net n n
+  NDense :: Matrix h i -> Net h o -> Net i o
+
+forward :: Net i o -> Vec Double i -> Vec Double o
+forward NId          x = x
+forward (NDense w n) x = forward n (mapVec (max 0) (matVec w x))
+
+flatten :: foreach (r c :: Nat) -> Matrix r c -> Vec Double (mul r c)
+flatten Zero     _ VNil           = VNil
+flatten (Succ r) c (VCons row rs) = appendVec row (flatten r c rs)
+
+reshapeTranspose :: foreach (r c :: Nat) -> Vec Double (mul r c) -> Vec Double (mul c r)
+reshapeTranspose r c v =
+  withObsEqWith totalCfg @(mul r c) @(mul c r) @(Vec Double (mul c r)) v
+
+layer1 :: Matrix 2 3
+layer1 =
+  VCons (VCons 1.0 (VCons 2.0 (VCons (-1.0) VNil)))
+ (VCons (VCons 0.5 (VCons (-1.0) (VCons 2.0 VNil))) VNil)
+
+layer2 :: Matrix 1 2
+layer2 = VCons (VCons 2.0 (VCons 3.0 VNil)) VNil
+
+sampleNet :: Net 3 1
+sampleNet = NDense layer1 (NDense layer2 NId)
+
+netDemo :: ([Double], [Double])
+netDemo =
+  ( toListVec (forward sampleNet (VCons 1.0 (VCons 1.0 (VCons 1.0 VNil))))
+  , toListVec (reshapeTranspose 2 3 (flatten 2 3 layer1))
+  )
+`,
+  },
+  {
+    id: "checked-codec",
+    label: "Checked Wire Codec (ObsEq)",
+    replHint: "codecDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+module Playground where
+
+import Data.Kind (Type)
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+
+data FieldTag = FId | FActive | FScore
+data Schema   = SEnd | SInt FieldTag Schema | SBool FieldTag Schema
+
+type family Payload (s :: Schema) :: Type where
+  Payload SEnd        = ()
+  Payload (SInt _ r)  = (Int,  Payload r)
+  Payload (SBool _ r) = (Bool, Payload r)
+
+tagName :: FieldTag -> String
+tagName FId     = "id"
+tagName FActive = "active"
+tagName FScore  = "score"
+
+docSchema :: Schema -> String
+docSchema SEnd        = "{}"
+docSchema (SInt f r)  = tagName f ++ ":int, "  ++ docSchema r
+docSchema (SBool f r) = tagName f ++ ":bool, " ++ docSchema r
+
+data Tok = TokInt Int | TokBool Bool deriving (Eq, Show)
+
+encode :: foreach (s :: Schema) -> Payload s -> [Tok]
+encode SEnd        ()      = []
+encode (SInt _ r)  (n, xs) = TokInt n  : encode r xs
+encode (SBool _ r) (b, xs) = TokBool b : encode r xs
+
+decode :: foreach (s :: Schema) -> [Tok] -> Either String (Payload s)
+decode SEnd        []               = Right ()
+decode SEnd        _                = Left "trailing tokens"
+decode (SInt _ r)  (TokInt n  : ts) = fmap (\\xs -> (n, xs)) (decode r ts)
+decode (SBool _ r) (TokBool b : ts) = fmap (\\xs -> (b, xs)) (decode r ts)
+decode (SInt f _)  _                = Left ("expected int for "  ++ tagName f)
+decode (SBool f _) _                = Left ("expected bool for " ++ tagName f)
+
+data UserRec = MkUser Int Bool Int deriving (Eq, Show)
+
+roundtripUser :: UserRec -> Maybe UserRec
+roundtripUser u = case u of
+  MkUser uid act sc ->
+    case decode (SInt FId (SBool FActive (SInt FScore SEnd)))
+                (encode (SInt FId (SBool FActive (SInt FScore SEnd))) (uid, (act, (sc, ())))) of
+      Right (uid', (act', (sc', ()))) -> Just (MkUser uid' act' sc')
+      Left  _                         -> Nothing
+
+-- Try changing \`TokBool b\` to \`TokBool (not b)\` above to see ObsEq shrink a counterexample!
+userRoundtrip :: foreach (u :: UserRec) -> roundtripUser u :~: Just u
+userRoundtrip _ = obsEqWith totalCfg
+
+codecDemo :: (String, [Tok], Maybe UserRec)
+codecDemo =
+  let s    = SInt FId (SBool FActive (SInt FScore SEnd))
+      wire = encode s (7, (True, (99, ())))
+  in (docSchema s, wire, roundtripUser (MkUser 7 True 99))
+`,
+  },
+  {
+    id: "units-of-measure",
+    label: "Units of Measure (ObsEq)",
+    replHint: "physicsDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=25 #-}
+module Playground where
+
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, withMaxSize, withObsEqWith, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 10 (withPartialPct 0 defaultObsConfig)
+
+data Dim = MkDim Int Int Int
+
+addDim :: Dim -> Dim -> Dim
+addDim d1 d2 = case (d1, d2) of
+  (MkDim m1 s1 k1, MkDim m2 s2 k2) -> MkDim (m1 + m2) (s1 + s2) (k1 + k2)
+
+negDim :: Dim -> Dim
+negDim d = case d of
+  MkDim m s k -> MkDim (negate m) (negate s) (negate k)
+
+data UnitKind = UScalar | UMeter | USec | UKg
+
+unitDim :: UnitKind -> Dim
+unitDim UScalar = MkDim 0 0 0
+unitDim UMeter  = MkDim 1 0 0
+unitDim USec    = MkDim 0 1 0
+unitDim UKg     = MkDim 0 0 1
+
+newtype Qty (d :: Dim) = Qty { unQty :: Double } deriving Show
+
+(+!) :: Qty d -> Qty d -> Qty d
+Qty x +! Qty y = Qty (x + y)
+
+(*!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 d2)
+Qty x *! Qty y = Qty (x * y)
+
+(/!) :: Qty d1 -> Qty d2 -> Qty (addDim d1 (negDim d2))
+Qty x /! Qty y = Qty (x / y)
+
+commDim :: forall (d1 d2 :: Dim) -> Qty (addDim d1 d2) -> Qty (addDim d2 d1)
+commDim (type d1) (type d2) q =
+  withObsEqWith totalCfg @(addDim d1 d2) @(addDim d2 d1) @(Qty (addDim d2 d1)) q
+
+cancelDim :: forall (d :: Dim) -> Qty (addDim d (negDim d)) -> Qty (unitDim UScalar)
+cancelDim (type d) q =
+  withObsEqWith totalCfg @(addDim d (negDim d)) @(unitDim UScalar) @(Qty (unitDim UScalar)) q
+
+physicsDemo :: (Double, Double)
+physicsDemo =
+  let dist  = Qty 100.0 :: Qty (unitDim UMeter)
+      time  = Qty 10.0  :: Qty (unitDim USec)
+      speed = dist /! time
+      ratio = cancelDim (type (unitDim UMeter)) (dist /! dist)
+  in (unQty speed, unQty ratio)
+`,
+  },
+  {
+    id: "typecase-records",
     label: "Type Case, Record Dot & Sections",
     replHint: "(defaultVal String, sampleItems, pairChars)",
     code: `{-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot #-}
@@ -2482,14 +2889,14 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
     updateActProgress();
     statusSpan.textContent =
       failed === 0
-        ? `All ${passed}/${entries.length} cards verified ✓ (${elapsedMs} ms)`
+        ? `All ${passed}/${entries.length} modules verified ✓ (${elapsedMs} ms)`
         : `${passed}/${entries.length} verified, ${failed} failed (${elapsedMs} ms)`;
   };
 
   if (acts.length > 0) {
     const jumpBar = document.createElement("nav");
     jumpBar.className = "plfh-act-jump-bar";
-    jumpBar.setAttribute("aria-label", "Walkthrough Acts");
+    jumpBar.setAttribute("aria-label", "Walkthrough sections");
 
     for (const actEl of acts) {
       const actId = actEl.id;
@@ -2504,7 +2911,7 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
 
       const numSpan = document.createElement("span");
       numSpan.className = "plfh-act-num";
-      numSpan.textContent = `Act ${num}`;
+      numSpan.textContent = `Part ${num}`;
 
       const titleSpan = document.createElement("span");
       titleSpan.className = "plfh-act-name";
@@ -2523,26 +2930,26 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
       actCountSpans.set(actId, countSpan);
       jumpBar.append(jumpBtn);
 
-      // Inject per-Act Check button right next to the Act heading when it has complete modules.
-      const h3 = actEl.querySelector("h3");
-      if (h3 && entries.length > 0) {
+      // Inject per-section Check button right below the section heading when it has complete modules.
+      const heading = actEl.querySelector("h2, h3");
+      if (heading && entries.length > 0) {
         const actBar = document.createElement("div");
         actBar.className = "plfh-act-inline-bar";
         const actBtn = document.createElement("button");
         actBtn.type = "button";
         actBtn.className = "plfh-wasm-btn plfh-wasm-edit";
-        actBtn.textContent = `Check Act ${num} (${entries.length} module${entries.length === 1 ? "" : "s"})`;
-        actBtn.addEventListener("click", () => runBatch(entries, `Act ${num}`));
+        actBtn.textContent = `Check Part ${num} (${entries.length} module${entries.length === 1 ? "" : "s"})`;
+        actBtn.addEventListener("click", () => runBatch(entries, `Part ${num}`));
         actCheckBtns.push(actBtn);
         actBar.append(actBtn);
-        h3.insertAdjacentElement("afterend", actBar);
+        heading.insertAdjacentElement("afterend", actBar);
       }
     }
 
     mountEl.append(jumpBar);
     updateActProgress();
 
-    // Highlight active Act in the sticky bar as the reader scrolls.
+    // Highlight active section in the sticky bar as the reader scrolls.
     if (typeof IntersectionObserver !== "undefined") {
       const observer = new IntersectionObserver(
         (obsEntries) => {
@@ -2562,7 +2969,7 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
   }
 
   checkAllBtn.addEventListener("click", () => {
-    runBatch(completeEntries, "all cards");
+    runBatch(completeEntries, "all modules");
   });
 }
 
@@ -2826,8 +3233,10 @@ export function enhancePlfhPage({
 
     if (!isFail && !isExercise) {
       const actEl = container.closest(".plfh-showcase-act");
+      const tabEl = container.closest(".plfh-domain-tab");
       const entry = {
         actId: actEl?.id || "all",
+        tabId: tabEl?.id || null,
         isHole: isShowcaseHole,
         passed: false,
         onPassChange: null,
@@ -2864,10 +3273,135 @@ export function enhancePlfhPage({
     });
   });
 
+function mountDomainTabs(cardEntries) {
+  const groups = [...document.querySelectorAll(".plfh-domain-tabs")];
+  for (const group of groups) {
+    const panels = [...group.querySelectorAll(":scope > .plfh-domain-tab")];
+    if (panels.length === 0) continue;
+
+    const tabBar = document.createElement("div");
+    tabBar.className = "plfh-tab-bar";
+    tabBar.setAttribute("role", "tablist");
+    tabBar.setAttribute("aria-label", "Real-world Dependent Haskell examples");
+
+    const buttons = [];
+    const btnByPanelId = new Map();
+
+    const activate = (idx, updateHash = false) => {
+      const clamped = Math.max(0, Math.min(idx, panels.length - 1));
+      panels.forEach((panel, i) => {
+        const active = i === clamped;
+        panel.hidden = !active;
+        buttons[i].setAttribute("aria-selected", active ? "true" : "false");
+        buttons[i].tabIndex = active ? 0 : -1;
+      });
+      if (updateHash && panels[clamped].id) {
+        try {
+          history.replaceState(null, "", `#${panels[clamped].id}`);
+        } catch {}
+      }
+    };
+
+    panels.forEach((panel, idx) => {
+      if (!panel.id) panel.id = `domain-tab-${idx + 1}`;
+      panel.setAttribute("role", "tabpanel");
+      const label = panel.dataset.tabLabel || panel.querySelector("h3")?.textContent?.trim() || `Example ${idx + 1}`;
+      const sub = panel.dataset.tabAudience || "";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "plfh-tab-btn";
+      btn.id = `${panel.id}-btn`;
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-controls", panel.id);
+      btn.setAttribute("aria-selected", "false");
+      panel.setAttribute("aria-labelledby", btn.id);
+
+      const head = document.createElement("span");
+      head.className = "plfh-tab-btn-head";
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = label;
+      const checkSpan = document.createElement("span");
+      checkSpan.className = "plfh-tab-check";
+      checkSpan.setAttribute("aria-hidden", "true");
+      checkSpan.textContent = "✓";
+      head.append(titleSpan, checkSpan);
+      btn.append(head);
+
+      if (sub) {
+        const subSpan = document.createElement("span");
+        subSpan.className = "plfh-tab-sub";
+        subSpan.textContent = sub;
+        btn.append(subSpan);
+      }
+
+      btn.addEventListener("click", () => activate(idx, true));
+      btn.addEventListener("keydown", (ev) => {
+        if (ev.key === "ArrowRight") {
+          ev.preventDefault();
+          const next = (idx + 1) % panels.length;
+          activate(next, true);
+          buttons[next].focus();
+        } else if (ev.key === "ArrowLeft") {
+          ev.preventDefault();
+          const prev = (idx - 1 + panels.length) % panels.length;
+          activate(prev, true);
+          buttons[prev].focus();
+        }
+      });
+
+      buttons.push(btn);
+      btnByPanelId.set(panel.id, btn);
+      tabBar.append(btn);
+    });
+
+    group.prepend(tabBar);
+
+    const syncTabChecks = () => {
+      for (const panel of panels) {
+        const btn = btnByPanelId.get(panel.id);
+        if (!btn) continue;
+        const panelEntries = cardEntries.filter((e) => e.tabId === panel.id);
+        const allPassed = panelEntries.length > 0 && panelEntries.every((e) => e.passed);
+        btn.dataset.passed = allPassed ? "1" : "0";
+      }
+    };
+
+    for (const entry of cardEntries) {
+      if (entry.tabId && btnByPanelId.has(entry.tabId)) {
+        const prevCb = entry.onPassChange;
+        entry.onPassChange = () => {
+          prevCb?.();
+          syncTabChecks();
+        };
+      }
+    }
+
+    const hashId = window.location.hash ? window.location.hash.slice(1) : "";
+    let initialIdx = 0;
+    if (hashId) {
+      const targetEl = document.getElementById(hashId);
+      const targetPanel = targetEl?.closest(".plfh-domain-tab");
+      const found = targetPanel ? panels.indexOf(targetPanel) : -1;
+      if (found >= 0) initialIdx = found;
+    }
+    activate(initialIdx, false);
+    window.addEventListener("hashchange", () => {
+      const h = window.location.hash ? window.location.hash.slice(1) : "";
+      if (!h) return;
+      const el = document.getElementById(h);
+      const p = el?.closest(".plfh-domain-tab");
+      const found = p ? panels.indexOf(p) : -1;
+      if (found >= 0) activate(found, false);
+    });
+  }
+}
+
   const showcaseMount = document.getElementById("plfh-showcase-bar");
   if (showcaseMount && showcaseCardRunners.length > 0) {
     mountShowcaseBar(showcaseMount, client, uiState, showcaseCardRunners);
   }
+  mountDomainTabs(showcaseCardRunners);
 
   return client;
 }
