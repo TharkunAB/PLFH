@@ -843,12 +843,12 @@ export const ROADMAP_NODES = [
     w: 278,
     status: "pkg",
     act: "act-5",
-    card: "card-agda-mode",
+    card: "card-obs-eq",
     repoUrl: "https://github.com/TharkunAB/dependent-obs-eq",
     proposals: ["TcPlugin", "QuickCheck"],
     deps: ["R05", "R11", "R16"],
     summary:
-      "Credited to Jules (@analytichegel): opt-in QuickCheck observational-equality TcPlugin (-fplugin=Dependent.Plugin.ObsEq) over uninterpreted open term calls (U:f) without weakening built-in Core conversion.",
+      "Credited to Jules (@analytichegel): opt-in QuickCheck observational-equality TcPlugin (-fplugin=Dependent.Plugin.ObsEq) running live in WebAssembly over uninterpreted open term calls (U:f) without weakening built-in Core conversion.",
   },
   {
     id: "dependent-proof-search",

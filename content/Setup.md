@@ -170,9 +170,11 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
   automatically receive updates when a new bundle ships.
 - **Precompiled chapters & companion packages:** The bundle ships
   `libplfh_ghci.so` alongside precompiled `dependent-base-0.1.0.0`,
-  `plfh-book-0.1` (`PLFH.*` chapters), and the `Dependent.Plugin.ProofSearch`
-  hole-fit plugin, so individual edits, exercises, `:browse`, `:t`, `:k!`, and
-  negative controls check directly against the chapter module.
+  `dependent-obs-eq-0.1.0.0` (`Dependent.ObsEq` + statically linked
+  `Dependent.Plugin.ObsEq`), `plfh-book-0.1` (`PLFH.*` chapters), and the
+  `Dependent.Plugin.ProofSearch` hole-fit plugin, so individual edits,
+  exercises, observational equality proofs, `:browse`, `:t`, `:k!`, and
+  negative controls check directly in the browser.
 - **Browser Agda-mode (typed holes, refinement fits, proof search & highlight-on-compile):**
   Write a typed hole such as `_` or `_qed` in any editable code block or in the
   chapter scratchpad and press `Ctrl/Cmd+Enter`. GHC highlights verified code

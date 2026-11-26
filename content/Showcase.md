@@ -788,16 +788,126 @@ plusAssoc :: foreach (m n p :: Nat)
 plusAssoc m n p = _
 ```
 
-<div class="note-box">
-  <strong>Observational Equality Plugin (<code>dependent-obs-eq</code>):</strong>
-  <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>TharkunAB/dependent-obs-eq</code></a>,
-  credited to <strong>Jules (<code>@analytichegel</code>)</strong>, uses the
-  fork's uninterpreted open term call representation (<code>U:f</code>) and GHC's
-  <code>TcPlugin</code> API (<code>-fplugin=Dependent.Plugin.ObsEq</code>) to
-  test uncertified and open function equalities with QuickCheck across total and
-  partial inputs, shrink counterexamples, and discharge explicit observational
-  witnesses—without weakening GHC's built-in Core conversion.
+#### 5.2 Observational Equality Plugin (`Dependent.Plugin.ObsEq`) {#card-obs-eq}
+
+<div class="showcase-credits">
+  <strong>Plugin, Credit &amp; Roadmap:</strong>
+  Idea by <strong>Jules (<code>@analytichegel</code>)</strong> &middot;
+  <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>TharkunAB/dependent-obs-eq</code></a>
+  (<code>-fplugin=Dependent.Plugin.ObsEq</code>) &middot;
+  Uninterpreted open term calls (<code>U:f</code>) + GHC <code>TcPlugin</code> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-core-language">R05</a>,
+  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11</a>,
+  <a href="https://ghc.serokell.io/dh#open-term-evaluator">R16</a>
 </div>
+
+Non-structural, accumulator-based, or fuel-free functions (such as `unfoldPlus`,
+`accPlus`, or `collatz`) do not have structural source equations in GHC's core
+conversion. Enabling `Dependent.Plugin.ObsEq` elaborates open calls into
+uninterpreted families (`U:f`) and tests observational equalities in-process
+over total and partial (`ObsBottom`) inputs: `obsEq`, `obsEqWith`, and
+`obsEqGen` discharge explicit witnesses without weakening bare `Refl`. Click
+**Edit**, break `go Zero acc = acc` to `go Zero acc = Succ acc`, and press
+**`Ctrl/Cmd+Enter`** to watch the plugin refute the law with a shrunk minimal
+counterexample (`m = Zero, n = Zero`).
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module ShowcaseObsEq where
+
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Vec.Dependent (Vec (..), toListVec)
+import Dependent.ObsEq
+  ( Gen
+  , ObsConfig
+  , chooseInt
+  , defaultObsConfig
+  , obsEq
+  , obsEqGen
+  , obsEqWith
+  , withMaxSize
+  , withObsEqWith
+  , withPartialPct
+  , withTests
+  )
+
+-- 1. Non-structural unfold addition (lazy-equivalent to plus on partial inputs too).
+unfoldPlus :: Nat -> Nat -> Nat
+unfoldPlus m n = step (Just m) n
+  where
+    step Nothing acc         = acc
+    step (Just Zero) acc     = step Nothing acc
+    step (Just (Succ k)) acc = Succ (step (Just k) acc)
+
+-- 2. Non-structural tail-recursive accumulator addition (total-domain equivalent to plus).
+-- Try changing `go Zero acc = acc` to `go Zero acc = Succ acc` to see counterexample shrinking!
+accPlus :: Nat -> Nat -> Nat
+accPlus m n = go m n
+  where
+    go Zero acc     = acc
+    go (Succ k) acc = go k (Succ acc)
+
+-- 3. Non-structural fuel-free Collatz convergence on total Nats.
+isEvenNat :: Nat -> Bool
+isEvenNat Zero            = True
+isEvenNat (Succ Zero)     = False
+isEvenNat (Succ (Succ n)) = isEvenNat n
+
+halfNat :: Nat -> Nat
+halfNat Zero            = Zero
+halfNat (Succ Zero)     = Zero
+halfNat (Succ (Succ n)) = Succ (halfNat n)
+
+tripleNat :: Nat -> Nat
+tripleNat Zero     = Zero
+tripleNat (Succ n) = Succ (Succ (Succ (tripleNat n)))
+
+collatz :: Nat -> Nat
+collatz Zero        = Succ Zero
+collatz (Succ Zero) = Succ Zero
+collatz n
+  | isEvenNat n = collatz (halfNat n)
+  | otherwise   = collatz (Succ (tripleNat n))
+
+-- 4. Domain-restricted law on even Ints via custom generator (obsEqGen).
+twiceHalfEven :: Int -> Int
+twiceHalfEven n
+  | even n    = (n `quot` 2) * 2
+  | otherwise = error "twiceHalfEven: odd input"
+
+genEvenInt :: Gen Int
+genEvenInt = (* 2) <$> chooseInt (-50, 50)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 12 (withPartialPct 0 (withTests 30 defaultObsConfig))
+
+unfoldPlusCorrect :: foreach (m n :: Nat) -> unfoldPlus m n :~: plus m n
+unfoldPlusCorrect m n = obsEq
+
+accPlusCorrect :: foreach (m n :: Nat) -> accPlus m n :~: plus m n
+accPlusCorrect m n = obsEqWith totalCfg
+
+collatzConverges :: foreach (n :: Nat) -> collatz n :~: Succ Zero
+collatzConverges n = obsEqWith totalCfg
+
+evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
+evenRoundtrip n = obsEqGen genEvenInt
+
+-- Transport a dependent-base Vec across an observational witness at runtime:
+toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
+toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
+
+fromAccVec :: foreach (m n :: Nat) -> Vec Int (accPlus m n) -> Vec Int (plus m n)
+fromAccVec m n v = withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
+
+roundtripAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (plus m n)
+roundtripAccVec m n v = fromAccVec m n (toAccVec m n v)
+
+sampleAccVec :: [Int]
+sampleAccVec = toListVec (roundtripAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil))))
+```
 
 :::
 

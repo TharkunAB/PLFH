@@ -1947,6 +1947,77 @@ evalTwoPlusTwo =
 `,
   },
   {
+    id: "obseq",
+    label: "Observational Equality (ObsEq)",
+    replHint: "sampleAccVec",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module Playground where
+
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Vec.Dependent (Vec (..), toListVec)
+import Dependent.ObsEq
+  ( Gen
+  , ObsConfig
+  , chooseInt
+  , defaultObsConfig
+  , obsEq
+  , obsEqGen
+  , obsEqWith
+  , withMaxSize
+  , withObsEqWith
+  , withPartialPct
+  , withTests
+  )
+
+-- Non-structural unfold addition (lazy-equivalent to plus on partial inputs):
+unfoldPlus :: Nat -> Nat -> Nat
+unfoldPlus m n = step (Just m) n
+  where
+    step Nothing acc         = acc
+    step (Just Zero) acc     = step Nothing acc
+    step (Just (Succ k)) acc = Succ (step (Just k) acc)
+
+-- Non-structural tail-recursive accumulator addition.
+-- Try changing \`go Zero acc = acc\` to \`go Zero acc = Succ acc\` to see a shrunk counterexample!
+accPlus :: Nat -> Nat -> Nat
+accPlus m n = go m n
+  where
+    go Zero acc     = acc
+    go (Succ k) acc = go k (Succ acc)
+
+twiceHalfEven :: Int -> Int
+twiceHalfEven n
+  | even n    = (n \`quot\` 2) * 2
+  | otherwise = error "twiceHalfEven: odd input"
+
+genEvenInt :: Gen Int
+genEvenInt = (* 2) <$> chooseInt (-50, 50)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 12 (withPartialPct 0 (withTests 30 defaultObsConfig))
+
+unfoldPlusCorrect :: foreach (m n :: Nat) -> unfoldPlus m n :~: plus m n
+unfoldPlusCorrect m n = obsEq
+
+accPlusCorrect :: foreach (m n :: Nat) -> accPlus m n :~: plus m n
+accPlusCorrect m n = obsEqWith totalCfg
+
+evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
+evenRoundtrip n = obsEqGen genEvenInt
+
+toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
+toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
+
+fromAccVec :: foreach (m n :: Nat) -> Vec Int (accPlus m n) -> Vec Int (plus m n)
+fromAccVec m n v = withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
+
+sampleAccVec :: [Int]
+sampleAccVec = toListVec (fromAccVec 2 1 (toAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil)))))
+`,
+  },
+  {
     id: "neg",
     label: "Type Error (2 + 2 = 5)",
     replHint: ":k! plus 2 2",

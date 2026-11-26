@@ -11,7 +11,7 @@ let hsSearchDir = null;
 let currentChapter = null;
 let interactiveMode = false;
 const defaultFlags =
-  "-package-env - -package dependent-base -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
+  "-package-env - -package dependent-base -package dependent-obs-eq -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
 const replFlags = `-XDependentTypes ${defaultFlags}`;
 
 const stdoutLines = [];
@@ -566,6 +566,40 @@ async function handleRepl(line) {
   return { status, stdout, stderr };
 }
 
+const STATIC_PLUGIN_ARG_RE =
+  /^-fplugin(?:-opt)?=Dependent\.Plugin\.(?:ObsEq|ProofSearch)(?::\S+)?$/;
+
+// Promote in-file `{-# OPTIONS_GHC -fplugin=Dependent.Plugin.{ObsEq,ProofSearch} ... #-}`
+// flags into session `setflags` arguments so GHC uses the statically linked Wasm plugins
+// without shifting line numbers for diagnostics or RenamedSource semantic tokens.
+function extractStaticPluginPragmas(source) {
+  const pluginArgs = [];
+  const cleanedSource = source.replace(
+    /\{-#\s*OPTIONS_GHC\b([\s\S]*?)#-\}/g,
+    (fullMatch, body) => {
+      const tokens = body.trim().split(/\s+/).filter(Boolean);
+      const kept = [];
+      let extracted = false;
+      for (const tok of tokens) {
+        if (STATIC_PLUGIN_ARG_RE.test(tok)) {
+          pluginArgs.push(tok);
+          extracted = true;
+        } else {
+          kept.push(tok);
+        }
+      }
+      if (!extracted) return fullMatch;
+      const newlineCount = (fullMatch.match(/\n/g) || []).length;
+      const padNewlines = "\n".repeat(newlineCount);
+      if (kept.length === 0) {
+        return `-- (Wasm static plugin active)${padNewlines}`;
+      }
+      return `{-# OPTIONS_GHC ${kept.join(" ")} #-}${padNewlines}`;
+    }
+  );
+  return { cleanedSource, pluginArgs };
+}
+
 function parseSemanticTokens(raw, lineOffset = null) {
   if (!raw || raw.startsWith("ERR:") || lineOffset === null) return null;
   const out = [];
@@ -608,11 +642,6 @@ self.addEventListener("message", (ev) => {
         await bootSession(msg);
 
         if (msg.type === "checkBlock") {
-          const extra = msg.extraGhcArgs ? ` ${msg.extraGhcArgs}` : "";
-          await runCmd("setflags", `${defaultFlags}${extra}`, "");
-          interactiveMode = false;
-          drainOutput();
-
           const { filePath, modName, lineOffset, fullSource } = buildModuleSource(
             msg.code,
             msg.chapterModule || currentChapter,
@@ -620,7 +649,20 @@ self.addEventListener("message", (ev) => {
             msg.chapterImports || [],
             msg.chapterExports ?? null
           );
-          await runCmd("write", filePath, fullSource);
+          const { cleanedSource, pluginArgs } =
+            extractStaticPluginPragmas(fullSource);
+          const extraTokens = [
+            ...(msg.extraGhcArgs ? msg.extraGhcArgs.trim().split(/\s+/) : []),
+            ...pluginArgs,
+          ].filter(Boolean);
+          const dedupedExtra = [...new Set(extraTokens)];
+          const extra =
+            dedupedExtra.length > 0 ? ` ${dedupedExtra.join(" ")}` : "";
+          await runCmd("setflags", `${defaultFlags}${extra}`, "");
+          interactiveMode = false;
+          drainOutput();
+
+          await runCmd("write", filePath, cleanedSource);
           const mode = msg.typecheckOnly ? "typecheck" : "load";
           const status = await runCmd(mode, filePath, modName);
           const { stdout, stderr } = drainOutput();

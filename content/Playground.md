@@ -10,8 +10,10 @@ Experiment with **Dependent Haskell** (`-XDependentTypes`, GHC `10.1` from
 [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
 tag `dependent-haskell-alpha`) directly in your browser via WebAssembly—zero
 server backend required. All of [`dependent-base`](/DependentBase/)
-(`Prelude.Dependent`, `Data.*.Dependent`) and every precompiled `PLFH.*`
-chapter module is available to import, alongside the
+(`Prelude.Dependent`, `Data.*.Dependent`),
+[`dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq)
+(`Dependent.ObsEq` + `Dependent.Plugin.ObsEq`), and every precompiled `PLFH.*`
+chapter module are available to import, alongside the
 [`Dependent.Plugin.ProofSearch`](https://github.com/TharkunAB/dependent-proof-search)
 hole-fit plugin.
 
@@ -27,6 +29,10 @@ hole-fit plugin.
   split stuck equations across constructors, refine proof subgoals step-by-step
   (`cong Succ _`, `trans (plusSuc m k) _`), or synthesize proofs directly via
   `Dependent.Plugin.ProofSearch` (`cong Succ (plusAssoc m n p)`).
+- **Try `Dependent.Plugin.ObsEq` (observational equality):** select
+  **Observational Equality (ObsEq)** to prove laws about non-structural
+  functions (`unfoldPlus`, `accPlus`, `twiceHalfEven`) via `obsEq`, `obsEqWith`,
+  and `obsEqGen`, or break an equation to see the shrunk minimal counterexample.
 - **Try runtime `Type` case, dependent `(.)`, `OverloadedRecordDot`, and
   operator sections:** select **Type Case, Record Dot & Sections** to match on
   retained `foreach (a :: Type)` arguments, project dependent fields with
