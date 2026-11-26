@@ -1,29 +1,136 @@
 ---
-title: "Dependent Haskell Roadmap Showcase"
+title: "Dependent Haskell: Roadmap & Live Walkthrough"
 prev: /Overview/
 next: /Playground/
 src: content/Showcase.md
 playground: true
 ---
 
-Every card below is a **self-contained, editable Dependent Haskell module**
-demonstrating a completed capability from the
-[`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
-roadmap ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md),
-[`PROPOSAL-378.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/PROPOSAL-378.md),
-and [`Showcase.hs`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/Showcase.hs)).
+[`TharkunAB/ghc` (`dependent-haskell`, tag `dependent-haskell-alpha`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
+implements the open cards of the
+[Serokell Dependent Haskell roadmap](https://ghc.serokell.io/dh) on top of GHC
+10.1, validated end to end against all 25 chapters of PLFH and compiled to
+`wasm32-wasi` so every example below compiles and runs in your browser.
 
-Pick a tab below, click **Check in GHCi (Wasm)** on any card (or check an
-entire tab at once) to compile and load it in WebAssembly GHC `10.1`, or click
-**Edit** for the **Agda-mode editor** (code dims while edited and lights up
-with semantic colors, green typed-hole goal boxes, and error spans on
-**`Ctrl/Cmd+Enter`**).
+<div class="showcase-scorecard" aria-label="Project milestones">
+  <div class="scorecard-item">
+    <div class="scorecard-num">50 / 50</div>
+    <div class="scorecard-label">Serokell roadmap cards</div>
+    <div class="scorecard-sub">23 upstream GHC + 27 fork</div>
+  </div>
+  <div class="scorecard-item">
+    <div class="scorecard-num">25 / 25</div>
+    <div class="scorecard-label">PLFH chapters verified</div>
+    <div class="scorecard-sub">Core Lint, STG Lint &amp; <code>.hi</code> audit</div>
+  </div>
+  <div class="scorecard-item">
+    <div class="scorecard-num">642</div>
+    <div class="scorecard-label">Compiler showcase checks</div>
+    <div class="scorecard-sub"><code>-O0</code>, <code>-O2</code>, &amp; GHCi + 91 registered</div>
+  </div>
+  <div class="scorecard-item">
+    <div class="scorecard-num">3</div>
+    <div class="scorecard-label">Companion packages</div>
+    <div class="scorecard-sub"><code>dependent-base</code>, <code>obs-eq</code>, <code>proof-search</code></div>
+  </div>
+</div>
 
-<div id="plfh-showcase-bar" class="plfh-chapter-bar"></div>
+## 1. The 50-Card Roadmap & Dependency Map {#roadmap-map}
 
-::: {.plfh-showcase-group data-showcase-tab="quantifiers" data-showcase-label="Quantifiers & Types"}
+Serokell's [Dependent Haskell roadmap](https://ghc.serokell.io/dh) connects
+stock GHC to full-spectrum dependent types through **50 cards** and **67
+dependency edges** (see the fork's
+[`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)
+and [`PROPOSAL-378.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/PROPOSAL-378.md)).
+Twenty-three cards already live in upstream GHC; this fork implements the
+remaining 27 cards and three companion libraries built on top.
 
-## Unified Quantifiers (`foreach`), Peano Arithmetic & Decimal Literals
+**Hover** any card to trace what it depends on (blue) and what it unlocks
+(teal). **Click** any card to read its scope, links, and explicit design
+boundaries, then jump directly to a runnable WebAssembly example below.
+
+<div id="plfh-roadmap-dag" class="showcase-dag-shell">
+  <p class="dag-fallback">Enable JavaScript to explore the interactive 50-card roadmap graph, or open the complete card index at the bottom of this page.</p>
+</div>
+
+## 2. Design Decisions & Deliberate Boundaries {#decisions}
+
+Building Dependent Haskell inside a production Haskell compiler requires
+explicit trade-offs. Six architectural decisions govern the fork and its
+companion libraries:
+
+<div class="showcase-decisions">
+  <div class="decision-card">
+    <h3>1. Four-tier specification authority</h3>
+    <p>Every syntax, flag, and typing rule follows a fixed hierarchy:
+    <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">GHC Proposal #378</a>
+    first, companion GHC proposals (<code>#281</code>, <code>#242</code>, <code>#370</code>, <code>#402</code>, <code>#425</code>, <code>#473</code>, <code>#475</code>, <code>#509</code>, <code>#523</code>, <code>#581</code>, <code>#765</code>) second,
+    the Serokell roadmap for scope tracking, and Agda/PLFA for ergonomics where proposals are silent.</p>
+  </div>
+  <div class="decision-card">
+    <h3>2. Opt-in <code>-XDependentTypes</code> &amp; <code>Haskell2010</code> interop</h3>
+    <p>Existing Haskell code stays untouched. One umbrella pragma (<code>-XDependentTypes</code>)
+    enables retained binders, open/closed function promotion, and <code>NoListTuplePuns</code>.
+    Ordinary <code>Haskell2010</code> clients can import compiled <code>.hi</code> interfaces from
+    <code>dependent-base</code> without enabling dependent extensions.</p>
+  </div>
+  <div class="decision-card">
+    <h3>3. Soundness without forced totality + modular plugins</h3>
+    <p>Following Weirich et al. (ICFP 2017), System FC stays type-safe without forcing
+    every Haskell program to terminate. Structural totality checking is opt-in
+    (<code>-freport-totality</code>). Observational equality
+    (<a href="https://github.com/TharkunAB/dependent-obs-eq"><code>dependent-obs-eq</code></a>, Jules <code>@analytichegel</code>)
+    and proof search
+    (<a href="https://github.com/TharkunAB/dependent-proof-search"><code>dependent-proof-search</code></a>)
+    live as external GHC plugins rather than ad-hoc rules inside the core solver or <code>Hole.hs</code>.</p>
+  </div>
+  <div class="decision-card">
+    <h3>4. Zero-wrapper <code>dependent-base</code></h3>
+    <p>Modeled on <code>tweag/linear-base</code> and <code>agda-prelude</code>,
+    <a href="https://github.com/TharkunAB/dependent-base"><code>dependent-base</code></a>
+    operates directly on stock <code>Prelude</code> types (<code>Bool</code>, <code>Maybe</code>,
+    <code>Either</code>, <code>(,)</code>, <code>[a]</code>, <code>(:~:)</code>, <code>Void</code>)
+    with zero wrapper datatypes, and generalizes <code>(.)</code> and <code>($)</code> to
+    dependent consumers without breaking ordinary callers.</p>
+  </div>
+  <div class="decision-card">
+    <h3>5. Three explicit design boundaries</h3>
+    <p>We deliberately preserve three boundaries rather than breaking compatibility:
+    <strong>R27</strong> keeps <code>CUSKs</code> default in <code>Haskell98</code>/<code>Haskell2010</code>
+    (while <code>-XDependentTypes</code> implies <code>NoCUSKs</code>);
+    <strong>R34</strong> keeps GHC's internal <code>HsExpr</code>/<code>HsType</code> ASTs separate
+    and reserves bare <code>a -&gt; b</code> in patterns for <code>ViewPatterns</code>;
+    <strong>R06</strong> keeps effectful <code>IO</code> and uncertified non-structural functions
+    outside type-level conversion (<code>#378 §4.10</code>).</p>
+  </div>
+  <div class="decision-card">
+    <h3>6. Verified end to end by PLFH &amp; WebAssembly</h3>
+    <p>Every compiler wave is checked against 25 PLFA textbook chapters (with Core Lint,
+    STG Lint, <code>.hi</code> soundness audits, 10 negative controls,
+    and 183 runtime checks), 642 compiler Showcase checks, and a live <code>wasm32-wasi</code>
+    browser build with compiler-exact <code>RenamedSource</code> semantic highlighting.</p>
+  </div>
+</div>
+
+## 3. Interactive Five-Act Walkthrough {#walkthrough}
+
+All examples below are visible as you scroll—nothing is hidden behind tabs.
+Click **Check in GHCi (Wasm)** on any card, check an entire Act, or click
+**Edit** to open the Agda-mode editor (**`Ctrl/Cmd+Enter`** to re-check).
+
+<div id="plfh-showcase-bar" class="plfh-chapter-bar plfh-showcase-sticky"></div>
+
+::: {.plfh-showcase-act id="act-1" data-act-num="1" data-act-title="Core & Quantifiers"}
+
+### Act 1 — Retained Quantifiers & Dependent Core (`R02`, `R03`, `R04`, `R05`, `R11`, `R39`)
+
+Haskell separates erased compile-time arguments (`forall`) from runtime values
+(`->`). Dependent Haskell adds a third point in the design space: **retained
+dependent quantifiers** (`foreach` for dependent products `Π` and `some` /
+`Sigma` for dependent sums `Σ`), backed by native `DepFunTy` and `TermVarTy` in
+GHC's System FC Core (`R05`).
+
+#### 1.1 Unified Quantifiers (`foreach`), Peano Arithmetic & Decimal Literals {#card-nat}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
@@ -31,9 +138,9 @@ with semantic colors, green typed-hole goal boxes, and error spans on
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-pattern-match">§4.5 Dependent Pattern-Match</a>
   (Richard A. Eisenberg) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0364-unify-natural.html">#364 Unify <code>Nat</code> &amp; <code>Natural</code></a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a>,
-  <a href="https://ghc.serokell.io/dh#promote-literals">R07 Promote literals</a>,
-  <a href="https://ghc.serokell.io/dh#promote-natural">R09 Promote Natural</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
+  <a href="https://ghc.serokell.io/dh#promote-literals">R07</a>,
+  <a href="https://ghc.serokell.io/dh#promote-natural">R09</a> &middot;
   <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R03-dependent-products.md">Fork R03 notes</a>
 </div>
 
@@ -45,9 +152,8 @@ boilerplate.
 {-# LANGUAGE DependentTypes #-}
 module ShowcaseNat where
 
-import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), natToInt, plus, type (+))
-import PLFH.Part1.Induction (cong)
+import Data.Nat.Dependent (Nat (..), natToInt, plus, type (+))
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 
 twoPlusThree :: (2 + 3 :: Nat) :~: 5
 twoPlusThree = Refl
@@ -64,7 +170,7 @@ five :: Int
 five = natToInt (plus 2 3)
 ```
 
-## Retained Dependent Pairs (`Sigma` / `some`) & `OverloadedRecordDot`
+#### 1.2 Retained Dependent Pairs (`Sigma` / `some`) & `OverloadedRecordDot` {#card-sigma}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
@@ -72,8 +178,8 @@ five = natToInt (plus 2 3)
   (Richard A. Eisenberg) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html">#282 Record Dot Syntax</a>
   (Neil Mitchell, Shayne Fletcher, Adam Gundry) &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-retained-quantifiers">R02 Retained quantifiers</a>,
-  <a href="https://ghc.serokell.io/dh#dependent-sums">R04 Dependent sums</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-retained-quantifiers">R02</a>,
+  <a href="https://ghc.serokell.io/dh#dependent-sums">R04</a> &middot;
   <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R04-dependent-sums.md">Fork R04 notes</a>
 </div>
 
@@ -85,11 +191,11 @@ dependent proof or length-indexed payload, and projects fields via `.first` and
 {-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot, UndecidableInstances #-}
 module ShowcaseSigma where
 
+import Data.Nat.Dependent (Nat (..), natToInt, plus)
+import Data.Sigma.Dependent (Sigma (Pair), first)
 import Data.Type.Equality ((:~:) (Refl))
-import GHC.Sigma (Sigma (Pair), first)
+import Data.Vec.Dependent (SomeVec, Vec (..), toListVec)
 import GHC.Sigma.Projection (second)
-import HaskLib.Nat (Nat (..), natToInt, plus)
-import HaskLib.Vec (SomeVec, Vec (..), toListVec)
 
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -110,26 +216,25 @@ sigmaDemo :: (Int, Int, String)
 sigmaDemo = (extractHalf, natToInt packedChars.first, toListVec (projectVec packedChars))
 ```
 
-## Dependent Records & Parameterized Record Updates
+#### 1.3 Dependent Records & Parameterized Record Updates {#card-records}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html">#282 Record Dot Syntax</a> &middot;
   Serokell <a href="https://ghc.serokell.io/dh#dependent-sums">R04 Dependent sums</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R04-dependent-sums.md">Fork R04 notes</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/Showcase.hs"><code>Showcase.hs</code></a>
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R04-dependent-sums.md">Fork R04 notes</a>
 </div>
 
-Dependent records allow later fields to refer to earlier fields, project
-dependent payloads via `.field`, and perform length-preserving updates on
-parameterized single-constructor records.
+Dependent records let later fields depend on earlier fields, project dependent
+payloads with `.field`, and perform type-changing updates that preserve the
+stored index.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedRecordDot #-}
 module ShowcaseDependentRecords where
 
-import HaskLib.Nat (Nat (..), natToInt)
-import HaskLib.Vec (Vec (..), mapVec, toListVec)
+import Data.Nat.Dependent (Nat (..), natToInt)
+import Data.Vec.Dependent (Vec (..), mapVec, toListVec)
 
 data SizedRow a = SizedRow
   { rowLen   :: Nat
@@ -153,14 +258,15 @@ rowSummary :: (Int, [String])
 rowSummary = (natToInt shownRow.rowLen, toListVec shownRow.rowItems)
 ```
 
-## Runtime `Type` Pattern Matching (`foreach (a :: Type)`)
+#### 1.4 Runtime `Type` Pattern Matching (`foreach (a :: Type)`) {#card-typecase}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#phase-distinction">#378 §4.9 Phase Distinction</a>
   (Richard A. Eisenberg) &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R03-dependent-products.md">Fork R03 notes</a>
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
+  <a href="https://ghc.serokell.io/dh#type-level-case-expressions">R19</a>,
+  <a href="https://ghc.serokell.io/dh#syntactic-unification">R34</a>
 </div>
 
 With `foreach (a :: Type)`, types themselves are retained at runtime and
@@ -184,63 +290,15 @@ demoDefaults :: (Maybe Int, Maybe Bool, Maybe String, Maybe Double)
 demoDefaults = (defaultVal Int, defaultVal Bool, defaultVal String, defaultVal Double)
 ```
 
-## Erased Existentials (`HaskLib.Exists`: `Exists`, `Pack`, `(/\)`, `Witness`)
-
-<div class="showcase-credits">
-  <strong>Spec &amp; Roadmap:</strong>
-  GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/473">#473 Existential Types</a>
-  (Richard A. Eisenberg) &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#existential-types">R22 Existential types</a> &middot;
-  <a href="/HaskLib/"><code>HaskLib.Exists</code></a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
-</div>
-
-Unlike retained `Sigma` pairs, Proposal `#473` erased existentials (`Exists p =
-exists x | p x`) hide a compile-time witness erased at runtime. `HaskLib.Exists`
-pairs `Pack (type x)` with `mapExists`, `withExists`, constraint pairing `(/\)`
-(`withEvidence`), and erased `Witness` tokens.
-
-```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseExists where
-
-import Data.Char (toUpper)
-import HaskLib.Exists
-  ( Exists
-  , Witness (Witness)
-  , data Pack
-  , mapExists
-  , type (/\) (MkCPair)
-  , withEvidence
-  , withExists
-  )
-import HaskLib.Nat (Nat (..))
-import HaskLib.Vec (Vec (..), mapVec, toListVec)
-
-hiddenWord :: Exists (Vec Char)
-hiddenWord = Pack (type (Succ (Succ Zero))) (VCons 'o' (VCons 'k' VNil))
-
-shoutWord :: Exists (Vec Char)
-shoutWord = mapExists (\_ xs -> mapVec toUpper xs) hiddenWord
-
-existsDemo :: (Bool, String)
-existsDemo =
-  let paired :: Show Bool /\ Bool
-      paired = MkCPair True
-      witOk  = case Witness @Nat of Witness -> True
-  in ( withEvidence paired (\b -> b && witOk)
-     , withExists shoutWord (\_ xs -> toListVec xs) )
-```
-
-## Linear `foreach` Binders (`foreach (x %1 :: a)`)
+#### 1.5 Linear `foreach` Binders (`foreach (x %1 :: a)`) {#card-linear}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0111-linear-types.html">#111 Linear Types</a>
   (Jean-Philippe Bernardy et al., <a href="https://doi.org/10.1145/3158093">POPL 2018</a>) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#quantifiers">#378 §4.4 Quantifiers</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
+  <a href="https://ghc.serokell.io/dh#dependent-core-language">R05</a>
 </div>
 
 Dependent `foreach` binders compose with `-XLinearTypes`: a linear retained
@@ -251,7 +309,7 @@ number of times in erased type indices.
 {-# LANGUAGE DependentTypes, LinearTypes, ListTuplePuns #-}
 module ShowcaseLinearForEach where
 
-import HaskLib.Nat (Nat (..), natToInt)
+import Data.Nat.Dependent (Nat (..), natToInt)
 
 data SingBool (b :: Bool) where
   STrue  :: SingBool True
@@ -275,37 +333,84 @@ linearDemo =
   in (bOk, nOk)
 ```
 
+#### 1.6 Off-Diagonal GADT Refutation (`zipEqualVec`) {#card-refute}
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-pattern-match">#378 §4.5 Dependent Pattern-Match</a> &middot;
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0402-gadt-syntax.html">#402 GADT Syntax</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
+  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11</a>,
+  <a href="https://ghc.serokell.io/dh#nested-quantification-in-gadts">R41</a>
+</div>
+
+When two independent `foreach` lengths are equated by `m :~: n`, GHC's
+dependent pattern-match checker refutes impossible off-diagonal cases
+(`Zero`/`Succ` and `Succ`/`Zero`), leaving only the two diagonal clauses with
+zero dummy `error` branches.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module ShowcaseRefute where
+
+import Data.Nat.Dependent (Nat (..))
+import Data.Type.Equality ((:~:) (Refl))
+import Data.Vec.Dependent (Vec (..), toListVec)
+
+zipEqualVec :: foreach (m n :: Nat)
+            -> Vec a m -> Vec b n -> (m :~: n) -> Vec (a, b) m
+zipEqualVec Zero      Zero      VNil         VNil         Refl = VNil
+zipEqualVec (Succ m') (Succ n') (VCons x xs) (VCons y ys) Refl =
+  VCons (x, y) (zipEqualVec m' n' xs ys Refl)
+
+zippedDemo :: [(Int, Char)]
+zippedDemo =
+  let two = Succ (Succ Zero)
+      xs  = VCons (1 :: Int) (VCons 2 VNil)
+      ys  = VCons 'a' (VCons 'b' VNil)
+  in toListVec (zipEqualVec two two xs ys Refl)
+```
+
 :::
 
-::: {.plfh-showcase-group data-showcase-tab="promotion" data-showcase-label="Promotion & Open Evaluation"}
+::: {.plfh-showcase-act id="act-2" data-act-num="2" data-act-title="Promotion & Open Eval"}
 
-## Stock `Prelude` Lists & Checked Open Evaluation
+### Act 2 — Universal Promotion, Open/Closed Evaluation & Large Eliminations (`R06`, `R10`, `R12`–`R17`, `R21`, `R23`)
+
+Retained quantifiers alone are not enough if every function must be duplicated
+as a `type family`. Act 2 shows the promotion stack: GHC publishes checked
+source equations for ordinary Haskell functions into `.hi` interfaces (`R13`),
+evaluates both closed (`R15`) and symbolic open calls (`R16`), tracks
+matchability for unsaturated partial applications (`R23`), and stages mixed
+same-module term/type declarations automatically (`R21`).
+
+#### 2.1 Stock `Prelude` Lists & Checked Open Evaluation {#card-lists}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/509">#509 Type-Level Functions</a> (draft) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0475-tuple-syntax.html">#475 Non-punning List &amp; Tuple Syntax</a>
   (Vladislav Zavialov) &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#function-promotion">R13 Function promotion</a>,
-  <a href="https://ghc.serokell.io/dh#open-term-evaluator">R16 Open term evaluator</a>,
-  <a href="https://ghc.serokell.io/dh#no-list-or-tuple-puns">R38 No list/tuple puns</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#function-promotion">R13</a>,
+  <a href="https://ghc.serokell.io/dh#open-term-evaluator">R16</a>,
+  <a href="https://ghc.serokell.io/dh#no-list-or-tuple-puns">R38</a> &middot;
   <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R16-open-term-evaluator.md">Fork R16 notes</a>
 </div>
 
 Ordinary functions over stock `Prelude` lists (`List a`, `(++)`, `map`,
-`HaskLib.size`) evaluate symbolically over unknown `foreach` variables so
-structural and length laws prove directly without custom list clones.
+`Data.List.Dependent.size`) reduce symbolically over unknown `foreach`
+variables, proving structural and length laws directly without custom list
+clones.
 
 ```haskell
 {-# LANGUAGE DependentTypes, NoListTuplePuns #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module ShowcaseLists where
 
-import Data.Type.Equality ((:~:) (Refl))
+import Data.List.Dependent (size)
+import Data.Nat.Dependent (Nat (..), natToInt, plus)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 import GHC.Types (List)
-import HaskLib (size)
-import HaskLib.Nat (Nat (..), natToInt, plus)
-import PLFH.Part1.Induction (cong)
 
 appendAssoc :: forall a. foreach (xs ys zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
@@ -326,7 +431,7 @@ demoLen :: Int
 demoLen = natToInt (size ("dependent" ++ " haskell"))
 ```
 
-## Matchability-Polymorphic `cong` & T2T Operator Sections
+#### 2.2 Matchability-Polymorphic `cong` & T2T Operator Sections {#card-sections}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
@@ -336,13 +441,14 @@ demoLen = natToInt (size ("dependent" ++ " haskell"))
   (Vladislav Zavialov) &middot;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0370-modifiers.html">#370 Modifiers</a> &middot;
   Serokell <a href="https://ghc.serokell.io/dh#unsaturated-type-families">R23</a>,
+  <a href="https://ghc.serokell.io/dh#type-level-lambdas">R17</a>,
   <a href="https://ghc.serokell.io/dh#modifiers-syntax">R25</a>,
   <a href="https://ghc.serokell.io/dh#visible-forall">R39</a> &middot;
   <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R23-unsaturated-type-families.md">Fork R23 notes</a>
 </div>
 
 Matchability polymorphism (`%M` / `%U`) combined with `RequiredTypeArguments`
-and T2T operator sections lets a single `cong` accept matchable
+and term-to-type operator sections lets a single `cong` accept matchable
 constructors (`Succ`), unmatchable functions (`plus m`), and left/right
 sections (`(x :)`, `(: ys)`) with zero `@` sigils.
 
@@ -350,9 +456,8 @@ sections (`(x :)`, `(: ys)`) with zero `@` sigils.
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module ShowcaseSections where
 
-import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus)
-import PLFH.Part1.Induction (cong)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 
 congSuccDemo :: forall (m n :: Nat). m :~: n -> Succ m :~: Succ n
 congSuccDemo eq = cong Succ eq
@@ -370,20 +475,21 @@ congConsRight :: forall a (x1 x2 :: a) (ys :: [a]).
 congConsRight eq = cong (: ys) eq
 ```
 
-## Term-to-`Type` Large Eliminations (Zero `type family`)
+#### 2.3 Term-to-`Type` Large Eliminations (Zero `type family`) {#card-large-elim}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#syntactic-unification">#378 §4.3.3 Syntactic Unification</a> &amp;
   <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-application-and-the-static-subset">§4.7 Dependent Application</a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#function-promotion">R13 Function promotion</a>,
-  <a href="https://ghc.serokell.io/dh#dependency-analysis">R21 Dependency analysis</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#function-promotion">R13</a>,
+  <a href="https://ghc.serokell.io/dh#closed-term-evaluator">R15</a>,
+  <a href="https://ghc.serokell.io/dh#dependency-analysis">R21</a> &middot;
   <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R21-dependency-analysis.md">Fork R21 notes</a>
 </div>
 
-Ordinary Haskell functions can compute `Type` directly from a runtime term
-argument without writing a separate `type family`—the same mechanism used in
-PLFH's [Adequacy](/Adequacy/) logical relation (`logVLam`).
+Ordinary Haskell functions compute `Type` directly from a runtime term argument
+without writing a separate `type family`—the same mechanism used for PLFH's
+[Adequacy](/Adequacy/) logical relation (`logVLam`).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
@@ -412,25 +518,88 @@ demoTagVals :: (Int, Bool, String)
 demoTagVals = (defaultForTag TInt, defaultForTag TBool, defaultForTag TStr)
 ```
 
-## Local `type` Synonyms in `let` & `where` (`#523` Extended `let`)
+:::
+
+::: {.plfh-showcase-act id="act-3" data-act-num="3" data-act-title="Language Cleanup"}
+
+### Act 3 — Language Cleanup: Erased Existentials, Local `type` Synonyms & Namespaces (`R18`, `R20`, `R22`, `R24`, `R27`, `R35`, `R36`)
+
+Serokell's third pillar removes historical friction between Haskell's term and
+type namespaces: erased existentials (`#473` / `R22`), ordered type-level lets
+and local `type` synonyms (`#523` / `R18`), constrained type families (`R24`),
+and namespace-qualified imports with pun warnings (`#581` / `#765` / `R35`–`R36`).
+
+#### 3.1 Erased Existentials (`GHC.Exists` & `Data.Exists.Dependent`) {#card-exists}
+
+<div class="showcase-credits">
+  <strong>Spec &amp; Roadmap:</strong>
+  GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/473">#473 Existential Types</a>
+  (Richard A. Eisenberg) &middot;
+  <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0581-namespace-specified-imports.html">#581 Namespace-Specified Imports</a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#existential-quantification">R22</a>,
+  <a href="https://ghc.serokell.io/dh#namespace-management">R35</a>,
+  <a href="https://ghc.serokell.io/dh#pun-warnings">R36</a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R22-existential-quantification.md">Fork R22 notes</a>
+</div>
+
+Unlike retained `Sigma` pairs, Proposal `#473` erased existentials (`Exists p =
+exists x | p x`) hide a compile-time witness erased at runtime.
+`Data.Exists.Dependent` exports `Pack`, `mapExists`, `withExists`, constraint
+pairing `(/\)`, and erased `Witness` tokens.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+module ShowcaseExists where
+
+import Data.Char (toUpper)
+import Data.Exists.Dependent
+  ( Witness (Witness)
+  , data Pack
+  , mapExists
+  , type (/\) (MkCPair)
+  , withEvidence
+  , withExists
+  )
+import Data.Nat.Dependent (Nat (..))
+import Data.Vec.Dependent (Vec (..), mapVec, toListVec)
+import GHC.Exists (Exists)
+
+hiddenWord :: Exists (Vec Char)
+hiddenWord = Pack (type (Succ (Succ Zero))) (VCons 'o' (VCons 'k' VNil))
+
+shoutWord :: Exists (Vec Char)
+shoutWord = mapExists (\_ xs -> mapVec toUpper xs) hiddenWord
+
+existsDemo :: (Bool, String)
+existsDemo =
+  let paired :: Show Bool /\ Bool
+      paired = MkCPair True
+      witOk  = case Witness @Nat of Witness -> True
+  in ( withEvidence paired (\b -> b && witOk)
+     , withExists shoutWord (\_ xs -> toListVec xs) )
+```
+
+#### 3.2 Local `type` Synonyms in `let` & `where` (`#523` Extended `let`) {#card-local-type}
 
 <div class="showcase-credits">
   <strong>Spec &amp; Roadmap:</strong>
   GHC Proposal <a href="https://github.com/ghc-proposals/ghc-proposals/pull/523">#523 Extended <code>let</code></a> &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#local-type-synonyms">R18 Local type synonyms</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
+  Serokell <a href="https://ghc.serokell.io/dh#type-level-let-bindings">R18 Type-level let-bindings</a>,
+  <a href="https://ghc.serokell.io/dh#dependency-analysis">R21</a>,
+  <a href="https://ghc.serokell.io/dh#deprecate-cusks">R27</a> &middot;
+  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R18-type-level-lets.md">Fork R18 notes</a>
 </div>
 
 Non-recursive local `type` synonyms bind directly inside `let` and `where`
-blocks, and can even capture retained `foreach` variables in scope to name
-local dependent vector shapes cleanly.
+blocks, and capture retained `foreach` variables in scope to name local
+dependent shapes cleanly.
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module ShowcaseLocalTypeSyn where
 
-import HaskLib.Nat (Nat (..))
-import HaskLib.Vec (Vec (..))
+import Data.Nat.Dependent (Nat (..))
+import Data.Vec.Dependent (Vec (..))
 
 localTypeSynDemo :: Int
 localTypeSynDemo =
@@ -454,36 +623,96 @@ localTypeSynDemo =
 
 :::
 
-::: {.plfh-showcase-group data-showcase-tab="libraries" data-showcase-label="Indexed Libraries (HaskLib)"}
+::: {.plfh-showcase-act id="act-4" data-act-num="4" data-act-title="dependent-base"}
 
-## Length-Indexed Vectors, Safe `Fin` Indexing & Runtime List Boundaries
+### Act 4 — `dependent-base` & First-Class Dependent Combinators (`TharkunAB/dependent-base`)
+
+Language features only prove themselves when real libraries compose cleanly.
+[`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
+(22 modules, zero wrapper types, `Haskell2010` `.hi`-only interop) turns the
+compiler primitives into an ergonomic standard library—including a single
+first-class `(.)` operator that works across dependent proofs, indexed vectors,
+and ordinary Haskell functions.
+
+#### 4.1 First-Class Dependent Composition `(.)` & `($)` {#card-dep-compose}
 
 <div class="showcase-credits">
-  <strong>Spec &amp; Roadmap:</strong>
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a>,
-  <a href="https://ghc.serokell.io/dh#dependent-sums">R04 Dependent sums</a>,
-  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11 Homogeneous equality</a> &middot;
-  <a href="/HaskLib/">HaskLib Reference</a> (transitioning to
-  <a href="https://github.com/TharkunAB/dependent-base"><code>TharkunAB/dependent-base</code></a>) &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R11-homogeneous-equality.md">Fork R11 notes</a>
+  <strong>Package &amp; Reference:</strong>
+  <a href="https://github.com/TharkunAB/dependent-base"><code>TharkunAB/dependent-base</code></a> &middot;
+  <a href="/DependentBase/#datafunctiondependent"><code>Data.Function.Dependent</code></a> &middot;
+  Modeled on <a href="https://github.com/tweag/linear-base"><code>linear-base</code></a> &amp; <code>agda-prelude</code>
 </div>
 
-`HaskLib.Vec` and `HaskLib.Fin` pair static length guarantees (`appendVec`,
-`zipVec`, total `lookupVec`) with explicit ordinary-list boundary adapters
-(`packListVec`, `fromListExact`) inspired by `linear-base` and Agda's standard
-library.
+`Data.Function.Dependent.(.)` generalizes `Prelude.(.)` to dependent consumers
+whose return type mentions `f x`. GHC synthesizes the motive automatically for
+`plusZero . Succ`, `zeros . plus 1`, and `cong (Succ . plus m)`, while leaving
+ordinary `Int -> Int` composition unchanged.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module ShowcaseDepCompose where
+
+import Prelude hiding ((.))
+import Data.Function.Dependent ((.))
+import Data.Nat.Dependent (Nat (..), natToInt, plus)
+import Data.Nat.Dependent.Properties (plusZero)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
+import Data.Vec.Dependent (Vec (..), toListVec)
+
+zeros :: foreach (n :: Nat) -> Vec Nat n
+zeros Zero     = VNil
+zeros (Succ n) = VCons Zero (zeros n)
+
+-- Dependent vector producer composed with an ordinary arithmetic function:
+zerosPlus1 :: foreach (n :: Nat) -> Vec Nat (plus 1 n)
+zerosPlus1 = (.) zeros (plus 1)
+
+-- Dependent equality proof composed directly with constructor Succ:
+plusIdSucc :: foreach (n :: Nat) -> plus (Succ n) Zero :~: Succ n
+plusIdSucc = plusZero . Succ
+
+-- Composed function passed directly to matchability-polymorphic cong:
+congSuccPlus :: foreach (m :: Nat)
+             -> forall (x y :: Nat). x :~: y -> Succ (plus m x) :~: Succ (plus m y)
+congSuccPlus m eq = cong (Succ . plus m) eq
+
+-- The exact same (.) works unchanged on ordinary non-dependent functions:
+ordinaryCompose :: (Int -> Int) -> (Int -> Int) -> Int -> Int
+ordinaryCompose g f = g . f
+
+composeDemo :: ([Int], Int)
+composeDemo = (map natToInt (toListVec (zerosPlus1 2)), ordinaryCompose (* 2) (+ 1) 20)
+```
+
+#### 4.2 Length-Indexed `Vec`, Safe `Fin` Indexing & Runtime List Boundaries {#card-vec-fin}
+
+<div class="showcase-credits">
+  <strong>Package &amp; Roadmap:</strong>
+  <a href="https://github.com/TharkunAB/dependent-base"><code>TharkunAB/dependent-base</code></a> &middot;
+  <a href="/DependentBase/#datavecdependent"><code>Data.Vec.Dependent</code></a> &amp;
+  <a href="/DependentBase/#datafindependent"><code>Data.Fin.Dependent</code></a> &middot;
+  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03</a>,
+  <a href="https://ghc.serokell.io/dh#dependent-sums">R04</a>,
+  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11</a>
+</div>
+
+`Data.Vec.Dependent` and `Data.Fin.Dependent` pair static length guarantees
+(`appendVec`, `zipVec`, total `lookupVec`) with explicit ordinary-list boundary
+adapters (`packListVec`, `fromListExact`).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module ShowcaseVecFin where
 
-import GHC.Sigma (Sigma (Pair))
-import HaskLib.Fin (Fin (..), lookupVec)
-import HaskLib.Nat (Nat (..), natToInt)
-import HaskLib.Vec
+import Data.Fin.Dependent (Fin (..))
+import Data.Nat.Dependent (Nat (..), natToInt)
+import Data.Sigma.Dependent (Sigma (Pair))
+import Data.Vec.Dependent
   ( Vec (..)
   , appendVec
   , headVec
+  , lookupVec
   , mapVec
   , packListVec
   , toListVec
@@ -513,72 +742,42 @@ firstAndPacked :: (String, (Int, String))
 firstAndPacked = (headVec combined, packAndRead "plfh")
 ```
 
-## Off-Diagonal GADT Branch Refutation (`zipEqualVec`)
-
-<div class="showcase-credits">
-  <strong>Spec &amp; Roadmap:</strong>
-  GHC Proposal <a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html#dependent-pattern-match">#378 §4.5 Dependent Pattern-Match</a>
-  (Richard A. Eisenberg) &middot;
-  Serokell <a href="https://ghc.serokell.io/dh#dependent-products">R03 Dependent products</a>,
-  <a href="https://ghc.serokell.io/dh#homogeneous-equality">R11 Homogeneous equality</a> &middot;
-  <a href="https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/BookWave12RoadmapClosure.hs"><code>BookWave12RoadmapClosure.hs</code></a>
-</div>
-
-When two independent `foreach` lengths are equated by `m :~: n`, GHC's
-dependent pattern-match checker automatically refutes impossible off-diagonal
-cases (`Zero`/`Succ` and `Succ`/`Zero`)—leaving only the two diagonal clauses
-with zero dummy `error` branches.
-
-```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns #-}
-module ShowcaseRefute where
-
-import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..))
-import HaskLib.Vec (Vec (..), toListVec)
-
-zipEqualVec :: foreach (m n :: Nat)
-            -> Vec a m -> Vec b n -> (m :~: n) -> Vec (a, b) m
-zipEqualVec Zero      Zero      VNil         VNil         Refl = VNil
-zipEqualVec (Succ m') (Succ n') (VCons x xs) (VCons y ys) Refl =
-  VCons (x, y) (zipEqualVec m' n' xs ys Refl)
-
-zippedDemo :: [(Int, Char)]
-zippedDemo =
-  let two = Succ (Succ Zero)
-      xs  = VCons (1 :: Int) (VCons 2 VNil)
-      ys  = VCons 'a' (VCons 'b' VNil)
-  in toListVec (zipEqualVec two two xs ys Refl)
-```
-
 :::
 
-::: {.plfh-showcase-group data-showcase-tab="agda-mode" data-showcase-label="Agda-Mode & Typed Holes"}
+::: {.plfh-showcase-act id="act-5" data-act-num="5" data-act-title="Agda-Mode & Plugins"}
 
-## Agda-Mode Typed Holes, Case Splits, Subgoal Refinement & 1-Step Synthesis
+### Act 5 — Interactive Agda-Mode, `dependent-proof-search` & `dependent-obs-eq`
+
+Rather than hard-coding proof heuristics or non-standard equality rules into
+GHC's core, the fork keeps `GHC.Tc.Errors.Hole` and System FC conversion clean
+and exposes general plugin hooks (`HoleFitPlugin`, `TcPlugin`, and
+`installCoreToDos`). Two standalone packages build on those hooks.
+
+#### 5.1 Agda-Mode Typed Holes, Case Splits & `Dependent.Plugin.ProofSearch` {#card-agda-mode}
 
 <div class="showcase-credits">
-  <strong>Spec &amp; Research:</strong>
+  <strong>Spec, Research &amp; Plugin:</strong>
   Matth&iacute;as P&aacute;ll Gissurarson,
   <a href="https://doi.org/10.1145/3242744.3242760"><em>Suggesting Valid Hole Fits for Typed-Holes in Haskell</em></a>
   (Haskell 2018) &middot;
-  Extended for Dependent Haskell subgoal splitting &amp; case-split suggestions &middot;
-  Inspired by <a href="https://plfa.inf.ed.ac.uk/">PLFA</a> &amp; Emacs <code>agda-mode</code>
+  <a href="https://github.com/TharkunAB/dependent-proof-search"><code>TharkunAB/dependent-proof-search</code></a>
+  (<code>-fplugin=Dependent.Plugin.ProofSearch</code>) &middot;
+  Compiler-exact <code>RenamedSource</code> semantic highlighting
 </div>
 
 Click **Edit** and press **`Ctrl/Cmd+Enter`** (or click **Check in GHCi
 (Wasm)** directly): GHC highlights `_` in an Agda-green goal box, suggests
-splitting on `m` to unblock `plus`, and lets you finish `plusAssoc` via
-subgoal refinement (`cong Succ _`) or 1-step synthesis (`cong Succ (plusAssoc m
-n p)`). When the proof checks, the buffer lights up in full semantic colors.
+splitting on `m` to unblock `plus`, and—with `Dependent.Plugin.ProofSearch`
+active—suggests both step-by-step subgoal refinements (`cong Succ _`) and
+direct bounded synthesis (`cong Succ (plusAssoc m n p)`). Try replacing the
+proof of `plusComm` with `trans (plusSuc m k) (cong Succ (plusComm _ _))` too!
 
 ```{.haskell data-showcase-hole="1"}
 {-# LANGUAGE DependentTypes #-}
 module ShowcaseAgdaMode where
 
-import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus)
-import PLFH.Part1.Induction (cong)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 
 -- Solve in 3 clicks:
 -- 1. Check in GHCi (Wasm) -> click "Split on m (Zero | Succ)"
@@ -589,11 +788,82 @@ plusAssoc :: foreach (m n p :: Nat)
 plusAssoc m n p = _
 ```
 
+<div class="note-box">
+  <strong>Observational Equality Plugin (<code>dependent-obs-eq</code>):</strong>
+  <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>TharkunAB/dependent-obs-eq</code></a>,
+  credited to <strong>Jules (<code>@analytichegel</code>)</strong>, uses the
+  fork's uninterpreted open term call representation (<code>U:f</code>) and GHC's
+  <code>TcPlugin</code> API (<code>-fplugin=Dependent.Plugin.ObsEq</code>) to
+  test uncertified and open function equalities with QuickCheck across total and
+  partial inputs, shrink counterexamples, and discharge explicit observational
+  witnesses—without weakening GHC's built-in Core conversion.
+</div>
+
 :::
 
 ---
 
-## Credits, Specifications & Upcoming Waves
+## 4. Complete 50-Card Roadmap Index (`R01`–`R50`) {#complete-index}
+
+<details class="roadmap-index-details">
+<summary>Expand full table of all 50 Serokell cards (23 upstream GHC + 27 fork implemented)</summary>
+
+| Card | Serokell Title | Status | Depends on | Fork / Proposal Reference |
+| --- | --- | --- | --- | --- |
+| **R01** | [Dependent Haskell](https://ghc.serokell.io/dh#dependent-haskell) | Fork | R02, R06, R20 | [`#378`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html), [`PROPOSAL-378.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/PROPOSAL-378.md) |
+| **R02** | [Dependent retained quantifiers](https://ghc.serokell.io/dh#dependent-retained-quantifiers) | Fork | R03, R04 | `#378 §4.2–4.5` |
+| **R03** | [Dependent products](https://ghc.serokell.io/dh#dependent-products) | Fork | R05, R39 | [R03 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R03-dependent-products.md) |
+| **R04** | [Dependent sums](https://ghc.serokell.io/dh#dependent-sums) | Fork | R05, R22 | [R04 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R04-dependent-sums.md) |
+| **R05** | [Dependent Core language](https://ghc.serokell.io/dh#dependent-core-language) | Fork | — | [R05 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R05-dependent-core.md) |
+| **R06** | [Universal promotion](https://ghc.serokell.io/dh#universal-promotion) | Fork (boundary: `#378 §4.10`) | R07, R10, R12, R13, R14 | Pure promotion; `IO` excluded |
+| **R07** | [Promote literals](https://ghc.serokell.io/dh#promote-literals) | Fork | R08, R09, R24 | [`#364`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0364-unify-natural.html) |
+| **R08** | [Promote Char](https://ghc.serokell.io/dh#promote-char) | Upstream GHC | — | Inherited `DataKinds` `Char` |
+| **R09** | [Promote Natural](https://ghc.serokell.io/dh#promote-natural) | Upstream GHC | — | [`#364`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0364-unify-natural.html) |
+| **R10** | [Promote unboxed types](https://ghc.serokell.io/dh#promote-unboxed-types) | Fork | R11 | [R10 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R10-unboxed-promotion.md) |
+| **R11** | [Homogeneous equality](https://ghc.serokell.io/dh#homogeneous-equality) | Fork | — | [R11 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R11-homogeneous-equality.md) |
+| **R12** | [Promote classes](https://ghc.serokell.io/dh#promote-classes) | Fork | R13, R24 | [R12 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R12-promote-classes.md) |
+| **R13** | [Function promotion](https://ghc.serokell.io/dh#function-promotion) | Fork | R15–R19, R21, R23 | [R16 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R16-open-term-evaluator.md) |
+| **R14** | [Data family promotion](https://ghc.serokell.io/dh#data-family-promotion) | Fork | — | [R14 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R14-data-family-promotion.md) |
+| **R15** | [Closed term evaluator](https://ghc.serokell.io/dh#closed-term-evaluator) | Fork | — | [R15 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R15-closed-term-evaluator.md) |
+| **R16** | [Open term evaluator](https://ghc.serokell.io/dh#open-term-evaluator) | Fork | — | [R16 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R16-open-term-evaluator.md) |
+| **R17** | [Type-level lambdas](https://ghc.serokell.io/dh#type-level-lambdas) | Fork | R05, R16 | [R17 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R17-type-level-lambdas.md) |
+| **R18** | [Type-level let-bindings](https://ghc.serokell.io/dh#type-level-let-bindings) | Fork (release-ready) | R05, R16 | [R18 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R18-type-level-lets.md), `#523` |
+| **R19** | [Type-level case-expressions](https://ghc.serokell.io/dh#type-level-case-expressions) | Fork | R05, R16 | [R19 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R19-type-level-cases.md) |
+| **R20** | [Clean up the language](https://ghc.serokell.io/dh#clean-up-the-language) | Fork | R21–R24, R27, R28, R35, R39, R49 | Aggregate milestone |
+| **R21** | [Dependency analysis](https://ghc.serokell.io/dh#dependency-analysis) | Fork | — | [R21 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R21-dependency-analysis.md) |
+| **R22** | [Existential quantification](https://ghc.serokell.io/dh#existential-quantification) | Fork | — | [R22 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R22-existential-quantification.md), `#473` |
+| **R23** | [Unsaturated type families](https://ghc.serokell.io/dh#unsaturated-type-families) | Fork | R25 | [R23 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R23-unsaturated-type-families.md), `#242` |
+| **R24** | [Constrained type families](https://ghc.serokell.io/dh#constrained-type-families) | Fork | — | [R24 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R24-constrained-type-families.md) |
+| **R25** | [Modifiers syntax](https://ghc.serokell.io/dh#modifiers-syntax) | Upstream GHC | — | [`#370`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0370-modifiers.html) |
+| **R26** | [Standalone kind signatures](https://ghc.serokell.io/dh#standalone-kind-signatures) | Upstream GHC | — | Implied by `-XDependentTypes` |
+| **R27** | [Deprecate CUSKs](https://ghc.serokell.io/dh#deprecate-cusks) | Fork (boundary: H98/H2010) | R26, R29 | [R27 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R27-deprecate-cusks.md) |
+| **R28** | [Invisible type arguments](https://ghc.serokell.io/dh#invisible-type-arguments) | Upstream GHC | R29–R33 | Inherited upstream |
+| **R29** | [Invisible binders in types](https://ghc.serokell.io/dh#invisible-binders-in-types) | Upstream GHC | R26 | [`#425`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0425-decl-invis-binders.html) |
+| **R30** | [Invisible binders in functions](https://ghc.serokell.io/dh#invisible-binders-in-functions) | Upstream GHC | — | `#448` |
+| **R31** | [Invisible binders in constructors](https://ghc.serokell.io/dh#invisible-binders-in-constructors) | Upstream GHC | — | `#126` |
+| **R32** | [Visible type applications](https://ghc.serokell.io/dh#visible-type-applications) | Upstream GHC | — | `TypeApplications` |
+| **R33** | [Visible kind applications](https://ghc.serokell.io/dh#visible-kind-applications) | Upstream GHC | — | `#15` |
+| **R34** | [Syntactic unification](https://ghc.serokell.io/dh#syntactic-unification) | Fork (boundary: AST split) | R44–R47 | `#378 §4.3`, `#281` |
+| **R35** | [Namespace management](https://ghc.serokell.io/dh#namespace-management) | Fork (release-ready) | R36–R38, R42 | [R35 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R35-namespace-management.md) |
+| **R36** | [Pun warnings](https://ghc.serokell.io/dh#pun-warnings) | Fork (release-ready) | — | [R36 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R36-pun-warnings.md), `#765` |
+| **R37** | [Namespace-specified imports](https://ghc.serokell.io/dh#namespace-specified-imports) | Upstream GHC | — | [`#581`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0581-namespace-specified-imports.html) |
+| **R38** | [No list or tuple puns](https://ghc.serokell.io/dh#no-list-or-tuple-puns) | Upstream GHC | — | [`#475`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0475-tuple-syntax.html) |
+| **R39** | [Visible forall](https://ghc.serokell.io/dh#visible-forall) | Upstream GHC | R34, R40, R41, R43 | [`#281`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0281-visible-forall.html) |
+| **R40** | [Visibility coercions](https://ghc.serokell.io/dh#visibility-coercions) | Upstream GHC | — | `#281` |
+| **R41** | [Nested quantification in GADTs](https://ghc.serokell.io/dh#nested-quantification-in-gadts) | Fork (release-ready) | — | [R41 notes](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/roadmap/R41-nested-quantification-in-gadts.md), `#402` |
+| **R42** | [Embed types](https://ghc.serokell.io/dh#embed-types) | Upstream GHC | — | `(type T)` herald |
+| **R43** | [Term variable capture](https://ghc.serokell.io/dh#term-variable-capture) | Upstream GHC | — | `#281` |
+| **R44** | [No star kind syntax](https://ghc.serokell.io/dh#no-star-kind-syntax) | Upstream GHC | R50 | `NoStarIsType` |
+| **R45** | [The forall keyword](https://ghc.serokell.io/dh#the-forall-keyword) | Upstream GHC | — | `#378` |
+| **R46** | [The tilde operator](https://ghc.serokell.io/dh#the-tilde-operator) | Upstream GHC | R48 | `#229` |
+| **R47** | [The dot type operator](https://ghc.serokell.io/dh#the-dot-type-operator) | Upstream GHC | R48 | `#229`, `#282` |
+| **R48** | [Whitespace-sensitive operators](https://ghc.serokell.io/dh#whitespace-sensitive-operators) | Upstream GHC | — | `#229` |
+| **R49** | [Unify type and kind variables](https://ghc.serokell.io/dh#unify-type-and-kind-variables) | Upstream GHC | R50 | `PolyKinds` |
+| **R50** | [Unify types and kinds](https://ghc.serokell.io/dh#unify-types-and-kinds) | Upstream GHC | — | `TypeInType` |
+
+</details>
+
+## 5. Credits & Literature {#credits}
 
 Dependent Haskell in [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
 builds directly on years of design, proposals, and research across the Haskell
@@ -614,18 +884,18 @@ and GHC community:
     (*Syntax for Modifiers*) — Arnaud Spiwack, Richard A. Eisenberg, and Vladislav Zavialov
   - [`#282`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0282-record-dot-syntax.html)
     (*Record Dot Syntax*) — Neil Mitchell, Shayne Fletcher, and Adam Gundry
-  - [`#509`](https://github.com/ghc-proposals/ghc-proposals/pull/509) (*Type-Level Functions*) and
-    [`#523`](https://github.com/ghc-proposals/ghc-proposals/pull/523) (*Extended `let` / local type synonyms*)
+  - [`#509`](https://github.com/ghc-proposals/ghc-proposals/pull/509) (*Type-Level Functions*),
+    [`#523`](https://github.com/ghc-proposals/ghc-proposals/pull/523) (*Extended `let`*), and
+    [`#765`](https://ghc-proposals.readthedocs.io/en/latest/proposals/0765-pun-warnings.html) (*Pun Warnings*)
 - **Serokell Dependent Haskell Roadmap:**
-  [`ghc.serokell.io/dh`](https://ghc.serokell.io/dh) (50 roadmap cards `R01`–`R50` and dependency graph).
+  [`ghc.serokell.io/dh`](https://ghc.serokell.io/dh) (50 roadmap cards `R01`–`R50` and 67 dependency edges).
+- **Companion Packages:**
+  - [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) — zero-wrapper Dependent Haskell standard library
+  - [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) — QuickCheck observational equality `TcPlugin`, credited to **Jules (`@analytichegel`)**
+  - [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) — bounded proof-search `HoleFitPlugin`
 - **Foundational Literature & Textbooks:**
   Adam Gundry (2013), Richard A. Eisenberg (2016), Stephanie Weirich et al.
   ([ICFP 2017](https://doi.org/10.1145/3110275), [ICFP 2019](https://doi.org/10.1145/3341705)),
   Csongor Kiss et al. ([ICFP 2019](https://doi.org/10.1145/3341706)),
   Matth&iacute;as P&aacute;ll Gissurarson ([Haskell 2018](https://doi.org/10.1145/3242744.3242760)),
   and Philip Wadler, Wen Kokke, &amp; Jeremy G. Siek ([PLFA](https://plfa.inf.ed.ac.uk/), CC BY 4.0).
-- **Upcoming additions:**
-  [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
-  (replacing `HaskLib` with first-class `Data.*.Dependent` modules, including
-  dependent function composition `(.)`), [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
-  and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).

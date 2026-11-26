@@ -2,6 +2,8 @@
 // Zero network cost on page load: the Web Worker and rootfs.tar.gz load
 // only when the reader opens the chapter GHCi bar or checks a code block.
 
+import { mountRoadmapDag } from "./plfh-roadmap-dag.mjs";
+
 export class PlfhGhciClient {
   #worker = null;
   #workerUrl;
@@ -742,13 +744,20 @@ function applyCaseSplit(code, hole, split, lineOffset = null) {
   return lines.join("\n");
 }
 
-// Enable abstract refinement hole fits alongside Dependent Haskell's default
-// refinement fits so combinators like `trans :: (a :~: b) -> (b :~: c) -> a :~: c`
-// with un-unified intermediate type variables are suggested.
-function refinementExtraGhcArgs(refinementEnabled) {
-  return refinementEnabled
-    ? "-fabstract-refinement-hole-fits"
-    : "-fmax-refinement-hole-fits=0";
+// Enable general refinement hole fits (-frefinement-level-hole-fits=2 and
+// -fabstract-refinement-hole-fits) and the standalone Dependent.Plugin.ProofSearch
+// HoleFitPlugin for congruence/transitivity subgoal refinements & bounded synthesis.
+function refinementExtraGhcArgs(uiState) {
+  const parts = [];
+  if (uiState.refinementFits) {
+    parts.push("-frefinement-level-hole-fits=2", "-fabstract-refinement-hole-fits");
+  } else {
+    parts.push("-fmax-refinement-hole-fits=0");
+  }
+  if (uiState.proofSearch) {
+    parts.push("-fplugin=Dependent.Plugin.ProofSearch");
+  }
+  return parts.join(" ");
 }
 
 // Render interactive Agda-mode hole goals, case-split buttons, and clickable fit chips.
@@ -1494,11 +1503,23 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
   });
   refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
 
+  const proofLabel = document.createElement("label");
+  proofLabel.className = "plfh-refinement-toggle";
+  proofLabel.title =
+    "Enable Dependent.Plugin.ProofSearch (-fplugin=Dependent.Plugin.ProofSearch) for congruence/transitivity refinements & bounded proof search";
+  const proofCheckbox = document.createElement("input");
+  proofCheckbox.type = "checkbox";
+  proofCheckbox.checked = uiState.proofSearch;
+  proofCheckbox.addEventListener("change", () => {
+    uiState.proofSearch = proofCheckbox.checked;
+  });
+  proofLabel.append(proofCheckbox, document.createTextNode(" ProofSearch plugin"));
+
   const statusSpan = document.createElement("span");
   statusSpan.className = "plfh-wasm-status";
   statusSpan.textContent = "Loads on demand";
 
-  actions.append(openBtn, checkAllBtn, refineLabel);
+  actions.append(openBtn, checkAllBtn, refineLabel, proofLabel);
   header.append(label, actions, statusSpan);
 
   const drawer = document.createElement("div");
@@ -1612,7 +1633,7 @@ function mountChapterBar(mountEl, client, chapterModule, ctx, uiState) {
       chapterPragmas: ctx.chapterPragmas,
       chapterImports: ctx.chapterImports,
       chapterExports: ctx.chapterExports,
-      extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
+      extraGhcArgs: refinementExtraGhcArgs(uiState),
     });
     scratchBtn.disabled = false;
     output.hidden = false;
@@ -1690,9 +1711,8 @@ const PLAYGROUND_PRESETS = [
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
-import Data.Type.Equality ((:~:) (Refl), trans)
-import HaskLib.Nat (Nat (..), natToInt, plus, type (+))
-import PLFH.Part1.Induction (cong)
+import Data.Nat.Dependent (Nat (..), natToInt, plus, type (+))
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong, trans)
 
 twoPlusThree :: (2 + 3 :: Nat) :~: 5
 twoPlusThree = Refl
@@ -1712,22 +1732,55 @@ plusComm m (Succ k) = plusSuc m k \`trans\` cong Succ (plusComm m k)
   },
   {
     id: "holes",
-    label: "Agda-mode Case Split & Holes",
+    label: "Agda-mode & ProofSearch",
     replHint: ":t plusAssoc",
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
-import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus)
-import PLFH.Part1.Induction (cong)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 
--- Interactive Agda-mode proof in 3 clicks:
+-- Interactive Agda-mode proof in 3 clicks (powered by Dependent.Plugin.ProofSearch):
 -- 1. Click "Check & Load in GHCi" -> GHC suggests splitting on \`m\`.
 -- 2. Click "Split on m (Zero | Succ)" -> GHC generates both cases.
 -- 3. Click \`Refl\`, then \`cong Succ (plusAssoc m n p)\` (or refine via \`cong Succ _\`)!
 plusAssoc :: foreach (m n p :: Nat)
           -> plus (plus m n) p :~: plus m (plus n p)
 plusAssoc m n p = _
+`,
+  },
+  {
+    id: "dep-compose",
+    label: "Dependent (.) & dependent-base",
+    replHint: "composeDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
+module Playground where
+
+import Prelude hiding ((.))
+import Data.Function.Dependent ((.))
+import Data.Nat.Dependent (Nat (..), natToInt, plus)
+import Data.Nat.Dependent.Properties (plusZero)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
+import Data.Vec.Dependent (Vec (..), toListVec)
+
+zeros :: foreach (n :: Nat) -> Vec Nat n
+zeros Zero     = VNil
+zeros (Succ n) = VCons Zero (zeros n)
+
+-- First-class dependent composition (.):
+zerosPlus1 :: foreach (n :: Nat) -> Vec Nat (plus 1 n)
+zerosPlus1 = (.) zeros (plus 1)
+
+plusIdSucc :: foreach (n :: Nat) -> plus (Succ n) Zero :~: Succ n
+plusIdSucc = plusZero . Succ
+
+congSuccPlus :: foreach (m :: Nat)
+             -> forall (x y :: Nat). x :~: y -> Succ (plus m x) :~: Succ (plus m y)
+congSuccPlus m eq = cong (Succ . plus m) eq
+
+composeDemo :: [Int]
+composeDemo = map natToInt (toListVec (zerosPlus1 2))
 `,
   },
   {
@@ -1738,11 +1791,10 @@ plusAssoc m n p = _
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
 module Playground where
 
-import Data.Type.Equality ((:~:) (Refl))
+import Data.List.Dependent (size)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 import GHC.Types (List)
-import HaskLib (size)
-import HaskLib.Nat (Nat (..), plus)
-import PLFH.Part1.Induction (cong)
 
 lengthAppend :: forall a. foreach (xs ys :: List a)
              -> size (xs ++ ys) :~: plus (size xs) (size ys)
@@ -1762,9 +1814,9 @@ lengthMap f (_ : xs) = cong Succ (lengthMap f xs)
     code: `{-# LANGUAGE DependentTypes, UndecidableInstances #-}
 module Playground where
 
+import Data.Nat.Dependent (Nat (..), natToInt, plus)
+import Data.Sigma.Dependent (Sigma (Pair))
 import Data.Type.Equality ((:~:) (Refl))
-import GHC.Sigma (Sigma (Pair))
-import HaskLib.Nat (Nat (..), natToInt, plus)
 
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -1783,9 +1835,9 @@ extractHalf = case halfOfFour of
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
-import HaskLib.Fin (Fin (..), lookupVec)
-import HaskLib.Nat (Nat (..))
-import HaskLib.Vec (Vec (..), appendVec, headVec, mapVec)
+import Data.Fin.Dependent (Fin (..))
+import Data.Nat.Dependent (Nat (..))
+import Data.Vec.Dependent (Vec (..), appendVec, headVec, lookupVec, mapVec)
 
 xs :: Vec String 2
 xs = VCons "dependent" (VCons "haskell" VNil)
@@ -1811,12 +1863,11 @@ firstWord = headVec combined
 module Playground where
 
 import Data.Kind (Type)
-import Data.Type.Equality ((:~:) (Refl))
-import GHC.Sigma (Sigma (Pair), first)
+import Data.Nat.Dependent (Nat (..), natToInt)
+import Data.Sigma.Dependent (Sigma (Pair), first)
+import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
+import Data.Vec.Dependent (SomeVec, Vec (..), toListVec)
 import GHC.Sigma.Projection (second)
-import HaskLib.Nat (Nat (..), natToInt)
-import HaskLib.Vec (SomeVec, Vec (..), toListVec)
-import PLFH.Part1.Induction (cong)
 
 -- 1. Runtime Type pattern matching (Proposal #378 section 4.9):
 defaultVal :: foreach (a :: Type) -> Maybe a
@@ -1833,7 +1884,7 @@ data SizedVec a = SizedVec
   }
 
 sampleVec :: SizedVec String
-sampleVec = SizedVec 2 (VCons "wave" (VCons "ten" VNil))
+sampleVec = SizedVec 2 (VCons "dependent" (VCons "base" VNil))
 
 sampleLen :: Int
 sampleLen = natToInt sampleVec.vecLen
@@ -1902,8 +1953,8 @@ evalTwoPlusTwo =
     code: `{-# LANGUAGE DependentTypes #-}
 module Playground where
 
+import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus)
 
 -- GHC rejects this false proof with [GHC-83865] (4 /= 5):
 bogus :: plus 2 2 :~: 5
@@ -1929,13 +1980,13 @@ function mountStandalonePlayground(mountEl, client, uiState) {
   const replInput = document.createElement("input");
   replInput.type = "text";
   replInput.className = "plfh-wasm-repl-input";
-  replInput.placeholder = `Try ${activePreset.replHint}, :browse HaskLib.Nat, :t ..., or :k! plus 2 3`;
+  replInput.placeholder = `Try ${activePreset.replHint}, :browse Prelude.Dependent, :t ..., or :k! plus 2 3`;
   replInput.setAttribute("aria-label", "Playground GHCi prompt");
 
   const selectPreset = (preset) => {
     activePreset = preset;
     editor.value = preset.code;
-    replInput.placeholder = `Try ${preset.replHint}, :browse HaskLib.Nat, :t ..., or :k! plus 2 3`;
+    replInput.placeholder = `Try ${preset.replHint}, :browse Prelude.Dependent, :t ..., or :k! plus 2 3`;
     for (const [id, btn] of presetBtns.entries()) {
       btn.classList.toggle("plfh-preset-btn--active", id === preset.id);
     }
@@ -1980,11 +2031,23 @@ function mountStandalonePlayground(mountEl, client, uiState) {
   });
   refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
 
+  const proofLabel = document.createElement("label");
+  proofLabel.className = "plfh-refinement-toggle";
+  proofLabel.title =
+    "Enable Dependent.Plugin.ProofSearch (-fplugin=Dependent.Plugin.ProofSearch) for congruence/transitivity subgoal refinements & bounded proof search";
+  const proofCheckbox = document.createElement("input");
+  proofCheckbox.type = "checkbox";
+  proofCheckbox.checked = uiState.proofSearch;
+  proofCheckbox.addEventListener("change", () => {
+    uiState.proofSearch = proofCheckbox.checked;
+  });
+  proofLabel.append(proofCheckbox, document.createTextNode(" ProofSearch plugin"));
+
   const statusSpan = document.createElement("span");
   statusSpan.className = "plfh-wasm-status";
   statusSpan.textContent = "Loads Dependent GHCi (Wasm) on first run";
 
-  toolbar.append(checkBtn, resetBtn, refineLabel, statusSpan);
+  toolbar.append(checkBtn, resetBtn, refineLabel, proofLabel, statusSpan);
 
   const holePanel = document.createElement("div");
   holePanel.className = "plfh-hole-panel";
@@ -2027,7 +2090,7 @@ function mountStandalonePlayground(mountEl, client, uiState) {
     const res = await client.checkBlock({
       code: editor.value,
       chapterModule: null,
-      extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
+      extraGhcArgs: refinementExtraGhcArgs(uiState),
     });
     checkBtn.disabled = false;
     output.hidden = false;
@@ -2101,21 +2164,9 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
   mountEl.innerHTML = "";
   mountEl.classList.add("plfh-chapter-bar--ready");
 
-  const groups = [...document.querySelectorAll(".plfh-showcase-group")];
+  const acts = [...document.querySelectorAll(".plfh-showcase-act")];
   const completeEntries = cardEntries.filter((e) => !e.isHole);
   const holeEntries = cardEntries.filter((e) => e.isHole);
-  let activeTab = groups[0]?.dataset.showcaseTab || "all";
-
-  const hashMatch = window.location.hash.match(/^#tab=([a-z0-9-]+)$/i);
-  if (hashMatch) {
-    const requested = hashMatch[1];
-    if (
-      requested === "all" ||
-      groups.some((g) => g.dataset.showcaseTab === requested)
-    ) {
-      activeTab = requested;
-    }
-  }
 
   const header = document.createElement("div");
   header.className = "plfh-chapter-bar-row";
@@ -2126,25 +2177,20 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
     holeEntries.length > 0
       ? ` + ${holeEntries.length} Agda-mode hole${holeEntries.length === 1 ? "" : "s"}`
       : "";
-  label.innerHTML = `<strong>Roadmap Showcase (Wasm):</strong> ${completeEntries.length} complete cards${holeSuffix}`;
+  label.innerHTML = `<strong>Live Walkthrough (Wasm):</strong> ${completeEntries.length} runnable modules${holeSuffix}`;
 
   const actions = document.createElement("div");
   actions.className = "plfh-chapter-bar-actions";
 
-  const checkTabBtn = document.createElement("button");
-  checkTabBtn.type = "button";
-  checkTabBtn.className = "plfh-wasm-btn plfh-wasm-check";
-  checkTabBtn.textContent = "Check Active Tab (Wasm)";
-
   const checkAllBtn = document.createElement("button");
   checkAllBtn.type = "button";
-  checkAllBtn.className = "plfh-wasm-btn plfh-wasm-edit";
-  checkAllBtn.textContent = `Check All ${completeEntries.length} Cards`;
+  checkAllBtn.className = "plfh-wasm-btn plfh-wasm-check";
+  checkAllBtn.textContent = `Check All ${completeEntries.length} Modules`;
 
   const refineLabel = document.createElement("label");
   refineLabel.className = "plfh-refinement-toggle";
   refineLabel.title =
-    "Enable Dependent Haskell refinement hole fits & subgoal splitting (on by default under -XDependentTypes)";
+    "Enable general refinement hole fits (-frefinement-level-hole-fits=2 -fabstract-refinement-hole-fits)";
   const refineCheckbox = document.createElement("input");
   refineCheckbox.type = "checkbox";
   refineCheckbox.checked = uiState.refinementFits;
@@ -2153,67 +2199,48 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
   });
   refineLabel.append(refineCheckbox, document.createTextNode(" Refinement fits"));
 
+  const proofLabel = document.createElement("label");
+  proofLabel.className = "plfh-refinement-toggle";
+  proofLabel.title =
+    "Enable Dependent.Plugin.ProofSearch (-fplugin=Dependent.Plugin.ProofSearch)";
+  const proofCheckbox = document.createElement("input");
+  proofCheckbox.type = "checkbox";
+  proofCheckbox.checked = uiState.proofSearch;
+  proofCheckbox.addEventListener("change", () => {
+    uiState.proofSearch = proofCheckbox.checked;
+  });
+  proofLabel.append(proofCheckbox, document.createTextNode(" ProofSearch plugin"));
+
   const statusSpan = document.createElement("span");
   statusSpan.className = "plfh-wasm-status";
   statusSpan.textContent = "Loads Dependent GHCi (Wasm) on demand";
 
-  actions.append(checkTabBtn, checkAllBtn, refineLabel);
+  actions.append(checkAllBtn, refineLabel, proofLabel);
   header.append(label, actions, statusSpan);
   mountEl.append(header);
 
-  const tabBtns = new Map();
-  const selectTab = (tabId, updateHash = false) => {
-    activeTab = tabId;
-    for (const g of groups) {
-      g.hidden = tabId !== "all" && g.dataset.showcaseTab !== tabId;
-    }
-    for (const [id, btn] of tabBtns.entries()) {
-      btn.classList.toggle("plfh-preset-btn--active", id === tabId);
-      btn.setAttribute("aria-selected", id === tabId ? "true" : "false");
-    }
-    const tabCompleteCount = completeEntries.filter(
-      (e) => tabId === "all" || e.tabId === tabId
-    ).length;
-    checkTabBtn.hidden = tabId === "all" || tabCompleteCount === 0;
-    if (tabCompleteCount > 0) {
-      checkTabBtn.textContent = `Check Tab (${tabCompleteCount} card${tabCompleteCount === 1 ? "" : "s"})`;
-    }
-    if (updateHash) {
-      history.replaceState(null, "", `#tab=${tabId}`);
+  const actCheckBtns = [];
+  const actJumpBtns = new Map();
+  const actCountSpans = new Map();
+
+  const updateActProgress = () => {
+    for (const actEl of acts) {
+      const actId = actEl.id;
+      const entries = completeEntries.filter((e) => e.actId === actId);
+      const badge = actCountSpans.get(actId);
+      if (!badge) continue;
+      if (entries.length === 0) {
+        badge.textContent = "hole";
+        continue;
+      }
+      const passed = entries.filter((e) => e.passed).length;
+      badge.textContent = passed === entries.length ? `✓ ${passed}/${entries.length}` : `${passed}/${entries.length}`;
+      badge.classList.toggle("plfh-act-count--done", passed === entries.length);
     }
   };
 
-  if (groups.length > 0) {
-    const tabBar = document.createElement("div");
-    tabBar.className = "plfh-showcase-tabs";
-    tabBar.setAttribute("role", "tablist");
-
-    for (const g of groups) {
-      const id = g.dataset.showcaseTab;
-      const count = cardEntries.filter((e) => e.tabId === id).length;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.setAttribute("role", "tab");
-      btn.className = "plfh-preset-btn";
-      btn.dataset.showcaseTabBtn = id;
-      btn.textContent = `${g.dataset.showcaseLabel || id} (${count})`;
-      btn.addEventListener("click", () => selectTab(id, true));
-      tabBtns.set(id, btn);
-      tabBar.append(btn);
-    }
-
-    const allBtn = document.createElement("button");
-    allBtn.type = "button";
-    allBtn.setAttribute("role", "tab");
-    allBtn.className = "plfh-preset-btn";
-    allBtn.dataset.showcaseTabBtn = "all";
-    allBtn.textContent = `All (${cardEntries.length})`;
-    allBtn.addEventListener("click", () => selectTab("all", true));
-    tabBtns.set("all", allBtn);
-    tabBar.append(allBtn);
-
-    mountEl.append(tabBar);
-    selectTab(activeTab, false);
+  for (const entry of cardEntries) {
+    entry.onPassChange = updateActProgress;
   }
 
   client.onProgress((p) => {
@@ -2222,10 +2249,14 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
     if (msg) statusSpan.textContent = msg;
   });
 
+  const setBatchDisabled = (disabled) => {
+    checkAllBtn.disabled = disabled;
+    for (const b of actCheckBtns) b.disabled = disabled;
+  };
+
   const runBatch = async (entries, desc) => {
     if (entries.length === 0) return;
-    checkTabBtn.disabled = true;
-    checkAllBtn.disabled = true;
+    setBatchDisabled(true);
     statusSpan.dataset.active = "1";
     const t0 = performance.now();
     let passed = 0;
@@ -2240,25 +2271,90 @@ function mountShowcaseBar(mountEl, client, uiState, cardEntries) {
     }
     const elapsedMs = Math.round(performance.now() - t0);
     statusSpan.dataset.active = "0";
-    checkTabBtn.disabled = false;
-    checkAllBtn.disabled = false;
+    setBatchDisabled(false);
+    updateActProgress();
     statusSpan.textContent =
       failed === 0
         ? `All ${passed}/${entries.length} cards verified ✓ (${elapsedMs} ms)`
         : `${passed}/${entries.length} verified, ${failed} failed (${elapsedMs} ms)`;
   };
 
-  checkTabBtn.addEventListener("click", () => {
-    const entries = completeEntries.filter(
-      (e) => activeTab === "all" || e.tabId === activeTab
-    );
-    runBatch(entries, activeTab);
-  });
+  if (acts.length > 0) {
+    const jumpBar = document.createElement("nav");
+    jumpBar.className = "plfh-act-jump-bar";
+    jumpBar.setAttribute("aria-label", "Walkthrough Acts");
+
+    for (const actEl of acts) {
+      const actId = actEl.id;
+      const num = actEl.dataset.actNum || "";
+      const title = actEl.dataset.actTitle || actId;
+      const entries = completeEntries.filter((e) => e.actId === actId);
+
+      const jumpBtn = document.createElement("button");
+      jumpBtn.type = "button";
+      jumpBtn.className = "plfh-act-jump-btn";
+      jumpBtn.dataset.actTarget = actId;
+
+      const numSpan = document.createElement("span");
+      numSpan.className = "plfh-act-num";
+      numSpan.textContent = `Act ${num}`;
+
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "plfh-act-name";
+      titleSpan.textContent = title;
+
+      const countSpan = document.createElement("span");
+      countSpan.className = "plfh-act-count";
+      countSpan.textContent = entries.length > 0 ? `0/${entries.length}` : "hole";
+
+      jumpBtn.append(numSpan, titleSpan, countSpan);
+      jumpBtn.addEventListener("click", () => {
+        actEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      actJumpBtns.set(actId, jumpBtn);
+      actCountSpans.set(actId, countSpan);
+      jumpBar.append(jumpBtn);
+
+      // Inject per-Act Check button right next to the Act heading when it has complete modules.
+      const h3 = actEl.querySelector("h3");
+      if (h3 && entries.length > 0) {
+        const actBar = document.createElement("div");
+        actBar.className = "plfh-act-inline-bar";
+        const actBtn = document.createElement("button");
+        actBtn.type = "button";
+        actBtn.className = "plfh-wasm-btn plfh-wasm-edit";
+        actBtn.textContent = `Check Act ${num} (${entries.length} module${entries.length === 1 ? "" : "s"})`;
+        actBtn.addEventListener("click", () => runBatch(entries, `Act ${num}`));
+        actCheckBtns.push(actBtn);
+        actBar.append(actBtn);
+        h3.insertAdjacentElement("afterend", actBar);
+      }
+    }
+
+    mountEl.append(jumpBar);
+    updateActProgress();
+
+    // Highlight active Act in the sticky bar as the reader scrolls.
+    if (typeof IntersectionObserver !== "undefined") {
+      const observer = new IntersectionObserver(
+        (obsEntries) => {
+          for (const oe of obsEntries) {
+            if (oe.isIntersecting) {
+              const id = oe.target.id;
+              for (const [k, b] of actJumpBtns.entries()) {
+                b.classList.toggle("plfh-act-jump-btn--active", k === id);
+              }
+            }
+          }
+        },
+        { rootMargin: "-20% 0px -65% 0px", threshold: 0.01 }
+      );
+      for (const actEl of acts) observer.observe(actEl);
+    }
+  }
 
   checkAllBtn.addEventListener("click", () => {
-    if (groups.length > 0 && activeTab !== "all") {
-      selectTab("all", false);
-    }
     runBatch(completeEntries, "all cards");
   });
 }
@@ -2273,7 +2369,11 @@ export function enhancePlfhPage({
   const blocks = [...document.querySelectorAll(selector)];
   const chapterCtx = scrapeChapterContext(blocks);
 
-  const uiState = { refinementFits: true };
+  const uiState = { refinementFits: true, proofSearch: true };
+  const dagMount = document.getElementById("plfh-roadmap-dag");
+  if (dagMount) {
+    mountRoadmapDag(dagMount);
+  }
   const standaloneMount = document.getElementById("plfh-standalone-playground");
   if (standaloneMount) {
     mountStandalonePlayground(standaloneMount, client, uiState);
@@ -2424,7 +2524,7 @@ export function enhancePlfhPage({
         chapterPragmas: chapterCtx.chapterPragmas,
         chapterImports: chapterCtx.chapterImports,
         chapterExports: chapterCtx.chapterExports,
-        extraGhcArgs: refinementExtraGhcArgs(uiState.refinementFits),
+        extraGhcArgs: refinementExtraGhcArgs(uiState),
       });
       statusSpan.dataset.active = "0";
       checkBtn.disabled = false;
@@ -2522,12 +2622,25 @@ export function enhancePlfhPage({
     wireEditorKeys(editor.textarea, runCheck);
 
     if (!isFail && !isExercise) {
-      const grp = container.closest(".plfh-showcase-group");
-      showcaseCardRunners.push({
-        tabId: grp?.dataset.showcaseTab || "all",
+      const actEl = container.closest(".plfh-showcase-act");
+      const entry = {
+        actId: actEl?.id || "all",
         isHole: isShowcaseHole,
-        run: runCheck,
+        passed: false,
+        onPassChange: null,
+        run: async () => {
+          const ok = await runCheck();
+          entry.passed = Boolean(ok);
+          entry.onPassChange?.();
+          return ok;
+        },
+      };
+      // Also update sticky Act progress counter when the user clicks an individual card's Check button.
+      checkBtn.removeEventListener("click", runCheck);
+      checkBtn.addEventListener("click", () => {
+        entry.run();
       });
+      showcaseCardRunners.push(entry);
     }
 
     replRow.addEventListener("submit", async (ev) => {
