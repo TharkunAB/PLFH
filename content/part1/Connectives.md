@@ -88,7 +88,11 @@ module PLFH.Part1.Connectives
   , sumAssocFrom
   , sumAssocIso
   , sumAssoc
+  , sumZeroRTo
+  , sumZeroRIso
   , sumZeroR
+  , sumZeroLTo
+  , sumZeroLIso
   , sumZeroL
   , prodDistribSumTo
   , prodDistribSumFrom
@@ -334,13 +338,43 @@ sumAssocIso = MkIso sumAssocTo sumAssocFrom sumAssocLR sumAssocRL
 sumAssoc :: Iff (Either (Either a b) c) (Either a (Either b c))
 sumAssoc = embedImpliesIff (isoImpliesEmbed sumAssocIso)
 
+-- | Right identity of disjunction as a true isomorphism: Either a Void ≃ a.
+sumZeroRTo :: Either a Void -> a
+sumZeroRTo (Left x)  = x
+sumZeroRTo (Right v) = case v of {}
+
+sumZeroRLR :: foreach (s :: Either a Void) -> Left (sumZeroRTo s) :~: s
+sumZeroRLR (Left _)  = Refl
+sumZeroRLR (Right v) = case v of {}
+
+sumZeroRRL :: foreach (x :: a) -> sumZeroRTo (Left x) :~: x
+sumZeroRRL _ = Refl
+
+sumZeroRIso :: Iso (Either a Void) a
+sumZeroRIso = MkIso sumZeroRTo Left sumZeroRLR sumZeroRRL
+
 -- | Right identity of disjunction: Either a Void ⇔ a.
 sumZeroR :: Iff (Either a Void) a
-sumZeroR = Iff (either id absurd) Left
+sumZeroR = embedImpliesIff (isoImpliesEmbed sumZeroRIso)
+
+-- | Left identity of disjunction as a true isomorphism: Either Void a ≃ a.
+sumZeroLTo :: Either Void a -> a
+sumZeroLTo (Left v)  = case v of {}
+sumZeroLTo (Right x) = x
+
+sumZeroLLR :: foreach (s :: Either Void a) -> Right (sumZeroLTo s) :~: s
+sumZeroLLR (Left v)  = case v of {}
+sumZeroLLR (Right _) = Refl
+
+sumZeroLRL :: foreach (x :: a) -> sumZeroLTo (Right x) :~: x
+sumZeroLRL _ = Refl
+
+sumZeroLIso :: Iso (Either Void a) a
+sumZeroLIso = MkIso sumZeroLTo Right sumZeroLLR sumZeroLRL
 
 -- | Left identity of disjunction: Either Void a ⇔ a.
 sumZeroL :: Iff (Either Void a) a
-sumZeroL = Iff (either absurd id) Right
+sumZeroL = embedImpliesIff (isoImpliesEmbed sumZeroLIso)
 ```
 
 ## Distributivity
@@ -470,17 +504,14 @@ arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
 
 ## Isomorphisms vs. logical equivalences
 
-Above we proved ten of the twelve commutative semiring laws—product & sum
-commutativity, associativity, product units & absorbing zeros, and left/right
+Above we proved all twelve commutative semiring laws—product & sum
+commutativity and associativity, product units & absorbing zeros, sum
+identities (`Either a Void ≃ a` and `Either Void a ≃ a`), and left/right
 distributivity—as **full polymorphic isomorphisms (`Iso`)** with
 machine-checked round-trip proofs (alongside `Iff` projections). Upgrading
-`sumZeroR` (`Either a Void ⇔ a`) and `sumZeroL` (`Either Void a ⇔ a`) to `Iso`
-requires certifying checked equations for functions with an unreachable `Void`
-branch (`Right v -> case v of {}`, tracked in
-[`R13_VoidAbsurdBranchOpenEq.hs`](https://github.com/TharkunAB/PLFH/blob/main/reproducers/R13_VoidAbsurdBranchOpenEq.hs)),
-whereas upgrading the exponential laws (`currying`, `expSum`, `expProd`,
-`expUnit`, `expZero`, `expToUnit`) requires **function extensionality**—which
-neither Agda nor Dependent Haskell proves internally without an axiom.
+the exponential laws (`currying`, `expSum`, `expProd`, `expUnit`, `expZero`,
+`expToUnit`) to `Iso` requires **function extensionality**—which neither Agda
+nor Dependent Haskell proves internally without an axiom.
 
 ## Exercises
 
@@ -506,11 +537,9 @@ Check by hand that for any finite type `a` with `n` inhabitants,
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Connectives.lagda.md)),
   licensed under CC BY 4.0.
 - Uses standard Haskell `(,)`, `Either`, `()`, and `Void` directly.
-- Proved ten commutative semiring laws (product & sum commutativity and
-  associativity, product units & zeros, and left/right distributivity) as
-  genuine polymorphic isomorphisms (`prodCommIso`, `prodAssocIso`,
-  `prodUnitRIso`, `prodUnitLIso`, `prodZeroRIso`, `prodZeroLIso`,
-  `sumCommIso`, `sumAssocIso`, `prodDistribSumIso`, `prodDistribSumLIso`),
-  along with `sumZeroR`/`sumZeroL`, exponential (`currying`, `expSum`,
-  `expProd`, `expUnit`, `expZero`, `expToUnit`), and congruence (`prodCong`,
+- Proved all twelve commutative semiring laws (product & sum commutativity and
+  associativity, product units & zeros, sum identities `sumZeroRIso` /
+  `sumZeroLIso`, and left/right distributivity) as genuine polymorphic
+  isomorphisms (`Iso`), along with exponential (`currying`, `expSum`,
+  `expProd`, `expUnit`, `expZero`, `expToUnit`) and congruence (`prodCong`,
   `sumCong`, `arrCong`) laws as constructive `Iff` equivalences.

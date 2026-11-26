@@ -30,7 +30,7 @@ module PLFH.Part1.Naturals
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus, type (+))
+import Data.Nat.Dependent (Nat (..), plus, type (+))
 ```
 
 The night sky holds more stars than I can count, though fewer than five
@@ -71,11 +71,11 @@ inference rules:
 </div>
 
 And here is the definition in Dependent Haskell (imported from
-[`HaskLib.Nat`](/HaskLib/#hasklibnat) — see its full source in
-[`PreludeMapLengthSize.hs`](/Source/hasklib/PreludeMapLengthSize/) — so every
-chapter in Parts 1–3, `HaskLib.List.size`, and decimal-numeral literals share
-one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL` and switches to
-Agda's `Data.Nat`):
+[`Data.Nat.Dependent`](/DependentBase/#datanatdependent) in `dependent-base` —
+see its source in [`Data/Nat/Dependent/Internal.hs`](/Source/dependent-base/Data/Nat/Dependent/Internal/) —
+so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
+literals share one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL`
+and switches to Agda's `Data.Nat`):
 
 ```{.haskell .ignore}
 data Nat where
@@ -280,7 +280,7 @@ which enables Dependent Haskell together with `GADTs`, `DataKinds`,
 
 In PLFA, a `{-# BUILTIN NATURAL ℕ #-}` pragma enables typing `0`, `1`, `2`,
 ... as shorthand for `zero`, `suc zero`, `suc (suc zero)`, and so on. In
-PLFH, `HaskLib.Nat` provides a `FromNatural` instance (at the type level)
+PLFH, `Data.Nat.Dependent` provides a `FromNatural` instance (at the type level)
 and a `Num` instance (at the term level) for `Nat`. That gives us the exact
 same shorthand—we can type `0`, `1`, `2`, `3`, `5`, ... directly in both
 types and runtime expressions while continuing to pattern-match on `Zero`
@@ -294,7 +294,7 @@ equality from `base`:
 
 ```{.haskell .ignore}
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus, type (+))
+import Data.Nat.Dependent (Nat (..), plus, type (+))
 ```
 
 Here `(:~:)` is the propositional equality type operator (playing the role
@@ -315,7 +315,7 @@ mistakes. It came as a shock to me to discover *recursion*, a simple
 technique by which every one of the infinite possible instances of addition
 and multiplication can be specified in just a couple of lines.
 
-Here is the definition of addition (reused from `HaskLib.Nat`, where infix
+Here is the definition of addition (reused from `Data.Nat.Dependent`, where infix
 `type (+)` is also defined):
 
 ```{.haskell .ignore}
@@ -395,7 +395,7 @@ suffices as ironclad evidence:
 twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
 
--- | The same proof using `HaskLib.Nat`'s infix type operator `(+)`.
+-- | The same proof using `Data.Nat.Dependent`'s infix type operator `(+)`.
 twoPlusThreeInfix :: (2 + 3 :: Nat) :~: 5
 twoPlusThreeInfix = Refl
 
@@ -416,10 +416,10 @@ the witness is trustworthy. Rather, it is ironclad. The other word for
 evidence, which we will use interchangeably, is *proof*.
 
 <div class="note-box">
-<strong>HaskLib reuse:</strong>
+<strong><code>dependent-base</code> reuse:</strong>
 <code>Nat</code>, <code>plus</code>, infix <code>type (+)</code>, and the
 <code>FromNatural</code> / <code>Num</code> decimal-numeral instances are
-reused directly from <code>HaskLib.Nat</code>.
+reused directly from <code>Data.Nat.Dependent</code>.
 </div>
 
 #### Exercise `+-example` (practice) {#plus-example}
@@ -743,7 +743,7 @@ canonical `Bin` are in one-to-one correspondence!
 - Adapted from [Naturals](https://plfa.inf.ed.ac.uk/Naturals/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Naturals.lagda.md)).
 - Reused `Nat` (`Zero`/`Succ`), `plus`, infix `type (+)`, and decimal
-  numerals (`FromNatural`/`Num`) from `HaskLib.Nat`.
+  numerals (`FromNatural`/`Num`) from `Data.Nat.Dependent`.
 - Implemented `times`, `pow`, `monus`, and `Bin`/`inc`/`toBin`/`fromBin` as
   ordinary Haskell functions checked directly in their defining module
   (`twoPlusThree`, `twoTimesThree`, `threePowFour`, `threeMonusTwo`,

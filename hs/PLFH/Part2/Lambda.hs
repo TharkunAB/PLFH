@@ -25,7 +25,7 @@ module PLFH.Part2.Lambda
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 
 {-# LINE 123 "content/part2/Lambda.md" #-}

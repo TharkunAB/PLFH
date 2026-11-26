@@ -77,7 +77,7 @@ module PLFH.Part2.Untyped
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 ```
 
 ## Well-scoped de Bruijn indices (`Fin n`) and terms (`UTerm n`)

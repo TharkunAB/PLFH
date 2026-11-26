@@ -101,9 +101,8 @@ You can experiment interactively with the stage-2 compiler:
 ```bash
 _build/stage1/bin/ghc --interactive \
   -fbyte-code -O0 -fomit-interface-pragmas -fno-write-if-simplified-core \
-  -package-env - -i \
-  -idocs/dependent-haskell/hasklib \
-  -idocs/dependent-haskell/examples/open-evaluation \
+  -package-env - -package base -package ghc-experimental -package ghc-internal \
+  -i -i/path/to/dependent-base/src \
   -i/path/to/PLFH/hs
 ```
 
@@ -123,7 +122,7 @@ From the root of the `PLFH` repository:
 # 1. Extract standalone .hs modules and negative controls from content/**/*.md
 python3 scripts/extract_and_sync.py
 
-# 2. Check all chapters, negative controls, and regression tests
+# 2. Check all chapters, negative controls, and runtime smoke tests
 PLFH_GHC=/path/to/ghc/_build/stage1/bin/ghc \
 PLFH_GHC_REPO=/path/to/ghc \
 PLFH_NO_PUEUE=1 \
@@ -169,18 +168,19 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
   in the browser Cache API (`plfh-wasm-rootfs-v1`) and prunes superseded
   versions, so readers download the compiler bundle once across chapters and
   automatically receive updates when a new bundle ships.
-- **Precompiled chapters:** The bundle ships `libplfh_ghci.so` alongside a
-  precompiled `plfh-book-0.1` package (`HaskLib` and the checked `PLFH.*`
-  modules), so individual edits, exercises, `:browse`, `:t`, `:k!`, and
+- **Precompiled chapters & companion packages:** The bundle ships
+  `libplfh_ghci.so` alongside precompiled `dependent-base-0.1.0.0`,
+  `plfh-book-0.1` (`PLFH.*` chapters), and the `Dependent.Plugin.ProofSearch`
+  hole-fit plugin, so individual edits, exercises, `:browse`, `:t`, `:k!`, and
   negative controls check directly against the chapter module.
-- **Browser Agda-mode (typed holes, refinement fits & highlight-on-compile):**
+- **Browser Agda-mode (typed holes, refinement fits, proof search & highlight-on-compile):**
   Write a typed hole such as `_` or `_qed` in any editable code block or in the
   chapter scratchpad and press `Ctrl/Cmd+Enter`. GHC highlights verified code
   using compiler-exact `RenamedSource` semantic tokens, marks typed holes in
-  green goal boxes, reports normalized goal types, case-split suggestions, and
-  valid refinement hole fits (with `-fabstract-refinement-hole-fits` enabled by
-  default), and renders clickable chips that apply a fit and re-check
-  automatically.
+  green goal boxes, reports normalized goal types, case-split suggestions,
+  valid refinement hole fits (`-frefinement-level-hole-fits=2 -fabstract-refinement-hole-fits`),
+  and bounded proof-search fits from `Dependent.Plugin.ProofSearch`, and
+  renders clickable chips that apply a fit and re-check automatically.
 
 ### Staging and hosting `rootfs.tar.gz`
 

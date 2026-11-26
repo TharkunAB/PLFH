@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Extract checked Haskell modules and negative controls from PLFH literate Markdown chapters.
 
-Optionally syncs standalone .hs modules, negative controls, and minimal compiler-bug
-reproducers to the GHC fork's docs/dependent-haskell/plfh/ directory so the compiler
-team can replay every result directly with plain GHC.
+Optionally mirrors standalone .hs modules and negative controls into the GHC
+fork's docs/dependent-haskell/plfh/ directory.
 """
 
 from __future__ import annotations
@@ -20,24 +19,7 @@ CONTENT_DIR = ROOT / "content"
 CLIENTS_DIR = ROOT / "clients"
 HS_DIR = ROOT / "hs"
 NEG_DIR = HS_DIR / "negative"
-REPRO_DIR = ROOT / "reproducers"
-HASKLIB_REF_DIR = ROOT / "reference" / "hasklib"
-
-HASKLIB_FILES = (
-    ("hasklib", "HaskLib.hs"),
-    ("hasklib", "HaskLib/Equality.hs"),
-    ("hasklib", "HaskLib/Exists.hs"),
-    ("hasklib", "HaskLib/Fin.hs"),
-    ("hasklib", "HaskLib/List.hs"),
-    ("hasklib", "HaskLib/List/Prefix.hs"),
-    ("hasklib", "HaskLib/Nat.hs"),
-    ("hasklib", "HaskLib/Sigma.hs"),
-    ("hasklib", "HaskLib/Size.hs"),
-    ("hasklib", "HaskLib/Vec.hs"),
-    ("examples/open-evaluation", "PreludeMapLengthSize.hs"),
-    ("examples/open-evaluation", "PreludeZipRuntime.hs"),
-    ("examples/open-evaluation", "PreludeZipMapRuntime.hs"),
-)
+DEPBASE_REF_DIR = ROOT / "reference" / "dependent-base"
 
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 FENCE_OPEN_RE = re.compile(r"^```(.*)$")
@@ -199,28 +181,28 @@ def write_negative_controls(neg_controls: list[tuple[str, str, str]]) -> list[Pa
 
 def sync_to_ghc(ghc_plfh_dir: Path) -> None:
     ghc_plfh_dir.mkdir(parents=True, exist_ok=True)
-    for sub in ("hs", "reproducers"):
-        src = ROOT / sub
-        dst = ghc_plfh_dir / sub
-        if dst.exists():
-            shutil.rmtree(dst)
-        if src.exists():
-            shutil.copytree(src, dst)
-    print(f"Synced hs/ and reproducers/ -> {ghc_plfh_dir}")
+    src = ROOT / "hs"
+    dst = ghc_plfh_dir / "hs"
+    if dst.exists():
+        shutil.rmtree(dst)
+    if src.exists():
+        shutil.copytree(src, dst)
+    print(f"Synced hs/ -> {ghc_plfh_dir}")
 
 
-def sync_hasklib_reference(dh_docs_dir: Path) -> None:
+def sync_dependent_base_reference(dep_base_src_dir: Path) -> None:
+    if not dep_base_src_dir.is_dir():
+        raise FileNotFoundError(f"dependent-base src dir not found: {dep_base_src_dir}")
+    if DEPBASE_REF_DIR.exists():
+        shutil.rmtree(DEPBASE_REF_DIR)
     copied = 0
-    for subdir, rel in HASKLIB_FILES:
-        src = dh_docs_dir / subdir / rel
-        if not src.exists():
-            continue
-        dst = HASKLIB_REF_DIR / rel
+    for src in sorted(dep_base_src_dir.rglob("*.hs")):
+        rel = src.relative_to(dep_base_src_dir)
+        dst = DEPBASE_REF_DIR / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
         copied += 1
-    if copied:
-        print(f"Synced {copied} HaskLib reference file(s) -> {HASKLIB_REF_DIR.relative_to(ROOT)}")
+    print(f"Synced {copied} dependent-base reference file(s) -> {DEPBASE_REF_DIR.relative_to(ROOT)}")
 
 
 def main() -> int:
@@ -229,13 +211,13 @@ def main() -> int:
         "--sync-ghc",
         type=Path,
         default=None,
-        help="Path to GHC repo's docs/dependent-haskell/plfh directory to mirror hs/ and reproducers/",
+        help="Path to GHC repo's docs/dependent-haskell/plfh directory to mirror hs/",
     )
     parser.add_argument(
-        "--sync-hasklib",
+        "--sync-dependent-base",
         type=Path,
         default=None,
-        help="Path to GHC repo's docs/dependent-haskell directory to snapshot HaskLib sources into reference/hasklib/",
+        help="Path to dependent-base src/ directory to snapshot sources into reference/dependent-base/",
     )
     args = parser.parse_args()
 
@@ -266,8 +248,8 @@ def main() -> int:
     if args.sync_ghc:
         sync_to_ghc(args.sync_ghc)
 
-    if args.sync_hasklib:
-        sync_hasklib_reference(args.sync_hasklib)
+    if args.sync_dependent_base:
+        sync_dependent_base_reference(args.sync_dependent_base)
 
     return 0
 

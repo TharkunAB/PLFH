@@ -34,7 +34,7 @@ module PLFH.Part1.Negation
   ) where
 
 import Data.Void (Void, absurd)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))

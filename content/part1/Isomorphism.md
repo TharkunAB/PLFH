@@ -25,8 +25,9 @@ by constructing functions between them:
 ## Imports
 
 We import propositional equality `(:~:)`, equality transitivity `trans`,
-congruence `cong`, `Nat` from `HaskLib.Nat`, binary numerals `Bin`, `fromBin`,
-`toBin` from [Naturals](/Naturals/), and the round-trip proof `fromTo` from
+dependent composition `(.)` from `Data.Function.Dependent`, congruence `cong`,
+`Nat` from `Data.Nat.Dependent`, binary numerals `Bin`, `fromBin`, `toBin` from
+[Naturals](/Naturals/), and the round-trip proof `fromTo` from
 [Induction](/Induction/).
 
 ```haskell
@@ -57,8 +58,10 @@ module PLFH.Part1.Isomorphism
   , isoSizeSym
   ) where
 
+import Prelude hiding ((.))
+import Data.Function.Dependent ((.))
+import Data.Nat.Dependent (Nat (..))
 import Data.Type.Equality ((:~:) (Refl), trans)
-import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (cong, fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 ```
@@ -66,11 +69,18 @@ import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 ## Lambda expressions and function composition
 
 Just as in Agda, Haskell writes anonymous functions with a backslash
-(`\x -> body`) and composes functions with `(.)`:
+(`\x -> body`) and composes functions with `(.)`. In `dependent-base`,
+[`Data.Function.Dependent`](/DependentBase/#datafunctiondependent) generalizes
+`Prelude.(.)` so the outer consumer may depend on the intermediate value `f x`
+while remaining transparent for ordinary functions:
 
 ```haskell
--- From Prelude:
--- (.) :: (b -> c) -> (a -> b) -> (a -> c)
+-- From Data.Function.Dependent:
+-- (.) :: forall {a} {b} {m :: Matchability} (c :: b %m -> Type).
+--        (foreach (y :: b) -> c y)
+--     -> foreach (f :: a -> b)
+--     -> foreach (x :: a)
+--     -> c (f x)
 -- (g . f) x = g (f x)
 ```
 
@@ -170,8 +180,8 @@ isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
 Given an isomorphism `Iso a b` with maps `f :: a -> b` and `g :: b -> a`, and
 an isomorphism `Iso b c` with maps `h :: b -> c` and `k :: c -> b`, we compose
-the forward maps as `to x = h (f x)` and the reverse maps as `from z = g (k z)`
-in a local `where` block (or directly with Prelude `(.)`, as in `embedTrans`).
+the forward maps directly as `h . f` and the reverse maps as `g . k` using
+`Data.Function.Dependent.(.)`.
 
 To prove the left round trip `g (k (h (f x))) :~: x`, the inner inverse proof
 `kh (f x)` gives `k (h (f x)) :~: f x`; applying `cong g` surrounds both sides
@@ -187,15 +197,12 @@ composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
 composeLeft f g _ _ gf kh x = trans (cong g (kh (f x))) (gf x)
 
 -- | Generic transitivity of isomorphism (`≃-trans`), composing maps directly
--- via local `where` definitions!
+-- with `Data.Function.Dependent.(.)`.
 isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
 isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
-  MkIso @a @c to from
+  MkIso @a @c (h . f) (g . k)
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
-  where
-    to x   = h (f x)
-    from z = g (k z)
 ```
 
 Exchanging the roles of `(f, g, gf)` and `(k, h, hk)` gives the reverse round
@@ -323,9 +330,9 @@ canonicality proof `Can b` repairs the failure shown in
 - Polymorphic `Iso a b` and `Embed a b` are declared directly with retained
   function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`)
   and explicit round-trip proofs.
-- Checked generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
-  transitivity (`isoTrans` using local `where` compositions `to x = h (f x)`
-  and `embedTrans` using Prelude `(.)`), `isoImpliesEmbed`, `embedImpliesIff`,
+- Generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
+  transitivity (`isoTrans` and `embedTrans`, composing maps directly with
+  `Data.Function.Dependent.(.)`), `isoImpliesEmbed`, `embedImpliesIff`,
   `binEmbedding`, negative control `NegBinReverseRoundTrip`, `Iff`
   (`iffRefl`, `iffSym`, `iffTrans`), and monomorphic `IsoSize`.
 - Like Agda, Dependent Haskell does not prove function extensionality

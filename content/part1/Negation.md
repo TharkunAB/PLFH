@@ -15,7 +15,7 @@ applies negation to order relations on natural numbers.
 
 ## Imports
 
-We import `Void` and `absurd` from `Data.Void`, `Nat` from `HaskLib.Nat`,
+We import `Void` and `absurd` from `Data.Void`, `Nat` from `Data.Nat.Dependent`,
 `Not` from [Decidable](/Decidable/), `Iff` from [Isomorphism](/Isomorphism/),
 and `LE` / `LT'` from [Relations](/Relations/).
 
@@ -52,7 +52,7 @@ module PLFH.Part1.Negation
   ) where
 
 import Data.Void (Void, absurd)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))

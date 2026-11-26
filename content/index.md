@@ -62,7 +62,7 @@ Comments, bug reports, and pull requests are welcome on
 
 ## Reference & Backmatter
 
-- [HaskLib Reference](/HaskLib/): Exported API, `Nat` and `List` laws, GHCi tips, and module sources
+- [`dependent-base` Reference](/DependentBase/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`), GHCi tips, and module sources
 - [Source Browser](/Source/): Syntax-highlighted `.hs` source for all chapters, library modules, negative controls, and runtime tests
 - [Verification & Coverage](/Status/): Chapter-by-chapter theorem ledger and negative controls
 - [How to Cite & Licence](/Citing/): CC BY 4.0 licence and attribution to upstream PLFA

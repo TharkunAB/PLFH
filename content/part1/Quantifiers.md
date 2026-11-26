@@ -19,18 +19,20 @@ quantifiers:
 
 1. **Universals:** erased `forall (x :: a). p x` vs. retained
    `foreach (x :: a) -> p x`.
-2. **Existentials:** erased `HaskLib.Exists.Exists p` (native Proposal `#473`
-   `exists x | p x`, hiding a type-level witness `x :: a` erased at runtime) vs.
+2. **Existentials:** erased `GHC.Exists.Exists p` (native Proposal `#473`
+   `exists x | p x`, hiding a type-level witness `x :: a` erased at runtime,
+   with combinators re-exported by `Data.Exists.Dependent`) vs.
    retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`, or a GADT
    constructor carrying `foreach (x :: a) -> ...`), where the witness is
    available both at runtime and in types!
 
 ## Imports
 
-We import `Type`, `(:~:)`, `GHC.Sigma`, `HaskLib.Exists`, `HaskLib.rewrite`,
-`Nat` and addition helpers, unified `cong` from [Induction](/Induction/), `Not`
-from [Decidable](/Decidable/), `Iff` from [Isomorphism](/Isomorphism/), and
-`Even`/`Odd` from [Relations](/Relations/).
+We import `Type`, `(:~:)`, `GHC.Sigma`, `GHC.Exists`/`Data.Exists.Dependent`,
+`rewrite` from `Data.Type.Equality.Dependent`, `Nat` and addition helpers from
+`Data.Nat.Dependent`/`Data.Nat.Dependent.Properties`, unified `cong` from
+[Induction](/Induction/), `Not` from [Decidable](/Decidable/), `Iff` from
+[Isomorphism](/Isomorphism/), and `Even`/`Odd` from [Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
@@ -63,12 +65,14 @@ module PLFH.Part1.Quantifiers
   , oddIffWitness
   ) where
 
+import Data.Exists.Dependent (data Pack, mapExists, withExists)
 import Data.Kind (Type)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent.Properties (plusSucc)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality.Dependent (rewrite)
+import GHC.Exists (Exists)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib (rewrite)
-import HaskLib.Exists (Exists, data Pack, mapExists, withExists)
-import HaskLib.Nat (Nat (..), plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
@@ -226,7 +230,7 @@ sumSigmaTwo = Pair 1 (Pair 1 Refl)
 Packaging the exact same retained witness as `EvenWitness n` and `OddWitness n`
 (carrying `foreach (k :: Nat)` so the half `k` is available at runtime!), we
 prove **both directions** of both equivalences (`evenIffWitness` and
-`oddIffWitness`), using unified `cong Succ` and `HaskLib.rewrite (plusSucc k k)`:
+`oddIffWitness`), using unified `cong Succ` and `rewrite (plusSucc k k)`:
 
 ```haskell
 -- | Retained existential witness that `n` is double some runtime `k`.
@@ -240,7 +244,7 @@ evenWitnessSuc2 :: EvenWitness n -> EvenWitness (Succ (Succ n))
 evenWitnessSuc2 (MkEvenWitness k Refl) =
   MkEvenWitness (Succ k) (cong Succ (plusSucc k k))
 
--- | Every double `k + k` is even (proved directly using `HaskLib.rewrite`).
+-- | Every double `k + k` is even (proved directly using `rewrite`).
 evenDouble :: foreach (k :: Nat) -> Even (plus k k)
 evenDouble Zero     = EvenZ
 evenDouble (Succ k) = rewrite (plusSucc k k) (EvenS (OddS (evenDouble k)))
@@ -300,7 +304,7 @@ inspected at runtime!) behaves like the 3-way sum
 - Adapted from [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Quantifiers.lagda.md)),
   licensed under CC BY 4.0.
-- Contrasts native Proposal `#473` erased existentials (`HaskLib.Exists.Exists`)
+- Contrasts native Proposal `#473` erased existentials (`GHC.Exists.Exists` / `Data.Exists.Dependent`)
   with retained `GHC.Sigma` (`some ... | ...`)
   and `foreach`-carrying GADT witnesses (`EvenWitness`, `OddWitness`).
 - Ports `existsDistribSum`, `existsCurryTo`/`From`,

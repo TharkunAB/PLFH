@@ -66,7 +66,7 @@ module PLFH.Part2.Properties
 
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.Lambda
   ( Ctx (..)

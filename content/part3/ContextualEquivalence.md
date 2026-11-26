@@ -55,7 +55,7 @@ module PLFH.Part3.ContextualEquivalence
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part2.BigStep (CbnTerminates (..), Env (..))
 import PLFH.Part2.Untyped (BetaStep (..), BetaSteps (..), TermW (..), UTerm (..), mkTermW)
 import PLFH.Part3.Adequacy (HaltsBig (..), adequacy, cbnToReduceW)

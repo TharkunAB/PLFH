@@ -8,7 +8,7 @@ module PLFH.Part1.AnyWitnessIso (anyIsoWitness) where
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import GHC.Types (List)
-import HaskLib (Matchability, rewrite)
+import Data.Type.Equality.Dependent (Matchability, rewrite)
 import PLFH.Part1.Isomorphism (Iso (MkIso))
 import PLFH.Part1.Lists (Any (..), AnyWitness (..), In)
 import qualified PLFH.Part1.Lists as L

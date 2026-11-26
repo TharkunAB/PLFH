@@ -4,9 +4,10 @@
 module PLFH.RuntimeSmokeTest (main) where
 
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Void (Void)
 import GHC.Sigma (Sigma (Pair))
 import System.Exit (exitFailure)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Connectives
   ( prodAssocIso
   , prodCommIso
@@ -16,6 +17,8 @@ import PLFH.Part1.Connectives
   , prodUnitRIso
   , sumAssocIso
   , sumCommIso
+  , sumZeroLIso
+  , sumZeroRIso
   )
 import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
 import PLFH.Part1.Equality (EqP (..), evenComm, eqToLeibniz, leibnizSym, leibnizToEq)
@@ -344,6 +347,22 @@ main = do
               s = Left (Right True)
           in case left s of Refl -> from (to s) == s
   assertEq "Connectives.sumAssocIso (Left (Right True))" True sumAssocRT
+  let sumZeroRRT = case sumZeroRIso @Int of
+        MkIso to from left right ->
+          let s :: Either Int Void
+              s = Left 77
+              x :: Int
+              x = 77
+          in case (left s, right x) of (Refl, Refl) -> to (from x)
+  assertEq "Connectives.sumZeroRIso 77" 77 sumZeroRRT
+  let sumZeroLRT = case sumZeroLIso @Int of
+        MkIso to from left right ->
+          let s :: Either Void Int
+              s = Right 88
+              x :: Int
+              x = 88
+          in case (left s, right x) of (Refl, Refl) -> to (from x)
+  assertEq "Connectives.sumZeroLIso 88" 88 sumZeroLRT
   let distribRRT = case prodDistribSumIso @Int @Bool @Int of
         MkIso to from left _ ->
           let p :: (Either Int Bool, Int)

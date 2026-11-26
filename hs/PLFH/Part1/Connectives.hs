@@ -36,7 +36,11 @@ module PLFH.Part1.Connectives
   , sumAssocFrom
   , sumAssocIso
   , sumAssoc
+  , sumZeroRTo
+  , sumZeroRIso
   , sumZeroR
+  , sumZeroLTo
+  , sumZeroLIso
   , sumZeroL
   , prodDistribSumTo
   , prodDistribSumFrom
@@ -61,7 +65,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import PLFH.Part1.Isomorphism (Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
 
-{-# LINE 136 "content/part1/Connectives.md" #-}
+{-# LINE 140 "content/part1/Connectives.md" #-}
 -- | Swap the two components of a pair.
 swapProd :: (a, b) -> (b, a)
 swapProd (x, y) = (y, x)
@@ -190,7 +194,7 @@ prodZeroLIso = go prodZeroLTo prodZeroLFrom
 prodZeroL :: Iff (Void, a) Void
 prodZeroL = embedImpliesIff (isoImpliesEmbed prodZeroLIso)
 
-{-# LINE 289 "content/part1/Connectives.md" #-}
+{-# LINE 293 "content/part1/Connectives.md" #-}
 -- | Swap the two branches of a sum.
 swapSum :: Either a b -> Either b a
 swapSum (Left x)  = Right x
@@ -239,15 +243,45 @@ sumAssocIso = MkIso sumAssocTo sumAssocFrom sumAssocLR sumAssocRL
 sumAssoc :: Iff (Either (Either a b) c) (Either a (Either b c))
 sumAssoc = embedImpliesIff (isoImpliesEmbed sumAssocIso)
 
+-- | Right identity of disjunction as a true isomorphism: Either a Void ≃ a.
+sumZeroRTo :: Either a Void -> a
+sumZeroRTo (Left x)  = x
+sumZeroRTo (Right v) = case v of {}
+
+sumZeroRLR :: foreach (s :: Either a Void) -> Left (sumZeroRTo s) :~: s
+sumZeroRLR (Left _)  = Refl
+sumZeroRLR (Right v) = case v of {}
+
+sumZeroRRL :: foreach (x :: a) -> sumZeroRTo (Left x) :~: x
+sumZeroRRL _ = Refl
+
+sumZeroRIso :: Iso (Either a Void) a
+sumZeroRIso = MkIso sumZeroRTo Left sumZeroRLR sumZeroRRL
+
 -- | Right identity of disjunction: Either a Void ⇔ a.
 sumZeroR :: Iff (Either a Void) a
-sumZeroR = Iff (either id absurd) Left
+sumZeroR = embedImpliesIff (isoImpliesEmbed sumZeroRIso)
+
+-- | Left identity of disjunction as a true isomorphism: Either Void a ≃ a.
+sumZeroLTo :: Either Void a -> a
+sumZeroLTo (Left v)  = case v of {}
+sumZeroLTo (Right x) = x
+
+sumZeroLLR :: foreach (s :: Either Void a) -> Right (sumZeroLTo s) :~: s
+sumZeroLLR (Left v)  = case v of {}
+sumZeroLLR (Right _) = Refl
+
+sumZeroLRL :: foreach (x :: a) -> sumZeroLTo (Right x) :~: x
+sumZeroLRL _ = Refl
+
+sumZeroLIso :: Iso (Either Void a) a
+sumZeroLIso = MkIso sumZeroLTo Right sumZeroLLR sumZeroLRL
 
 -- | Left identity of disjunction: Either Void a ⇔ a.
 sumZeroL :: Iff (Either Void a) a
-sumZeroL = Iff (either absurd id) Right
+sumZeroL = embedImpliesIff (isoImpliesEmbed sumZeroLIso)
 
-{-# LINE 353 "content/part1/Connectives.md" #-}
+{-# LINE 387 "content/part1/Connectives.md" #-}
 -- | Forward and backward maps for right distributivity.
 prodDistribSumTo :: (Either a b, c) -> Either (a, c) (b, c)
 prodDistribSumTo (Left x, z)  = Left (x, z)
@@ -298,7 +332,7 @@ prodDistribSumLIso = MkIso prodDistribSumLTo prodDistribSumLFrom prodDistribSumL
 prodDistribSumL :: Iff (a, Either b c) (Either (a, b) (a, c))
 prodDistribSumL = embedImpliesIff (isoImpliesEmbed prodDistribSumLIso)
 
-{-# LINE 424 "content/part1/Connectives.md" #-}
+{-# LINE 458 "content/part1/Connectives.md" #-}
 -- | Currying: (a -> b -> c) ⇔ ((a, b) -> c).
 currying :: Iff (a -> b -> c) ((a, b) -> c)
 currying = Iff uncurry curry
@@ -323,7 +357,7 @@ expZero = Iff (const ()) (\() -> absurd)
 expToUnit :: Iff (a -> ()) ()
 expToUnit = Iff (const ()) (\() _ -> ())
 
-{-# LINE 458 "content/part1/Connectives.md" #-}
+{-# LINE 492 "content/part1/Connectives.md" #-}
 -- | Congruence of conjunction under `Iff`.
 prodCong :: Iff a a' -> Iff b b' -> Iff (a, b) (a', b')
 prodCong (Iff fa ga) (Iff fb gb) = Iff (\(x, y) -> (fa x, fb y)) (\(x, y) -> (ga x, gb y))

@@ -9,7 +9,8 @@ module PLFH.Part1.InductionClient
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus, plusZero)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent.Properties (plusZero)
 import PLFH.Part1.Induction (plusAssoc, timesComm)
 import PLFH.Part1.Naturals (times)
 

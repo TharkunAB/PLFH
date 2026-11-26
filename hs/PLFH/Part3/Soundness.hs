@@ -30,7 +30,7 @@ module PLFH.Part3.Soundness
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part2.Confluence (betaTargetW)
 import PLFH.Part2.Substitution
   ( HasFin (..)

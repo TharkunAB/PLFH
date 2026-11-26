@@ -32,7 +32,7 @@ and no type families**.
 
 ## Imports
 
-We import propositional equality `(:~:)`, Peano naturals `HaskLib.Nat` (for
+We import propositional equality `(:~:)`, Peano naturals `Data.Nat.Dependent` (for
 raw de Bruijn numbers), `Not` from [Decidable](/Decidable/), and our
 intrinsically typed STLC definitions from [DeBruijn](/DeBruijn/).
 
@@ -69,7 +69,7 @@ module PLFH.Part2.Inference
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
-import qualified HaskLib.Nat as N
+import qualified Data.Nat.Dependent as N
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 ```

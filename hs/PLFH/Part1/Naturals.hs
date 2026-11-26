@@ -24,14 +24,14 @@ module PLFH.Part1.Naturals
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..), plus, type (+))
+import Data.Nat.Dependent (Nat (..), plus, type (+))
 
 {-# LINE 394 "content/part1/Naturals.md" #-}
 -- | Evidence that 2 + 3 = 5 using ordinary Haskell `plus` and decimal numerals.
 twoPlusThree :: plus 2 3 :~: 5
 twoPlusThree = Refl
 
--- | The same proof using `HaskLib.Nat`'s infix type operator `(+)`.
+-- | The same proof using `Data.Nat.Dependent`'s infix type operator `(+)`.
 twoPlusThreeInfix :: (2 + 3 :: Nat) :~: 5
 twoPlusThreeInfix = Refl
 

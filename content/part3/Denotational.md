@@ -120,7 +120,7 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (absurd)
 import GHC.Exts (M)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ```

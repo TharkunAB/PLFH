@@ -23,9 +23,11 @@ at the type level **without a single leading `'` tick**!
 
 ## Imports
 
-We import `Type`, `(:~:)` and `gcastWith`, `Void`, `List` and `Matchability`
-from `GHC.Types`, `HaskLib`'s length laws (`lengthAppend`, `lengthMap`,
-`lengthReverse`), `rewrite`, and `size`, `Nat` and `plus`, `Dec`/`Not` from
+We import `Type`, `(:~:)` and `gcastWith`, `Void`, `List` from `GHC.Types`,
+`Matchability` and `rewrite` from `Data.Type.Equality.Dependent`, `size` and
+`foldr` from `Data.List.Dependent`, `lengthReverse` from
+`Data.List.Dependent.Properties`, `Nat` and `plus` from `Data.Nat.Dependent`,
+`plusZero` from `Data.Nat.Dependent.Properties`, `Dec`/`Not` from
 [Decidable](/Decidable/), and `Iff` from [Isomorphism](/Isomorphism/).
 
 ```haskell
@@ -83,12 +85,15 @@ module PLFH.Part1.Lists
 
 import Prelude hiding (foldr)
 import Data.Kind (Type)
+import Data.List.Dependent (foldr, size)
+import Data.List.Dependent.Properties (lengthReverse)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent.Properties (plusZero)
 import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
+import Data.Type.Equality.Dependent (Matchability, rewrite)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
 import GHC.Types (List)
-import HaskLib (Matchability, foldr, lengthReverse, rewrite, size)
-import HaskLib.Nat (Nat (..), plus, plusZero)
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
 import PLFH.Part1.Isomorphism (Iff (..))
@@ -134,10 +139,10 @@ appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
 PLFA defines `length` and proves `length (xs ++ ys) ≡ length xs + length ys`,
 along with length preservation for `map` and `reverse`. Using
-[`HaskLib.List.size`](/HaskLib/#haskliblist) (`size :: List a -> Nat`) over
+[`Data.List.Dependent.size`](/DependentBase/#datalistdependent) (`size :: List a -> Nat`) over
 ordinary Prelude `(++)` and `map`, we prove `lengthAppendLaw` and
 `lengthMapLaw` directly by structural induction on `xs` (the same proofs are
-also exported by [`HaskLib.List`](/HaskLib/#haskliblist) as `lengthAppend` and
+also exported by [`Data.List.Dependent.Properties`](/DependentBase/#datalistdependentproperties) as `lengthAppend` and
 `lengthMap`, alongside `lengthReverse` for Prelude's tail-recursive `reverse`):
 
 ```haskell
@@ -153,7 +158,7 @@ lengthMapLaw :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a)
 lengthMapLaw _ []       = Refl
 lengthMapLaw f (_ : xs) = cong Succ (lengthMapLaw f xs)
 
--- | Length of Prelude reverse (proved via accumulator in HaskLib.List.lengthReverse).
+-- | Length of Prelude reverse (proved via accumulator in Data.List.Dependent.Properties.lengthReverse).
 lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
@@ -279,8 +284,7 @@ lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
 ### Right folds and monoid homomorphisms (`foldr`)
 
-Using `HaskLib.List.foldr` (re-exported by `HaskLib` over the standard
-library's list `foldr`), we prove PLFA's
+Using `Data.List.Dependent.foldr` (wrapping the standard library's list `foldr`), we prove PLFA's
 monoid-homomorphism fold laws (`foldr-monoid-++`) for both `(Nat, plus, 0)`
 and `(Nat, times, 1)`—moving the seed outside a right fold (`foldrPlusSeed`,
 `foldrTimesSeed`) and proving that folding a concatenated list equals combining
@@ -332,8 +336,7 @@ foldrTimesAppend (x : xs) ys =
 > (for example, `null (map not (build producer ++ error "ys"))` forces `ys`
 > under fusion while `null (map not (build producer) ++ map not (error "ys"))`
 > returns `False`), so GHC refuses to certify `mapAppend` when list-fusion
-> rules are active at `-O2` (recorded in
-> [`reproducers/R03_FunctionColumnSplit.hs`](https://github.com/TharkunAB/PLFH/blob/main/reproducers/R03_FunctionColumnSplit.hs)).
+> rules are active at `-O2`.
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
 
@@ -603,7 +606,7 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
 - Used standard Prelude lists (`GHC.Types.List`), `(++)`, and `map` directly,
   with `-XNoListTuplePuns` so promoted `[]`, `:`, and `[0, 1, 0]` require
   zero leading `'` ticks!
-- Reused `HaskLib`'s `lengthAppend`, `lengthMap`, and `lengthReverse`.
+- Reused `dependent-base`'s `size`, `foldr`, and `lengthReverse` (`Data.List.Dependent` / `Data.List.Dependent.Properties`).
 - Made `All` and `Any` matchability-polymorphic (`p :: a %m -> Type`),
   unlocking PLFA's full inline type-lambda De Morgan theorem
   (`notAnyToAllNot`, `allNotToNotAny`, `notAnyIffAllNot`).
@@ -611,8 +614,8 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
   `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
   `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
   `lengthDownFrom`/`lengthZeros`, `foldrPlusSeed`/`foldrPlusAppend` over
-  `HaskLib.List.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
+  `Data.List.Dependent.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
   `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
   `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
 - Documented GHC's intentional `-O2` list-fusion soundness guard on `mapAppend`
-  (`-fno-enable-rewrite-rules`; `reproducers/R03_FunctionColumnSplit.hs`).
+  (`-fno-enable-rewrite-rules`).

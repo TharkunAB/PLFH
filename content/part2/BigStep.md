@@ -68,7 +68,7 @@ module PLFH.Part2.BigStep
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Substitution
   ( HasTerm (..)

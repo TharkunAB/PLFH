@@ -11,7 +11,7 @@ playground: true
   <a class="hero-btn" href="/Showcase/">Roadmap Showcase</a>
   <a class="hero-btn" href="/Playground/">Full-Page Playground</a>
   <a class="hero-btn" href="/">Read the Book (25 Chapters)</a>
-  <a class="hero-btn" href="/HaskLib/">HaskLib Reference</a>
+  <a class="hero-btn" href="/DependentBase/">dependent-base</a>
   <a class="hero-btn" href="/Source/">Browse Source</a>
   <a class="hero-btn" href="/Status/">Verification</a>
 </div>
@@ -52,10 +52,13 @@ With `-XDependentTypes`, terms and types move toward a single unified language:
   non-termination and partiality. Dependent Haskell preserves System FC type
   soundness by checking value-carrying proofs explicitly (Weirich et al., ICFP
   2017) rather than assuming every term terminates.
-- **Interactive Agda-mode via Typed Holes:** GHC's dependent typed holes (`_`,
-  `_qed`), subgoal-splitting refinement fits, 1-step proof synthesis, and
-  pattern-match case splits (extending Gissurarson, Haskell 2018) run directly
-  in the [browser Playground](/Playground/) and on every chapter page.
+- **Interactive Agda-mode via Typed Holes & Proof Search:** GHC's dependent
+  typed holes (`_`, `_qed`), refinement hole fits
+  (`-frefinement-level-hole-fits=2 -fabstract-refinement-hole-fits`),
+  pattern-match case splits, and the standalone
+  [`dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)
+  hole-fit plugin (extending Gissurarson, Haskell 2018) run directly in the
+  [browser Playground](/Playground/) and on every chapter page.
 
 ## Try it live in your browser {#try-it}
 
@@ -154,8 +157,8 @@ ledger and negative controls.
 - **[Table of Contents](/):** Read all 25 chapters from Peano arithmetic and
   induction to intrinsically-typed STLC, Church–Rosser confluence, and
   denotational adequacy & contextual equivalence.
-- **[HaskLib Reference](/HaskLib/) & [Source Browser](/Source/):** Inspect
-  the precompiled library definitions, every extracted chapter `.hs` file,
-  negative controls, and runtime smoke tests.
+- **[`dependent-base` Reference](/DependentBase/) & [Source Browser](/Source/):** Inspect
+  the standalone standard library ([`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)),
+  every extracted chapter `.hs` file, negative controls, and runtime smoke tests.
 - **[Setup](/Setup/):** Build `TharkunAB/ghc` locally or host your own Wasm GHCi
   bundle.

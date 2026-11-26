@@ -43,9 +43,10 @@ module PLFH.Part1.Induction
   , twoTimesThree
   ) where
 
+import Data.Nat.Dependent (Nat (..), plus, type (+))
+import Data.Nat.Dependent.Properties (congFirst)
+import Data.Type.Equality.Dependent (Matchability, rewrite)
 import Data.Type.Equality ((:~:) (Refl), sym, trans)
-import HaskLib (Matchability, rewrite)
-import HaskLib.Nat (Nat (..), congFirst, plus, type (+))
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, pow, times, toBin)
 ```
 
@@ -62,8 +63,10 @@ recursion*.
 ## Imports and Congruence (`cong`)
 
 We require propositional equality `(:~:)` with `Refl`, `sym`, and `trans`
-from `Data.Type.Equality`, `rewrite` from `HaskLib`, `Nat` and `plus` from
-`HaskLib.Nat`, and our operations from [Naturals](/Naturals/).
+from `Data.Type.Equality`, `Matchability` and `rewrite` from
+`Data.Type.Equality.Dependent`, `Nat` and `plus` from `Data.Nat.Dependent`,
+`congFirst` from `Data.Nat.Dependent.Properties`, and our operations from
+[Naturals](/Naturals/).
 
 We also define **congruence**: a relation is said to be a *congruence* for
 a given function `f` if it is preserved by applying `f`—given evidence that
@@ -75,8 +78,8 @@ works just like Agda's—with **no `@` sign needed**—for both promoted data
 constructors (`cong Succ`, matchable arrow `Nat -> Nat`) and partially applied
 promoted functions (`cong (plus m)`, `cong (times a)`, unmatchable arrow
 `Nat %U -> Nat`). (To lift an equality into the *first* argument of a binary
-function—where Agda writes a right-section like `(_* p)`—`HaskLib.Nat`
-provides `congFirst`, or `HaskLib.rewrite` rewrites the position directly.)
+function—where Agda writes a right-section like `(_* p)`—`Data.Nat.Dependent.Properties`
+provides `congFirst`, or `rewrite` rewrites the position directly.)
 
 ```haskell
 -- | Unified matchability-polymorphic congruence (`cong`): works just like Agda
@@ -305,7 +308,7 @@ The proof requires that we first demonstrate two lemmas:
 
 We prove both lemmas directly by structural induction on `m` using `cong Succ`
 (later chapters can also import the same proofs from
-[`HaskLib.Nat`](/HaskLib/#hasklibnat) under the names `plusZero` and `plusSucc`):
+[`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties) under the names `plusZero` and `plusSucc`):
 
 ```haskell
 -- | First lemma: right identity of addition (`+-identityʳ`).
@@ -377,22 +380,22 @@ Write out what is known about associativity of addition on each of the
 first four days using a finite story of creation, as in
 [Naturals](/Naturals/#finite-creation).
 
-## Associativity and commutativity with `HaskLib.rewrite`
+## Associativity and commutativity with `rewrite`
 
 There is more than one way to skin a cat. PLFA also proves `+-assoc′` and
 `+-comm′` using Agda's `rewrite` keyword rather than explicit congruence
 and transitivity chains. In Dependent Haskell, `rewrite` (exported from
-`HaskLib`) brings a propositional equality `a :~: b` into scope as a local
+`Data.Type.Equality.Dependent`) brings a propositional equality `a :~: b` into scope as a local
 equality constraint for its body—avoiding explicit `cong` and `trans`:
 
 ```haskell
--- | Associativity proved via `HaskLib.rewrite` (`+-assoc′`).
+-- | Associativity proved via `rewrite` (`+-assoc′`).
 plusAssocRewrite :: foreach (m n p :: Nat)
                  -> plus (plus m n) p :~: plus m (plus n p)
 plusAssocRewrite Zero     _ _ = Refl
 plusAssocRewrite (Succ m) n p = rewrite (plusAssocRewrite m n p) Refl
 
--- | Commutativity proved via nested `HaskLib.rewrite` (`+-comm′`).
+-- | Commutativity proved via nested `rewrite` (`+-comm′`).
 plusCommRewrite :: foreach (m n :: Nat) -> plus m n :~: plus n m
 plusCommRewrite m Zero     = rewrite (plusIdentityR m) Refl
 plusCommRewrite m (Succ k) = rewrite (plusSuc m k) (rewrite (plusCommRewrite m k) Refl)
@@ -407,8 +410,8 @@ and `1` directly with `GHC-83865`:
 {-# LANGUAGE DependentTypes #-}
 module NegZeroSucc (zeroEqualsOne) where
 
+import Data.Nat.Dependent (Nat (..))
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..))
 
 zeroEqualsOne :: (0 :: Nat) :~: 1
 zeroEqualsOne = Refl
@@ -602,7 +605,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
 - Proves `plusIdentityR` (`+-identityʳ`) and `plusSuc` (`+-suc`) directly by
   induction in the chapter (matching PLFA; later chapters can also import the
-  same lemmas from [`HaskLib.Nat`](/HaskLib/#hasklibnat) as `plusZero` and
+  same lemmas from [`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties) as `plusZero` and
   `plusSucc`).
 - Uses a single Agda-style matchability-polymorphic `cong` (`{m :: Matchability}`
   + `RequiredTypeArguments`) for constructors (`cong Succ`), left-first
@@ -614,7 +617,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`, `timesSuccR`,
   `timesComm`, `timesSwap`, `timesInterchange`, `zeroMonus`, `monusPlusAssoc`,
   `powPlus`, `powMul`, `powTimes`, `fromInc`, and `fromTo`.
-- Uses `HaskLib.rewrite` in place of Agda's `rewrite` syntax, and adds an
+- Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax, and adds an
   explicit negative control (`NegZeroSucc`) verifying GHC rejects `0 :~: 1`
   (`GHC-83865`).
 - Omitted Agda's Emacs interactive proof-building walkthrough and Unicode

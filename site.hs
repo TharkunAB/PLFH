@@ -49,7 +49,7 @@ main = do
       , "content/Playground.md"
       , "content/Preface.md"
       , "content/Setup.md"
-      , "content/HaskLib.md"
+      , "content/DependentBase.md"
       , "content/Status.md"
       , "content/Citing.md"
       ] .||. "content/part1/*.md" .||. "content/part2/*.md" .||. "content/part3/*.md") $ do
@@ -61,7 +61,7 @@ main = do
           >>= applyBaseUrl baseUrl
 
     -- Render all extracted Haskell chapters, runtime smoke test, negative controls,
-    -- and HaskLib reference sources under /Source/.
+    -- and dependent-base reference sources under /Source/.
     match sourcePatterns $ do
       route sourcePageRoute
       compile $ do
@@ -78,13 +78,13 @@ main = do
       route idRoute
       compile $ do
         chapterIds <- sort . map toFilePath <$> getMatches "hs/PLFH/**.hs"
-        hasklibIds <- sort . map toFilePath <$> getMatches "reference/hasklib/**.hs"
+        depBaseIds <- sort . map toFilePath <$> getMatches "reference/dependent-base/**.hs"
         negIds <- sort . map toFilePath <$> getMatches "hs/negative/*.hs"
         let (chapMods, smokeMods) = partitionChapterAndSmoke chapterIds
-            md = buildSourceIndexMarkdown chapMods smokeMods hasklibIds negIds
+            md = buildSourceIndexMarkdown chapMods smokeMods depBaseIds negIds
             ctx =
               constField "title" "Source Browser"
-                <> constField "prevUrl" "/HaskLib/"
+                <> constField "prevUrl" "/DependentBase/"
                 <> constField "nextUrl" "/Status/"
                 <> pageCtx baseUrl wasmRootfsUrl
         pandocItem <- readPandocWith plfhReaderOpts (Item (fromFilePath "source-index.md") md)
@@ -97,7 +97,7 @@ sourcePatterns :: Pattern
 sourcePatterns =
   ("hs/PLFH/**.hs" .&&. complement internalClientPatterns)
     .||. "hs/negative/*.hs"
-    .||. "reference/hasklib/**.hs"
+    .||. "reference/dependent-base/**.hs"
 
 internalClientPatterns :: Pattern
 internalClientPatterns =
@@ -125,8 +125,7 @@ prettyPageRoute = customRoute $ \ident ->
 
 -- | Map source file paths to clean URLs under @Source/@:
 -- @hs/PLFH/Part1/Naturals.hs@ -> @Source/PLFH/Part1/Naturals/index.html@,
--- @reference/hasklib/HaskLib/Nat.hs@ -> @Source/hasklib/HaskLib/Nat/index.html@,
--- @reproducers/R13_Foo.hs@ -> @Source/reproducers/R13_Foo/index.html@.
+-- @reference/dependent-base/Data/Nat/Dependent.hs@ -> @Source/dependent-base/Data/Nat/Dependent/index.html@.
 sourcePageRoute :: Routes
 sourcePageRoute = customRoute $ \ident ->
   sourceUrlSlug (toFilePath ident) </> "index.html"
@@ -201,8 +200,8 @@ sourceCtx path baseUrl wasmRootfsUrl =
     <> constField "relPath" (sourceDisplayPath path)
     <> constField "githubUrl" (sourceGitHubUrl path)
     <> maybe mempty (constField "chapterUrl") (sourceChapterUrl path)
-    <> (if "reference/hasklib/" `isPrefixOf` path
-          then constField "hasklibRefUrl" "/HaskLib/"
+    <> (if "reference/dependent-base/" `isPrefixOf` path
+          then constField "depBaseRefUrl" "/DependentBase/"
           else mempty)
     <> pageCtx baseUrl wasmRootfsUrl
 
@@ -210,26 +209,20 @@ sourceDisplayTitle :: FilePath -> String
 sourceDisplayTitle path
   | "hs/PLFH/" `isPrefixOf` path =
       intercalate "." (splitDirectories (dropExtension (drop 3 path)))
-  | "reference/hasklib/" `isPrefixOf` path =
-      intercalate "." (splitDirectories (dropExtension (drop 18 path)))
+  | "reference/dependent-base/" `isPrefixOf` path =
+      intercalate "." (splitDirectories (dropExtension (drop 25 path)))
   | otherwise = takeFileName path
 
 sourceDisplayPath :: FilePath -> String
 sourceDisplayPath path
-  | "reference/hasklib/" `isPrefixOf` path =
-      let rel = drop 18 path
-      in if "Prelude" `isPrefixOf` rel
-           then "TharkunAB/ghc: docs/dependent-haskell/examples/open-evaluation/" ++ rel
-           else "TharkunAB/ghc: docs/dependent-haskell/hasklib/" ++ rel
+  | "reference/dependent-base/" `isPrefixOf` path =
+      "TharkunAB/dependent-base: src/" ++ drop 25 path
   | otherwise = path
 
 sourceGitHubUrl :: FilePath -> String
 sourceGitHubUrl path
-  | "reference/hasklib/" `isPrefixOf` path =
-      let rel = drop 18 path
-      in if "Prelude" `isPrefixOf` rel
-           then "https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/examples/open-evaluation/" ++ rel
-           else "https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/hasklib/" ++ rel
+  | "reference/dependent-base/" `isPrefixOf` path =
+      "https://github.com/TharkunAB/dependent-base/blob/main/src/" ++ drop 25 path
   | otherwise = "https://github.com/TharkunAB/PLFH/blob/main/" ++ path
 
 -- | Standalone supporting client modules under hs/PLFH/ that are not chapters.
@@ -260,10 +253,10 @@ partitionChapterAndSmoke paths =
 
 buildSourceIndexMarkdown
   :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
-buildSourceIndexMarkdown chapMods smokeMods hasklibIds negIds =
+buildSourceIndexMarkdown chapMods smokeMods depBaseIds negIds =
   unlines $
-    [ "Browse every verified Haskell module extracted from PLFH, the `HaskLib`"
-    , "reference library, the runtime smoke test suite, and all negative controls"
+    [ "Browse every verified Haskell module extracted from PLFH, the `dependent-base`"
+    , "standard library, the runtime smoke test suite, and all negative controls"
     , "directly on this site."
     , ""
     , "## Chapter Modules (" ++ show (length chapMods) ++ ")"
@@ -271,12 +264,12 @@ buildSourceIndexMarkdown chapMods smokeMods hasklibIds negIds =
     ]
       ++ map formatChapterRow chapMods
       ++ [ ""
-         , "## `HaskLib` Reference Modules (" ++ show (length hasklibIds) ++ ")"
+         , "## `dependent-base` Modules (" ++ show (length depBaseIds) ++ ")"
          , ""
-         , "See the [HaskLib Reference](/HaskLib/) page for the exported API summary."
+         , "See the [dependent-base Reference](/DependentBase/) page for the exported API summary."
          , ""
          ]
-      ++ map formatPlainRow hasklibIds
+      ++ map formatPlainRow depBaseIds
       ++ [ ""
          , "## Negative Controls (" ++ show (length negIds) ++ ")"
          , ""

@@ -45,7 +45,7 @@ module PLFH.Part3.Adequacy
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
 import PLFH.Part1.Negation (Not)
 import qualified PLFH.Part2.BigStep as B

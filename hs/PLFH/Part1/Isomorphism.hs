@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DependentTypes #-}
 {-# OPTIONS_GHC -fno-enable-rewrite-rules #-}
-{-# LINE 35 "content/part1/Isomorphism.md" #-}
+{-# LINE 36 "content/part1/Isomorphism.md" #-}
 module PLFH.Part1.Isomorphism
   ( Iff (..)
   , iffRefl
@@ -29,17 +29,23 @@ module PLFH.Part1.Isomorphism
   , isoSizeSym
   ) where
 
+import Prelude hiding ((.))
+import Data.Function.Dependent ((.))
+import Data.Nat.Dependent (Nat (..))
 import Data.Type.Equality ((:~:) (Refl), trans)
-import HaskLib.Nat (Nat (..))
 import PLFH.Part1.Induction (cong, fromTo)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
-{-# LINE 72 "content/part1/Isomorphism.md" #-}
--- From Prelude:
--- (.) :: (b -> c) -> (a -> b) -> (a -> c)
+{-# LINE 78 "content/part1/Isomorphism.md" #-}
+-- From Data.Function.Dependent:
+-- (.) :: forall {a} {b} {m :: Matchability} (c :: b %m -> Type).
+--        (foreach (y :: b) -> c y)
+--     -> foreach (f :: a -> b)
+--     -> foreach (x :: a)
+--     -> c (f x)
 -- (g . f) x = g (f x)
 
-{-# LINE 107 "content/part1/Isomorphism.md" #-}
+{-# LINE 117 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic isomorphism witness between `a` and `b`.
 data Iso a b where
   MkIso :: foreach (to :: a -> b) -> foreach (from :: b -> a)
@@ -51,7 +57,7 @@ data Iso a b where
 isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
-{-# LINE 126 "content/part1/Isomorphism.md" #-}
+{-# LINE 136 "content/part1/Isomorphism.md" #-}
 -- | Round-trip identity at any lifted type.
 identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
 identityRoundTrip _ = Refl
@@ -60,7 +66,7 @@ identityRoundTrip _ = Refl
 isoRefl :: Iso a a
 isoRefl = MkIso id id identityRoundTrip identityRoundTrip
 
-{-# LINE 139 "content/part1/Isomorphism.md" #-}
+{-# LINE 149 "content/part1/Isomorphism.md" #-}
 -- | Identity function on Nat with explicit structural equations.
 idSize :: Nat -> Nat
 idSize Zero     = Zero
@@ -90,7 +96,7 @@ isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
 isoSizeSym :: IsoSize -> IsoSize
 isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 
-{-# LINE 181 "content/part1/Isomorphism.md" #-}
+{-# LINE 191 "content/part1/Isomorphism.md" #-}
 -- | Cancel the inner round trip, then use the outer left inverse.
 composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (h :: b -> c) -> foreach (k :: c -> b)
@@ -100,24 +106,21 @@ composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
 composeLeft f g _ _ gf kh x = trans (cong g (kh (f x))) (gf x)
 
 -- | Generic transitivity of isomorphism (`≃-trans`), composing maps directly
--- via local `where` definitions!
+-- with `Data.Function.Dependent.(.)`.
 isoTrans :: forall a b c. Iso a b -> Iso b c -> Iso a c
 isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
-  MkIso @a @c to from
+  MkIso @a @c (h . f) (g . k)
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
-  where
-    to x   = h (f x)
-    from z = g (k z)
 
-{-# LINE 212 "content/part1/Isomorphism.md" #-}
+{-# LINE 219 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 226 "content/part1/Isomorphism.md" #-}
+{-# LINE 233 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
@@ -135,12 +138,12 @@ embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 251 "content/part1/Isomorphism.md" #-}
+{-# LINE 258 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 285 "content/part1/Isomorphism.md" #-}
+{-# LINE 292 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b

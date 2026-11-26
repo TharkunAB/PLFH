@@ -109,7 +109,7 @@ module PLFH.Part2.Confluence
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (absurd)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part2.Substitution
   ( HasFin (..)

@@ -34,7 +34,7 @@ module PLFH.Part2.Inference
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
-import qualified HaskLib.Nat as N
+import qualified Data.Nat.Dependent as N
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 

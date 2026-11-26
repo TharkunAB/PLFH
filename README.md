@@ -15,9 +15,8 @@ experimental Dependent Haskell fork of GHC
 
 - `content/` — Literate Haskell Markdown chapters and front matter (`Preface`, `Setup`, `Status`, `Citing`).
 - `hs/` — Standalone `.hs` modules and negative controls extracted from `content/` by `scripts/extract_and_sync.py`.
-- `reproducers/` — Minimal standalone regression tests for the Dependent Haskell compiler.
-- `scripts/extract_and_sync.py` — Extracts `hs/` from `content/` and optionally mirrors `hs/` and `reproducers/` into `ghc/docs/dependent-haskell/plfh/`.
-- `scripts/check_plfh.sh` — Verifies all chapter modules (`-dcore-lint -dstg-lint`), negative controls, runtime smoke tests, and regression tests.
+- `scripts/extract_and_sync.py` — Extracts `hs/` from `content/` and optionally snapshots `reference/dependent-base/`.
+- `scripts/check_plfh.sh` — Verifies all chapter modules (`-dcore-lint -dstg-lint`), `.hi` interface soundness, negative controls, and runtime smoke tests.
 - `site.hs`, `plfh-site.cabal`, `templates/`, `css/` — Hakyll static site generator (PLFA-inspired styling with Iosevka and no TeX).
 - `shell.nix` — Nix development shell with GHC bootstrap tools and Hakyll prerequisites.
 

@@ -24,7 +24,7 @@ Preservation; in [DeBruijn](/DeBruijn/) we revisit the same language using
 ## Imports
 
 We import propositional equality `(:~:)`, Peano naturals `Nat` from
-`HaskLib.Nat` (used here as structural variable identifiers), and `Not` from
+`Data.Nat.Dependent` (used here as structural variable identifiers), and `Not` from
 [Decidable](/Decidable/) to express variable inequality during context lookup.
 
 ```haskell
@@ -51,7 +51,7 @@ module PLFH.Part2.Lambda
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Not)
 ```
 
@@ -372,7 +372,7 @@ GHC with `GHC-83865`:
 {-# LANGUAGE DependentTypes #-}
 module NegBetaMuTarget (wrong) where
 
-import HaskLib.Nat (Nat (Zero))
+import Data.Nat.Dependent (Nat (Zero))
 import PLFH.Part2.Lambda (Step (..), Term (..))
 
 wrong :: Step (TMu Zero TZero)

@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
-{-# LINE 30 "content/part1/Equality.md" #-}
+{-# LINE 31 "content/part1/Equality.md" #-}
 module PLFH.Part1.Equality
   ( EqP (..)
   , toEqP
@@ -26,19 +26,19 @@ module PLFH.Part1.Equality
   ) where
 
 import Data.Kind (Type)
+import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality.Dependent (Matchability)
 import GHC.Exts (U)
-import HaskLib (Matchability)
-import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Induction (cong, plusComm)
 import PLFH.Part1.Relations (Even (..))
 
-{-# LINE 68 "content/part1/Equality.md" #-}
+{-# LINE 69 "content/part1/Equality.md" #-}
 -- | Kind-polymorphic propositional equality (matching Data.Type.Equality.:~:).
 data EqP (x :: a) (y :: a) where
   ReflP :: EqP x x
 
-{-# LINE 86 "content/part1/Equality.md" #-}
+{-# LINE 87 "content/part1/Equality.md" #-}
 -- | Symmetry: if x = y then y = x.
 symP :: EqP x y -> EqP y x
 symP ReflP = ReflP
@@ -47,7 +47,7 @@ symP ReflP = ReflP
 transP :: EqP x y -> EqP y z -> EqP x z
 transP ReflP q = q
 
-{-# LINE 125 "content/part1/Equality.md" #-}
+{-# LINE 126 "content/part1/Equality.md" #-}
 -- | Agda-style matchability-polymorphic congruence: works for both constructors
 -- (`congP Succ`) and promoted functions (`congP (plus m)`).
 congP :: forall {a} {b} {m :: Matchability}.
@@ -66,7 +66,7 @@ substP :: forall {a} (p :: a %U -> Type) (x :: a) (y :: a).
           EqP x y -> p x -> p y
 substP ReflP px = px
 
-{-# LINE 151 "content/part1/Equality.md" #-}
+{-# LINE 152 "content/part1/Equality.md" #-}
 -- | Convert standard `Data.Type.Equality.:~:` into our local `EqP`.
 toEqP :: x :~: y -> EqP x y
 toEqP Refl = ReflP
@@ -76,7 +76,7 @@ evenComm :: foreach (m n :: Nat)
          -> Even (plus m n) -> Even (plus n m)
 evenComm m n ev = substP @Even (toEqP (plusComm m n)) ev
 
-{-# LINE 181 "content/part1/Equality.md" #-}
+{-# LINE 182 "content/part1/Equality.md" #-}
 -- | Start an equational reasoning chain from `x` to `y`.
 beginEq :: forall x y -> x :~: y -> x :~: y
 beginEq _ _ p = p
@@ -89,7 +89,7 @@ qedEq _ = Refl
 stepEq :: forall x y z -> x :~: y -> y :~: z -> x :~: z
 stepEq _ _ _ Refl Refl = Refl
 
-{-# LINE 198 "content/part1/Equality.md" #-}
+{-# LINE 199 "content/part1/Equality.md" #-}
 -- | Example equational chain proving `n + 0 = n`.
 plusZeroChain :: foreach (n :: Nat) -> plus n Zero :~: n
 plusZeroChain Zero     = beginEq (type (plus Zero Zero)) (type Zero) (qedEq (type Zero))
@@ -100,7 +100,7 @@ plusZeroChain (Succ n) =
       (cong Succ (plusZeroChain n))
       (qedEq (type (Succ n))))
 
-{-# LINE 256 "content/part1/Equality.md" #-}
+{-# LINE 257 "content/part1/Equality.md" #-}
 -- | Leibniz equality over predicates `p :: a %U -> Type`
 -- (accepts both matchable constructors like `EqP x` and type-level lambdas).
 type Leibniz (x :: a) (y :: a) = forall (p :: a %U -> Type). p x -> p y

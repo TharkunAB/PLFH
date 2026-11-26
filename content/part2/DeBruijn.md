@@ -69,7 +69,7 @@ module PLFH.Part2.DeBruijn
   ) where
 
 import Data.Kind (Type)
-import qualified HaskLib.Nat as N
+import qualified Data.Nat.Dependent as N
 ```
 
 ## Types, nameless contexts, and de Bruijn lookups

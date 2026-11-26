@@ -2,7 +2,7 @@
 -- EXPECT-ERROR: GHC-83865
 module NegBetaMuTarget (wrong) where
 
-import HaskLib.Nat (Nat (Zero))
+import Data.Nat.Dependent (Nat (Zero))
 import PLFH.Part2.Lambda (Step (..), Term (..))
 
 wrong :: Step (TMu Zero TZero)

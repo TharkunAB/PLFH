@@ -65,7 +65,7 @@ module PLFH.Part2.Substitution
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl), sym)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Induction (cong)
 import PLFH.Part2.Untyped
   ( Fin (..)

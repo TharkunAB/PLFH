@@ -11,7 +11,7 @@ let hsSearchDir = null;
 let currentChapter = null;
 let interactiveMode = false;
 const defaultFlags =
-  "-package-env - -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
+  "-package-env - -package dependent-base -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
 const replFlags = `-XDependentTypes ${defaultFlags}`;
 
 const stdoutLines = [];
@@ -291,8 +291,8 @@ async function bootSession({ rootfsUrl, chapterModule }) {
   if (targetCtx !== currentChapter) {
     currentChapter = targetCtx;
     const mods = chapterModule
-      ? `Prelude Data.Type.Equality GHC.Sigma HaskLib.Nat ${chapterModule}`
-      : "Prelude Data.Type.Equality GHC.Sigma HaskLib.Nat";
+      ? `Prelude Data.Type.Equality GHC.Sigma Data.Nat.Dependent ${chapterModule}`
+      : "Prelude Data.Type.Equality GHC.Sigma Data.Nat.Dependent";
     await runCmd("context", "", mods);
     drainOutput();
   }
@@ -364,20 +364,24 @@ function extractDefinedEntities(code) {
   return { typesWithCtors, plainNames, allNames };
 }
 
-const HASKLIB_NAT_EXPORTS = new Set([
+const DEP_NAT_EXPORTS = new Set([
   "Nat",
   "Zero",
   "Succ",
+  "Size",
   "plus",
+  "mul",
+  "minus",
+  "minNat",
+  "maxNat",
+  "minSize",
+  "eqNat",
   "eqSize",
-  "eqSizeRefl",
+  "compareNat",
   "natToInt",
-  "plusZero",
-  "plusSucc",
-  "plusComm",
-  "plusAssoc",
-  "congSucc",
-  "congFirst",
+  "natToInteger",
+  "LE",
+  "LTNat",
   "(+)",
 ]);
 
@@ -397,7 +401,7 @@ function makeHidingClause(typesWithCtors, plainNames, allowedExports) {
 }
 
 // Strip redefined symbols from explicit parenthesized chapter import lists
-// (e.g. `import HaskLib.Nat (Nat (..), plus)` when the snippet defines `plus`).
+// (e.g. `import Data.Nat.Dependent (Nat (..), plus)` when the snippet defines `plus`).
 function filterExplicitImport(impStmt, redefinedNames) {
   if (redefinedNames.size === 0) return impStmt;
   if (/^\s*import\s+qualified\b/.test(impStmt) || /\bhiding\b/.test(impStmt)) {
@@ -487,7 +491,7 @@ function buildModuleSource(
   const { typesWithCtors, plainNames, allNames } = extractDefinedEntities(declBody);
   const exportSet = Array.isArray(chapterExports) ? new Set(chapterExports) : null;
   const chapterHiding = makeHidingClause(typesWithCtors, plainNames, exportSet);
-  const natHiding = makeHidingClause(typesWithCtors, plainNames, HASKLIB_NAT_EXPORTS);
+  const natHiding = makeHidingClause(typesWithCtors, plainNames, DEP_NAT_EXPORTS);
 
   const filteredChapterImports = chapterImports
     .map((imp) => filterExplicitImport(imp, allNames))
@@ -496,8 +500,8 @@ function buildModuleSource(
   const allImportsText =
     filteredChapterImports.join("\n") + "\n" + snippetImports.join("\n");
   const hasEquality = /\bData\.Type\.Equality\b/.test(allImportsText);
-  const hasSigma = /\bGHC\.Sigma\b/.test(allImportsText);
-  const hasHaskLibNat = /\bHaskLib\.Nat\b/.test(allImportsText);
+  const hasSigma = /\bGHC\.Sigma\b|\bData\.Sigma\.Dependent\b/.test(allImportsText);
+  const hasDepNat = /\bData\.Nat\.Dependent\b|\bPrelude\.Dependent\b/.test(allImportsText);
 
   const headerPrefix = [
     "{-# LANGUAGE AllowAmbiguousTypes, DependentTypes, LambdaCase #-}",
@@ -509,7 +513,7 @@ function buildModuleSource(
       ? ["import Data.Type.Equality ((:~:) (Refl), sym, trans)"]
       : []),
     ...(!hasSigma ? ["import GHC.Sigma (Sigma (Pair))"] : []),
-    ...(!hasHaskLibNat ? [`import HaskLib.Nat${natHiding}`] : []),
+    ...(!hasDepNat ? [`import Data.Nat.Dependent${natHiding}`] : []),
     ...(chapterModule ? [`import ${chapterModule}${chapterHiding}`] : []),
     ...snippetImports,
     "",
@@ -546,7 +550,7 @@ async function handleRepl(line) {
     status = await runCmd("info", m[1].trim(), "");
   } else if ((m = trimmed.match(/^:browse!?\s*([\s\S]*)$/))) {
     const targetMod =
-      m[1].trim() || (currentChapter && currentChapter !== "__default__" ? currentChapter : "HaskLib.Nat");
+      m[1].trim() || (currentChapter && currentChapter !== "__default__" ? currentChapter : "Data.Nat.Dependent");
     status = await runCmd("browse", targetMod, "");
   } else if ((m = trimmed.match(/^:set\s+([\s\S]+)$/))) {
     status = await runCmd("setflags", `${defaultFlags} ${m[1].trim()}`, "");

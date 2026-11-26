@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
-{-# LINE 37 "content/part1/Quantifiers.md" #-}
+{-# LINE 39 "content/part1/Quantifiers.md" #-}
 module PLFH.Part1.Quantifiers
   ( Exists
   , SumPred (..)
@@ -32,18 +32,20 @@ module PLFH.Part1.Quantifiers
   , oddIffWitness
   ) where
 
+import Data.Exists.Dependent (data Pack, mapExists, withExists)
 import Data.Kind (Type)
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent.Properties (plusSucc)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality.Dependent (rewrite)
+import GHC.Exists (Exists)
 import GHC.Sigma (Sigma (Pair))
-import HaskLib (rewrite)
-import HaskLib.Exists (Exists, data Pack, mapExists, withExists)
-import HaskLib.Nat (Nat (..), plus, plusSucc)
 import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (Even (..), Odd (..))
 
-{-# LINE 129 "content/part1/Quantifiers.md" #-}
+{-# LINE 133 "content/part1/Quantifiers.md" #-}
 -- | Pointwise disjunction of predicates.
 data SumPred (p :: a -> Type) (q :: a -> Type) (x :: a) where
   InL :: p x -> SumPred p q x
@@ -107,7 +109,7 @@ forallNotToNotExists
      (forall x. Not (p x)) -> Not (Exists p)
 forallNotToNotExists fn pkg = withExists pkg $ \_ px -> fn px
 
-{-# LINE 210 "content/part1/Quantifiers.md" #-}
+{-# LINE 214 "content/part1/Quantifiers.md" #-}
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
 type EvenSigma (n :: Nat) = some (k :: Nat) | plus k k :~: n
 
@@ -123,7 +125,7 @@ type SumSigma (n :: Nat) = some (m k :: Nat) | plus m k :~: n
 sumSigmaTwo :: SumSigma 2
 sumSigmaTwo = Pair 1 (Pair 1 Refl)
 
-{-# LINE 232 "content/part1/Quantifiers.md" #-}
+{-# LINE 236 "content/part1/Quantifiers.md" #-}
 -- | Retained existential witness that `n` is double some runtime `k`.
 data EvenWitness (n :: Nat) where
   MkEvenWitness :: foreach (k :: Nat) -> plus k k :~: n -> EvenWitness n
@@ -135,7 +137,7 @@ evenWitnessSuc2 :: EvenWitness n -> EvenWitness (Succ (Succ n))
 evenWitnessSuc2 (MkEvenWitness k Refl) =
   MkEvenWitness (Succ k) (cong Succ (plusSucc k k))
 
--- | Every double `k + k` is even (proved directly using `HaskLib.rewrite`).
+-- | Every double `k + k` is even (proved directly using `rewrite`).
 evenDouble :: foreach (k :: Nat) -> Even (plus k k)
 evenDouble Zero     = EvenZ
 evenDouble (Succ k) = rewrite (plusSucc k k) (EvenS (OddS (evenDouble k)))

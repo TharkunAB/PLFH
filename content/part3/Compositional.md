@@ -61,7 +61,7 @@ module PLFH.Part3.Compositional
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)

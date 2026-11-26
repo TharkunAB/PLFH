@@ -48,7 +48,7 @@ module PLFH.Part2.Untyped
   ) where
 
 import Data.Kind (Type)
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 
 {-# LINE 95 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.

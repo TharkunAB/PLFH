@@ -20,10 +20,11 @@ and **type-level lambdas**.
 
 ## Imports
 
-We import `Type` from `Data.Kind`, `Matchability` from `HaskLib`, `U` from
-`GHC.Exts`, `(:~:)` from `Data.Type.Equality`, `Nat` and `plus` from
-`HaskLib.Nat`, `cong` and `plusComm` from [Induction](/Induction/), and
-`Even` from [Relations](/Relations/).
+We import `Type` from `Data.Kind`, `Matchability` from
+`Data.Type.Equality.Dependent`, `U` from `GHC.Exts`, `(:~:)` from
+`Data.Type.Equality`, `Nat` and `plus` from `Data.Nat.Dependent`, `cong` and
+`plusComm` from [Induction](/Induction/), and `Even` from
+[Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
@@ -50,10 +51,10 @@ module PLFH.Part1.Equality
   ) where
 
 import Data.Kind (Type)
+import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality.Dependent (Matchability)
 import GHC.Exts (U)
-import HaskLib (Matchability)
-import HaskLib.Nat (Nat (..), plus)
 import PLFH.Part1.Induction (cong, plusComm)
 import PLFH.Part1.Relations (Even (..))
 ```
@@ -209,7 +210,7 @@ plusZeroChain (Succ n) =
 ## Rewriting
 
 Just as Agda provides `rewrite` as a compact shorthand for applying `subst`,
-`HaskLib` exports `rewrite :: (x :~: y) -> ((x ~ y) => r) -> r`. When you
+`Data.Type.Equality.Dependent` exports `rewrite :: (x :~: y) -> ((x ~ y) => r) -> r`. When you
 write `rewrite eq body`, GHC temporarily brings the type equality `x ~ y`
 into scope while checking `body`—just as we did in `plusMonoL` in
 [Relations](/Relations/) and `plusSwap` in [Induction](/Induction/).

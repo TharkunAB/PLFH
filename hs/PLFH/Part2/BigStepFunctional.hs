@@ -16,7 +16,7 @@ module PLFH.Part2.BigStepFunctional
 
 import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
-import HaskLib.Nat (Nat)
+import Data.Nat.Dependent (Nat)
 import qualified PLFH.Part2.BigStep as B
 import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
 

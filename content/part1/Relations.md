@@ -19,7 +19,8 @@ indexed by promoted values of kind `Nat`—not a GHC `type family` (no
 ## Imports
 
 We import propositional equality, `Void` (for negation in `notBothEvenOdd`),
-`rewrite` from `HaskLib`, `Nat` and addition lemmas from `HaskLib.Nat`,
+`rewrite` from `Data.Type.Equality.Dependent`, `Nat` and `plus` from
+`Data.Nat.Dependent`, addition lemmas from `Data.Nat.Dependent.Properties`,
 matchability-polymorphic `cong` from [Induction](/Induction/), and binary
 numerals from [Naturals](/Naturals/).
 
@@ -74,10 +75,11 @@ module PLFH.Part1.Relations
   , toFromCan
   ) where
 
+import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent.Properties (plusSucc, plusZero)
 import Data.Type.Equality ((:~:) (Refl))
+import Data.Type.Equality.Dependent (rewrite)
 import Data.Void (Void)
-import HaskLib (rewrite)
-import HaskLib.Nat (Nat (..), plus, plusSucc, plusZero)
 import PLFH.Part1.Induction (cong, timesComm)
 import PLFH.Part1.Naturals (Bin (..), fromBin, inc, times, toBin)
 ```
@@ -284,7 +286,7 @@ plusMonoR (Succ n) pq = SleS (plusMonoR n pq)
 ```
 
 Left monotonicity inducts on `p`, using `plusZero`, `plusSucc`, and `rewrite`
-from `HaskLib` to move the constructors out from the right operand (whereas
+from `dependent-base` to move the constructors out from the right operand (whereas
 PLFA derives `+-monoˡ-≤` from `+-monoʳ-≤` via `+-comm`):
 
 ```haskell
@@ -632,7 +634,7 @@ We verify that GHC rejects an attempt to construct `LE 1 0` using `ZleN`:
 {-# LANGUAGE DependentTypes #-}
 module NegOneLeZero (oneLeZero) where
 
-import HaskLib.Nat (Nat (..))
+import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Relations (LE (..))
 
 oneLeZero :: LE 1 0

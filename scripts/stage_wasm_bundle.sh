@@ -54,7 +54,7 @@ if [[ "$PUBLISH_RELEASE" -eq 1 ]]; then
     gh release create wasm-latest "$PLFH_ROOT/wasm/rootfs.tar.gz" \
       -R TharkunAB/PLFH \
       --title "PLFH Dependent GHCi Wasm Bundle (latest)" \
-      --notes "Prebuilt wasm32-wasi Dependent Haskell GHCi 10.1 rootfs (libplfh_ghci.so + HaskLib + precompiled plfh-book-0.1)."
+      --notes "Prebuilt wasm32-wasi Dependent Haskell GHCi 10.1 rootfs (libplfh_ghci.so + dependent-base + precompiled plfh-book-0.1)."
   fi
   echo "Published! Trigger or push to main to deploy _site/wasm/rootfs.tar.gz to GitHub Pages."
 fi
