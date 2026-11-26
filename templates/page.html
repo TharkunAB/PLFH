@@ -3,21 +3,19 @@
     <h1 class="post-title">$title$</h1>
   </header>
 
+  $if(showChapterNav)$
   <nav class="chapter-nav" aria-label="Chapter navigation">
     $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
     $if(moduleSrcUrl)$$if(prevUrl)$ &bullet; $endif$<a href="$moduleSrcUrl$">Module .hs</a>$endif$
     $if(srcUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $endif$$endif$<a href="$srcUrl$">Markdown</a>$endif$
     $if(nextUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $else$$if(srcUrl)$ &bullet; $endif$$endif$$endif$<a href="$nextUrl$">Next</a>$endif$
   </nav>
+  $endif$
 
   $if(plfaChapter)$
   <div class="attribution-banner">
-    <strong>Attribution:</strong> Adapted from
-    <a href="$plfaChapter$">$plfaEditionLabel$</a>
-    by $plfaAuthorsLabel$
-    (<a rel="license" href="$licenseUrl$">CC BY 4.0</a>).
-    Translated for Dependent Haskell (<code>-XDependentTypes</code>);
-    differences from Agda and library reuse are noted inline.
+    Adapted from <a href="$plfaChapter$">$plfaEditionLabel$</a> by $plfaAuthorsLabel$
+    (<a rel="license" href="$licenseUrl$">CC BY 4.0</a>) for Dependent Haskell (<code>-XDependentTypes</code>).
   </div>
   $endif$
 
@@ -29,10 +27,12 @@
     $body$
   </div>
 
+  $if(showChapterNav)$
   <nav class="chapter-nav" aria-label="Chapter navigation">
     $if(prevUrl)$<a href="$prevUrl$">Prev</a>$endif$
     $if(moduleSrcUrl)$$if(prevUrl)$ &bullet; $endif$<a href="$moduleSrcUrl$">Module .hs</a>$endif$
     $if(srcUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $endif$$endif$<a href="$srcUrl$">Markdown</a>$endif$
     $if(nextUrl)$$if(prevUrl)$ &bullet; $else$$if(moduleSrcUrl)$ &bullet; $else$$if(srcUrl)$ &bullet; $endif$$endif$$endif$<a href="$nextUrl$">Next</a>$endif$
   </nav>
+  $endif$
 </article>

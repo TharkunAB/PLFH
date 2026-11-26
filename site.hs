@@ -190,8 +190,14 @@ pageCtx baseUrl wasmRootfsUrl =
     <> constField "licenseName" "Creative Commons Attribution 4.0 International License"
     <> constField "licenseUrl" "https://creativecommons.org/licenses/by/4.0/"
     <> constField "ogImageUrl" (siteOrigin ++ "/images/og-dependent-haskell.png")
-    <> field "ogDescription" (mkDefaultMeta "description" defaultDescription)
+    <> field "ogDescription" mkOgDescription
     <> field "canonicalUrl" mkCanonicalUrl
+    <> field "showChapterNav" mkShowChapterNav
+    <> field "navOverview" (mkNavActive "Overview/index.html")
+    <> field "navBook" mkNavActiveBook
+    <> field "navPlayground" (mkNavActive "Playground/index.html")
+    <> field "navDepBase" (mkNavActive "DependentBase/index.html")
+    <> field "navSetup" (mkNavActive "Setup/index.html")
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
     <> field "srcUrl" mkSrcUrl
@@ -266,10 +272,10 @@ sourceChapterUrl path
 buildSourceIndexMarkdown :: [FilePath] -> [FilePath] -> String
 buildSourceIndexMarkdown chapMods depBaseIds =
   unlines $
-    [ "Browse the Haskell modules extracted from each chapter of PLFH and the"
+    [ "Browse the Haskell modules for each chapter of PLFH and the"
     , "[`dependent-base`](https://github.com/TharkunAB/dependent-base) standard library."
     , ""
-    , "Compiler plugins live in their own repositories:"
+    , "Compiler plugins live in separate repositories:"
     , "[`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)"
     , "and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq)."
     , ""
@@ -299,6 +305,51 @@ mkDefaultMeta :: String -> String -> Item a -> Compiler String
 mkDefaultMeta key fallback item = do
   mVal <- getMetadataField (itemIdentifier item) key
   pure (fromMaybe fallback mVal)
+
+-- | Build a per-page OpenGraph description from frontmatter metadata.
+mkOgDescription :: Item a -> Compiler String
+mkOgDescription item = do
+  mDesc <- getMetadataField (itemIdentifier item) "description"
+  case mDesc of
+    Just d -> pure d
+    Nothing -> do
+      mTitle <- getMetadataField (itemIdentifier item) "title"
+      mMod <- getMetadataField (itemIdentifier item) "module"
+      case (mTitle, mMod) of
+        (Just t, Just modName) ->
+          pure (t ++ " (" ++ modName ++ "): checked Dependent Haskell chapter in Programming Language Foundations in Haskell (PLFH).")
+        (Just t, Nothing) ->
+          pure (t ++ ": Programming Language Foundations in Haskell (PLFH), checked with GHC -XDependentTypes.")
+        _ -> pure defaultDescription
+
+-- | Show chapter navigation on every page except the book table of contents.
+mkShowChapterNav :: Item a -> Compiler String
+mkShowChapterNav item = do
+  mPrev <- getMetadataField (itemIdentifier item) "prev"
+  mNext <- getMetadataField (itemIdentifier item) "next"
+  mMod <- getMetadataField (itemIdentifier item) "module"
+  mRoute <- getRoute (itemIdentifier item)
+  case (mPrev, mNext, mMod, mRoute) of
+    (Nothing, Nothing, Nothing, Just "index.html") -> noResult "Hide nav on index"
+    _ -> pure "true"
+
+-- | Mark a top-bar navigation link as active when its target route matches.
+mkNavActive :: FilePath -> Item a -> Compiler String
+mkNavActive target item = do
+  mRoute <- getRoute (itemIdentifier item)
+  if mRoute == Just target then pure "true" else noResult "Not active nav item"
+
+-- | Mark "The Book" navigation link as active on book chapters and index pages.
+mkNavActiveBook :: Item a -> Compiler String
+mkNavActiveBook item = do
+  mRoute <- getRoute (itemIdentifier item)
+  let nonBook =
+        [ Just "Overview/index.html"
+        , Just "Playground/index.html"
+        , Just "DependentBase/index.html"
+        , Just "Setup/index.html"
+        ]
+  if mRoute `elem` nonBook then noResult "Not book section" else pure "true"
 
 mkNavUrl :: String -> Item a -> Compiler String
 mkNavUrl key item = do

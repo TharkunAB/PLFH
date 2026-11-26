@@ -85,10 +85,8 @@ async function fetchRootfsResponse(rootfsUrl, onProgress) {
   if (!resp.ok) {
     if (resp.status === 404) {
       throw new Error(
-        `The wasm32-wasi Dependent GHC bundle (${rootfsUrl}) is not yet published (HTTP 404).\n` +
-          "The interactive editor works now; once the first wasm32-wasi rootfs.tar.gz artifact is uploaded, " +
-          "clicking Check will typecheck and run Dependent Haskell 10.1 directly in your browser.\n" +
-          "See Setup for staging a local bundle."
+        `Could not load the WebAssembly Dependent GHC bundle (${rootfsUrl}, HTTP 404).\n` +
+          "Check your network connection or see Setup for running Dependent GHC locally."
       );
     }
     throw new Error(`Failed to fetch ${rootfsUrl}: HTTP ${resp.status}`);
