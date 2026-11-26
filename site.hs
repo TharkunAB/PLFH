@@ -66,29 +66,6 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
-    -- Preserve old /Showcase/ links by redirecting cleanly to the unified /Overview/ page.
-    create ["Showcase/index.html"] $ do
-      route idRoute
-      compile $ do
-        let target = baseUrl ++ "/Overview/"
-            canonical = siteOrigin ++ "/Overview/"
-            html =
-              unlines
-                [ "<!DOCTYPE html>"
-                , "<html lang=\"en\">"
-                , "<head>"
-                , "  <meta charset=\"utf-8\">"
-                , "  <title>Redirecting to Dependent Haskell Overview</title>"
-                , "  <link rel=\"canonical\" href=\"" ++ canonical ++ "\">"
-                , "  <meta http-equiv=\"refresh\" content=\"0; url=" ++ target ++ "\">"
-                , "</head>"
-                , "<body>"
-                , "  <p>Redirecting to <a href=\"" ++ target ++ "\">Dependent Haskell Overview</a>.</p>"
-                , "</body>"
-                , "</html>"
-                ]
-        makeItem html
-
     -- Render all extracted Haskell chapters and dependent-base reference sources under /Source/.
     match sourcePatterns $ do
       route sourcePageRoute
