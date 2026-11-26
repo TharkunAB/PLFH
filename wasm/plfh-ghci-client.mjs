@@ -196,8 +196,7 @@ function scrapeChapterContext(blocks) {
       cls.contains("ignore") ||
       cls.contains("spec") ||
       cls.contains("fail") ||
-      cls.contains("exercise") ||
-      cls.contains("wip")
+      cls.contains("exercise")
     ) {
       return;
     }
@@ -2288,7 +2287,7 @@ export function enhancePlfhPage({
 
   blocks.forEach((pre, idx) => {
     const cls = pre.classList;
-    if (cls.contains("ignore") || cls.contains("spec") || cls.contains("wip")) {
+    if (cls.contains("ignore") || cls.contains("spec")) {
       return;
     }
 

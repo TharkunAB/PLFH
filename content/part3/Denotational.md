@@ -51,11 +51,11 @@ Over the five chapters of Part 3, we build the complete semantic theory:
    equivalence `DenEq`.
 2. **[Compositional](/Compositional/)**: semantic equations for lambda (`ℱ`)
    and application (`●`), lambda inversion, and congruence (`lamCong`, `appCong`).
-3. **[Soundness](/Soundness/)**: full β-reduction unconditionally preserves and
+3. **[Soundness](/Soundness/)**: full β-reduction preserves and
    reflects denotations (`denotEquivSteps`).
 4. **[Adequacy](/Adequacy/)**: a negative-position logical relation proving
-   unconditional Big-Step Adequacy (`adequacyBigStep`): any closed term with a
-   non-trivial function denotation halts at a lambda!
+   Big-Step Adequacy (`adequacyBigStep`): any closed term with a
+   non-trivial function denotation halts at a lambda.
 5. **[ContextualEquivalence](/ContextualEquivalence/)**: combining
    Compositionality, Soundness, and Adequacy to prove that denotationally equal
    terms are contextually equivalent.
@@ -616,7 +616,7 @@ approximate each other in *both* directions (`Sub u v` and `Sub v u`).
 - Adapted from [Denotational](https://plfa.inf.ed.ac.uk/Denotational/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Denotational.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of `Value` (in GADT syntax), `Sub`, `subRefl`,
+- Ports `Value` (in GADT syntax), `Sub`, `subRefl`,
   `joinSubJoin`, `joinArrDist`, `joinSubInvL`/`R`, `ValMem`, `ValSubset`,
   `memToSub`, `subsetToSub`, `Fun`, `AllFuns`, `allFunsMem`, ordinary recursive
   `dom` and `cod`, `arrMemToSubDom`, `subArrToCodSub`, `subInvTrans`, `subInv`,

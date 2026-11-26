@@ -265,7 +265,7 @@ two terms of the *exact same* type `a` in the *exact same* context `g`.
 With `-XDependentTypes`, all eight intrinsically-typed reduction rules
 (`XiApp1`, `XiApp2`, `XiSuc`, `XiCase`, `BetaLam`, `BetaZero`, `BetaSuc`,
 `BetaMu`) use our ordinary functional `substSingle` directly in this module,
-**`progress`** proves unconditionally across all seven term constructors that
+**`progress`** proves across all seven term constructors that
 every closed well-typed term is either a value or takes a type-preserving step
 (carrying the next term `n` as a retained `foreach` field in `PStep`), and
 PLFA's 6-line **`eval`** runs any closed term up to a fuel bound `Gas`,
@@ -304,8 +304,8 @@ data Progress m where
   PStep :: foreach (n :: Term CEmpty a) -> Step m n -> Progress m
   PDone :: Value m -> Progress m
 
--- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
--- every closed well-typed term is either a value or takes a type-preserving step!
+-- | Progress theorem for intrinsically-typed STLC:
+-- every closed well-typed term is either a value or takes a type-preserving step.
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
 progress (Var x)      = case x of {}
 progress (Lam _)      = PDone VLam
@@ -468,7 +468,7 @@ in context `CExt CEmpty TNat`?
 - All eight intrinsically-typed `Step` rules (using real functional
   `substSingle` directly in the same module), concrete capture-avoiding beta
   witnesses (guarded by negative control `NegDeBruijnBadCapture`), complete
-  unconditional `progress` across all 7 term constructors (carrying retained
+  `progress` across all 7 term constructors (carrying retained
   `foreach n` inside `PStep`), and PLFA's 6-line intrinsically-typed evaluator
   `eval` (`Gas`, `Finished`) all compile inline in `PLFH.Part2.DeBruijn` with
   `-Werror=incomplete-patterns` and `-dcore-lint -dstg-lint`.

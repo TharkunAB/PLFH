@@ -608,7 +608,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   + `RequiredTypeArguments`) for constructors (`cong Succ`), left-first
   functions (`cong (plus m)`, `cong (times a)`), and right-first functions
   (`cong (pow m)`), with no `@` needed.
-- Checked direct ports of every theorem and exercise in PLFA Induction:
+- Ports every theorem and exercise in PLFA Induction:
   `assocExample`, `plusAssoc`, `plusAssoc0`/`1`/`2`, `plusAssocRewrite`,
   `plusIdentityR`, `plusSuc`, `plusComm`, `plusCommRewrite`, `plusRearrange`,
   `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`, `timesSuccR`,

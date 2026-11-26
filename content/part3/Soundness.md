@@ -14,7 +14,7 @@ agrees with operational reduction! Specifically, if `M —↠ N` via full
 the **exact same denotation**: `ℰ M ≃ ℰ N`!
 
 In PLFA's **Soundness** chapter, we prove **both directions** of that
-equivalence completely **unconditionally**:
+equivalence:
 
 1. **Forward Preservation (`denotPreserve`, `denotPreserveMulti`):** If
    `e ⊢ M ↓ v` and `M —→ N`, then `e ⊢ N ↓ v`. In the `Beta` case, we invert
@@ -27,13 +27,12 @@ equivalence completely **unconditionally**:
    `denotSubstReflect` walks the derivation of `b [ w ]`, collecting every
    finite approximation of `w` used at each occurrence of variable `c` and
    **joining** them together into a single argument value `u` (`joinInsert`)!
-3. **Unconditional Soundness (`denotEquivSteps`):** Combining forward
-   preservation and backward reflection yields
-   `denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`!
+3. **Soundness (`denotEquivSteps`):** Combining forward preservation and backward
+   reflection yields
+   `denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`.
 
-Every theorem in this chapter checks **100% unconditionally** with
-`-dcore-lint -dstg-lint` directly over [Untyped](/Untyped/)'s functional
-`renameU`, `substU`, and `substSingleU`.
+The proofs work directly over [Untyped](/Untyped/)'s functional `renameU`,
+`substU`, and `substSingleU`.
 
 ## Imports
 
@@ -207,7 +206,7 @@ singleEnvSubst :: Denotes e w u -> EnvSubst (VCons e u) e (singleSubstU w)
 singleEnvSubst dw VLZ      = dw
 singleEnvSubst _  (VLS lk) = DVar lk
 
--- | Unconditional β-redex preservation.
+-- | β-redex preservation.
 betaPres :: Denotes (VCons e u) b v -> Denotes e w u -> Denotes e (substSingleU b w) v
 betaPres db dw = denotSubst (singleEnvSubst dw) db
 
@@ -357,7 +356,7 @@ denotSubstReflect wv ss (WLam wb) ieBot (DIntro dBody) =
           (denotRenameReflect @_ @_ @_ @_ @shiftFin shiftEnvRenBack (singleSubW ss) dwShifted)
           (DIntro db)
 
--- | Unconditional β-redex subject expansion.
+-- | β-redex subject expansion.
 betaReflect :: ValW v -> TermW b -> TermW w
             -> Denotes e (substSingleU b w) v
             -> Denotes e (UApp (ULam b) w) v
@@ -365,14 +364,14 @@ betaReflect wv wb ww dr = case denotSubstReflect wv (SSZ ww) wb IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 ```
 
-## Unconditional Soundness (`denotPreserve`, `denotReflect`, `denotEquivSteps`)
+## Soundness (`denotPreserve`, `denotReflect`, `denotEquivSteps`)
 
 Putting `betaPres` and `betaReflect` together with `lamInversion` from
 [Compositional](/Compositional/), full β-reduction induces denotational
-equivalence **`ℰ m ≃ ℰ m'`** unconditionally:
+equivalence `ℰ m ≃ ℰ m'`:
 
 ```haskell
--- | Unconditional forward preservation under a single β-step (`preserve`).
+-- | Forward preservation under a single β-step (`preserve`).
 denotPreserve :: forall (n :: Nat) (e :: ValEnv n) (m m' :: UTerm n) (v :: Value).
                  ValW v -> Denotes e m v -> BetaStep m m' -> Denotes e m' v
 denotPreserve _ (DVar _) step = case step of {}
@@ -389,13 +388,13 @@ denotPreserve _ (DJoin w1 w2 d1 d2) r =
 denotPreserve _ (DSub wSuper d lt) r =
   DSub wSuper (denotPreserve wSuper d r) lt
 
--- | Multi-step β-reduction preserves denotations unconditionally.
+-- | Multi-step β-reduction preserves denotations.
 denotPreserveMulti :: forall (n :: Nat) (e :: ValEnv n) (m m' :: UTerm n) (v :: Value).
                       ValW v -> Denotes e m v -> BetaSteps m m' -> Denotes e m' v
 denotPreserveMulti _  d BRefl       = d
 denotPreserveMulti wv d (BCons s r) = denotPreserveMulti wv (denotPreserve wv d s) r
 
--- | Unconditional backward subject expansion under a single β-step (`reflect`)!
+-- | Backward subject expansion under a single β-step (`reflect`).
 denotReflectW :: forall (n :: Nat) (e :: ValEnv n) (m m' :: UTerm n) (v :: Value).
                  ValW v -> TermW m -> BetaStep m m' -> Denotes e m' v -> Denotes e m v
 denotReflectW wv (WApp (WLam wb) ww) Beta d = betaReflect wv wb ww d
@@ -425,14 +424,14 @@ denotReflect :: forall (n :: Nat) (e :: ValEnv n) (m' :: UTerm n) (v :: Value).
                 ValW v -> foreach (m :: UTerm n) -> BetaStep m m' -> Denotes e m' v -> Denotes e m v
 denotReflect wv m step d = denotReflectW wv (mkTermW m) step d
 
--- | Multi-step β-reduction reflects denotations unconditionally.
+-- | Multi-step β-reduction reflects denotations.
 denotReflectMultiW :: ValW v -> TermW m -> BetaSteps m m' -> Denotes e m' v -> Denotes e m v
 denotReflectMultiW _  _  BRefl       d = d
 denotReflectMultiW wv wm (BCons s r) d =
   denotReflectW wv wm s (denotReflectMultiW wv (betaTargetW s wm) r d)
 
--- | Full unconditional Soundness theorem (`soundness`):
--- multi-step β-reduction induces `ℰ m ≃ ℰ m'`!
+-- | Soundness theorem (`soundness`):
+-- multi-step β-reduction induces `ℰ m ≃ ℰ m'`.
 denotEquivStepsW :: TermW m -> BetaSteps m m' -> DenEq (Den m) (Den m')
 denotEquivStepsW wm steps wv =
   ( \(MkDen d) -> MkDen (denotPreserveMulti wv d steps)
@@ -463,7 +462,7 @@ closed term denoting `Arr Bot Bot` *must* terminate at a lambda!
 - Adapted from [Soundness](https://plfa.inf.ed.ac.uk/Soundness/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Soundness.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Direct ports of `denotRename`, `denotRenameReflect`, simultaneous
+- Ports `denotRename`, `denotRenameReflect`, simultaneous
   `denotSubst`, `denotSubstReflect`, `betaPres`, `betaReflect`,
   `denotPreserve`, `denotPreserveMulti`, `denotReflect`, `denotReflectMultiW`,
   and `denotEquivSteps` over functional `renameU`, `substU`, and `substSingleU`.

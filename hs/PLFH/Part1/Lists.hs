@@ -384,7 +384,7 @@ decIn decEq x (y : ys) = case decEq x y of
     Yes iys -> Yes (There iys)
     No niys -> No (\case { Here eq -> neq eq; There r -> niys r })
 
--- | Concrete membership proof: 0 ∈ [0, 1, 0] (zero ticks with NoListTuplePuns!).
+-- | Concrete membership proof: 0 ∈ [0, 1, 0].
 zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]
 zeroInList = Here Refl
 

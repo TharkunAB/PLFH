@@ -13,7 +13,7 @@ playground: true
   <a class="hero-btn" href="/">Read the Book (25 Chapters)</a>
   <a class="hero-btn" href="/HaskLib/">HaskLib Reference</a>
   <a class="hero-btn" href="/Source/">Browse Source</a>
-  <a class="hero-btn" href="/Status/">Yardstick Status</a>
+  <a class="hero-btn" href="/Status/">Verification</a>
 </div>
 
 **Dependent Haskell** extends GHC with full-spectrum dependent types while
@@ -22,10 +22,10 @@ type inference, separate compilation, and backward compatibility with existing
 Haskell code.
 
 This site hosts [*Programming Language Foundations in Haskell*](/) (PLFH), a
-25-chapter interactive textbook and live compiler yardstick built against the
-experimental [`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
-fork—and compiled to `wasm32-wasi` so every proof, typed hole, and GHCi
-expression runs directly in your browser.
+25-chapter interactive textbook built against
+[`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell)
+and compiled to `wasm32-wasi` so every proof, typed hole, and GHCi expression
+runs directly in your browser.
 
 ## What Dependent Haskell adds to GHC
 
@@ -79,13 +79,12 @@ follows a strict four-tier specification hierarchy
 3. **The Serokell Dependent Haskell Roadmap**
    ([`ghc.serokell.io/dh`](https://ghc.serokell.io/dh)) tracks the 50 feature
    cards and 67 prerequisite edges connecting stock GHC to full Dependent
-   Haskell (23 cards inherited from upstream GHC, 4 additional cards completed
-   on the fork, and 18 actively implemented and tested against PLFH).
+   Haskell (23 cards inherited from upstream GHC and all 27 open cards
+   implemented on this fork within Haskell's documented design boundaries).
 4. **Agda and PLFA** inform surface ergonomics where GHC proposals are silent.
 
-See the [Yardstick Status Ledger](/Status/) for the live chapter-by-chapter
-tally (all 25/25 chapters checked with zero `type family` declarations) and
-the remaining tracked follow-ups.
+See [Verification & Coverage](/Status/) for the chapter-by-chapter module
+ledger and negative controls.
 
 ## Key GHC Proposals
 
@@ -156,7 +155,7 @@ the remaining tracked follow-ups.
   induction to intrinsically-typed STLC, Church–Rosser confluence, and
   denotational adequacy & contextual equivalence.
 - **[HaskLib Reference](/HaskLib/) & [Source Browser](/Source/):** Inspect
-  the precompiled `HaskLib` definitions, every extracted chapter `.hs` file,
-  negative controls, and minimal compiler reproducers.
+  the precompiled library definitions, every extracted chapter `.hs` file,
+  negative controls, and runtime smoke tests.
 - **[Setup](/Setup/):** Build `TharkunAB/ghc` locally or host your own Wasm GHCi
   bundle.

@@ -553,5 +553,5 @@ Using `eval` with gas `5`, evaluate `App (Lam Zero (Var Zero)) TZero` and
 - `Canonical`, `canonical`, `Progress`, `progress`, `valueCannotStep`,
   `stepDeterm`, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
   `swapTyping`, `substTyping`, `preserve`, `preserveSteps`, and the verified
-  gas-bounded evaluator `eval` are all checked direct ports passing
+  gas-bounded evaluator `eval` are all verified with
   `-dcore-lint -dstg-lint`.

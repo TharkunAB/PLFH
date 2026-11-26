@@ -303,8 +303,8 @@ inspected at runtime!) behaves like the 3-way sum
 - Contrasts native Proposal `#473` erased existentials (`HaskLib.Exists.Exists`)
   with retained `GHC.Sigma` (`some ... | ...`)
   and `foreach`-carrying GADT witnesses (`EvenWitness`, `OddWitness`).
-- Checked direct ports of `existsDistribSum`, `existsCurryTo`/`From`,
+- Ports `existsDistribSum`, `existsCurryTo`/`From`,
   `forallDistribProd`, quantifier De Morgan (`notExistsToForallNot`,
-  `forallNotToNotExists`), `EvenSigma`, and **both directions** of the parity
+  `forallNotToNotExists`), `EvenSigma`, and both directions of the parity
   witness equivalences (`evenIffWitness`, `oddIffWitness`), using unified
-  `cong Succ` and tick-free `Zero`/`Succ`.
+  `cong Succ`.

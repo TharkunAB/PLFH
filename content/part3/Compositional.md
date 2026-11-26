@@ -312,7 +312,7 @@ extract a direct derivation of
 - Adapted from [Compositional](https://plfa.inf.ed.ac.uk/Compositional/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Compositional.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of lambda compositionality (`LamDen`, `subLamDen`,
+- Ports lambda compositionality (`LamDen`, `subLamDen`,
   `denLamToF`, `lamInversion`, `fToDenLam`, `lamEquiv`, `lamDenCong`, `lamCong`),
   application compositionality (`AppDen`, `subAppDen`, `joinAppDen`,
   `denAppToAppDen`, `appDenToDenApp`, `appEquiv`, `appDenCong`, `appCong`),

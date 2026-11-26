@@ -402,7 +402,7 @@ normal-order reduction terminates on terms where call-by-value diverges!
 - Adapted from [Untyped](https://plfa.inf.ed.ac.uk/Untyped/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Untyped.lagda.md)),
   licensed under CC BY 4.0.
-- Direct ports of `Fin`, `UTerm`, `extU`, `renameU`, `extsU`, `substU`,
+- Ports `Fin`, `UTerm`, `extU`, `renameU`, `extsU`, `substU`,
   `substSingleU`, `Neutral`, `Normal`, functional `BetaStep` (`Beta` over
   `substSingleU b w`, verified by negative control `NegBadBetaStep`),
   `BetaSteps`, `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`,

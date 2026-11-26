@@ -69,8 +69,8 @@ denotEqualClosedBigStep
 denotEqualClosedBigStep wcm eqC (MkTerminates cmToLam) =
   adequacy (denEqTrans (denEqSym eqC) (denotEquivStepsW wcm cmToLam))
 
--- | Unconditional big-step contextual termination across all closing contexts `UCtx k Zero`:
--- composes Compositionality + Soundness + Big-Step Adequacy in one line!
+-- | Big-step contextual termination across all closing contexts `UCtx k Zero`:
+-- composes Compositionality + Soundness + Big-Step Adequacy in one line.
 denotEqualCtxBigStepW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m
@@ -90,8 +90,8 @@ denotEqualCtxBigStep
   -> HaltsBig ENil (C.plug c n)
 denotEqualCtxBigStep m c eqM tm = denotEqualCtxBigStepW (mkTermW m) c eqM tm
 
--- | Unconditional Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
--- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`!
+-- | Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
+-- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`.
 denotEqualCtxEquivW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m -> TermW n
@@ -115,7 +115,7 @@ denotEqualCtxEquiv
   -> CtxEquiv m n
 denotEqualCtxEquiv m n eqM = denotEqualCtxEquivW @k @m @n (mkTermW m) (mkTermW n) eqM
 
--- | Unconditional corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms!),
+-- | Corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms),
 -- then for any closing context `c`, `plug c m` terminating implies `plug c n` halts
 -- under call-by-name big-step evaluation!
 betaCtxBigStepW
@@ -136,8 +136,8 @@ betaCtxBigStep
   -> HaltsBig ENil (C.plug c n)
 betaCtxBigStep m c steps tm = betaCtxBigStepW (mkTermW m) c steps tm
 
--- | Unconditional Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
--- terms are contextually equivalent across all closing contexts `UCtx k Zero`!
+-- | Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
+-- terms are contextually equivalent across all closing contexts `UCtx k Zero`.
 betaCtxEquivW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m -> TermW n -> BetaSteps m n -> CtxEquiv m n

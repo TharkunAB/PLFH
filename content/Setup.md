@@ -123,7 +123,7 @@ From the root of the `PLFH` repository:
 # 1. Extract standalone .hs modules and negative controls from content/**/*.md
 python3 scripts/extract_and_sync.py
 
-# 2. Check all modules, negative controls, and tracked reproducers
+# 2. Check all chapters, negative controls, and regression tests
 PLFH_GHC=/path/to/ghc/_build/stage1/bin/ghc \
 PLFH_GHC_REPO=/path/to/ghc \
 PLFH_NO_PUEUE=1 \
@@ -173,13 +173,14 @@ dynamic linker (`dyld.mjs`) and `browser_wasi_shim.mjs`.
   precompiled `plfh-book-0.1` package (`HaskLib` and the checked `PLFH.*`
   modules), so individual edits, exercises, `:browse`, `:t`, `:k!`, and
   negative controls check directly against the chapter module.
-- **Browser Agda-mode (typed holes & valid hole fits):** Write a typed hole
-  such as `_` or `_qed` in any editable code block or in the chapter scratchpad
-  and press `Ctrl/Cmd+Enter`. GHC reports the normalized goal type and valid
-  hole fits, and the UI renders clickable fill chips that substitute the fit
-  into the editor and re-check automatically. An opt-in **Refinement fits**
-  toggle in the chapter bar enables `-frefinement-level-hole-fits=1` for
-  multi-step refinement.
+- **Browser Agda-mode (typed holes, refinement fits & highlight-on-compile):**
+  Write a typed hole such as `_` or `_qed` in any editable code block or in the
+  chapter scratchpad and press `Ctrl/Cmd+Enter`. GHC highlights verified code
+  using compiler-exact `RenamedSource` semantic tokens, marks typed holes in
+  green goal boxes, reports normalized goal types, case-split suggestions, and
+  valid refinement hole fits (with `-fabstract-refinement-hole-fits` enabled by
+  default), and renders clickable chips that apply a fit and re-check
+  automatically.
 
 ### Staging and hosting `rootfs.tar.gz`
 

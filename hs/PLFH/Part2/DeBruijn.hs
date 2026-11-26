@@ -183,8 +183,8 @@ data Progress m where
   PStep :: foreach (n :: Term CEmpty a) -> Step m n -> Progress m
   PDone :: Value m -> Progress m
 
--- | Complete, unconditional Progress theorem for intrinsically-typed STLC:
--- every closed well-typed term is either a value or takes a type-preserving step!
+-- | Progress theorem for intrinsically-typed STLC:
+-- every closed well-typed term is either a value or takes a type-preserving step.
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
 progress (Var x)      = case x of {}
 progress (Lam _)      = PDone VLam

@@ -1,5 +1,5 @@
 /* PLFH stylesheet — adapted from PLFA v19.08 (CC BY 4.0) & Jekyll minima,
- * modernized with Iosevka for code/Unicode math and [WIP NOTICE] callouts. */
+ * modernized with Iosevka for code and Unicode math. */
 
 :root {
   --text-color: #111111;
@@ -10,9 +10,6 @@
   --border-color: #e8e8e8;
   --code-bg: #e8f2fb;
   --code-border: #c9e1f6;
-  --wip-bg: #fff8e6;
-  --wip-border: #e6a700;
-  --wip-title: #8a5a00;
   --attr-bg: #f6f8fa;
   --attr-border: #d0d7de;
   --content-width: 820px;
@@ -180,12 +177,10 @@ pre > code {
   font-size: 0.92rem;
 }
 
-/* Non-checked / exercise / expected-failure / WIP code blocks use dashed borders (like PLFA) */
-div.sourceCode.wip pre,
+/* Exercise and expected-failure code blocks use dashed borders (like PLFA) */
 div.sourceCode.exercise pre,
 div.sourceCode.ignore pre,
 div.sourceCode.fail pre,
-pre.wip,
 pre.exercise,
 pre.ignore,
 pre.fail {
@@ -198,13 +193,7 @@ pre.fail {
   border-color: #e6b8b8;
 }
 
-div.sourceCode.wip pre,
-pre.wip {
-  background-color: #fffaf0;
-  border-color: #e6c675;
-}
-
-/* Attribution banner & [WIP NOTICE] callout */
+/* Attribution banner & note callout */
 .attribution-banner {
   background-color: var(--attr-bg);
   border: 1px solid var(--attr-border);
@@ -214,20 +203,6 @@ pre.wip {
   margin: 0 0 20px;
   font-size: 0.9rem;
   color: #333;
-}
-
-.wip-notice {
-  background-color: var(--wip-bg);
-  border: 1px solid var(--wip-border);
-  border-left: 4px solid var(--wip-border);
-  border-radius: 3px;
-  padding: 12px 16px;
-  margin: 18px 0;
-}
-
-.wip-notice strong:first-child,
-.wip-notice .wip-label {
-  color: var(--wip-title);
 }
 
 .note-box {
@@ -258,22 +233,6 @@ pre.wip {
 .inference-rule .conclusion {
   padding: 3px 8px 0;
 }
-
-/* Status badges */
-.badge {
-  display: inline-block;
-  padding: 1px 7px;
-  font-family: var(--code-font);
-  font-size: 0.78rem;
-  font-weight: 600;
-  border-radius: 3px;
-  vertical-align: middle;
-}
-
-.badge-pass    { background: #dafbe1; color: #116329; border: 1px solid #82d198; }
-.badge-reuse   { background: #ddf4ff; color: #0969da; border: 1px solid #8cc7ff; }
-.badge-partial { background: #fff8c5; color: #7d4e00; border: 1px solid #e6c656; }
-.badge-wip     { background: #ffebe9; color: #a40e26; border: 1px solid #f09595; }
 
 /* Tables */
 table {

@@ -29,36 +29,34 @@ It serves a dual purpose:
 
 1. **A readable introduction** to programming language theory and formal
    proofs in Dependent Haskell, following PLFA's structure and prose closely.
-2. **A live yardstick** for the experimental Dependent Haskell branch of GHC
+2. **An end-to-end test suite** for the Dependent Haskell branch of GHC
    ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
-   For every definition and theorem in PLFA (Parts 1, 2, and 3), we ask whether
-   a Haskell programmer can state and prove it directly with the same hypotheses
-   using `-XDependentTypes`.
+   Every definition and theorem in PLFA (Parts 1, 2, and 3) is stated and
+   proved directly using `-XDependentTypes`.
 
 ## How this book differs from PLFA
 
-Because Haskell is a general-purpose lazy functional programming language
-and this Dependent Haskell implementation is under active development,
+Because Haskell is a general-purpose lazy functional programming language,
 several differences from Agda are called out explicitly throughout the text:
 
 - **Totality and partiality.** Agda enforces termination and positivity
   checks so that every well-typed term denotes a total value; without
   totality, a non-terminating loop or `undefined` could inhabit any type,
-  including a false proposition. GHC does not have a totality checker.
-  Every checked proof in PLFH is therefore written by structural recursion
-  on finite inductive inputs, with **no** typed holes, **no**
-  `-fdefer-type-errors`, **no** `undefined` or `error`, **no** circular
-  proof bindings, and **no** `unsafeCoerce`. Whenever an Agda proof
-  relies on totality, we note that explicitly.
-- **Direct Dependent Haskell.** Rather than disguising compiler gaps behind
-  singletons or ad-hoc type-family encodings, every theorem in PLFH is written
-  directly in Dependent Haskell. Any remaining compiler follow-up is isolated
-  as a minimal standalone reproducer and tracked on the
-  [Yardstick Status](/Status/) page.
-- **Reuse from `HaskLib`.** The GHC fork ships a companion proof library,
-  `HaskLib`, containing ordinary-function arithmetic and list-length laws.
-  Whenever a PLFA theorem is already provided by `HaskLib`, we reuse it
-  and record it as reuse.
+  including a false proposition. GHC does not enforce totality by default
+  (though `-freport-totality` provides opt-in advisory checks). Every checked
+  proof in PLFH is therefore written by structural recursion on finite
+  inductive inputs, with **no** typed holes, **no** `-fdefer-type-errors`,
+  **no** `undefined` or `error`, **no** circular proof bindings, and **no**
+  `unsafeCoerce`. Whenever an Agda proof relies on totality or function
+  extensionality, we note that explicitly.
+- **Direct Dependent Haskell.** Rather than encoding dependent types with
+  singletons or manual `type family` duplicates, theorems in PLFH are written
+  directly over ordinary Haskell functions and datatypes with
+  `-XDependentTypes`. See [Verification & Coverage](/Status/) for the
+  chapter-by-chapter theorem ledger and negative controls.
+- **Library reuse.** PLFH reuses standard indexed datatypes and arithmetic or
+  list-length laws from the companion library rather than duplicating global
+  `Nat` instances across chapters.
 - **Literate Haskell Markdown.** Every chapter in PLFH is a literate
   Markdown file. Plain ```` ```haskell ```` blocks are extracted into
   standalone `.hs` modules and checked by the Dependent Haskell GHC fork
@@ -76,8 +74,7 @@ Following PLFA:
 ## Changes from PLFA
 
 - Replaced Agda tooling and personal-history remarks with PLFH's
-  Dependent Haskell yardstick framing, totality discipline, reproducer
-  tracking, and `HaskLib` reuse notes.
+  Dependent Haskell framing, totality discipline, and library reuse notes.
 - Retained the opening exposition of *Propositions as Types* and exercise
   labels from Philip Wadler and Wen Kokke's original Preface
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/frontmatter/Preface.md)).

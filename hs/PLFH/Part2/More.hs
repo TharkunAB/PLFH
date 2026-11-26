@@ -258,7 +258,7 @@ data Progress m where
   PStep :: Step m n -> Progress m
   PDone :: Value m -> Progress m
 
--- | Complete, unconditional Progress theorem across all 19 constructors of `Term`!
+-- | Progress theorem across all 19 constructors of `Term`.
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
 progress (Var x)         = case x of {}
 progress (Lam _)         = PDone VLam

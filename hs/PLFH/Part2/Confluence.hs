@@ -291,7 +291,7 @@ parDiamond :: forall (n :: Nat) (n1 n2 :: UTerm n).
               foreach (m :: UTerm n) -> Par m n1 -> Par m n2 -> Joinable Par n1 n2
 parDiamond m = parDiamondW (mkTermW m)
 
-{-# LINE 412 "content/part2/Confluence.md" #-}
+{-# LINE 411 "content/part2/Confluence.md" #-}
 -- | Strip Lemma: one `Par` step commutes with any sequence of `ParSteps`.
 stripW :: TermW m -> Par m n1 -> ParSteps m n2 -> Joinable ParSteps n1 n2
 stripW _  p1 PSRefl         = Join PSRefl (PSCons p1 PSRefl)
@@ -314,7 +314,7 @@ parConfluence :: forall (n :: Nat) (m1 m2 :: UTerm n).
                  foreach (l :: UTerm n) -> ParSteps l m1 -> ParSteps l m2 -> Joinable ParSteps m1 m2
 parConfluence l = parConfluenceW (mkTermW l)
 
--- | Unconditional Church-Rosser Confluence for full β-reduction (`_—↠_`)!
+-- | Church-Rosser confluence for full β-reduction (`_—↠_`).
 churchRosser :: forall (n :: Nat) (m1 m2 :: UTerm n).
                 foreach (l :: UTerm n)
              -> BetaSteps l m1 -> BetaSteps l m2
@@ -360,7 +360,7 @@ normalParSteps _  PSRefl        = Refl
 normalParSteps nm (PSCons p ps) = case normalPar nm p of
   Refl -> normalParSteps nm ps
 
--- | Unconditional corollary of Church-Rosser: every term has at most one normal form!
+-- | Corollary of Church-Rosser: every term has at most one normal form.
 uniqueNormalForm :: forall (n :: Nat) (m1 m2 :: UTerm n).
                     foreach (l :: UTerm n)
                  -> BetaSteps l m1 -> BetaSteps l m2

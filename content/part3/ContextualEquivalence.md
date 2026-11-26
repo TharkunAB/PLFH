@@ -70,7 +70,7 @@ import PLFH.Part3.Soundness (denotEquivStepsW)
 With all four core pillars of Part 3—**`Compositional.compositionality`**
 (over arbitrary one-hole contexts `UCtx k Zero` and `C.plug`),
 **`Soundness.denotEquivSteps`**, **`Adequacy.adequacy`**, and
-**`BigStep.cbnToReduce`**—proved **unconditionally**, **`denotEqualCtxEquiv`**
+**`BigStep.cbnToReduce`**, **`denotEqualCtxEquiv`**
 and **`betaCtxEquiv`** establish full open-term contextual equivalence
 `CtxEquiv m n` (`M ≅ N`) with **zero remaining hypotheses**:
 
@@ -115,8 +115,8 @@ denotEqualClosedBigStep
 denotEqualClosedBigStep wcm eqC (MkTerminates cmToLam) =
   adequacy (denEqTrans (denEqSym eqC) (denotEquivStepsW wcm cmToLam))
 
--- | Unconditional big-step contextual termination across all closing contexts `UCtx k Zero`:
--- composes Compositionality + Soundness + Big-Step Adequacy in one line!
+-- | Big-step contextual termination across all closing contexts `UCtx k Zero`:
+-- composes Compositionality + Soundness + Big-Step Adequacy in one line.
 denotEqualCtxBigStepW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m
@@ -136,8 +136,8 @@ denotEqualCtxBigStep
   -> HaltsBig ENil (C.plug c n)
 denotEqualCtxBigStep m c eqM tm = denotEqualCtxBigStepW (mkTermW m) c eqM tm
 
--- | Unconditional Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
--- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`!
+-- | Open-Term Contextual Equivalence (`denot-equal-contex-equal`):
+-- `ℰ M ≃ ℰ N` implies `M ≅ N` across every closing context `c :: UCtx k Zero`.
 denotEqualCtxEquivW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m -> TermW n
@@ -161,7 +161,7 @@ denotEqualCtxEquiv
   -> CtxEquiv m n
 denotEqualCtxEquiv m n eqM = denotEqualCtxEquivW @k @m @n (mkTermW m) (mkTermW n) eqM
 
--- | Unconditional corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms!),
+-- | Corollary (`beta-ctx-bigstep`): if `m —↠ n` (even for open terms),
 -- then for any closing context `c`, `plug c m` terminating implies `plug c n` halts
 -- under call-by-name big-step evaluation!
 betaCtxBigStepW
@@ -182,8 +182,8 @@ betaCtxBigStep
   -> HaltsBig ENil (C.plug c n)
 betaCtxBigStep m c steps tm = betaCtxBigStepW (mkTermW m) c steps tm
 
--- | Unconditional Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
--- terms are contextually equivalent across all closing contexts `UCtx k Zero`!
+-- | Corollary (`beta-ctx-equiv`): multi-step β-equivalent open
+-- terms are contextually equivalent across all closing contexts `UCtx k Zero`.
 betaCtxEquivW
   :: forall (k :: Nat) (m :: UTerm k) (n :: UTerm k).
      TermW m -> TermW n -> BetaSteps m n -> CtxEquiv m n
@@ -202,7 +202,7 @@ betaCtxEquiv m n steps = betaCtxEquivW (mkTermW m) (mkTermW n) steps
 #### Exercise `beta-ctx-equiv` (practice)
 
 Using `denotEquivSteps` from [Soundness](/Soundness/) together with
-`denotEqualCtxBigStep`, trace how `betaCtxBigStep` proves unconditionally that
+`denotEqualCtxBigStep`, trace how `betaCtxBigStep` proves that
 for any open terms `m —↠ n` and any closing context `c :: UCtx k Zero`,
 termination of `plug c m` implies big-step halting of `plug c n`!
 
@@ -219,9 +219,9 @@ no sequential λ-term can define, distinguishing two contextually equivalent ter
 - Adapted from [ContextualEquivalence](https://plfa.inf.ed.ac.uk/ContextualEquivalence/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/ContextualEquivalence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of `Terminates`, open-term `CtxEquiv` (`M ≅ N` over
-  `foreach (c :: UCtx k Zero)` and `C.plug`), `plugTermW`, and **100%
-  unconditional** `denotEqualCtxBigStep`, `denotEqualCtxEquiv`, `betaCtxBigStep`,
+- Ports `Terminates`, open-term `CtxEquiv` (`M ≅ N` over
+  `foreach (c :: UCtx k Zero)` and `C.plug`), `plugTermW`,
+  `denotEqualCtxBigStep`, `denotEqualCtxEquiv`, `betaCtxBigStep`,
   and `betaCtxEquiv` (discharging Compositionality, Soundness, Adequacy, and
   `BigStep.cbnToReduce` with zero remaining hypotheses and zero
   promoted-constructor ticks).

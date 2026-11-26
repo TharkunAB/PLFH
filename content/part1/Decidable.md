@@ -186,8 +186,7 @@ Parity (`decEven`, `decOdd`) is decided by direct two-step structural recursion
 on `Nat` (`Zero`, `Succ Zero`, `Succ (Succ n)`). And
 whenever we *do* wish to bridge a Boolean `b :: Bool` back to a proposition
 `p`, the standard **`Reflects p b`** GADT packages `OfTrue :: p -> Reflects p True`
-and `OfFalse :: Not p -> Reflects p False` (using tick-free promoted `True`
-and `False`), from which `reflectsToDec` immediately produces `Dec p`.
+and `OfFalse :: Not p -> Reflects p False`, from which `reflectsToDec` immediately produces `Dec p`.
 
 Finally, as a bonus extension beyond PLFA's `Decidable` chapter, we also prove
 decidability for the binary-numeral predicates introduced in
@@ -319,5 +318,4 @@ absurd `case p of {}` in the impossible `Zero` / `Succ` branch.
   `mkSizeWitness`, and inline `plusExists`) all port directly and pass
   `-dcore-lint -dstg-lint`.
 - Uses unified `cong Succ` from [Induction](/Induction/), `Data.Void.Void`,
-  `EmptyCase` (`\case {}`), and tick-free promoted constructors (`Zero`,
-  `Succ`, `True`, `False`).
+  and `EmptyCase` (`\case {}`).

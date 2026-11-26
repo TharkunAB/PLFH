@@ -38,12 +38,10 @@ defined by structural recursion on the finite `Value` `v`:
   `LogArr`, requiring no `type family` declaration!)
 - `logVLam (Join u v) e b = type (logVLam u e b, logVLam v e b)`: a pair of proofs!
 
-With `BigStep.evalDeterm` proved unconditionally, the **entire Big-Step Adequacy
-theorem**—`decAboveFun`, `logVLam`/`LogE`, **full subsumption across all 8
-`Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`!)**, the
-**complete Fundamental Lemma (`fundamental`, all 6 `Denotes` rules!)**, and
-**unconditional Big-Step Adequacy (`adequacyBigStep`)**—compiles directly with
-`-dcore-lint -dstg-lint` and executes at runtime!
+The chapter proves `decAboveFun`, `logVLam`/`LogE`, full subsumption across all
+8 `Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`), the
+Fundamental Lemma (`fundamental`, all 6 `Denotes` rules), and Big-Step Adequacy
+(`adequacyBigStep`).
 
 ## Imports
 
@@ -245,7 +243,7 @@ notAboveFunLogV (Join a c) na =
   , notAboveFunLogV @n @e @b c (\af -> na (aboveFunJoinR af)) )
 
 -- | Join introduction for the expression logical relation (`𝔼-⊔`), using
--- `decAboveFun` and our unconditional `BigStep.evalDeterm`!
+-- `decAboveFun` and `BigStep.evalDeterm`.
 haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
               foreach (w1 w2 :: Value)
            -> LogE w1 e m
@@ -271,7 +269,7 @@ subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n))
 subDistHelper (MkValW w1) (MkValW w2) (f1, f2) =
   MkLogArr (\le af -> haltsVJoin w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
 
--- | Full unconditional downward closure of `logVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
+-- | Downward closure of `logVLam` under all 8 rules of `Sub` (`sub-𝕍`).
 subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)) (u :: Value) (v :: Value).
               ValW u -> ValW v
            -> Sub u v
@@ -297,7 +295,7 @@ subLogVLam wu _  SubDist            lv = case unArrW wu of
   (_, wJoin) -> case unJoinW wJoin of
     (ww1, ww2) -> subDistHelper @n @e @b ww1 ww2 lv
 
--- | Full unconditional downward closure of `LogE` under `Sub` (`sub-𝔼`)!
+-- | Downward closure of `LogE` under `Sub` (`sub-𝔼`).
 subLogE :: forall (n :: Nat) (e :: Env n) (m :: UTerm n) (u :: Value) (v :: Value).
            ValW u -> ValW v
         -> Sub u v
@@ -308,11 +306,11 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 ```
 
-## The Fundamental Lemma and Unconditional Big-Step Adequacy!
+## The Fundamental Lemma and Big-Step Adequacy
 
-Now every single rule of `Denotes` (`DVar`, `DElim`, `DIntro`, `DBot`, `DJoin`,
-`DSub`) checks unconditionally in **`fundamental`**, yielding unconditional
-**`adequacyBigStep`**—and we even execute `adequacyBigStep` on
+Every rule of `Denotes` (`DVar`, `DElim`, `DIntro`, `DBot`, `DJoin`, `DSub`)
+checks directly in **`fundamental`**, yielding **`adequacyBigStep`**—and we
+can execute `adequacyBigStep` on
 `denotIdAppId (MkValW Bot)` (`adequacyIdApp`), watching the adequacy proof
 actually compute a machine-checked call-by-name halting derivation for
 `(λx. x) (λx. x)` at runtime!
@@ -335,8 +333,8 @@ envLogCons le _  VLZ      = MkEnvLogHit ELZ le
 envLogCons _  el (VLS lk) = case el lk of
   MkEnvLogHit envLk le' -> MkEnvLogHit (ELS envLk) le'
 
--- | Unconditional Fundamental Lemma of the logical relation:
--- if `e ⊢ m ↓ v` and `e' 𝒢 e`, then `v 𝔼 (m, e')`!
+-- | Fundamental Lemma of the logical relation:
+-- if `e ⊢ m ↓ v` and `e' 𝒢 e`, then `v 𝔼 (m, e')`.
 fundamental :: forall (n :: Nat) (e' :: Env n) (e :: ValEnv n) (m :: UTerm n) (v :: Value).
                ValW v
             -> EnvLog e' e
@@ -361,8 +359,8 @@ fundamental wv el (DSub wSuper d1 lt) af =
 data HaltsBig (e :: Env n) (m :: UTerm n) where
   MkHaltsBig :: EvalBig e m (MkClos (ULam b) d) -> HaltsBig e m
 
--- | Unconditional Big-Step Adequacy theorem (`adequacy`):
--- every closed term with a non-trivial function denotation halts at a lambda!
+-- | Big-Step Adequacy theorem (`adequacy`):
+-- every closed term with a non-trivial function denotation halts at a lambda.
 adequacyBigStep :: ValW v -> Denotes VNil m v -> AboveFun v -> HaltsBig ENil m
 adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev
@@ -429,13 +427,13 @@ terminates immediately (only its *self-application* `Δ · Δ` diverges!).
 - Adapted from [Adequacy](https://plfa.inf.ed.ac.uk/Adequacy/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Adequacy.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of `AboveFun`, `aboveFunSub`, `notAboveFunBot`,
+- Ports `AboveFun`, `aboveFunSub`, `notAboveFunBot`,
   `aboveFunJoin`, `notAboveFunJoin`, `notAboveFunJoinInv`, `decAboveFun`,
-  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `logVLam` (ordinary mutually recursive
-  term-to-`Type` large elimination with zero `type family` declarations),
+  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `logVLam` (a mutually recursive
+  term-to-`Type` large elimination),
   `notAboveFunLogV`,
   `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
-  (all 6 `Denotes` rules), unconditional `adequacyBigStep` (via
+  (all 6 `Denotes` rules), `adequacyBigStep` (via
   `BigStep.evalDeterm`), `adequacy`, both directions of the small-step/big-step
   bridge (`reduceToCbn` and `cbnToReduceW`/`cbnToReduce`), `omegaNotAboveFun`
   (via `BigStep.omegaDiverges`), `adequacyDelta`, and executable

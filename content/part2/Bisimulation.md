@@ -356,7 +356,7 @@ singleCompat sv x = case x of
   M.Z    -> sv
   M.S x' -> SimVar x'
 
--- | Unconditional single-variable substitution preserves `SimRel`!
+-- | Single-variable substitution preserves `SimRel`.
 simSubstSingle :: forall g a b (n :: M.Term (M.CExt g a) b) (n' :: M.Term (M.CExt g a) b)
                                (v :: M.Term g a) (v' :: M.Term g a).
                   SimRel n n' -> SimRel v v'
@@ -372,7 +372,7 @@ doubleCompat sv sw x = case x of
   M.S M.Z     -> sv
   M.S (M.S y) -> SimVar y
 
--- | Unconditional double-variable substitution preserves `SimRel`!
+-- | Double-variable substitution preserves `SimRel`.
 simSubstDouble :: forall g a b c (n :: M.Term (M.CExt (M.CExt g a) b) c)
                                  (n' :: M.Term (M.CExt (M.CExt g a) b) c)
                                  (v :: M.Term g a) (v' :: M.Term g a)
@@ -393,8 +393,8 @@ and restored `SimRel` witness:
 All 20 congruence and non-substituting β rules (`Xi*`, `BetaZero`, `BetaFst`,
 `BetaSnd`, `BetaNil`) discharge directly by structural induction and `simValue`,
 and all 7 substituting β rules (`BetaLam`, `BetaSuc`, `BetaMu`, `BetaLet`,
-`BetaInl`, `BetaInr`, `BetaCons`) discharge unconditionally via
-`simSubstSingle` and `simSubstDouble`!
+`BetaInl`, `BetaInr`, `BetaCons`) discharge directly via
+`simSubstSingle` and `simSubstDouble`.
 
 ```haskell
 -- | Forward simulation leg: `m' —→ n'` with `n ~ n'`.
@@ -418,8 +418,8 @@ Look at the `SimLetApp` cases—the centerpiece of PLFA's **Bisimulation** chapt
    - When `let x = m in n` steps via `M.XiLet stM`, induction gives `m' —→ m1'`,
      so `(λ x. n') m'` matches lock-step via **`M.XiApp2 M.VLam stM'`**!
    - When `let x = v in n` steps via `M.BetaLet vm` to `M.substSingle n v`,
-     `(λ x. n') v'` matches lock-step via **`M.BetaLam (simValue sm vm)`** to
-     `M.substSingle n' v'`, linked unconditionally by `simSubstSingle sn sm`!
+     `(λ x. n') v'` matches lock-step via `M.BetaLam (simValue sm vm)` to
+     `M.substSingle n' v'`, linked by `simSubstSingle sn sm`.
 2. **Backward (`simInv`, PLFA Exercise `sim⁻¹`)**:
    - Can `(λ x. n') m'` step via `M.XiApp1 stLam`? **No!** `valNoStep M.VLam stLam`
      discharges the branch statically via `absurd`!
@@ -428,11 +428,10 @@ Look at the `SimLetApp` cases—the centerpiece of PLFA's **Bisimulation** chapt
    - When `(λ x. n') v'` steps via `M.BetaLam vm'`, `let x = v in n` matches
      lock-step via **`M.BetaLet (simValueInv sm vm')`**!
 
-Every single one of the **27 reduction rules** in both directions is proved
-**unconditionally** and checked exhaustively under `-Werror=incomplete-patterns`:
+All 27 reduction rules in both directions are checked exhaustively under `-Werror=incomplete-patterns`:
 
 ```haskell
--- | Unconditional forward lock-step simulation across all 27 rules of `More.Step`.
+-- | Forward lock-step simulation across all 27 rules of `More.Step`.
 sim :: SimRel m m' -> M.Step m n -> Leg M.Step m' n
 sim rel st = case st of
   M.XiApp1 stL -> case rel of
@@ -515,7 +514,7 @@ sim rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLeg (M.BetaCons (simValue sx vx) (simValue sxs vxs)) (simSubstDouble scons sx sxs)
 
--- | Unconditional backward lock-step simulation (`sim⁻¹`) across all 27 rules!
+-- | Backward lock-step simulation (`sim⁻¹`) across all 27 rules.
 simInv :: SimRel m m' -> M.Step m' n' -> LegInv M.Step m n'
 simInv rel st = case st of
   M.XiApp1 stL' -> case rel of
@@ -602,19 +601,19 @@ simInv rel st = case st of
 
 ### Multi-step bisimulation (`—↠`) and concrete `let`-desugaring witnesses
 
-Composing unconditional one-step simulation lifts immediately to multi-step
+Composing one-step simulation lifts immediately to multi-step
 reduction sequences (`M.Steps`), and running `simSteps` / `simStepsInv` directly
 on `letDesugarSim` computes the matching reduction sequences automatically!
 
 ```haskell
--- | Unconditional multi-step forward simulation (`—↠`).
+-- | Multi-step forward simulation (`—↠`).
 simSteps :: SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
 simSteps rel M.StepsRefl        = MkLeg M.StepsRefl rel
 simSteps rel (M.StepsCons s ss) = case sim rel s of
   MkLeg s' rel1 -> case simSteps rel1 ss of
     MkLeg ss' rel2 -> MkLeg (M.StepsCons s' ss') rel2
 
--- | Unconditional multi-step backward simulation (`—↠`).
+-- | Multi-step backward simulation (`—↠`).
 simStepsInv :: SimRel m m' -> M.Steps m' n' -> LegInv M.Steps m n'
 simStepsInv rel M.StepsRefl        = MkLegInv M.StepsRefl rel
 simStepsInv rel (M.StepsCons s ss) = case simInv rel s of
@@ -695,10 +694,10 @@ accommodates weak simulations directly!
   `SimVar :: foreach x -> SimRel (M.Var x) (M.Var x)`), `simRefl`, `simTrans`,
   bidirectional 9-constructor value preservation (`simValue`, `simValueInv`),
   `valNoStep`, **full 20-constructor `simRename`** (plain `->` arrows, zero
-  `@`-application noise), **full 20-constructor `simExt`/`simSubst`**,
-  **unconditional `simSubstSingle` and `simSubstDouble`**, **unconditional
-  27-rule lock-step forward and backward simulation (`sim`, `simInv`)**,
-  unconditional multi-step `simSteps`/`simStepsInv` (computing
-  `letDesugarSteps`/`letDesugarStepsInv` directly!), and negative control
+  `@`-application noise), `simExt`/`simSubst`,
+  `simSubstSingle` and `simSubstDouble`,
+  27-rule lock-step forward and backward simulation (`sim`, `simInv`),
+  multi-step `simSteps`/`simStepsInv` (computing
+  `letDesugarSteps`/`letDesugarStepsInv` directly), and negative control
   `NegBisimBadTarget` under `-Werror=incomplete-patterns -dcore-lint -dstg-lint`
   with zero promoted-constructor ticks.

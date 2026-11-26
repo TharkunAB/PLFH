@@ -342,7 +342,7 @@ demoLen = natToInt (size ("dependent" ++ " haskell"))
 </div>
 
 Matchability polymorphism (`%M` / `%U`) combined with `RequiredTypeArguments`
-and Wave 10 T2T operator sections lets a single `cong` accept matchable
+and T2T operator sections lets a single `cong` accept matchable
 constructors (`Succ`), unmatchable functions (`plus m`), and left/right
 sections (`(x :)`, `(: ys)`) with zero `@` sigils.
 
@@ -624,7 +624,8 @@ and GHC community:
   Csongor Kiss et al. ([ICFP 2019](https://doi.org/10.1145/3341706)),
   Matth&iacute;as P&aacute;ll Gissurarson ([Haskell 2018](https://doi.org/10.1145/3242744.3242760)),
   and Philip Wadler, Wen Kokke, &amp; Jeremy G. Siek ([PLFA](https://plfa.inf.ed.ac.uk/), CC BY 4.0).
-- **Coming in the Wave 13–14 Wasm refreshes:**
+- **Upcoming additions:**
   [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
   (replacing `HaskLib` with first-class `Data.*.Dependent` modules, including
-  dependent function composition `(.)`) and observational equality.
+  dependent function composition `(.)`), [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
+  and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).

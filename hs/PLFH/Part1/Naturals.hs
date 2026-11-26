@@ -57,7 +57,7 @@ pow _ Zero     = Succ Zero
 pow m (Succ n) = times m (pow m n)
 
 {-# LINE 519 "content/part1/Naturals.md" #-}
--- | Concrete same-module exponentiation example: 3 ^ 4 = 81.
+-- | Concrete exponentiation example: 3 ^ 4 = 81.
 threePowFour :: pow 3 4 :~: 81
 threePowFour = Refl
 
@@ -69,7 +69,7 @@ monus Zero     (Succ n) = Zero
 monus (Succ m) (Succ n) = monus m n
 
 {-# LINE 559 "content/part1/Naturals.md" #-}
--- | Concrete same-module truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
+-- | Concrete truncated subtraction examples: 3 ∸ 2 = 1 and 2 ∸ 3 = 0.
 threeMonusTwo :: monus 3 2 :~: 1
 threeMonusTwo = Refl
 

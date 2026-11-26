@@ -395,8 +395,7 @@ parDiamond m = parDiamondW (mkTermW m)
 
 ## Strip Lemma, Church–Rosser Confluence, and Uniqueness of Normal Forms
 
-With `parDiamond` proved unconditionally, the entire Church–Rosser edifice
-closes with **zero remaining hypotheses**:
+With `parDiamond` proved, the Church–Rosser theorem follows directly:
 
 1. **`strip`**: pastes one-step `parDiamondW` squares along any horizontal
    `ParSteps` sequence.
@@ -431,7 +430,7 @@ parConfluence :: forall (n :: Nat) (m1 m2 :: UTerm n).
                  foreach (l :: UTerm n) -> ParSteps l m1 -> ParSteps l m2 -> Joinable ParSteps m1 m2
 parConfluence l = parConfluenceW (mkTermW l)
 
--- | Unconditional Church-Rosser Confluence for full β-reduction (`_—↠_`)!
+-- | Church-Rosser confluence for full β-reduction (`_—↠_`).
 churchRosser :: forall (n :: Nat) (m1 m2 :: UTerm n).
                 foreach (l :: UTerm n)
              -> BetaSteps l m1 -> BetaSteps l m2
@@ -477,7 +476,7 @@ normalParSteps _  PSRefl        = Refl
 normalParSteps nm (PSCons p ps) = case normalPar nm p of
   Refl -> normalParSteps nm ps
 
--- | Unconditional corollary of Church-Rosser: every term has at most one normal form!
+-- | Corollary of Church-Rosser: every term has at most one normal form.
 uniqueNormalForm :: forall (n :: Nat) (m1 m2 :: UTerm n).
                     foreach (l :: UTerm n)
                  -> BetaSteps l m1 -> BetaSteps l m2
@@ -507,7 +506,7 @@ for any binary relation `rel`.
 - Adapted from [Confluence](https://plfa.inf.ed.ac.uk/Confluence/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Confluence.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Complete, unconditional, `-Werror=incomplete-patterns`-verified proof of
+- Complete `-Werror=incomplete-patterns`-verified proof of
   `parRefl`, `betaToPar`, `betasToPars`, `parRename`, `parSubst`, `parSubstSingle`,
   `parDiamond`, `strip`, `parConfluence`, **`churchRosser`**, and
   **`uniqueNormalForm`** over promoted `UTerm n` using functional `substSingleU`

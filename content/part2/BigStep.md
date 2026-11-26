@@ -218,8 +218,8 @@ evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 Unlike full β-reduction in [Untyped](/Untyped/), call-by-name big-step
 evaluation is **deterministic**: if `e ⊢ m ⇓ c₁` and `e ⊢ m ⇓ c₂`, then
 `c₁ :~: c₂`! Both `envLookupDeterm` and `evalDeterm` prove in three lines by
-structural induction—and `evalDeterm` directly powers the join case of our
-unconditional **Big-Step Adequacy** proof in [Adequacy](/Adequacy/)!
+structural induction—and `evalDeterm` directly powers the join case of
+**Big-Step Adequacy** in [Adequacy](/Adequacy/).
 
 ```haskell
 -- | Determinism of relational environment lookup.
@@ -270,7 +270,7 @@ omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
 omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 ```
 
-## Same-module functional lookup (`EvalFun`)
+## Functional environment lookup (`EvalFun`)
 
 The variable rule `EVar` above uses the inductive relation `EnvLookup`, which
 we use directly in [Adequacy](/Adequacy/). Under `-XDependentTypes`, GHC
@@ -294,21 +294,21 @@ lookupEnvEvidence :: EnvLookup e x c -> lookupEnv e x :~: c
 lookupEnvEvidence ELZ     = Refl
 lookupEnvEvidence (ELS p) = lookupEnvEvidence p
 
--- | Convert any relational `EvalBig` derivation to same-module functional `EvalFun`.
+-- | Convert any relational `EvalBig` derivation to functional `EvalFun`.
 toEvalFun :: EvalBig e t v -> EvalFun e t v
 toEvalFun (EVar lk ev) = case lookupEnvEvidence lk of
   Refl -> EFVar (toEvalFun ev)
 toEvalFun ELam         = EFLam
 toEvalFun (EApp e1 e2) = EFApp (toEvalFun e1) (toEvalFun e2)
 
--- | Determinism of same-module functional `EvalFun`: no lookup lemma needed!
+-- | Determinism of functional `EvalFun`: no lookup lemma needed.
 evalFunDeterm :: EvalFun e m c1 -> EvalFun e m c2 -> c1 :~: c2
 evalFunDeterm (EFVar e1)    (EFVar e2)    = evalFunDeterm e1 e2
 evalFunDeterm EFLam         EFLam         = Refl
 evalFunDeterm (EFApp l1 b1) (EFApp l2 b2) = case evalFunDeterm l1 l2 of
   Refl -> evalFunDeterm b1 b2
 
--- | Same-module functional lookup for `((λx y. x) id) Ω ⇓ <id, []>` at `FS FZ`!
+-- | Functional lookup for `((λx y. x) id) Ω ⇓ <id, []>` at `FS FZ`.
 evalFunKIdOmega
   :: EvalFun ENil
        (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
@@ -347,7 +347,7 @@ badLookup = App (App Lam Lam) (Var Lam)
 Every converging call-by-name big-step derivation `EvalBig ENil u (MkClos (ULam b) d)`
 corresponds to a real multi-step full β-reduction `BetaSteps u (ULam b')`!
 
-To prove `cbnToReduce` unconditionally without axioms or function extensionality,
+To prove `cbnToReduce` constructively without axioms or function extensionality,
 we associate each runtime closure environment `e :: Env n` with its closing
 simultaneous substitution `s :: Subst n Zero` via the 2-constructor witness
 `CloseEnv e s`:
@@ -440,7 +440,7 @@ cbnSim (EApp (evL :: EvalBig e l (MkClos (ULam b1) (d1 :: Env nd1))) evB) ce sw 
 data CbnTerminates (u :: UTerm Zero) where
   MkCbnTerminates :: BetaSteps u (ULam b) -> CbnTerminates u
 
--- | Unconditional big-step → small-step bridge (`cbn→reduce`)!
+-- | Big-step → small-step bridge (`cbn→reduce`).
 cbnToReduceW :: TermW u -> EvalBig ENil u (MkClos (ULam b) d) -> CbnTerminates u
 cbnToReduceW wu ev = case termWToHas wu of
   MkHasTerm u' -> case subId @Zero u' of
@@ -472,11 +472,11 @@ problem—contradicting well-founded induction on `EvalBig`!
 - Adapted from [BigStep](https://plfa.inf.ed.ac.uk/BigStep/)
   ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
   by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct ports of call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
+- Ports call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
   `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `omegaDiverges`,
-  same-module functional `EvalFun`/`lookupEnvEvidence`/`toEvalFun`/`evalFunDeterm`/`evalFunKIdOmega`,
-  `evalIdApp`, `evalConstOmega`, `evalKIdOmega`, and the **unconditional
-  big-step → small-step bridge (`cbnSim`, `cbnToReduceW`, `cbnToReduce`)** via
+  functional `EvalFun`/`lookupEnvEvidence`/`toEvalFun`/`evalFunDeterm`/`evalFunKIdOmega`,
+  `evalIdApp`, `evalConstOmega`, `evalKIdOmega`, and the
+  big-step → small-step bridge (`cbnSim`, `cbnToReduceW`, `cbnToReduce`) via
   inductive environment closing `CloseSub`, plus cross-module `B.lookupEnv` in
   `PLFH.Part2.BigStepFunctional` (verified by negative control
   `NegBigStepBadLookup`), with zero promoted-constructor ticks.

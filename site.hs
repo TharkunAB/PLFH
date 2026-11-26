@@ -60,8 +60,8 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
-    -- Render all extracted Haskell chapters, client modules, negative controls,
-    -- compiler reproducers, and HaskLib reference sources under /Source/.
+    -- Render all extracted Haskell chapters, runtime smoke test, negative controls,
+    -- and HaskLib reference sources under /Source/.
     match sourcePatterns $ do
       route sourcePageRoute
       compile $ do
@@ -80,9 +80,8 @@ main = do
         chapterIds <- sort . map toFilePath <$> getMatches "hs/PLFH/**.hs"
         hasklibIds <- sort . map toFilePath <$> getMatches "reference/hasklib/**.hs"
         negIds <- sort . map toFilePath <$> getMatches "hs/negative/*.hs"
-        openReproIds <- sort . map toFilePath <$> getMatches "reproducers/*.hs"
-        let (chapMods, clientMods) = partitionChapterClients chapterIds
-            md = buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds
+        let (chapMods, smokeMods) = partitionChapterAndSmoke chapterIds
+            md = buildSourceIndexMarkdown chapMods smokeMods hasklibIds negIds
             ctx =
               constField "title" "Source Browser"
                 <> constField "prevUrl" "/HaskLib/"
@@ -96,10 +95,19 @@ main = do
 
 sourcePatterns :: Pattern
 sourcePatterns =
-  "hs/PLFH/**.hs"
+  ("hs/PLFH/**.hs" .&&. complement internalClientPatterns)
     .||. "hs/negative/*.hs"
-    .||. "reproducers/*.hs"
     .||. "reference/hasklib/**.hs"
+
+internalClientPatterns :: Pattern
+internalClientPatterns =
+  fromList
+    [ "hs/PLFH/Part1/AnyWitnessIso.hs"
+    , "hs/PLFH/Part1/InductionClient.hs"
+    , "hs/PLFH/Part1/ListsProof.hs"
+    , "hs/PLFH/Part2/BigStepFunctional.hs"
+    , "hs/PLFH/Part2/BisimulationRenaming.hs"
+    ]
 
 normalizeBaseUrl :: String -> String
 normalizeBaseUrl "" = ""
@@ -244,29 +252,24 @@ sourceChapterUrl path
            else Just ("/" ++ base ++ "/")
   | otherwise = Nothing
 
-partitionChapterClients :: [FilePath] -> ([FilePath], [FilePath])
-partitionChapterClients paths =
+partitionChapterAndSmoke :: [FilePath] -> ([FilePath], [FilePath])
+partitionChapterAndSmoke paths =
   ( [p | p <- paths, sourceChapterUrl p /= Nothing]
-  , [p | p <- paths, sourceChapterUrl p == Nothing]
+  , [p | p <- paths, takeBaseName p == "RuntimeSmokeTest"]
   )
 
 buildSourceIndexMarkdown
-  :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
-buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds =
+  :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
+buildSourceIndexMarkdown chapMods smokeMods hasklibIds negIds =
   unlines $
-    [ "Browse every verified Haskell module extracted from PLFH, its supporting"
-    , "client modules, the `HaskLib` reference library from `TharkunAB/ghc`, all"
-    , "negative controls, and tracked compiler reproducers directly on this site."
+    [ "Browse every verified Haskell module extracted from PLFH, the `HaskLib`"
+    , "reference library, the runtime smoke test suite, and all negative controls"
+    , "directly on this site."
     , ""
     , "## Chapter Modules (" ++ show (length chapMods) ++ ")"
     , ""
     ]
       ++ map formatChapterRow chapMods
-      ++ [ ""
-         , "## Supporting Client Modules & Smoke Tests (" ++ show (length clientMods) ++ ")"
-         , ""
-         ]
-      ++ map formatPlainRow clientMods
       ++ [ ""
          , "## `HaskLib` Reference Modules (" ++ show (length hasklibIds) ++ ")"
          , ""
@@ -280,10 +283,10 @@ buildSourceIndexMarkdown chapMods clientMods hasklibIds negIds openReproIds =
          ]
       ++ map formatPlainRow negIds
       ++ [ ""
-         , "## Tracked Reproducers (" ++ show (length openReproIds) ++ ")"
+         , "## Runtime Smoke Test (" ++ show (length smokeMods) ++ ")"
          , ""
          ]
-      ++ map formatPlainRow openReproIds
+      ++ map formatPlainRow smokeMods
   where
     formatChapterRow p =
       let modName = sourceDisplayTitle p

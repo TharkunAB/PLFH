@@ -191,21 +191,21 @@ lookupEnvEvidence :: EnvLookup e x c -> lookupEnv e x :~: c
 lookupEnvEvidence ELZ     = Refl
 lookupEnvEvidence (ELS p) = lookupEnvEvidence p
 
--- | Convert any relational `EvalBig` derivation to same-module functional `EvalFun`.
+-- | Convert any relational `EvalBig` derivation to functional `EvalFun`.
 toEvalFun :: EvalBig e t v -> EvalFun e t v
 toEvalFun (EVar lk ev) = case lookupEnvEvidence lk of
   Refl -> EFVar (toEvalFun ev)
 toEvalFun ELam         = EFLam
 toEvalFun (EApp e1 e2) = EFApp (toEvalFun e1) (toEvalFun e2)
 
--- | Determinism of same-module functional `EvalFun`: no lookup lemma needed!
+-- | Determinism of functional `EvalFun`: no lookup lemma needed.
 evalFunDeterm :: EvalFun e m c1 -> EvalFun e m c2 -> c1 :~: c2
 evalFunDeterm (EFVar e1)    (EFVar e2)    = evalFunDeterm e1 e2
 evalFunDeterm EFLam         EFLam         = Refl
 evalFunDeterm (EFApp l1 b1) (EFApp l2 b2) = case evalFunDeterm l1 l2 of
   Refl -> evalFunDeterm b1 b2
 
--- | Same-module functional lookup for `((λx y. x) id) Ω ⇓ <id, []>` at `FS FZ`!
+-- | Functional lookup for `((λx y. x) id) Ω ⇓ <id, []>` at `FS FZ`.
 evalFunKIdOmega
   :: EvalFun ENil
        (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
@@ -286,7 +286,7 @@ cbnSim (EApp (evL :: EvalBig e l (MkClos (ULam b1) (d1 :: Env nd1))) evB) ce sw 
 data CbnTerminates (u :: UTerm Zero) where
   MkCbnTerminates :: BetaSteps u (ULam b) -> CbnTerminates u
 
--- | Unconditional big-step → small-step bridge (`cbn→reduce`)!
+-- | Big-step → small-step bridge (`cbn→reduce`).
 cbnToReduceW :: TermW u -> EvalBig ENil u (MkClos (ULam b) d) -> CbnTerminates u
 cbnToReduceW wu ev = case termWToHas wu of
   MkHasTerm u' -> case subId @Zero u' of

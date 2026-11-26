@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
-{-# LINE 52 "content/part3/Adequacy.md" #-}
+{-# LINE 50 "content/part3/Adequacy.md" #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -73,7 +73,7 @@ import PLFH.Part3.Denotational
   )
 import PLFH.Part3.Soundness (denotEquivStepsW)
 
-{-# LINE 136 "content/part3/Adequacy.md" #-}
+{-# LINE 134 "content/part3/Adequacy.md" #-}
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
 data AboveFun (u :: Value) where
   MkAboveFun :: Sub (Arr v w) u -> AboveFun u
@@ -129,7 +129,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (_, Yes af)    -> Yes (aboveFunJoinR af)
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
-{-# LINE 206 "content/part3/Adequacy.md" #-}
+{-# LINE 204 "content/part3/Adequacy.md" #-}
 -- | Weak-head normal form: a lambda abstraction.
 type WHNF :: forall (n :: Nat). UTerm n -> Type
 data WHNF m where
@@ -172,7 +172,7 @@ notAboveFunLogV (Join a c) na =
   , notAboveFunLogV @n @e @b c (\af -> na (aboveFunJoinR af)) )
 
 -- | Join introduction for the expression logical relation (`𝔼-⊔`), using
--- `decAboveFun` and our unconditional `BigStep.evalDeterm`!
+-- `decAboveFun` and `BigStep.evalDeterm`.
 haltsVJoin :: forall (n :: Nat) (e :: Env n) (m :: UTerm n).
               foreach (w1 w2 :: Value)
            -> LogE w1 e m
@@ -198,7 +198,7 @@ subDistHelper :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n))
 subDistHelper (MkValW w1) (MkValW w2) (f1, f2) =
   MkLogArr (\le af -> haltsVJoin w1 w2 (runLogArr f1 le) (runLogArr f2 le) af)
 
--- | Full unconditional downward closure of `logVLam` under all 8 rules of `Sub` (`sub-𝕍`)!
+-- | Downward closure of `logVLam` under all 8 rules of `Sub` (`sub-𝕍`).
 subLogVLam :: forall (n :: Nat) (e :: Env n) (b :: UTerm (Succ n)) (u :: Value) (v :: Value).
               ValW u -> ValW v
            -> Sub u v
@@ -224,7 +224,7 @@ subLogVLam wu _  SubDist            lv = case unArrW wu of
   (_, wJoin) -> case unJoinW wJoin of
     (ww1, ww2) -> subDistHelper @n @e @b ww1 ww2 lv
 
--- | Full unconditional downward closure of `LogE` under `Sub` (`sub-𝔼`)!
+-- | Downward closure of `LogE` under `Sub` (`sub-𝔼`).
 subLogE :: forall (n :: Nat) (e :: Env n) (m :: UTerm n) (u :: Value) (v :: Value).
            ValW u -> ValW v
         -> Sub u v
@@ -234,7 +234,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 321 "content/part3/Adequacy.md" #-}
+{-# LINE 319 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
@@ -252,8 +252,8 @@ envLogCons le _  VLZ      = MkEnvLogHit ELZ le
 envLogCons _  el (VLS lk) = case el lk of
   MkEnvLogHit envLk le' -> MkEnvLogHit (ELS envLk) le'
 
--- | Unconditional Fundamental Lemma of the logical relation:
--- if `e ⊢ m ↓ v` and `e' 𝒢 e`, then `v 𝔼 (m, e')`!
+-- | Fundamental Lemma of the logical relation:
+-- if `e ⊢ m ↓ v` and `e' 𝒢 e`, then `v 𝔼 (m, e')`.
 fundamental :: forall (n :: Nat) (e' :: Env n) (e :: ValEnv n) (m :: UTerm n) (v :: Value).
                ValW v
             -> EnvLog e' e
@@ -278,8 +278,8 @@ fundamental wv el (DSub wSuper d1 lt) af =
 data HaltsBig (e :: Env n) (m :: UTerm n) where
   MkHaltsBig :: EvalBig e m (MkClos (ULam b) d) -> HaltsBig e m
 
--- | Unconditional Big-Step Adequacy theorem (`adequacy`):
--- every closed term with a non-trivial function denotation halts at a lambda!
+-- | Big-Step Adequacy theorem (`adequacy`):
+-- every closed term with a non-trivial function denotation halts at a lambda.
 adequacyBigStep :: ValW v -> Denotes VNil m v -> AboveFun v -> HaltsBig ENil m
 adequacyBigStep wv d af = case fundamental wv envLogNil d af of
   MkHaltsV ev _ -> MkHaltsBig ev

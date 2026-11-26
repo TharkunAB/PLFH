@@ -255,7 +255,7 @@ singleCompat sv x = case x of
   M.Z    -> sv
   M.S x' -> SimVar x'
 
--- | Unconditional single-variable substitution preserves `SimRel`!
+-- | Single-variable substitution preserves `SimRel`.
 simSubstSingle :: forall g a b (n :: M.Term (M.CExt g a) b) (n' :: M.Term (M.CExt g a) b)
                                (v :: M.Term g a) (v' :: M.Term g a).
                   SimRel n n' -> SimRel v v'
@@ -271,7 +271,7 @@ doubleCompat sv sw x = case x of
   M.S M.Z     -> sv
   M.S (M.S y) -> SimVar y
 
--- | Unconditional double-variable substitution preserves `SimRel`!
+-- | Double-variable substitution preserves `SimRel`.
 simSubstDouble :: forall g a b c (n :: M.Term (M.CExt (M.CExt g a) b) c)
                                  (n' :: M.Term (M.CExt (M.CExt g a) b) c)
                                  (v :: M.Term g a) (v' :: M.Term g a)
@@ -293,8 +293,8 @@ type LegInv :: forall (g :: M.Ctx) (a :: M.Ty).
 data LegInv step m n' where
   MkLegInv :: step m n -> SimRel n n' -> LegInv step m n'
 
-{-# LINE 435 "content/part2/Bisimulation.md" #-}
--- | Unconditional forward lock-step simulation across all 27 rules of `More.Step`.
+{-# LINE 434 "content/part2/Bisimulation.md" #-}
+-- | Forward lock-step simulation across all 27 rules of `More.Step`.
 sim :: SimRel m m' -> M.Step m n -> Leg M.Step m' n
 sim rel st = case st of
   M.XiApp1 stL -> case rel of
@@ -377,7 +377,7 @@ sim rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLeg (M.BetaCons (simValue sx vx) (simValue sxs vxs)) (simSubstDouble scons sx sxs)
 
--- | Unconditional backward lock-step simulation (`sim⁻¹`) across all 27 rules!
+-- | Backward lock-step simulation (`sim⁻¹`) across all 27 rules.
 simInv :: SimRel m m' -> M.Step m' n' -> LegInv M.Step m n'
 simInv rel st = case st of
   M.XiApp1 stL' -> case rel of
@@ -461,15 +461,15 @@ simInv rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLegInv (M.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (simSubstDouble scons sx sxs)
 
-{-# LINE 610 "content/part2/Bisimulation.md" #-}
--- | Unconditional multi-step forward simulation (`—↠`).
+{-# LINE 609 "content/part2/Bisimulation.md" #-}
+-- | Multi-step forward simulation (`—↠`).
 simSteps :: SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
 simSteps rel M.StepsRefl        = MkLeg M.StepsRefl rel
 simSteps rel (M.StepsCons s ss) = case sim rel s of
   MkLeg s' rel1 -> case simSteps rel1 ss of
     MkLeg ss' rel2 -> MkLeg (M.StepsCons s' ss') rel2
 
--- | Unconditional multi-step backward simulation (`—↠`).
+-- | Multi-step backward simulation (`—↠`).
 simStepsInv :: SimRel m m' -> M.Steps m' n' -> LegInv M.Steps m n'
 simStepsInv rel M.StepsRefl        = MkLegInv M.StepsRefl rel
 simStepsInv rel (M.StepsCons s ss) = case simInv rel s of

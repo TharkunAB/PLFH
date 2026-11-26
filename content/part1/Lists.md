@@ -560,7 +560,7 @@ decIn decEq x (y : ys) = case decEq x y of
     Yes iys -> Yes (There iys)
     No niys -> No (\case { Here eq -> neq eq; There r -> niys r })
 
--- | Concrete membership proof: 0 ∈ [0, 1, 0] (zero ticks with NoListTuplePuns!).
+-- | Concrete membership proof: 0 ∈ [0, 1, 0].
 zeroInList :: In (0 :: Nat) [0 :: Nat, 1 :: Nat, 0 :: Nat]
 zeroInList = Here Refl
 
@@ -607,7 +607,7 @@ that splits a list `zs` into the elements satisfying `p` and those satisfying
 - Made `All` and `Any` matchability-polymorphic (`p :: a %m -> Type`),
   unlocking PLFA's full inline type-lambda De Morgan theorem
   (`notAnyToAllNot`, `allNotToNotAny`, `notAnyIffAllNot`).
-- Checked direct ports of `appendAssoc`, `appendNilR`, `mapAppend`,
+- Ports `appendAssoc`, `appendNilR`, `mapAppend`,
   `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
   `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
   `lengthDownFrom`/`lengthZeros`, `foldrPlusSeed`/`foldrPlusAppend` over

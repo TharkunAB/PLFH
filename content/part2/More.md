@@ -275,7 +275,7 @@ With `-XDependentTypes`, GHC evaluates both single-variable `substSingle` and
 two-variable `substDouble` (lifting through double binders `ext (ext r)` and
 `exts (exts s)` for `CaseLst`!) directly in the same module—so we define all
 **27 intrinsically-typed call-by-value reduction rules** (`Step`), complete
-unconditional **`progress`** across all **19 constructors** of `Term` (checked
+**`progress`** across all **19 constructors** of `Term` (checked
 with `-Werror=incomplete-patterns`, where `absurdProgress` discharges
 `PDone v -> case v of {}` statically because `TVoid` has no value constructors!),
 and the concrete double-substitution witness `listCaseBoth` inline right here:
@@ -342,7 +342,7 @@ data Progress m where
   PStep :: Step m n -> Progress m
   PDone :: Value m -> Progress m
 
--- | Complete, unconditional Progress theorem across all 19 constructors of `Term`!
+-- | Progress theorem across all 19 constructors of `Term`.
 progress :: forall (a :: Ty). foreach (m :: Term CEmpty a) -> Progress m
 progress (Var x)         = case x of {}
 progress (Lam _)         = PDone VLam
@@ -491,7 +491,7 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   renaming, substitution (`substSingle`, `substDouble`), GADT-promoted `Value`,
   example programs, all 27 intrinsically-typed `Step` rules (using real
   `substSingle` and `substDouble` directly in the same module), complete
-  unconditional 19-branch `progress` (`-Werror=incomplete-patterns`), and
+  19-branch `progress` (`-Werror=incomplete-patterns`), and
   concrete `listCaseBoth` (guarded by negative control `NegMoreConsTarget`)
   compile inline in `PLFH.Part2.More` with `-dcore-lint -dstg-lint` and zero
   promoted-constructor ticks.

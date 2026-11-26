@@ -106,7 +106,7 @@ decLtSize (Succ m) (Succ n) = case decLtSize m n of
   Yes p -> Yes (SltS p)
   No np -> No (\case SltS q -> np q)
 
-{-# LINE 199 "content/part1/Decidable.md" #-}
+{-# LINE 198 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero            = Yes EvenZ
@@ -177,7 +177,7 @@ decCan (X1 b)      = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 282 "content/part1/Decidable.md" #-}
+{-# LINE 281 "content/part1/Decidable.md" #-}
 -- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
 type SizeWitness = some (k :: Nat) | LE Zero k
 
