@@ -1,29 +1,28 @@
 ---
 title: "ContextualEquivalence: Denotational equality implies contextual equivalence"
 prev: /Adequacy/
-next: /Status/
+next: /DependentBase/
 src: content/part3/ContextualEquivalence.md
 module: PLFH.Part3.ContextualEquivalence
 plfaChapter: https://plfa.inf.ed.ac.uk/ContextualEquivalence/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
-When should a compiler optimization—such as replacing an expression `M` with an
-optimized expression `N`—be considered **behaviorally valid**?
+When should a compiler optimization, such as replacing an expression `M` with an
+optimized expression `N`, be considered **behaviorally valid**?
 
 James H. Morris (1968) and Gordon Plotkin gave the gold-standard operational
 definition: **contextual equivalence** (`M ≃ᶜᵗˣ N`). Two terms `M` and `N` are
 contextually equivalent if, for **every** closing program context `C[_]` into
-which we can plug them, `C[M]` terminates if and only if `C[N]` terminates!
+which we can plug them, `C[M]` terminates if and only if `C[N]` terminates.
 
-### Why proving contextual equivalence directly is hard—and why Part 3 makes it easy
+## Why proving contextual equivalence directly is hard, and why Part 3 makes it easy
 
 Proving `M ≃ᶜᵗˣ N` directly from operational semantics is notoriously difficult
 because of the universal quantification over **all possible contexts `C`**.
-Yet once we have our three pillars from Part 3—**Compositionality**,
-**Soundness**, and **Adequacy**—the proof that **denotational equality implies
+Yet once we have our three pillars from Part 3, **Compositionality**,
+**Soundness**, and **Adequacy**, the proof that **denotational equality implies
 contextual equivalence** (`ℰ M ≃ ℰ N` implies `M ≃ᶜᵗˣ N`) takes only **one
-line**!
+line**.
 
 Suppose `ℰ M ≃ ℰ N` and `C[M]` terminates at some lambda `λ b` (`C[M] —↠ λ b`):
 1. By **Compositionality** ([Compositional](/Compositional/)), `ℰ (C[M]) ≃ ℰ (C[N])`.
@@ -31,9 +30,9 @@ Suppose `ℰ M ≃ ℰ N` and `C[M]` terminates at some lambda `λ b` (`C[M] —
    `ℰ (C[M]) ≃ ℰ (λ b)`.
 3. By symmetry and transitivity of `≃`, `ℰ (C[N]) ≃ ℰ (λ b)`.
 4. By **Adequacy** ([Adequacy](/Adequacy/)), since `λ b` has a non-trivial
-   function denotation (`⊥ ↦ ⊥`), `C[N]` must also terminate!
+   function denotation (`⊥ ↦ ⊥`), `C[N]` must also terminate.
 
-And by symmetry, if `C[N]` terminates then `C[M]` terminates too!
+And by symmetry, if `C[N]` terminates then `C[M]` terminates too.
 
 ## Imports
 
@@ -67,12 +66,10 @@ import PLFH.Part3.Soundness (denotEquivStepsW)
 
 ## Termination and the contextual equivalence theorem
 
-With all four core pillars of Part 3—**`Compositional.compositionality`**
-(over arbitrary one-hole contexts `UCtx k Zero` and `C.plug`),
-**`Soundness.denotEquivSteps`**, **`Adequacy.adequacy`**, and
-**`BigStep.cbnToReduce`**, **`denotEqualCtxEquiv`**
-and **`betaCtxEquiv`** establish full open-term contextual equivalence
-`CtxEquiv m n` (`M ≅ N`) with **zero remaining hypotheses**:
+Combining `Compositional.compositionality` (over arbitrary one-hole contexts
+`UCtx k Zero` and `C.plug`), `Soundness.denotEquivSteps`, `Adequacy.adequacy`,
+and `BigStep.cbnToReduce`, both `denotEqualCtxEquiv` and `betaCtxEquiv`
+establish open-term contextual equivalence `CtxEquiv m n` (`M ≅ N`):
 
 ```haskell
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
@@ -199,29 +196,19 @@ betaCtxEquiv m n steps = betaCtxEquivW (mkTermW m) (mkTermW n) steps
 
 ## Exercises
 
-#### Exercise `beta-ctx-equiv` (practice)
+### Exercise `ctx-equiv-refl-sym-trans` (practice)
 
-Using `denotEquivSteps` from [Soundness](/Soundness/) together with
-`denotEqualCtxBigStep`, trace how `betaCtxBigStep` proves that
-for any open terms `m —↠ n` and any closing context `c :: UCtx k Zero`,
-termination of `plug c m` implies big-step halting of `plug c n`!
+Prove that `CtxEquiv` is an equivalence relation on `UTerm k`:
+write `ctxEquivRefl`, `ctxEquivSym`, and `ctxEquivTrans`.
 
-#### Exercise `full-abstraction` (stretch)
+### Exercise `full-abstraction` (stretch)
 
 Our theorem proves *soundness* of denotational equality for contextual
 equivalence: `ℰ M ≃ ℰ N` implies `M ≅ N`. Think about the converse
 (**full abstraction**): if `M ≅ N`, must `ℰ M ≃ ℰ N`? (Hint: consider
-Plotkin's famous *parallel-or* question—is there a finite table in `Value` that
-no sequential λ-term can define, distinguishing two contextually equivalent terms?)
+Plotkin's *parallel-or* question: is there a finite table in `Value` that no
+sequential λ-term can define, distinguishing two contextually equivalent terms?)
 
 ## Changes from PLFA
 
-- Adapted from [ContextualEquivalence](https://plfa.inf.ed.ac.uk/ContextualEquivalence/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/ContextualEquivalence.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports `Terminates`, open-term `CtxEquiv` (`M ≅ N` over
-  `foreach (c :: UCtx k Zero)` and `C.plug`), `plugTermW`,
-  `denotEqualCtxBigStep`, `denotEqualCtxEquiv`, `betaCtxBigStep`,
-  and `betaCtxEquiv` (discharging Compositionality, Soundness, Adequacy, and
-  `BigStep.cbnToReduce` with zero remaining hypotheses and zero
-  promoted-constructor ticks).
+- Quantifies `CtxEquiv m n` over retained `foreach (m n :: UTerm k)` and `foreach (c :: UCtx k Zero)` (matching Agda's retained implicit arguments) and combines Compositionality, Soundness, Adequacy, and `cbnToReduce` to prove `denotEqualCtxEquiv` and `betaCtxEquiv`.

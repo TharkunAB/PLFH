@@ -1,11 +1,10 @@
 ---
 title: "BigStep: Big-step call-by-name operational semantics"
-prev: /Bisimulation/
-next: /Substitution/
+prev: /Substitution/
+next: /Confluence/
 src: content/part2/BigStep.md
 module: PLFH.Part2.BigStep
 plfaChapter: https://plfa.inf.ed.ac.uk/BigStep/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 Up to now we have defined operational semantics in **small-step** (structural
@@ -13,7 +12,7 @@ operational semantics) style, describing a single elementary reduction step
 `M —→ N` at a time. In this chapter (following PLFA's **BigStep** chapter by
 Philip Wadler, Wen Kokke, and Jeremy G. Siek), we define an alternative style
 due to Gilles Kahn: **big-step** (or *natural*) operational semantics, written
-`e ⊢ M ⇓ c`, which relates an expression directly to its final evaluated result!
+`e ⊢ M ⇓ c`, which relates an expression directly to its final evaluated result.
 
 Even more importantly, we make two design choices that prepare directly for
 Part 3 ([Denotational Semantics](/Denotational/) and [Adequacy](/Adequacy/)):
@@ -21,14 +20,14 @@ Part 3 ([Denotational Semantics](/Denotational/) and [Adequacy](/Adequacy/)):
 1. **Environments and closures instead of substitution:** Rather than
    rewriting syntax every time a function is called, we evaluate a term `UTerm n`
    in an **environment** `Env n` mapping its `n` free de Bruijn variables to
-   **closures** `Clos`—pairs `<M, e>` bundling a term with the environment in
-   which its free variables live (just like a real interpreter!).
+   **closures** `Clos`, pairs `<M, e>` bundling a term with the environment in
+   which its free variables live (just like a real interpreter).
 2. **Call-by-name evaluation:** When evaluating an application `UApp l m`, we do
    *not* evaluate the argument `m` first; we simply wrap `m` together with the
    current environment `e` into an unevaluated thunk `MkClos m e` and push it
-   onto the callee's environment! Thus `(λ x y. x) Ω` terminates immediately
+   onto the callee's environment. Thus `(λ x y. x) Ω` terminates immediately
    without ever touching the diverging term `Ω` (verified in `evalConstOmega`
-   below!).
+   below).
 
 ## Imports
 
@@ -106,11 +105,11 @@ Notice the mutual recursion between `Env n` and `Clos`:
 - `Env n` is a length-indexed list of `n` closures (`ENil` has length `Zero`;
   `ECons c e` adds closure `c` at de Bruijn index `FZ`).
 - `Clos` existentially hides the scope depth `n` of a term `UTerm n` together
-  with a matching environment `Env n` that closes all `n` of its free variables!
+  with a matching environment `Env n` that closes all `n` of its free variables.
 
 Because `Env n` and `Fin n` share the same scope depth `n`, runtime lookup
-`lookupEnv :: Env n -> Fin n -> Clos` is **total**—no `Maybe` or out-of-bounds
-error is possible!
+`lookupEnv :: Env n -> Fin n -> Clos` is **total**, no `Maybe` or out-of-bounds
+error is possible.
 
 ```haskell
 -- | Closure environment matching de Bruijn scope depth `n`.
@@ -134,7 +133,7 @@ idClos = MkClos (ULam (UVar FZ)) ENil
 
 ## Call-by-name big-step evaluation (`e ⊢ m ⇓ v`)
 
-Our big-step judgment `EvalBig e t v` (`e ⊢ t ⇓ v`) has just **three rules**—one
+Our big-step judgment `EvalBig e t v` (`e ⊢ t ⇓ v`) has just **three rules**, one
 for each constructor of `UTerm`:
 
 - **`EVar`**: Look up variable `x` in `e` via relational `EnvLookup` to obtain
@@ -144,10 +143,25 @@ for each constructor of `UTerm`:
   current environment `e`.
 - **`EApp`**: Evaluate the operator `l` in `e` until it produces a lambda
   closure `MkClos (ULam b) d`, then evaluate the body `b` in `d` extended with
-  the **unevaluated** argument closure `MkClos m e`!
+  the unevaluated argument closure `MkClos m e`.
 
-Notice that GHC promotes the mutually recursive GADTs `Env n`, `Clos`, and
-`UTerm n` simultaneously so `EvalBig` is directly indexed over all three!
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>e(x) = ⟨M, d⟩</span><span>d ⊢ M ⇓ v</span></div>
+    <div class="conclusion">e ⊢ x ⇓ v</div>
+    <div class="rule-name">(EVar)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">e ⊢ λ b ⇓ ⟨λ b, e⟩</div>
+    <div class="rule-name">(ELam)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>e ⊢ L ⇓ ⟨λ b, d⟩</span><span>⟨M, e⟩ : d ⊢ b ⇓ w</span></div>
+    <div class="conclusion">e ⊢ L · M ⇓ w</div>
+    <div class="rule-name">(EApp)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
@@ -171,7 +185,7 @@ data EvalBig e t v where
 In `evalConstOmega`, we verify PLFA's classic demonstration of call-by-name
 laziness: applying the constant function `λ x y. x` to the diverging term `Ω`
 terminates in just *two* big-step rules (`EApp ELam ELam`), capturing `Ω`
-unevaluated inside the resulting closure environment!
+unevaluated inside the resulting closure environment.
 
 And `evalBigIsLam` confirms that *every* converging big-step evaluation
 produces a lambda closure (weak-head normal form):
@@ -217,8 +231,8 @@ evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
 Unlike full β-reduction in [Untyped](/Untyped/), call-by-name big-step
 evaluation is **deterministic**: if `e ⊢ m ⇓ c₁` and `e ⊢ m ⇓ c₂`, then
-`c₁ :~: c₂`! Both `envLookupDeterm` and `evalDeterm` prove in three lines by
-structural induction—and `evalDeterm` directly powers the join case of
+`c₁ :~: c₂`. Both `envLookupDeterm` and `evalDeterm` prove in three lines by
+structural induction, and `evalDeterm` directly powers the join case of
 **Big-Step Adequacy** in [Adequacy](/Adequacy/).
 
 ```haskell
@@ -243,8 +257,8 @@ derivation** `EvalBig ENil m c`. To prove `Not (EvalBig ENil OmegaTerm c)` by
 structural induction on `EvalBig`, notice that each application step wraps `SelfApp`
 inside another environment indirection `(UVar FZ, ECons ...)`. Capturing that
 chain with the inductive invariant `IsSelfApp e m` yields a 6-line proof of
-**`omegaDiverges`**—which in [Adequacy](/Adequacy/) immediately proves that `Ω`
-cannot denote any non-trivial function value!
+**`omegaDiverges`**, which in [Adequacy](/Adequacy/) immediately proves that `Ω`
+cannot denote any non-trivial function value.
 
 ```haskell
 -- | Inductive invariant for closures that dereference to `<SelfApp, []>`:
@@ -274,10 +288,8 @@ omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 
 The variable rule `EVar` above uses the inductive relation `EnvLookup`, which
 we use directly in [Adequacy](/Adequacy/). Under `-XDependentTypes`, GHC
-automatically publishes checked equations for the ordinary `lookupEnv` function
-in **both the same module and downstream modules** (`PLFH.Part2.BigStepFunctional`),
-so we can state PLFA's functional variable rule directly right here in `BigStep`
-with zero promoted-constructor ticks:
+publishes checked equations for the ordinary `lookupEnv` function, so we can
+also state PLFA's functional variable rule directly via `EvalFun`:
 
 ```haskell
 -- | Call-by-name big-step evaluation using ordinary `lookupEnv` in the same module!
@@ -316,36 +328,30 @@ evalFunKIdOmega
 evalFunKIdOmega = EFApp (EFApp EFLam EFLam) (EFVar EFLam)
 ```
 
-The companion client module `PLFH.Part2.BigStepFunctional`
-(`clients/PLFH/Part2/BigStepFunctional.hs`) verifies the exact same functional
-variable rule across the module boundary via `BigStep.hi`.
+### Rejected example: wrong functional lookup target
 
-### Negative control: wrong functional lookup target is rejected
-
-Attempting to claim that `((λx y. x) id) Ω` evaluates to a different closure
-(such as `MkClos OmegaTerm ENil` instead of `MkClos IdTerm ENil`) via
-`BigStepFunctional.Eval` is rejected by GHC with `GHC-83865`:
+Claiming that `((λx y. x) id) Ω` evaluates to `MkClos OmegaTerm ENil` instead
+of `MkClos IdTerm ENil` via `EvalFun` is rejected by GHC with `GHC-83865`:
 
 ```{.haskell .fail name="NegBigStepBadLookup" expect="GHC-83865"}
 {-# LANGUAGE DependentTypes #-}
 module NegBigStepBadLookup (badLookup) where
 
-import qualified PLFH.Part2.BigStep as B
-import PLFH.Part2.BigStepFunctional (Eval (..))
+import PLFH.Part2.BigStep (Clos (..), Env (..), EvalFun (..))
 import PLFH.Part2.Untyped (Fin (..), IdTerm, OmegaTerm, UTerm (..))
 
--- MUST FAIL: `FS FZ` looks up `IdTerm`, NOT `OmegaTerm`!
+-- Rejected: `FS FZ` looks up `IdTerm`, not `OmegaTerm`.
 badLookup
-  :: Eval B.ENil
-          (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
-          (B.MkClos OmegaTerm B.ENil)
-badLookup = App (App Lam Lam) (Var Lam)
+  :: EvalFun ENil
+             (UApp (UApp (ULam (ULam (UVar (FS FZ)))) IdTerm) OmegaTerm)
+             (MkClos OmegaTerm ENil)
+badLookup = EFApp (EFApp EFLam EFLam) (EFVar EFLam)
 ```
 
 ## Big-step to small-step bridge (`cbn→reduce`)
 
 Every converging call-by-name big-step derivation `EvalBig ENil u (MkClos (ULam b) d)`
-corresponds to a real multi-step full β-reduction `BetaSteps u (ULam b')`!
+corresponds to a real multi-step full β-reduction `BetaSteps u (ULam b')`.
 
 To prove `cbnToReduce` constructively without axioms or function extensionality,
 we associate each runtime closure environment `e :: Env n` with its closing
@@ -358,13 +364,13 @@ simultaneous substitution `s :: Subst n Zero` via the 2-constructor witness
    `consSubst (substU se m) sd`, substituting each bound closure's own
    environment `se` into `m`.
 3. **`cbnSim`**: by structural induction on `EvalBig e t (MkClos (ULam b) d)`,
-   `substU s t` β-reduces to `ULam (substU (extsU sd) b)`! In the `EApp` case,
+   `substU s t` β-reduces to `ULam (substU (extsU sd) b)`. In the `EApp` case,
    one functional **`Beta`** step reduces `(λ b [exts sd]) (m [s])` to
    `(b [exts sd]) [m [s]]`, which `Substitution.extsSingleBeta` equates directly
    with `b [m [s] • sd]`.
 4. **`cbnToReduceW` / `cbnToReduce`**: specializing `cbnSim` to `CloseNil` and
    rewriting `substU ids u :~: u` via `Substitution.subId` yields
-   `BetaSteps u (ULam b')` in four lines!
+   `BetaSteps u (ULam b')` in four lines.
 
 ```haskell
 -- | Inductive closing witness: `p :: Subst n Zero` closes `e :: Env n` by
@@ -454,27 +460,19 @@ cbnToReduce u ev = cbnToReduceW (mkTermW u) ev
 
 ## Exercises
 
-#### Exercise `eval-K-id-omega` (practice)
+### Exercise `eval-fun-to-big` (practice)
 
-Construct an `EvalBig ENil` derivation showing that `((λ x y. x) (λ z. z)) Ω`
-evaluates to `MkClos (ULam (UVar FZ)) ENil`, and check that `Ω` is never forced!
+Prove the converse of `toEvalFun`:
+`fromEvalFun :: EvalFun e t v -> EvalBig e t v` (hint: prove a helper
+`lookupEnvToRel :: foreach (e :: Env n) -> foreach (x :: Fin n) -> EnvLookup e x (lookupEnv e x)`).
 
-#### Exercise `omega-diverges` (recommended)
+### Exercise `big-alt-implies-multi` (recommended)
 
-Explain why there is no finite `EvalBig ENil OmegaTerm c` derivation for any
-closure `c`: applying `EApp` to `OmegaTerm` requires evaluating the body
-`UApp (UVar FZ) (UVar FZ)` in an environment mapping `FZ` back to `SelfApp`,
-which requires another strictly smaller sub-derivation of the exact same
-problem—contradicting well-founded induction on `EvalBig`!
+Define a substitution-based big-step relation `EvalSub :: UTerm Zero -> UTerm Zero -> Type`
+that substitutes arguments directly instead of carrying a closure environment
+`Env`, and prove that `EvalSub m v` implies `BetaSteps m v`.
 
 ## Changes from PLFA
 
-- Adapted from [BigStep](https://plfa.inf.ed.ac.uk/BigStep/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/BigStep.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports call-by-name `Env`, `Clos`, `lookupEnv`, `EnvLookup`,
-  `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `omegaDiverges`,
-  functional `EvalFun`/`lookupEnvEvidence`/`toEvalFun`/`evalFunDeterm`/`evalFunKIdOmega`,
-  `evalIdApp`, `evalConstOmega`, `evalKIdOmega`, and the
-  big-step to small-step bridge (`cbnSim`, `cbnToReduceW`, `cbnToReduce`) via
-  inductive environment closing `CloseSub`.
+- Provides both relational `EvalBig` (used in [Adequacy](/Adequacy/)) and functional `EvalFun` over `lookupEnv`, proving `evalDeterm`, `omegaDiverges`, and the big-step to small-step bridge `cbnToReduce` via inductive environment closing `CloseEnv`.
+- Omits PLFA's prose section on Plotkin standardization.

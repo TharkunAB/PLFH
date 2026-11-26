@@ -1,17 +1,16 @@
 ---
 title: "Substitution: Simultaneous substitution and σ-calculus"
-prev: /BigStep/
-next: /Confluence/
+prev: /Bisimulation/
+next: /BigStep/
 src: content/part2/Substitution.md
 module: PLFH.Part2.Substitution
 plfaChapter: https://plfa.inf.ed.ac.uk/Substitution/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
-When proving deep metatheorems about lambda calculi—such as **Confluence**
+When proving deep metatheorems about lambda calculi, such as **Confluence**
 ([Confluence](/Confluence/)), **Big-Step/Small-Step Equivalence**, or
 **Barendregt's Substitution Lemma**
-(`M [ N ] [ L ] ≡ M [ exts (L • ids) ] [ N [ L ] ]`)—ad-hoc inductions over
+(`M [ N ] [ L ] ≡ M [ exts (L • ids) ] [ N [ L ] ]`), ad-hoc inductions over
 single-variable substitution quickly become tangled in variable-shifting
 arithmetic.
 
@@ -33,7 +32,7 @@ Distributivity:     (M • σ) ⨟ τ          ≡  (M [ τ ]) • (σ ⨟ τ)
 
 Once those algebraic identities are in place, **`substCommute`** and
 **Barendregt's Substitution Lemma (`substitution`)** become short, clean
-equational calculations rather than tedious index gymnastics!
+equational calculations rather than tedious index gymnastics.
 
 ## Imports
 
@@ -131,13 +130,13 @@ scope depth `n`, while a **substitution** `Subst m n` maps variables in depth
 - **`ren`**: promotes any renaming `rho` to a substitution `\x -> UVar (rho x)`.
 - **`consSubst`** (`M • σ`): prepends a term `t` for variable `FZ` onto an
   existing substitution `sigma` for all outer variables `FS x`.
-- **`seqSubst`** (`σ ⨟ τ`): sequential composition—first apply `σ` to variable
-  `x`, then apply `τ` to the resulting term via `substU`!
+- **`seqSubst`** (`σ ⨟ τ`): sequential composition, first apply `σ` to variable
+  `x`, then apply `τ` to the resulting term via `substU`.
 
 Notice how single-variable substitution `substSingleU b w` from
 [Untyped](/Untyped/) agrees with `substU (consSubst w ids) b` (`b [ w • ids ]`),
 and lifting a substitution under a binder (`extsU sigma`) agrees pointwise with
-`consSubst (UVar FZ) (seqSubst sigma (ren shift))` (`0 • (σ ⨟ ren ↑)`)!
+`consSubst (UVar FZ) (seqSubst sigma (ren shift))` (`0 • (σ ⨟ ren ↑)`).
 
 ```haskell
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
@@ -177,7 +176,7 @@ so a proof can induct on the term `σ x` directly. In Dependent Haskell,
 `SubW s` mapping each variable `x :: Fin m` to the retained term `HasTerm (s x)`
 (analogous to `TermW` in [Properties](/Properties/) and `ValW` in
 [Denotational](/Denotational/)). Concrete endpoints such as Barendregt's
-`substitution` build `singleW l` internally, so callers pass only plain terms!
+`substitution` build `singleW l` internally, so callers pass only plain terms.
 
 ```haskell
 -- | Retained runtime witness for a term `t :: UTerm n`.
@@ -268,15 +267,14 @@ evalSubst sw (UApp l r) = case (evalSubst @m @n @s sw l, evalSubst @m @n @s sw r
 
 ## Pointwise equality and function extensionality
 
-In upstream PLFA `Substitution.lagda.md` (lines 56–60 and 273–295), lifting
-pointwise σ-algebra identities (`Z-shift`, `sub-η`, `sub-assoc`, `sub-dist`,
-`sub-idL`, `sub-idR`) to *function-to-function* equalities `s1 :~: s2` assumes
-**`postulate extensionality`**. Dependent Haskell does not postulate function
-extensionality (and observational/extensional equality is future work), so we
-state the σ-algebra identities cleanly using **pointwise equality** (`RenEq` /
-`SubEq`)—zero axioms, zero workarounds—and prove every term-level theorem
-(`subId`, `subSub`, `substCommute`, and Barendregt's `substitution`) directly
-as genuine propositional equalities `(:~:)` on `UTerm`!
+In upstream PLFA, lifting pointwise σ-algebra identities (`Z-shift`, `sub-η`,
+`sub-assoc`, `sub-dist`, `sub-idL`, `sub-idR`) to function-to-function
+equalities `s1 :~: s2` assumes `postulate extensionality`. Because Dependent
+Haskell does not postulate function extensionality, we state the σ-algebra
+identities using **pointwise equality** (`RenEq` / `SubEq`) without axioms, and
+prove every term-level theorem (`subId`, `subSub`, `substCommute`, and
+Barendregt's `substitution`) directly as propositional equalities `(:~:)` on
+`UTerm`:
 
 ```haskell
 -- | Pointwise equality between two renamings.
@@ -335,7 +333,7 @@ congSubst eq (UApp l r) = case (congSubst @m @n @s1 @s2 eq l, congSubst @m @n @s
 
 Head lookup, tail lookup, variable application, application distribution, and
 lambda distribution all hold **definitionally by `Refl`** using GHC's checked
-open equations for `Untyped.substU` and `consSubst`!
+open equations for `Untyped.substU` and `consSubst`.
 
 ```haskell
 -- | Head lookup: `(t • σ) 0 ≡ t`.
@@ -374,7 +372,7 @@ Now we prove the two foundational term-level theorems of the σ-calculus:
 
 To relate `renameU` and `substU` cleanly without introducing extra renaming-composition
 combinators, `renameCompEq` proves a general four-renaming square lemma once
-(so commuting `shiftFin` past `extU rho` is an immediate `Refl` corollary!),
+(so commuting `shiftFin` past `extU rho` is an immediate `Refl` corollary),
 followed by `renSubst`, `substRename`, `renameSubst`, and `extsSeq`:
 
 ```haskell
@@ -613,11 +611,11 @@ substSingleAsCons b =
   congSubst @(Succ n) @n @(singleSubstU w) @(consSubst w (ids @n)) (singleAsConsAt @n @w) b
 ```
 
-## Substitution commutation and Barendregt's Substitution Lemma!
+## Substitution commutation and Barendregt's Substitution Lemma.
 
 Finally, the crowning term-level theorems of PLFA's **Substitution** chapter
-follow directly from `subSub`, `substRename`, and `subId`—with **zero
-assumptions**! And Barendregt's Substitution Lemma (`substitution`) is a
+follow directly from `subSub`, `substRename`, and `subId`, with **zero
+assumptions**. And Barendregt's Substitution Lemma (`substitution`) is a
 **one-line corollary** of `substCommute`:
 
 ```haskell
@@ -711,34 +709,17 @@ substitution n l t = substCommute @(Succ m) @m @(singleSubstU l) (singleW @m l) 
 
 ## Exercises
 
-#### Exercise `subst-beta-compat` (practice)
+### Exercise `subst-beta-compat` (practice)
 
 Using `substCommute` above, verify how parallel β-reduction (`(λ b) w ⇒ b [ w ]`)
 is preserved under simultaneous substitution `σ`: substituting `σ` into `b [ w ]`
-equals substituting `w [ σ ]` into `b [ exts σ ]`!
+equals substituting `w [ σ ]` into `b [ exts σ ]`.
 
-#### Exercise `rename-id` (practice)
+### Exercise `rename-id` (practice)
 
 Combine `renSubst`, `congSubst`, and `subId` to prove that renaming by the
 identity renaming (`idFin x = x`) leaves every `UTerm m` unchanged.
 
 ## Changes from PLFA
 
-- Adapted from [Substitution](https://plfa.inf.ed.ac.uk/Substitution/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Substitution.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Checked direct constructive proofs of all term-level σ-calculus endpoints
-  (`subHead`, `subTail`, `subIdLVar`, `subApp`, `subLam`, `congExt`,
-  `congRename`, `congExts`, `congSubst`, `subId`, `renSubst`, `renameCompEq`,
-  `substRename`, `renameSubst`, `extsSeq`, `subSub`, `substSingleAsCons`,
-  **`substCommute`**, and Barendregt's **`substitution`** lemma) directly over
-  [Untyped](/Untyped/)'s ordinary `renameU`/`substU`/`substSingleU` with zero
-  type families and zero promoted-constructor ticks.
-- **Explicit extensionality note:** In upstream PLFA `Substitution.lagda.md`
-  (lines 56–60 and 273–295), lifting pointwise σ-algebra identities (`Z-shift`,
-  `sub-η`, `sub-idL`, `sub-idR`, `sub-dist`, `sub-assoc`) to function-to-function
-  equalities `s1 :~: s2` uses `postulate extensionality`. Because Dependent
-  Haskell does not assume function extensionality, PLFH proves those identities
-  pointwise (`zShiftAt`, `subEtaAt`, `subIdLAt`, `subIdRAt`, `subDistAt`,
-  `subAssocAt`, `extsAsSigmaAt`) with zero axioms and documents the
-  extensionality distinction explicitly.
+- Upstream PLFA postulates function extensionality to lift pointwise σ-algebra laws to function equalities `s1 :~: s2`. Dependent Haskell avoids axioms by stating the σ-algebra laws pointwise (`RenEq` / `SubEq`) and proving every term-level theorem (`subId`, `subSub`, `substCommute`, Barendregt's `substitution`) as `(:~:)` on `UTerm`.

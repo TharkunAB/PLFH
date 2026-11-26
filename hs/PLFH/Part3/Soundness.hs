@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
-{-# LINE 41 "content/part3/Soundness.md" #-}
+{-# LINE 40 "content/part3/Soundness.md" #-}
 module PLFH.Part3.Soundness
   ( EnvRen
   , extEnvRen
@@ -76,7 +76,7 @@ import PLFH.Part3.Denotational
   , unArrW
   )
 
-{-# LINE 126 "content/part3/Soundness.md" #-}
+{-# LINE 125 "content/part3/Soundness.md" #-}
 -- | A renaming `r` preserves value lookups from `e1` into `e2`.
 type EnvRen (e1 :: ValEnv m) (e2 :: ValEnv n) (r :: Rename m n) =
   forall (x :: Fin m) (v :: Value). ValLookup e1 x v -> ValLookup e2 (r x) v
@@ -123,7 +123,7 @@ denotRenameReflect eb (WApp wl wr) (DElim wArg d1 d2)  =
 denotRenameReflect eb (WLam wb)    (DIntro d)          =
   DIntro (denotRenameReflect @(Succ m) @(Succ n) @_ @_ @(extU r) (extEnvRenBack eb) wb d)
 
-{-# LINE 187 "content/part3/Soundness.md" #-}
+{-# LINE 186 "content/part3/Soundness.md" #-}
 -- | A simultaneous substitution `p` respects environments `e1` and `e2`.
 type EnvSubst (e1 :: ValEnv m) (e2 :: ValEnv n) (p :: Subst m n) =
   forall (x :: Fin m) (v :: Value). ValLookup e1 x v -> Denotes e2 (p x) v
@@ -303,7 +303,7 @@ betaReflect :: ValW v -> TermW b -> TermW w
 betaReflect wv wb ww dr = case denotSubstReflect wv (SSZ ww) wb IEZ dr of
   MkSubstRefl wu IEZ dw db -> DElim wu (DIntro db) dw
 
-{-# LINE 374 "content/part3/Soundness.md" #-}
+{-# LINE 373 "content/part3/Soundness.md" #-}
 -- | Forward preservation under a single β-step (`preserve`).
 denotPreserve :: forall (n :: Nat) (e :: ValEnv n) (m m' :: UTerm n) (v :: Value).
                  ValW v -> Denotes e m v -> BetaStep m m' -> Denotes e m' v

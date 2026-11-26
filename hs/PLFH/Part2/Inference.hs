@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DependentTypes, LambdaCase #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 42 "content/part2/Inference.md" #-}
+{-# LINE 39 "content/part2/Inference.md" #-}
 module PLFH.Part2.Inference
   ( RawTerm (..)
   , decEqTy
@@ -38,7 +38,7 @@ import qualified Data.Nat.Dependent as N
 import PLFH.Part1.Decidable (Dec (..), Not)
 import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 
-{-# LINE 90 "content/part2/Inference.md" #-}
+{-# LINE 87 "content/part2/Inference.md" #-}
 -- | Untyped abstract syntax tree with runtime de Bruijn indices and binder annotations.
 data RawTerm
   = RVar N.Nat
@@ -50,7 +50,7 @@ data RawTerm
   | RMu Ty RawTerm
   deriving (Show)
 
-{-# LINE 118 "content/part2/Inference.md" #-}
+{-# LINE 115 "content/part2/Inference.md" #-}
 -- | Decidable equality on simple types `Ty`.
 decEqTy :: foreach (a b :: Ty) -> Either (Not (a :~: b)) (a :~: b)
 decEqTy TNat         TNat         = Right Refl
@@ -62,7 +62,7 @@ decEqTy (TArr a1 a2) (TArr b1 b2) = case decEqTy a1 b1 of
     Left neq   -> Left (\Refl -> neq Refl)
     Right Refl -> Right Refl
 
-{-# LINE 143 "content/part2/Inference.md" #-}
+{-# LINE 140 "content/part2/Inference.md" #-}
 -- | An inferred runtime type paired with its intrinsically typed term.
 data Typed (g :: Ctx) where
   MkTyped :: foreach (a :: Ty) -> Term g a -> Typed g
@@ -79,7 +79,7 @@ lookupCtx (CExt g _) (N.Succ n) = case lookupCtx g n of
   Nothing          -> Nothing
   Just (Found b p) -> Just (Found b (S p))
 
-{-# LINE 180 "content/part2/Inference.md" #-}
+{-# LINE 177 "content/part2/Inference.md" #-}
 -- | Certified type inference: given a runtime context `g` and raw term,
 -- infer a runtime type `a` and construct an intrinsically-typed `Term g a`.
 infer :: foreach (g :: Ctx) -> RawTerm -> Maybe (Typed g)
@@ -137,7 +137,7 @@ rawIdNat = RLam TNat (RVar N.Zero)
 rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
 
-{-# LINE 272 "content/part2/Inference.md" #-}
+{-# LINE 317 "content/part2/Inference.md" #-}
 -- | Bidirectional raw syntax: synthesizable (`Term⁺`) and inheritable (`Term⁻`).
 data TermPos
   = PVar N.Nat

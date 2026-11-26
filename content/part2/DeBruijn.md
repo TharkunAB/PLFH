@@ -17,21 +17,21 @@ combined with **de Bruijn indices** (invented by Dutch mathematician Nicolaas
 Govert de Bruijn in 1972 for the Automath proof checker):
 
 1. Every term `Term g a` *carries its context `g` and type `a` in its Haskell
-   type*—it is literally impossible to construct an ill-typed term!
+   type*, it is literally impossible to construct an ill-typed term.
 2. Variable names disappear completely. Instead, a variable is a de Bruijn
    index `Lookup g a` counting how many binders to skip outward to find its
    binding site (`Z` for the innermost binder, `S Z` for the next binder out,
    and so on). Two α-equivalent terms like `λ x ⇒ x` and `λ y ⇒ y` have the
-   *exact same* representation: `Lam (Var Z)`!
+   *exact same* representation: `Lam (Var Z)`.
 3. Simultaneous substitution (`subst`) is guaranteed **type-preserving by
    construction**, following the classic pattern of Thorsten Altenkirch and
    Bernhard Reus (1999) and Conor McBride: we first define simultaneous
    *renaming* (`rename`) and then use it to lift substitutions under binders
    without variable capture.
 
-From a Dependent Haskell standpoint, this chapter is also a major milestone:
+This chapter also exercises several Dependent Haskell features together:
 defining `Value` and `IsVal` requires **promoting an indexed GADT (`Term g a`)
-to a kind**!
+to a kind**.
 
 ## Imports
 
@@ -59,7 +59,6 @@ module PLFH.Part2.DeBruijn
   , Steps (..)
   , Progress (..)
   , progress
-  , appProgress
   , Gas (..)
   , Finished (..)
   , eval
@@ -84,7 +83,7 @@ type `a` in context `g`:
 - `S x` skips the innermost variable and looks up `x` in the remaining outer
   context.
 
-Notice how `Lookup` no longer needs `Not (x :~: y)` proofs! Shadowing is
+Notice how `Lookup` no longer needs `Not (x :~: y)` proofs. Shadowing is
 completely automatic: `Z` always refers to the innermost binder, and `S Z`
 refers to the one just outside it.
 
@@ -105,8 +104,55 @@ data Lookup (g :: Ctx) (a :: Ty) where
 ## Intrinsically typed terms (`Γ ⊢ A`)
 
 Compare the constructors of `Term g a` below with the typing rules of `HasType`
-in [Lambda](/Lambda/): they are *one and the same*! Syntax and typing have
-merged into a single indexed GADT:
+in [Lambda](/Lambda/): syntax and typing have merged into a single indexed GADT.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ, A ∋ A</div>
+    <div class="rule-name">(Z)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ∋ A</span></div>
+    <div class="conclusion">Γ, B ∋ A</div>
+    <div class="rule-name">(S)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ∋ A</span></div>
+    <div class="conclusion">Γ ⊢ A</div>
+    <div class="rule-name">(Var)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, A ⊢ B</span></div>
+    <div class="conclusion">Γ ⊢ A → B</div>
+    <div class="rule-name">(Lam)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A → B</span><span>Γ ⊢ A</span></div>
+    <div class="conclusion">Γ ⊢ B</div>
+    <div class="rule-name">(App)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ ⊢ Nat</div>
+    <div class="rule-name">(Zero)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ Nat</span></div>
+    <div class="conclusion">Γ ⊢ Nat</div>
+    <div class="rule-name">(Suc)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ Nat</span><span>Γ ⊢ A</span><span>Γ, Nat ⊢ A</span></div>
+    <div class="conclusion">Γ ⊢ A</div>
+    <div class="rule-name">(Case)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, A ⊢ A</span></div>
+    <div class="conclusion">Γ ⊢ A</div>
+    <div class="rule-name">(Mu)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
@@ -144,17 +190,17 @@ mulTerm =
 ```
 
 Because `termTwo`, `plusTerm`, and `mulTerm` are polymorphic in `g`, they are
-valid in *any* context `g` (including `CEmpty`)—notice how `mulTerm` embeds
+valid in *any* context `g` (including `CEmpty`), notice how `mulTerm` embeds
 `plusTerm` directly inside its `Case` branch with zero manual weakening or
-separate typing proofs!
+separate typing proofs.
 
-## Simultaneous renaming and substitution (type-preserving by construction!)
+## Simultaneous renaming and substitution (type-preserving by construction)
 
 Why define **simultaneous** renaming and substitution rather than substituting
 one variable at a time? Because when you go under a lambda binder (`Lam`), a
 single substitution for variable `0` becomes a substitution for variable `1`,
 and any free variables inside the replacement term must be shifted up by one so
-they do not get captured by the newly entered binder!
+they do not get captured by the newly entered binder.
 
 Following Altenkirch–Reus and McBride, we solve this cleanly in two stages:
 
@@ -166,14 +212,14 @@ Following Altenkirch–Reus and McBride, we solve this cleanly in two stages:
    `sigma :: forall a. Lookup g a -> Term d a` from variables in `g` to *terms*
    in `d`, `exts sigma` extends `sigma` under a new binder by mapping `Z` to
    `Var Z` and weakening every `sigma x` via `rename S` (shifting all of its
-   free variables up by one so the new binder never captures them!).
+   free variables up by one so the new binder never captures them).
 3. **Single-variable substitution (`substSingle`)**: replacing the innermost
    variable `Z` with `w` while leaving all outer variables `S x` alone is just
-   one special case of `subst`!
+   one special case of `subst`.
 
 Every single function below ports to Dependent Haskell with the **exact same**
-types and definitions as PLFA—and notice that we get the entire Substitution
-Typing Lemma of [Properties](/Properties/) for free in its type signature!
+types and definitions as PLFA, and notice that we get the entire Substitution
+Typing Lemma of [Properties](/Properties/) for free in its type signature.
 
 ```haskell
 -- | Extend a variable renaming under a binder.
@@ -217,10 +263,10 @@ substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
 With `StandaloneKindSignatures` and `DataKinds`, GHC accepts **promoting the
 indexed GADT `Term g a`** to a kind, letting us index `Value` and `IsVal`
-directly over intrinsically-typed terms!
+directly over intrinsically-typed terms.
 
 Even better, `checkValue` classifies any retained closed term
-`foreach (m :: Term CEmpty a)` directly by ordinary pattern-matching equations—
+`foreach (m :: Term CEmpty a)` directly by ordinary pattern-matching equations, 
 and GHC recognizes that `Var x` is impossible in the empty context `CEmpty`
 (`case x of {}`):
 
@@ -258,8 +304,8 @@ checkValue (Mu _)       = NotVal
 ## Intrinsically-typed Reduction (`Step`) and Complete Progress (`progress`)
 
 In the intrinsically-typed representation, `Step` has kind
-`forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type`—so **Preservation
-holds automatically** by the very type of `Step`! Every reduction step connects
+`forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type`: so **Preservation
+holds automatically** by the very type of `Step`. Every reduction step connects
 two terms of the *exact same* type `a` in the *exact same* context `g`.
 
 With `-XDependentTypes`, all eight intrinsically-typed reduction rules
@@ -270,7 +316,7 @@ every closed well-typed term is either a value or takes a type-preserving step
 (carrying the next term `n` as a retained `foreach` field in `PStep`), and
 PLFA's 6-line **`eval`** runs any closed term up to a fuel bound `Gas`,
 returning a machine-checked reduction trace `Steps m n` alongside the final
-value!
+value.
 
 ```haskell
 -- | Intrinsically type-preserving call-by-value reduction (`M —→ N`).
@@ -327,18 +373,6 @@ sucStep :: forall (n :: Term CEmpty TNat).
            foreach (n' :: Term CEmpty TNat)
         -> Step n n' -> Progress (Suc n)
 sucStep n' s = PStep (Suc n') (XiSuc s)
-
--- | Application case factored out as a standalone helper given subterm progress.
-appProgress
-  :: forall (a :: Ty).
-     (forall (b :: Ty). foreach (m :: Term CEmpty b) -> Progress m)
-  -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
-appProgress recProg (App l m) = case recProg l of
-  PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
-  PDone v    -> case recProg m of
-    PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
-    PDone w    -> Just (appBeta l m v w)
-appProgress _ _ = Nothing
 
 betaStep :: forall a b.
             foreach (body :: Term (CExt CEmpty a) b) -> foreach (m :: Term CEmpty a)
@@ -414,7 +448,7 @@ betaShiftUnderLam
 betaShiftUnderLam = BetaLam VLam
 ```
 
-### Negative control: forged variable capture is rejected
+### Rejected example: forged variable capture is rejected
 
 When substituting the open value `λ. Var (S Z)` under an inner binder,
 `substSingle` must shift its free variable to `S (S Z)` (`betaShiftUnderLam`).
@@ -437,37 +471,23 @@ badCapture = D.BetaLam D.VLam
 
 ## Exercises
 
-#### Exercise `two+two` (practice)
+### Exercise `Church-numerals` (practice)
 
-Define closed intrinsically-typed `plus :: Term CEmpty (TArr TNat (TArr TNat TNat))`
-using `Mu`, `Lam`, `Case`, `Suc`, and de Bruijn indices `Z` / `S Z` / `S (S Z)`,
-and verify that GHC accepts it without any separate typing proof!
+Define the intrinsically-typed Church type `type Ch a = TArr (TArr a a) (TArr a a)`
+together with `twoC :: Term g (Ch a)`, `sucC :: Term g (TArr (Ch a) (Ch a))`,
+and `plusC :: Term g (TArr (Ch a) (TArr (Ch a) (Ch a)))`, and evaluate
+`App (App plusC twoC) twoC` with `eval`.
 
-#### Exercise `mul` (recommended)
+### Exercise `V¬—→` (recommended)
 
-Define closed intrinsically-typed `mul :: Term CEmpty (TArr TNat (TArr TNat TNat))`
-in terms of `plus` above.
+Prove that no intrinsically-typed value can take a step:
+`valueCannotStep :: Value m -> Step m n -> Void`.
 
-#### Exercise `subst-id` (stretch)
+### Exercise `mul-eval` (practice)
 
-Explore what happens when you call `substSingle (Lam (Var (S Z))) Zero`: notice
-that `exts` shifts `Zero` (no free variables) under the inner `Lam`, producing
-`Lam Zero` without variable capture. What about `substSingle (Lam (Var (S Z))) (Var Z)`
-in context `CExt CEmpty TNat`?
+Run `eval` with sufficient fuel on `App (App mulTerm twoTerm) (Suc twoTerm)`
+and confirm that it evaluates to `6` (`Suc` applied six times to `Zero`).
 
 ## Changes from PLFA
 
-- Adapted from [DeBruijn](https://plfa.inf.ed.ac.uk/DeBruijn/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/DeBruijn.lagda.md)),
-  licensed under CC BY 4.0.
-- `Ty`, `Ctx`, `Lookup`, `Term`, `ext`, `rename`, `exts`, `subst`,
-  `substSingle`, GADT-promoted `Value`, and direct equation-style
-  `IsVal`/`checkValue` over retained `foreach (m :: Term CEmpty a)` all
-  compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
-  soundness audit.
-- All eight intrinsically-typed `Step` rules (using functional
-  `substSingle`), concrete capture-avoiding beta
-  witnesses, complete
-  `progress` across all 7 term constructors (carrying retained
-  `foreach n` inside `PStep`), and PLFA's 6-line intrinsically-typed evaluator
-  `eval` (`Gas`, `Finished`) compile inline in `PLFH.Part2.DeBruijn`.
+- Uses intrinsically-typed `Term g a` with capture-avoiding `rename`, `subst`, and `substSingle` directly in `BetaLam`, `BetaSuc`, and `BetaMu`, plus a 6-line verified evaluator `eval`.

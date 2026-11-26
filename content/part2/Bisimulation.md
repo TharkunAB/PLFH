@@ -1,28 +1,40 @@
 ---
 title: "Bisimulation: Relating reduction systems"
 prev: /More/
-next: /BigStep/
+next: /Substitution/
 src: content/part2/Bisimulation.md
 module: PLFH.Part2.Bisimulation
 plfaChapter: https://plfa.inf.ed.ac.uk/Bisimulation/
 ---
 
-Suppose you have a source language with syntactic sugar—such as local
-`let`-bindings `let x = M in N` from [More](/More/)—and you want to prove
+Suppose you have a source language with syntactic sugar, such as local
+`let`-bindings `let x = M in N` from [More](/More/), and you want to prove
 that desugaring `let x = M in N` into an immediately applied lambda
-`(λ x. N) M` **preserves every observable step and final value**!
+`(λ x. N) M` **preserves every observable step and final value**.
 
 The classic tool from concurrency theory and programming-language metatheory
 (introduced by David Park and Robin Milner) is **simulation** and
 **bisimulation**. Given a relation `M ~ M'` connecting source terms to their
 desugared counterparts:
 
-```text
-    M  ~  M'
-    |     :
-    v     v
-    N  ~  N'
-```
+<figure class="plfh-diagram">
+  <svg viewBox="0 0 220 140" width="220" height="140" role="img" aria-label="Simulation square diagram">
+    <defs>
+      <marker id="sim-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#1e293b"/>
+      </marker>
+    </defs>
+    <text x="52" y="28" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">M</text>
+    <text x="110" y="28" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" fill="#475569">~</text>
+    <text x="168" y="28" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">M'</text>
+    <line x1="52" y1="38" x2="52" y2="96" stroke="#1e293b" stroke-width="1.6" marker-end="url(#sim-arrow)"/>
+    <line x1="168" y1="38" x2="168" y2="96" stroke="#1d62c1" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#sim-arrow)"/>
+    <text x="52" y="120" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">N</text>
+    <text x="110" y="120" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" fill="#1d62c1">~</text>
+    <text x="168" y="120" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#1d62c1">N'</text>
+  </svg>
+  <figcaption>Lock-step simulation: every reduction step on M is matched by a step on M' preserving ~.</figcaption>
+</figure>
 
 - `~` is a **lock-step forward simulation** (`sim`) if whenever `M ~ M'` and
   `M —→ N`, there exists `N'` such that `M' —→ N'` and `N ~ N'` (and values
@@ -32,7 +44,7 @@ desugared counterparts:
   `N ~ N'` (and values correspond in reverse via `simValueInv`).
 - Together, forward and backward simulation make `~` a **bisimulation**:
   neither `let x = M in N` nor `(λ x. N) M` can take a step or reach a value
-  that the other cannot match step for step!
+  that the other cannot match step for step.
 
 In this chapter we define the full 20-constructor structural relation `SimRel`
 (`_~_`) over all 19 term forms of [More](/More/) plus the desugaring rule
@@ -43,7 +55,7 @@ and prove with `-Werror=incomplete-patterns`:
 2. **`simValue`** (`~-val`) and **`simValueInv`** (`~-val⁻¹`) across all 9 value forms;
 3. **`valNoStep`** (no value can ever take a step in `More.Step`);
 4. Complete 27-rule **lock-step forward simulation `sim`** and **backward simulation `simInv`** (PLFA Exercise `sim⁻¹`), plus multi-step **`simSteps`** and **`simStepsInv`**;
-5. Assumption-free concrete closed bisimulation witnesses (`letDesugarSim`, `letDesugarSteps`, `letDesugarStepsInv`) stepping `let x = fst (0, 1) in suc x` alongside `(λ x. suc x) (fst (0, 1))` through both `XiLet` ↔ `XiApp2 VLam` and `BetaLet` ↔ `BetaLam`!
+5. Assumption-free concrete closed bisimulation witnesses (`letDesugarSim`, `letDesugarSteps`, `letDesugarStepsInv`) stepping `let x = fst (0, 1) in suc x` alongside `(λ x. suc x) (fst (0, 1))` through both `XiLet` ↔ `XiApp2 VLam` and `BetaLet` ↔ `BetaLam`.
 
 ## Imports
 
@@ -92,11 +104,11 @@ PLFA and define `SimRel` by structural congruence over every constructor of
 
 - `SimLet sm sn` relates `Let m n` to `Let m' n'` (leaving a `let` untouched);
 - `SimLetApp sm sn` relates `Let m n` to `App (Lam n') m'` (desugaring a `let`
-  into an applied lambda!).
+  into an applied lambda).
 
 Keeping `SimRel` purely structural gives exact GADT inversion in every proof:
 matching `SimRel (Let m n) t'` leaves *only* `SimLet` and `SimLetApp`, and
-matching `SimRel t (App l' m')` leaves *only* `SimApp` and `SimLetApp`!
+matching `SimRel t (App l' m')` leaves *only* `SimApp` and `SimLetApp`.
 
 ```haskell
 -- | Structural bisimulation relation relating `let x = m in n` to `(λx. n') m'`
@@ -185,10 +197,10 @@ simTrans (SimCaseLst s1 n1 c1)  (SimCaseLst s2 n2 c2)   = SimCaseLst (simTrans s
 ## Value preservation (`~-val`, `~-val⁻¹`) and value irreducibility
 
 Because neither `Let` nor `App` is a value, `SimLetApp` can never match a value
-on either side! Matching on `M.Value` first lets GHC's `-Werror=incomplete-patterns`
+on either side. Matching on `M.Value` first lets GHC's `-Werror=incomplete-patterns`
 verify that every value form corresponds bijectively across `SimRel`, and that
-no value can take a step (`valNoStep`)—the key lemma that rules out `XiApp1`
-on `App (Lam n') m'` in backward simulation `simInv`!
+no value can take a step (`valNoStep`), the key lemma that rules out `XiApp1`
+on `App (Lam n') m'` in backward simulation `simInv`.
 
 ```haskell
 -- | Forward value preservation (`~-val`): all 9 value constructors.
@@ -238,8 +250,8 @@ context `d`, written with a plain Haskell function arrow
 `type Renaming g d = forall x. M.Lookup g x -> M.Lookup d x`. With checked
 source equations for `M.rename` and `M.ext` from [More](/More/), GHC verifies
 the complete 20-constructor structural renaming theorem `simRename` directly
-with zero `@`-application noise—including `SimLetApp`, `SimCaseSum`, and
-shifting through *two* simultaneous binders in `SimCaseLst`!
+with zero `@`-application noise, including `SimLetApp`, `SimCaseSum`, and
+shifting through *two* simultaneous binders in `SimCaseLst`.
 
 ```haskell
 -- | A sort-preserving map between lookup contexts.
@@ -296,13 +308,13 @@ simWeaken = simRename (weakenRenCompat @d @b)
 
 Just as `simRename` traverses all 20 constructors of `SimRel`, **`simExt`**
 (`~-exts`) and **`simSubst`** (`~-subst`) prove across **all 20 constructors of
-`SimRel`**—including `SimLetApp`, `SimCaseSum`, and double-binder `SimCaseLst`—that
+`SimRel`** (including `SimLetApp`, `SimCaseSum`, and double-binder `SimCaseLst`) that
 pointwise-related simultaneous substitutions preserve `SimRel` directly over
 `More`'s ordinary `M.weakenLookup`, `M.exts`, and `M.subst` functions.
 
 Instantiating `simSubst` with `More`'s named helpers `M.singleSubst` and
 `M.doubleSubst` immediately proves **`simSubstSingle`** and **`simSubstDouble`**
-with **zero hypotheses**!
+with **zero hypotheses**.
 
 ```haskell
 -- | A sort-preserving simultaneous substitution callback between contexts.
@@ -412,21 +424,21 @@ data LegInv step m n' where
 
 ## Lock-step forward and backward bisimulation (`sim` and `simInv`)
 
-Look at the `SimLetApp` cases—the centerpiece of PLFA's **Bisimulation** chapter:
+Look at the `SimLetApp` cases, the centerpiece of PLFA's **Bisimulation** chapter:
 
 1. **Forward (`sim`)**:
    - When `let x = m in n` steps via `M.XiLet stM`, induction gives `m' —→ m1'`,
-     so `(λ x. n') m'` matches lock-step via **`M.XiApp2 M.VLam stM'`**!
+     so `(λ x. n') m'` matches lock-step via **`M.XiApp2 M.VLam stM'`**.
    - When `let x = v in n` steps via `M.BetaLet vm` to `M.substSingle n v`,
      `(λ x. n') v'` matches lock-step via `M.BetaLam (simValue sm vm)` to
      `M.substSingle n' v'`, linked by `simSubstSingle sn sm`.
 2. **Backward (`simInv`, PLFA Exercise `sim⁻¹`)**:
-   - Can `(λ x. n') m'` step via `M.XiApp1 stLam`? **No!** `valNoStep M.VLam stLam`
-     discharges the branch statically via `absurd`!
+   - Can `(λ x. n') m'` step via `M.XiApp1 stLam`? **No.** `valNoStep M.VLam stLam`
+     discharges the branch statically via `absurd`.
    - When `(λ x. n') m'` steps via `M.XiApp2 _ stM'`, `let x = m in n` matches
-     lock-step via **`M.XiLet`**!
+     lock-step via **`M.XiLet`**.
    - When `(λ x. n') v'` steps via `M.BetaLam vm'`, `let x = v in n` matches
-     lock-step via **`M.BetaLet (simValueInv sm vm')`**!
+     lock-step via **`M.BetaLet (simValueInv sm vm')`**.
 
 All 27 reduction rules in both directions are checked exhaustively under `-Werror=incomplete-patterns`:
 
@@ -603,7 +615,7 @@ simInv rel st = case st of
 
 Composing one-step simulation lifts immediately to multi-step
 reduction sequences (`M.Steps`), and running `simSteps` / `simStepsInv` directly
-on `letDesugarSim` computes the matching reduction sequences automatically!
+on `letDesugarSim` computes the matching reduction sequences automatically.
 
 ```haskell
 -- | Multi-step forward simulation (`—↠`).
@@ -650,9 +662,9 @@ letDesugarStepsInv =
       (M.StepsCons (M.BetaLam M.VZero) M.StepsRefl))
 ```
 
-### Negative control: forging a wrong bisimulation target
+### Rejected example: forging a wrong bisimulation target
 
-To verify that GHC genuinely checks `M.substSingle` inside `M.BetaLam` and
+GHC checks `M.substSingle` inside `M.BetaLam` and
 `SimRel`, trying to claim `(λ x. suc x) 0` simulates to `Zero` (instead of
 `Suc Zero`) must be rejected with `GHC-83865`:
 
@@ -670,33 +682,21 @@ badLetDesugar = MkLeg (M.BetaLam M.VZero) SimZero
 
 ## Exercises
 
-#### Exercise `sim⁻¹` (practice) {#sim-inv}
+### Exercise `desugar-total` (recommended) {#desugar-total}
 
-Verify that `simInv` above handles every case of `M.Step` in the reverse
-direction—especially observing why `valNoStep M.VLam` is required in the
-`SimLetApp` / `M.XiApp1` case and how `SimLetApp` maps `M.XiApp2` back to
-`M.XiLet` and `M.BetaLam` back to `M.BetaLet`.
+Define a total recursive translation `desugar :: M.Term g a -> M.Term g a` that
+replaces every `M.Let m n` with `M.App (M.Lam n) m` across all 19 constructors
+of [More](/More/), and prove `desugarSim :: M.Term g a -> SimRel m (desugar m)`.
 
-#### Exercise `products` (practice) {#products-bisim}
+### Exercise `products` (practice) {#products-bisim}
 
 In [More](/More/), products can be formulated either with projections
 (`Fst`/`Snd`) or with a pattern-matching eliminator (`case p of (x, y) => n`).
 Explain why the simulation between the two formulations of products is *weak*
 (multi-step `—↠`) rather than lock-step (`—→`), and how `Leg M.Steps` already
-accommodates weak simulations directly!
+accommodates weak simulations directly.
 
 ## Changes from PLFA
 
-- Adapted from [Bisimulation](https://plfa.inf.ed.ac.uk/Bisimulation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Bisimulation.lagda.md)),
-  licensed under CC BY 4.0.
-- Proved full 20-constructor `SimRel` (including `SimLetApp` and retained
-  `SimVar :: foreach x -> SimRel (M.Var x) (M.Var x)`), `simRefl`, `simTrans`,
-  bidirectional 9-constructor value preservation (`simValue`, `simValueInv`),
-  `valNoStep`, **full 20-constructor `simRename`** (plain `->` arrows, zero
-  `@`-application noise), `simExt`/`simSubst`,
-  `simSubstSingle` and `simSubstDouble`,
-  27-rule lock-step forward and backward simulation (`sim`, `simInv`),
-  multi-step `simSteps`/`simStepsInv` (computing
-  `letDesugarSteps`/`letDesugarStepsInv` directly) compile inline in
-  `PLFH.Part2.Bisimulation`.
+- Defines `SimRel` across all 19 constructors of [More](/More/) including `SimLet` alongside `SimLetApp`, making `SimRel` a partial-desugaring relation strictly broader than upstream PLFA's 4-constructor total-desugaring graph `_~_`.
+- Proves both forward (`sim`) and backward (`simInv`) lock-step simulation across all 27 reduction rules.

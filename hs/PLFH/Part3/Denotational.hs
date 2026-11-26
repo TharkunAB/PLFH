@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns, StandaloneDeriving #-}
-{-# LINE 67 "content/part3/Denotational.md" #-}
+{-# LINE 63 "content/part3/Denotational.md" #-}
 module PLFH.Part3.Denotational
   ( Value (..)
   , ValW (..)
@@ -63,7 +63,7 @@ import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Negation (Not)
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 
-{-# LINE 135 "content/part3/Denotational.md" #-}
+{-# LINE 131 "content/part3/Denotational.md" #-}
 -- | Finite function tables (Scott/Plotkin/BCD filter model values),
 -- declared directly in GADT syntax!
 data Value where
@@ -98,7 +98,7 @@ unArrW (MkValW v) = go v Refl
     go (Join _ _) eq = case eq of {}
     go (Arr x y)  eq = case eq of Refl -> (MkValW x, MkValW y)
 
-{-# LINE 186 "content/part3/Denotational.md" #-}
+{-# LINE 225 "content/part3/Denotational.md" #-}
 -- | Domain approximation order `u ⊑ v`.
 data Sub (u :: Value) (v :: Value) where
   SubBot    :: Sub Bot v
@@ -145,7 +145,7 @@ joinSubInvR (SubJoinR1 lt)     = SubJoinR1 (joinSubInvR lt)
 joinSubInvR (SubJoinR2 lt)     = SubJoinR2 (joinSubInvR lt)
 joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
-{-# LINE 247 "content/part3/Denotational.md" #-}
+{-# LINE 286 "content/part3/Denotational.md" #-}
 -- | Membership of a leaf value `u` inside a join-tree `v` (`u ∈ v`).
 data ValMem (u :: Value) (v :: Value) where
   MemBot   :: ValMem Bot Bot
@@ -219,7 +219,7 @@ subArrToCodSub (Arr a b)  s x            = case s @(Arr a b) MemArr of { MemArr 
 subArrToCodSub (Join a _) s (MemJoinL x) = subArrToCodSub a (\m -> s (MemJoinL m)) x
 subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub b (\m -> s (MemJoinR m)) y
 
-{-# LINE 332 "content/part3/Denotational.md" #-}
+{-# LINE 371 "content/part3/Denotational.md" #-}
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
 data Factor (u :: Value) (v :: Value) (w :: Value) where
   MkFactor :: forall (u :: Value) (v :: Value) (w :: Value).
@@ -331,7 +331,7 @@ arrSubArrInv :: forall (v :: Value) (w :: Value).
              -> Sub (Arr v w) (Arr v' w') -> (Sub v' v, Sub w w')
 arrSubArrInv v' w' lt = finishArrSubInv (subInv (Arr v' w') lt MemArr)
 
-{-# LINE 469 "content/part3/Denotational.md" #-}
+{-# LINE 541 "content/part3/Denotational.md" #-}
 -- | Value environment of scope depth `n`.
 data ValEnv (n :: Nat) where
   VNil  :: ValEnv Zero
@@ -430,7 +430,7 @@ envSubMono es (DSub wv d lt)    = DSub wv (envSubMono es d) lt
 upEnv :: ValW u2 -> Denotes (VCons e u1) m v -> Sub u1 u2 -> Denotes (VCons e u2) m v
 upEnv wu2 d lt = envSubMono (envSubCons wu2 envSubRefl lt) d
 
-{-# LINE 577 "content/part3/Denotational.md" #-}
+{-# LINE 649 "content/part3/Denotational.md" #-}
 -- | A denotation in scope depth `n` relates environments to values (matchable arrows `%M`).
 type Denotation (n :: Nat) = ValEnv n %M -> Value %M -> Type
 

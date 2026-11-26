@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 53 "content/part2/Bisimulation.md" #-}
+{-# LINE 65 "content/part2/Bisimulation.md" #-}
 module PLFH.Part2.Bisimulation
   ( SimRel (..)
   , simRefl
@@ -37,7 +37,7 @@ import Data.Kind (Type)
 import Data.Void (Void, absurd)
 import qualified PLFH.Part2.More as M
 
-{-# LINE 102 "content/part2/Bisimulation.md" #-}
+{-# LINE 114 "content/part2/Bisimulation.md" #-}
 -- | Structural bisimulation relation relating `let x = m in n` to `(λx. n') m'`
 -- across all 19 constructors of `PLFH.Part2.More.Term`.
 type SimRel :: forall (g :: M.Ctx) (a :: M.Ty). M.Term g a -> M.Term g a -> Type
@@ -66,7 +66,7 @@ data SimRel m m' where
   SimCaseLst :: SimRel s s' -> SimRel n n' -> SimRel c c'
              -> SimRel (M.CaseLst s n c) (M.CaseLst s' n' c')
 
-{-# LINE 138 "content/part2/Bisimulation.md" #-}
+{-# LINE 150 "content/part2/Bisimulation.md" #-}
 -- | Reflexivity (`~-refl`): every extended STLC term is related to itself.
 simRefl :: forall (g :: M.Ctx) (a :: M.Ty). foreach (m :: M.Term g a) -> SimRel m m
 simRefl (M.Var x)         = SimVar x
@@ -113,7 +113,7 @@ simTrans SimNil                 SimNil                  = SimNil
 simTrans (SimCons x1 xs1)       (SimCons x2 xs2)        = SimCons (simTrans x1 x2) (simTrans xs1 xs2)
 simTrans (SimCaseLst s1 n1 c1)  (SimCaseLst s2 n2 c2)   = SimCaseLst (simTrans s1 s2) (simTrans n1 n2) (simTrans c1 c2)
 
-{-# LINE 194 "content/part2/Bisimulation.md" #-}
+{-# LINE 206 "content/part2/Bisimulation.md" #-}
 -- | Forward value preservation (`~-val`): all 9 value constructors.
 simValue :: SimRel m m' -> M.Value m -> M.Value m'
 simValue rel val = case val of
@@ -153,7 +153,7 @@ valNoStep val st = case val of
   M.VNil       -> case st of {}
   M.VCons v vs -> case st of { M.XiCons1 s -> valNoStep v s; M.XiCons2 _ s -> valNoStep vs s }
 
-{-# LINE 245 "content/part2/Bisimulation.md" #-}
+{-# LINE 257 "content/part2/Bisimulation.md" #-}
 -- | A sort-preserving map between lookup contexts.
 type Renaming g d = forall x. M.Lookup g x -> M.Lookup d x
 
@@ -203,7 +203,7 @@ simWeaken :: forall d b a (m :: M.Term d a) (n :: M.Term d a).
              SimRel m n -> SimRel (M.rename (M.weakenLookup @d @b) m) (M.rename (M.weakenLookup @d @b) n)
 simWeaken = simRename (weakenRenCompat @d @b)
 
-{-# LINE 308 "content/part2/Bisimulation.md" #-}
+{-# LINE 320 "content/part2/Bisimulation.md" #-}
 -- | A sort-preserving simultaneous substitution callback between contexts.
 type SubstFn g d = forall a. M.Lookup g a -> M.Term d a
 
@@ -280,7 +280,7 @@ simSubstDouble :: forall g a b c (n :: M.Term (M.CExt (M.CExt g a) b) c)
                -> SimRel (M.substDouble n v w) (M.substDouble n' v' w')
 simSubstDouble sn sv sw = simSubst (doubleCompat sv sw) sn
 
-{-# LINE 400 "content/part2/Bisimulation.md" #-}
+{-# LINE 412 "content/part2/Bisimulation.md" #-}
 -- | Forward simulation leg: `m' —→ n'` with `n ~ n'`.
 type Leg :: forall (g :: M.Ctx) (a :: M.Ty).
             (M.Term g a -> M.Term g a -> Type) -> M.Term g a -> M.Term g a -> Type
@@ -293,7 +293,7 @@ type LegInv :: forall (g :: M.Ctx) (a :: M.Ty).
 data LegInv step m n' where
   MkLegInv :: step m n -> SimRel n n' -> LegInv step m n'
 
-{-# LINE 434 "content/part2/Bisimulation.md" #-}
+{-# LINE 446 "content/part2/Bisimulation.md" #-}
 -- | Forward lock-step simulation across all 27 rules of `More.Step`.
 sim :: SimRel m m' -> M.Step m n -> Leg M.Step m' n
 sim rel st = case st of
@@ -461,7 +461,7 @@ simInv rel st = case st of
     SimCaseLst (SimCons sx sxs) _ scons ->
       MkLegInv (M.BetaCons (simValueInv sx vx') (simValueInv sxs vxs')) (simSubstDouble scons sx sxs)
 
-{-# LINE 609 "content/part2/Bisimulation.md" #-}
+{-# LINE 621 "content/part2/Bisimulation.md" #-}
 -- | Multi-step forward simulation (`—↠`).
 simSteps :: SimRel m m' -> M.Steps m n -> Leg M.Steps m' n
 simSteps rel M.StepsRefl        = MkLeg M.StepsRefl rel

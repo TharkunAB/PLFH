@@ -27,7 +27,7 @@ program can reduce step after step without ever losing its type or getting
 stuck: either it eventually reaches a value of the expected type, or it runs
 forever. Even better, because our proofs are constructive Dependent Haskell
 functions, combining `progress` and `preserve` directly yields a **verified
-interpreter** (`eval`) that computes reduction traces up to a given gas limit!
+interpreter** (`eval`) that computes reduction traces up to a given gas limit.
 
 ## Imports
 
@@ -86,7 +86,7 @@ import PLFH.Part2.Lambda
 ## Canonical Forms
 
 Before proving Progress, we need to know what *shape* a closed value of a given
-type must have—this is the **Canonical Forms Lemma** (`canonical`):
+type must have, this is the **Canonical Forms Lemma** (`canonical`):
 
 - A closed value of function type `TArr a b` *must* be a lambda abstraction
   `Lam x n`, whose body `n` has type `b` in `CExt CEmpty x a`.
@@ -150,14 +150,13 @@ Walk through the `TApp tl tm` case to see how cleanly `progress` works:
 2. If `l` is a value, then by induction on `tm`, either `m` steps (`XiApp2 vl s`)
    or `m` is also a value (`PDone vm`).
 3. When *both* `l` and `m` are values, `canonical tl vl` proves that `l` must be
-   `Lam x n`, unlocking `BetaLam vm`!
+   `Lam x n`, unlocking `BetaLam vm`.
 
 The `TVar x` case is impossible (`case x of {}`) because the context is empty
-(`CEmpty`), so `Lookup CEmpty x a` has no constructors. Notice that `progress`
-has the **exact same statement, hypotheses, and proof structure** as PLFA—with
-no type families and no coercions—and passes GHC's Core Lint and STG Lint.
-(Later in the chapter, `preserve` and `eval` take a small structural witness
-`TermW m` so pattern matching can inspect the erased term index `m`.)
+(`CEmpty`), so `Lookup CEmpty x a` has no constructors. `progress` has the same
+statement, hypotheses, and proof structure as PLFA. Later in the chapter,
+`eval` takes a structural witness `TermW m` so pattern matching can inspect the
+erased term index `m`, while `preserve` matches `foreach (m :: Term)` directly.
 
 ## Structural context lemmas (`extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`, `swapTyping`)
 
@@ -238,7 +237,7 @@ Because `substTerm` branches on `eqId x y :: Bool`, we first package decidable
 equality on `Id` together with the exact Boolean result of `eqId x y` in
 `NameDecision x y`. Pattern matching on `decide x y` simultaneously refines
 `x :~: y` (or `Not (x :~: y)`) *and* reduces `eqId x y` to `True` or `False` in
-`substTerm`'s type!
+`substTerm`'s type.
 
 - When `x` matches `y`, a `Lam`/`TCase`/`TMu` binder shadows `y`, so `substTerm`
   leaves the body alone and `dropTyping` removes the shadowed `y : a` entry.
@@ -374,7 +373,7 @@ substSuc _ x body (TSucT tv) tn = substTyping x body tv tn
 ## Determinism (`valueCannotStep`, `stepDeterm`)
 
 Our call-by-value operational semantics is **deterministic**: every term can
-reduce in at most one way! First we show that no value can take a step
+reduce in at most one way. First we show that no value can take a step
 (`valueCannotStep`), and then structural induction on two steps `Step m n1` and
 `Step m n2` proves `n1 :~: n2` (`stepDeterm`), using `valueCannotStep` to
 eliminate every overlapping `ξ`/`β` pair:
@@ -411,16 +410,16 @@ stepDeterm BetaMu       BetaMu       = Refl
 ## Multi-Step Preservation (`preserveSteps`) and Verified Evaluation (`eval`)
 
 Because our language includes general recursion `TMu`, a well-typed term need
-not terminate! How can we write a total evaluator for a Turing-complete
+not terminate. How can we write a total evaluator for a Turing-complete
 language? PLFA borrows a well-known idea from smart-contract virtual machines
 such as Ethereum: supply an explicit **gas** budget (`Nat`).
 
 - At each step, if gas is `Zero`, evaluation stops cleanly with `OutOfGas`.
 - If gas is `Succ g`, we call `progress tm`:
-  - If `PDone v`, we have reached a value (`Done StepsRefl v`)!
+  - If `PDone v`, we have reached a value (`Done StepsRefl v`).
   - If `PStep s`, we compute the retained target term `wm' = stepTarget m s`,
     transport the typing derivation via `preserve m tm s`, and recurse with `g`
-    units of gas remaining!
+    units of gas remaining.
 
 ```haskell
 -- | Retained runtime witness for a promoted `Term`.
@@ -493,9 +492,9 @@ eval (Succ g) (MkTermW m) tm = case progress tm of
       OutOfGas ss -> OutOfGas (StepsCons s ss)
 ```
 
-Notice the payoff: `eval` does not merely compute an answer—it returns a
+`eval` does not merely compute an answer, it returns a
 machine-checked proof `Steps m v` that the source term `m` reduces to a value
-`v`, built automatically from our Progress and Preservation theorems!
+`v`, built automatically from our Progress and Preservation theorems.
 
 ## Well-typed terms don't get stuck (`wttdgs`)
 
@@ -526,20 +525,20 @@ wttdgs m tm steps stuck = unstuck (preserveSteps m tm steps) stuck
 
 ## Exercises
 
-#### Exercise `Progress-¬` (practice)
+### Exercise `Progress-¬` (practice)
 
 Show that well-typedness is *not* necessary for progress: exhibit an ill-typed
 closed term `m` that nevertheless satisfies `Progress m` (for instance,
 `Lam Zero (App TZero TZero)` is already a value `VLam`, even though its body is
-ill-typed!).
+ill-typed).
 
-#### Exercise `Preservation-¬` (practice)
+### Exercise `Preservation-¬` (practice)
 
 Show that a closed term can take a step to a well-typed term without itself
 being well-typed (for instance, `TCase TZero TZero Zero (App TZero TZero)`
-steps via `BetaZero` to `TZero`!).
+steps via `BetaZero` to `TZero`).
 
-#### Exercise `eval-example` (practice)
+### Exercise `eval-example` (practice)
 
 Using `eval` with gas `5`, evaluate `App (Lam Zero (Var Zero)) TZero` and
 `TCase (TSuc TZero) TZero Zero (Var Zero)`, verifying both return `Done` with
@@ -547,11 +546,5 @@ Using `eval` with gas `5`, evaluate `App (Lam Zero (Var Zero)) TZero` and
 
 ## Changes from PLFA
 
-- Adapted from [Properties](https://plfa.inf.ed.ac.uk/Properties/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Properties.lagda.md)),
-  licensed under CC BY 4.0.
-- `Canonical`, `canonical`, `Progress`, `progress`, `valueCannotStep`,
-  `stepDeterm`, `extCtx`, `renameTyping`, `weakenTyping`, `dropTyping`,
-  `swapTyping`, `substTyping`, `preserve`, `preserveSteps`, and the verified
-  gas-bounded evaluator `eval` are all verified with
-  `-dcore-lint -dstg-lint`.
+- Uses retained `TermW` witnesses in `eval` where Agda keeps implicit arguments at runtime.
+- Proves canonical forms, progress, determinism, renaming/weakening/substitution typing, 8-constructor preservation, verified evaluation, and unstuckness (`wttdgs`).

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 36 "content/part2/More.md" #-}
+{-# LINE 35 "content/part2/More.md" #-}
 module PLFH.Part2.More
   ( Ty (..)
   , Ctx (..)
@@ -29,14 +29,16 @@ module PLFH.Part2.More
   , appendList
   , Step (..)
   , Steps (..)
+  , valueCannotStep
   , Progress (..)
   , progress
   , listCaseBoth
   ) where
 
 import Data.Kind (Type)
+import Data.Void (Void)
 
-{-# LINE 90 "content/part2/More.md" #-}
+{-# LINE 153 "content/part2/More.md" #-}
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
 data Ty
   = TNat
@@ -76,7 +78,7 @@ data Term (g :: Ctx) (a :: Ty) where
   Cons    :: Term g a -> Term g (TList a) -> Term g (TList a)
   CaseLst :: Term g (TList a) -> Term g b -> Term (CExt (CExt g a) (TList a)) b -> Term g b
 
-{-# LINE 144 "content/part2/More.md" #-}
+{-# LINE 207 "content/part2/More.md" #-}
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
 ext _ Z     = Z
@@ -149,7 +151,7 @@ substSingle n w = subst (singleSubst w) n
 substDouble :: Term (CExt (CExt g a) b) c -> Term g a -> Term g b -> Term g c
 substDouble n v w = subst (doubleSubst v w) n
 
-{-# LINE 225 "content/part2/More.md" #-}
+{-# LINE 288 "content/part2/More.md" #-}
 -- | Values indexed over promoted extended `Term g a`.
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -196,7 +198,7 @@ appendList =
       (Var Z)
       (Cons (Var (S Z)) (App (App (Var (S (S (S (S Z))))) (Var Z)) (Var (S (S Z))))))))
 
-{-# LINE 284 "content/part2/More.md" #-}
+{-# LINE 347 "content/part2/More.md" #-}
 -- | Intrinsically type-preserving call-by-value reduction for extended STLC (27 rules!).
 type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data Step before after where
@@ -251,6 +253,20 @@ type Steps :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data Steps m n where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
+
+-- | No value in the extended language can take a reduction step (`V¬—→`).
+valueCannotStep :: Value m -> Step m n -> Void
+valueCannotStep VLam           s = case s of {}
+valueCannotStep VZero          s = case s of {}
+valueCannotStep (VSuc v)       (XiSuc s)       = valueCannotStep v s
+valueCannotStep VTT            s = case s of {}
+valueCannotStep (VPair v _)    (XiPair1 s)     = valueCannotStep v s
+valueCannotStep (VPair _ w)    (XiPair2 _ s)   = valueCannotStep w s
+valueCannotStep (VInl v)       (XiInl s)       = valueCannotStep v s
+valueCannotStep (VInr v)       (XiInr s)       = valueCannotStep v s
+valueCannotStep VNil           s = case s of {}
+valueCannotStep (VCons v _)    (XiCons1 s)     = valueCannotStep v s
+valueCannotStep (VCons _ vs)   (XiCons2 _ s)   = valueCannotStep vs s
 
 -- | A closed term in the extended language either steps or is a value.
 type Progress :: forall (a :: Ty). Term CEmpty a -> Type

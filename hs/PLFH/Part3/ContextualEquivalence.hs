@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# LINE 42 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 41 "content/part3/ContextualEquivalence.md" #-}
 module PLFH.Part3.ContextualEquivalence
   ( Terminates (..)
   , terminatesLam
@@ -28,7 +28,7 @@ import PLFH.Part3.Compositional (UCtx (..), compositionality)
 import PLFH.Part3.Denotational (Den (..), DenEq, denEqSym, denEqTrans)
 import PLFH.Part3.Soundness (denotEquivStepsW)
 
-{-# LINE 78 "content/part3/ContextualEquivalence.md" #-}
+{-# LINE 75 "content/part3/ContextualEquivalence.md" #-}
 -- | A term terminates if full β-reduction reaches a lambda abstraction.
 type Terminates :: forall (n :: Nat). UTerm n -> Type
 data Terminates m where

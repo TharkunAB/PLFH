@@ -8,25 +8,24 @@ plfaChapter: https://plfa.inf.ed.ac.uk/More/
 ---
 
 Real functional programming languages offer far more than just functions and
-natural numbers! Following PLFA's **More** chapter, we scale our
+natural numbers. Following PLFA's **More** chapter, we scale our
 intrinsically-typed de Bruijn simply-typed lambda calculus from
 [DeBruijn](/DeBruijn/) into a rich core functional language supporting:
 
 - **Local `let` bindings** (`Let`, binding a computed value to variable `Z`),
-- **Unit (`TUnit`, `TT`)** and **Products (`TProd`, `Pair`, `Fst`, `Snd`)** —
-  the computational counterparts of `⊤` and `×` from [Connectives](/Connectives/),
+- **Unit (`TUnit`, `TT`)** and **Products (`TProd`, `Pair`, `Fst`, `Snd`)**,   the computational counterparts of `⊤` and `×` from [Connectives](/Connectives/),
 - **Empty type / Void (`TVoid`, `Absurd`)** and **Sums (`TSum`, `Inl`, `Inr`,
-  `CaseSum`)** — the computational counterparts of `⊥` and `⊎`,
-- **Lists (`TList`, `Nil`, `Cons`, `CaseLst`)** — an inductive algebraic
+  `CaseSum`)**, the computational counterparts of `⊥` and `⊎`,
+- **Lists (`TList`, `Nil`, `Cons`, `CaseLst`)**, an inductive algebraic
   datatype whose `Cons` case branch binds **two** variables simultaneously
-  (head and tail)!
+  (head and tail).
 
 By the **Curry–Howard correspondence** (propositions as types, proofs as
 programs), every single typing rule below matches the corresponding
 introduction (`-I`) and elimination (`-E`) rule of intuitionistic propositional
-logic—for example, `Absurd` is *ex falso quodlibet*, `Pair`/`Fst`/`Snd` are
+logic: for example, `Absurd` is *ex falso quodlibet*, `Pair`/`Fst`/`Snd` are
 conjunction introduction and projections, and `Inl`/`Inr`/`CaseSum` are
-disjunction introduction and case analysis!
+disjunction introduction and case analysis.
 
 ## Imports
 
@@ -58,12 +57,14 @@ module PLFH.Part2.More
   , appendList
   , Step (..)
   , Steps (..)
+  , valueCannotStep
   , Progress (..)
   , progress
   , listCaseBoth
   ) where
 
 import Data.Kind (Type)
+import Data.Void (Void)
 ```
 
 ## Extended types, contexts, and intrinsically-typed terms
@@ -81,10 +82,72 @@ Each new type constructor brings its own introduction and elimination forms:
 | `TList a` | `Nil`, `Cons` | `CaseLst` | `2` (head `a` and tail `TList a`) |
 | *(any `b`)* | — | `Let` / `Mu` | `1` |
 
-Notice how `Let m n` can also be viewed as syntactic sugar for `App (Lam n) m`
-under call-by-value—a correspondence we prove formally as a lock-step
-bisimulation in [Bisimulation](/Bisimulation/)! (Similarly, PLFA introduces
-pattern-matching `case p of (x, y) => n` as an exercise alongside `Fst`/`Snd`.)
+`Let m n` can also be viewed as syntactic sugar for `App (Lam n) m` under
+call-by-value, a correspondence we prove as a lock-step bisimulation in
+[Bisimulation](/Bisimulation/).
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A</span><span>Γ, A ⊢ B</span></div>
+    <div class="conclusion">Γ ⊢ B</div>
+    <div class="rule-name">(Let)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ ⊢ Unit</div>
+    <div class="rule-name">(TT)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A</span><span>Γ ⊢ B</span></div>
+    <div class="conclusion">Γ ⊢ A × B</div>
+    <div class="rule-name">(Pair)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A × B</span></div>
+    <div class="conclusion">Γ ⊢ A</div>
+    <div class="rule-name">(Fst)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A × B</span></div>
+    <div class="conclusion">Γ ⊢ B</div>
+    <div class="rule-name">(Snd)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A</span></div>
+    <div class="conclusion">Γ ⊢ A + B</div>
+    <div class="rule-name">(Inl)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ B</span></div>
+    <div class="conclusion">Γ ⊢ A + B</div>
+    <div class="rule-name">(Inr)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A + B</span><span>Γ, A ⊢ C</span><span>Γ, B ⊢ C</span></div>
+    <div class="conclusion">Γ ⊢ C</div>
+    <div class="rule-name">(CaseSum)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ Void</span></div>
+    <div class="conclusion">Γ ⊢ A</div>
+    <div class="rule-name">(Absurd)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ ⊢ List A</div>
+    <div class="rule-name">(Nil)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ A</span><span>Γ ⊢ List A</span></div>
+    <div class="conclusion">Γ ⊢ List A</div>
+    <div class="rule-name">(Cons)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ List A</span><span>Γ ⊢ B</span><span>Γ, A, List A ⊢ B</span></div>
+    <div class="conclusion">Γ ⊢ B</div>
+    <div class="rule-name">(CaseLst)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Extended simple types: naturals, unit, void, arrows, products, sums, lists.
@@ -130,15 +193,15 @@ data Term (g :: Ctx) (a :: Ty) where
 ## Renaming and capture-avoiding single & double substitution
 
 Simultaneous renaming (`rename`) and simultaneous substitution (`subst`) scale
-effortlessly to all 19 term constructors! Look closely at **`CaseLst`**: because
+effortlessly to all 19 term constructors. Look closely at **`CaseLst`**: because
 its `Cons` branch binds *two* variables (`x : a` and `xs : TList a`, with `xs`
 at `Z` and `x` at `S Z`), we simply lift `ext` and `exts` twice (`ext (ext r)`
 and `exts (exts s)`).
 
 Likewise, contracting a `CaseLst` on `Cons v vs` requires substituting *two*
-terms simultaneously—so in addition to `substSingle` (for `Lam`, `Let`, `Mu`,
+terms simultaneously: so in addition to `substSingle` (for `Lam`, `Let`, `Mu`,
 `CaseNat`, and `CaseSum`), we define **`substDouble`** mapping `Z -> w`,
-`S Z -> v`, and `S (S x) -> Var x`!
+`S Z -> v`, and `S (S x) -> Var x`.
 
 ```haskell
 ext :: (forall a. Lookup g a -> Lookup d a)
@@ -219,7 +282,7 @@ substDouble n v w = subst (doubleSubst v w) n
 In call-by-value, every data constructor produces a value once its arguments
 are values (`VTT`, `VPair`, `VInl`, `VInr`, `VNil`, `VCons`), while `TVoid` has
 **no value constructors at all** (mirroring the fact that no closed well-typed
-program of type `TVoid` can ever terminate at a value!):
+program of type `TVoid` can ever terminate at a value):
 
 ```haskell
 -- | Values indexed over promoted extended `Term g a`.
@@ -273,11 +336,11 @@ appendList =
 
 With `-XDependentTypes`, GHC evaluates both single-variable `substSingle` and
 two-variable `substDouble` (lifting through double binders `ext (ext r)` and
-`exts (exts s)` for `CaseLst`!) directly in the same module—so we define all
+`exts (exts s)` for `CaseLst`) directly in the same module: so we define all
 **27 intrinsically-typed call-by-value reduction rules** (`Step`), complete
 **`progress`** across all **19 constructors** of `Term` (checked
 with `-Werror=incomplete-patterns`, where `absurdProgress` discharges
-`PDone v -> case v of {}` statically because `TVoid` has no value constructors!),
+`PDone v -> case v of {}` statically because `TVoid` has no value constructors),
 and the concrete double-substitution witness `listCaseBoth` inline right here:
 
 ```haskell
@@ -335,6 +398,20 @@ type Steps :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
 data Steps m n where
   StepsRefl :: Steps m m
   StepsCons :: Step l m -> Steps m n -> Steps l n
+
+-- | No value in the extended language can take a reduction step (`V¬—→`).
+valueCannotStep :: Value m -> Step m n -> Void
+valueCannotStep VLam           s = case s of {}
+valueCannotStep VZero          s = case s of {}
+valueCannotStep (VSuc v)       (XiSuc s)       = valueCannotStep v s
+valueCannotStep VTT            s = case s of {}
+valueCannotStep (VPair v _)    (XiPair1 s)     = valueCannotStep v s
+valueCannotStep (VPair _ w)    (XiPair2 _ s)   = valueCannotStep w s
+valueCannotStep (VInl v)       (XiInl s)       = valueCannotStep v s
+valueCannotStep (VInr v)       (XiInr s)       = valueCannotStep v s
+valueCannotStep VNil           s = case s of {}
+valueCannotStep (VCons v _)    (XiCons1 s)     = valueCannotStep v s
+valueCannotStep (VCons _ vs)   (XiCons2 _ s)   = valueCannotStep vs s
 
 -- | A closed term in the extended language either steps or is a value.
 type Progress :: forall (a :: Ty). Term CEmpty a -> Type
@@ -442,9 +519,9 @@ listCaseBoth
 listCaseBoth = BetaCons (VSuc VZero) (VCons VZero VNil)
 ```
 
-### Negative control: forged `BetaCons` double-substitution target is rejected
+### Rejected example: forged `BetaCons` double-substitution target is rejected
 
-In `listCaseBoth`, `CaseLst (Cons (Suc Zero) (Cons Zero Nil)) ... (Pair (Var (S Z)) (Var Z))`
+In `listCaseBoth`, `CaseLst (Cons (Suc Zero) (Cons Zero Nil))... (Pair (Var (S Z)) (Var Z))`
 substitutes `Suc Zero` for `S Z` and `Cons Zero Nil` for `Z`. Claiming the head
 became `Zero` instead of `Suc Zero` is rejected by GHC with `GHC-83865`:
 
@@ -464,33 +541,25 @@ wrongHead = M.BetaCons (M.VSuc M.VZero) (M.VCons M.VZero M.VNil)
 
 ## Exercises
 
-#### Exercise `bool-as-sum` (practice)
+### Exercise `swap-prod` (practice)
 
-Represent Booleans as `type TBool = TSum TUnit TUnit` (`true = Inl TT`,
-`false = Inr TT`) and write an intrinsically-typed `ifThenElse` combinator
-`Term g (TArr TBool (TArr a (TArr a a)))` using `CaseSum`.
+Write `swapProd :: Term g (TArr (TProd a b) (TProd b a))` using `Lam`, `Pair`,
+`Fst`, and `Snd`, and use `eval` to check that applying `swapProd` to
+`Pair Zero (Suc Zero)` reaches `Pair (Suc Zero) Zero`.
 
-#### Exercise `append-list` (recommended)
+### Exercise `map-list` (recommended)
 
-Write an intrinsically-typed list append function
-`Term CEmpty (TArr (TList a) (TArr (TList a) (TList a)))` using `Mu`, `Lam`,
-`CaseLst`, and `Cons`, carefully tracking the two variables bound by `CaseLst`
-(`Z` for the tail, `S Z` for the head)!
+Define an intrinsically-typed `mapList :: Term CEmpty (TArr (TArr a b) (TArr (TList a) (TList b)))`
+using `Mu`, `Lam`, `CaseLst`, `Nil`, and `Cons`, keeping track of the two
+variables bound by `CaseLst` (`Z` for the tail, `S Z` for the head).
 
-#### Exercise `sum-comm` (practice)
+### Exercise `case-prod` (stretch)
 
-Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
-`CaseSum`, `Inr`, and `Inl`.
+Add a pattern-matching product eliminator `CaseProd :: Term g (TProd a b) -> Term (CExt (CExt g a) b) c -> Term g c`
+with reduction rules `XiCaseProd` and `BetaProd` (using `substDouble`) and
+extend `progress` to cover it.
 
 ## Changes from PLFA
 
-- Adapted from [More](https://plfa.inf.ed.ac.uk/More/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/More.lagda.md)),
-  licensed under CC BY 4.0.
-- All extended constructs (`Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`),
-  renaming, substitution (`substSingle`, `substDouble`), GADT-promoted `Value`,
-  example programs, all 27 intrinsically-typed `Step` rules (using functional
-  `substSingle` and `substDouble`), complete
-  19-branch `progress`, and
-  concrete `listCaseBoth`
-  compile inline in `PLFH.Part2.More`.
+- Formalizes `Let`, `TUnit`, `TProd` (`Fst` / `Snd`), `TSum` (`CaseSum`), `TVoid` (`Absurd`), and `TList` (`CaseLst` with `substDouble`), matching the constructs in PLFA's `More` exercises.
+- Omits PLFA's primitive multiplication (`_*_`, `δ-*`) and pattern-matching product elimination (`case×`) in favor of `Fst`/`Snd` and full sums, unit, void, and lists.

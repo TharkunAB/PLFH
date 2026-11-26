@@ -9,10 +9,10 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Inference/
 
 In [DeBruijn](/DeBruijn/) we represented programs as intrinsically typed terms
 `Term g a`, whose well-typedness is enforced statically by GHC. That makes
-metatheory wonderfully clean—ill-typed terms simply do not exist!—but it leaves
+metatheory wonderfully clean (ill-typed terms simply do not exist) but it leaves
 a practical question: in a real compiler or interpreter, programs arrive from a
 parser as **untyped abstract syntax trees** (`RawTerm`), not as pre-verified
-typing derivations!
+typing derivations.
 
 How do we bridge the gap between untyped syntax and intrinsically typed terms?
 We write a **certified type inference and typechecking algorithm**:
@@ -23,12 +23,9 @@ We write a **certified type inference and typechecking algorithm**:
 - Given an expected runtime type `a :: Ty`, `check` verifies that the raw term
   has type `a` and returns `Maybe (Term g a)`.
 
-Notice the beauty of dependent types here: **soundness of type inference is
-guaranteed by construction!** Because `infer` returns a `Term g a`, it is
-impossible for `infer` to succeed and report a bogus type—the returned value
-*is* a complete machine-checked typing derivation! Every single line of this
-chapter compiles natively with `-dcore-lint -dstg-lint` with **no singletons
-and no type families**.
+Soundness of type inference is guaranteed by construction: because `infer`
+returns a `Term g a`, it cannot succeed and report an invalid type. The
+returned value is itself a complete typing derivation.
 
 ## Imports
 
@@ -108,8 +105,8 @@ of these and produce a `Term g a` only when every typing invariant holds.
 
 When typechecking an application `RApp l m`, a `RCase` expression's two
 branches, or a recursive `RMu a m`, we need to test whether two runtime types
-`a` and `b` are equal—and, when they are, obtain a **propositional equality
-proof** `a :~: b` so GHC knows `Term g a` and `Term g b` have the same type!
+`a` and `b` are equal, and, when they are, obtain a **propositional equality
+proof** `a :~: b` so GHC knows `Term g a` and `Term g b` have the same type.
 
 Because `Ty` is a simple inductive datatype, structural recursion on retained
 `foreach (a :: Ty)` and `foreach (b :: Ty)` decides equality cleanly:
@@ -130,9 +127,9 @@ decEqTy (TArr a1 a2) (TArr b1 b2) = case decEqTy a1 b1 of
 ## Dependent result packages & runtime context lookup
 
 When `infer` succeeds on a raw term in context `g`, it does not know the
-result type `a` in advance—it *discovers* `a` at runtime! We therefore package
+result type `a` in advance, it *discovers* `a` at runtime. We therefore package
 the inferred runtime type `a :: Ty` (bound with `foreach` so callers can inspect
-it!) together with the intrinsically typed term `Term g a` in a dependent pair
+it) together with the intrinsically typed term `Term g a` in a dependent pair
 `Typed g`.
 
 Likewise, looking up a raw de Bruijn number `n :: N.Nat` in a runtime context
@@ -166,8 +163,8 @@ Now `infer` walks `RawTerm` structurally, combining `lookupCtx` and `decEqTy`:
 - **`RLam a body`**: extend the runtime context to `CExt g a`, infer `body`'s
   type `b`, and return `TArr a b` with `Lam body'`.
 - **`RApp l m`**: infer `l`'s type `lTy`, match on `lTy` to ensure it is
-  `TArr a b`, infer `m`'s type `a'`, and call `decEqTy a a'`! Matching
-  `Right Refl` unifies `a` and `a'`, so GHC accepts `App l' m'` at type `b`!
+  `TArr a b`, infer `m`'s type `a'`, and call `decEqTy a a'`. Matching
+  `Right Refl` unifies `a` and `a'`, so GHC accepts `App l' m'` at type `b`.
 - **`RZero` / `RSuc m`**: verify `m` has type `TNat`.
 - **`RCase l m n`**: verify `l` has type `TNat`, infer `m`'s type `a` and `n`'s
   type `a'` in `CExt g TNat`, and unify `a` with `a'` via `decEqTy`.
@@ -235,9 +232,9 @@ rawTwo :: RawTerm
 rawTwo = RSuc (RSuc RZero)
 ```
 
-Notice what happens at runtime (tested in PLFH's executable smoke test):
-- `infer CEmpty (RApp rawIdNat rawTwo)` returns `Just (MkTyped TNat (App (Lam (Var Z)) (Suc (Suc Zero))))`!
-- `infer CEmpty (RApp RZero rawTwo)` returns `Nothing` (applying `0` to `2` is rejected)!
+Notice what happens at runtime:
+- `infer CEmpty (RApp rawIdNat rawTwo)` returns `Just (MkTyped TNat (App (Lam (Var Z)) (Suc (Suc Zero))))`.
+- `infer CEmpty (RApp RZero rawTwo)` returns `Nothing` (applying `0` to `2` is rejected).
 - `check CEmpty rawTwo TNat` returns `Just (Suc (Suc Zero))`, while `check CEmpty rawTwo (TArr TNat TNat)` returns `Nothing`.
 
 ## Bidirectional type inference with decidable soundness and completeness
@@ -245,28 +242,76 @@ Notice what happens at runtime (tested in PLFH's executable smoke test):
 Church-annotated `RawTerm` forces a type annotation on *every* lambda and
 fixpoint, and returning `Maybe` proves only **soundness** (a `Just` result is a
 valid derivation), not **completeness** (a `Nothing` result could in principle
-be a bug in the checker!).
+be a bug in the checker).
 
 Following PLFA's full bidirectional design, we now split raw terms into two
 mutually recursive grammars:
-- **`TermPos` (`Term⁺`)** — *synthesizable* terms whose type flows **up**
+- **`TermPos` (`Term⁺`)**, *synthesizable* terms whose type flows **up**
   (variables `PVar n`, applications `PApp l m`, and explicit annotations
   `PAnn m a`);
-- **`TermNeg` (`Term⁻`)** — *inheritable/checkable* terms whose type flows
+- **`TermNeg` (`Term⁻`)**, *inheritable/checkable* terms whose type flows
   **down** (unannotated lambdas `NLam b`, `NZero`, `NSuc m`, `NCase l m n`,
   unannotated fixpoints `NMu m`, and synthesis-to-inheritance switches `NEmb m`).
 
 Type annotations (`PAnn`) are needed **only** at β-redexes or top-level
-declarations—an unannotated lambda `NLam (NEmb (PVar 0))` checks directly
-against `TArr TNat TNat`! Moreover:
+declarations, an unannotated lambda `NLam (NEmb (PVar 0))` checks directly
+against `TArr TNat TNat`. Moreover:
 - `Synth g m a` (`Γ ⊢ M⁺ ↑ A`) and `Inherit g m a` (`Γ ⊢ M⁻ ↓ A`) record
   exact bidirectional derivations, erasing directly to intrinsically-typed
   `DeBruijn.Term g a` via `eraseSynth` / `eraseInherit`;
 - `synthUnique` proves that every synthesizable term has at most one type;
 - **`synthesize`** returns `SynthDec g m` (either a runtime type `a` with
-  `Synth g m a`, or a formal proof `forall a. Not (Synth g m a)` that *no*
-  derivation exists!), and **`inherit`** returns `Dec (Inherit g m a)`—certifying
-  **both soundness and completeness** under `-Werror=incomplete-patterns`!
+  `Synth g m a`, or a proof `forall a. Not (Synth g m a)` that no derivation
+  exists), and **`inherit`** returns `Dec (Inherit g m a)`, certifying both
+  soundness and completeness under `-Werror=incomplete-patterns`.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ∋ n ⦂ A</span></div>
+    <div class="conclusion">Γ ⊢ PVar n ↑ A</div>
+    <div class="rule-name">(SVar)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ L ↑ A → B</span><span>Γ ⊢ M ↓ A</span></div>
+    <div class="conclusion">Γ ⊢ L · M ↑ B</div>
+    <div class="rule-name">(SApp)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ M ↓ A</span></div>
+    <div class="conclusion">Γ ⊢ (M ⦂ A) ↑ A</div>
+    <div class="rule-name">(SAnn)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, A ⊢ N ↓ B</span></div>
+    <div class="conclusion">Γ ⊢ λ N ↓ A → B</div>
+    <div class="rule-name">(ILam)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ ⊢ zero ↓ Nat</div>
+    <div class="rule-name">(IZero)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ M ↓ Nat</span></div>
+    <div class="conclusion">Γ ⊢ suc M ↓ Nat</div>
+    <div class="rule-name">(ISuc)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ L ↑ Nat</span><span>Γ ⊢ M ↓ A</span><span>Γ, Nat ⊢ N ↓ A</span></div>
+    <div class="conclusion">Γ ⊢ case L [zero ⇒ M | suc ⇒ N] ↓ A</div>
+    <div class="rule-name">(ICase)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, A ⊢ M ↓ A</span></div>
+    <div class="conclusion">Γ ⊢ μ M ↓ A</div>
+    <div class="rule-name">(IMu)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ M ↑ A</span></div>
+    <div class="conclusion">Γ ⊢ M ↓ A</div>
+    <div class="rule-name">(IEmb)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Bidirectional raw syntax: synthesizable (`Term⁺`) and inheritable (`Term⁻`).
@@ -428,25 +473,18 @@ bidirIdAppTwo = PApp (PAnn (NLam (NEmb (PVar N.Zero))) (TArr TNat TNat)) (NSuc (
 
 ## Exercises
 
-#### Exercise `erase` and round-trip soundness (recommended)
+### Exercise `erase` and round-trip soundness (recommended)
 
 Define an erasure function `erase :: Term g a -> RawTerm` (or bidirectional
 erasure to `TermNeg`) and check that `synthesize` / `inherit` recover an
 equivalent intrinsically-typed derivation.
 
-#### Exercise `Inference-errors` (practice)
+### Exercise `Inference-errors` (practice)
 
 Strengthen the `No` / `SynthNo` branches of `synthesize` and `inherit` so they
 carry structured diagnostic messages alongside their formal refutation proofs.
 
 ## Changes from PLFA
 
-- Adapted from [Inference](https://plfa.inf.ed.ac.uk/Inference/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Inference.lagda.md)),
-  licensed under CC BY 4.0.
-- Implements **both** the introductory Church-annotated `infer`/`check` (`Maybe`)
-  **and** PLFA's full **sound and complete bidirectional `Dec`-based type
-  checker** (`TermPos`/`TermNeg`, `LookupAt`/`lookupDec`, `Synth`/`Inherit`,
-  `eraseSynth`/`eraseInherit`, `synthUnique`, `synthesize`, and `inherit`)
-  over de Bruijn STLC terms, compiled with `-Werror=incomplete-patterns`,
-  `-dcore-lint -dstg-lint`, and zero promoted-constructor ticks.
+- Represents bidirectional raw syntax (`TermPos` / `TermNeg`) with de Bruijn indices (`Nat`) rather than named `String` identifiers erased to de Bruijn terms.
+- Includes both a Church-style annotated checker (`RawTerm`) and a sound and complete bidirectional `Dec`-based synthesis/checking algorithm (`synthesize` / `inherit`).

@@ -5,13 +5,12 @@ next: /Adequacy/
 src: content/part3/Soundness.md
 module: PLFH.Part3.Soundness
 plfaChapter: https://plfa.inf.ed.ac.uk/Soundness/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 A denotational semantics is only useful for reasoning about programs if it
-agrees with operational reduction! Specifically, if `M —↠ N` via full
+agrees with operational reduction. Specifically, if `M —↠ N` via full
 β-reduction (`BetaSteps` from [Untyped](/Untyped/)), then `M` and `N` must have
-the **exact same denotation**: `ℰ M ≃ ℰ N`!
+the **exact same denotation**: `ℰ M ≃ ℰ N`.
 
 In PLFA's **Soundness** chapter, we prove **both directions** of that
 equivalence:
@@ -22,11 +21,11 @@ equivalence:
    [Compositional](/Compositional/) and apply forward substitution
    (`denotSubst`).
 2. **Backward Subject Expansion (`denotReflect`, `denotReflectMulti`):** If
-   `e ⊢ N ↓ v` and `M —→ N`, then `e ⊢ M ↓ v`! Notice how interesting this
+   `e ⊢ N ↓ v` and `M —→ N`, then `e ⊢ M ↓ v`. Notice how interesting this
    direction is: to reconstruct `e ⊢ (λ b) · w ↓ v` from `e ⊢ b [ w ] ↓ v`,
    `denotSubstReflect` walks the derivation of `b [ w ]`, collecting every
    finite approximation of `w` used at each occurrence of variable `c` and
-   **joining** them together into a single argument value `u` (`joinInsert`)!
+   **joining** them together into a single argument value `u` (`joinInsert`).
 3. **Soundness (`denotEquivSteps`):** Combining forward preservation and backward
    reflection yields
    `denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`.
@@ -180,8 +179,8 @@ Both directions of β-substitution follow cleanly over functional `substU`:
   under binders (`extsU^k (singleSubstU w)`), paired with environment insertion
   `InsertEnv c e u e'`. Whenever variable `c` occurs multiple times (in `WApp`
   or `DJoin`), we join the required approximations `u₁` and `u₂` of `w` into
-  `Join u₁ u₂` using `joinInsert` and `envSubMono`—and if `c` never occurs,
-  `Bot` suffices (`DBot`)!
+  `Join u₁ u₂` using `joinInsert` and `envSubMono`, and if `c` never occurs,
+  `Bot` suffices (`DBot`).
 
 ```haskell
 -- | A simultaneous substitution `p` respects environments `e1` and `e2`.
@@ -445,24 +444,18 @@ denotEquivSteps m steps = denotEquivStepsW (mkTermW m) steps
 
 ## Exercises
 
-#### Exercise `beta-conv-sound` (practice)
+### Exercise `beta-conv-sound` (practice)
 
 Using `denotEquivSteps`, `denEqSym`, and `denEqTrans`, show that any two
 β-convertible terms (connected by a zig-zag of forward and backward
-`BetaSteps`) have equivalent denotations!
+`BetaSteps`) have equivalent denotations.
 
-#### Exercise `omega-denot-bot` (recommended)
+### Exercise `omega-denot-bot` (recommended)
 
 Reflect on why `denotPreserve` alone is **not** enough to prove `Ω` never
-denotes `Arr Bot Bot`—whereas [Adequacy](/Adequacy/) next will prove that any
-closed term denoting `Arr Bot Bot` *must* terminate at a lambda!
+denotes `Arr Bot Bot`, whereas [Adequacy](/Adequacy/) next will prove that any
+closed term denoting `Arr Bot Bot` *must* terminate at a lambda.
 
 ## Changes from PLFA
 
-- Adapted from [Soundness](https://plfa.inf.ed.ac.uk/Soundness/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Soundness.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports `denotRename`, `denotRenameReflect`, simultaneous
-  `denotSubst`, `denotSubstReflect`, `betaPres`, `betaReflect`,
-  `denotPreserve`, `denotPreserveMulti`, `denotReflect`, `denotReflectMultiW`,
-  and `denotEquivSteps` over functional `renameU`, `substU`, and `substSingleU`.
+- Proves simultaneous substitution preservation (`denotSubst`) and single-variable substitution reflection (`denotSubstReflect` via `SingleSubAt` / `InsertEnv`), which directly yield `betaPres`, `betaReflect`, and `denotEquivSteps`.

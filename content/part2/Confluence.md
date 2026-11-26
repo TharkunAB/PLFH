@@ -1,44 +1,54 @@
 ---
 title: "Confluence: Parallel reduction and Church-Rosser confluence"
-prev: /Substitution/
+prev: /BigStep/
 next: /Denotational/
 src: content/part2/Confluence.md
 module: PLFH.Part2.Confluence
 plfaChapter: https://plfa.inf.ed.ac.uk/Confluence/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 Because full β-reduction (`BetaStep` in [Untyped](/Untyped/)) can contract
 redexes in any order, a single term `L` can reduce along many different paths:
 
-```text
-          L
-        /   \
-       *     *
-      v       v
-     M₁       M₂
-      \       /
-       *     *
-        v   v
-          N
-```
+<figure class="plfh-diagram">
+  <svg viewBox="0 0 260 190" width="260" height="190" role="img" aria-label="Church-Rosser diamond diagram">
+    <defs>
+      <marker id="cr-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1 L 10 5 L 0 9 z" fill="#1e293b"/>
+      </marker>
+    </defs>
+    <text x="130" y="24" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">L</text>
+    <line x1="118" y1="34" x2="62" y2="80" stroke="#1e293b" stroke-width="1.6" marker-end="url(#cr-arrow)"/>
+    <line x1="142" y1="34" x2="198" y2="80" stroke="#1e293b" stroke-width="1.6" marker-end="url(#cr-arrow)"/>
+    <text x="76" y="54" text-anchor="middle" font-family="Iosevka, monospace" font-size="13" fill="#475569">*</text>
+    <text x="184" y="54" text-anchor="middle" font-family="Iosevka, monospace" font-size="13" fill="#475569">*</text>
+    <text x="48" y="100" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">M₁</text>
+    <text x="212" y="100" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#0f172a">M₂</text>
+    <line x1="62" y1="112" x2="118" y2="158" stroke="#1d62c1" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#cr-arrow)"/>
+    <line x1="198" y1="112" x2="142" y2="158" stroke="#1d62c1" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#cr-arrow)"/>
+    <text x="76" y="144" text-anchor="middle" font-family="Iosevka, monospace" font-size="13" fill="#1d62c1">*</text>
+    <text x="184" y="144" text-anchor="middle" font-family="Iosevka, monospace" font-size="13" fill="#1d62c1">*</text>
+    <text x="130" y="178" text-anchor="middle" font-family="Iosevka, monospace" font-size="16" font-weight="600" fill="#1d62c1">N</text>
+  </svg>
+  <figcaption>Church-Rosser confluence: any two reduction paths from L rejoin at a common reduct N.</figcaption>
+</figure>
 
 The celebrated **Church–Rosser Theorem** (Alonzo Church and J. Barkley Rosser,
 1936) guarantees that the order of reduction **never changes the final answer**:
 if `L —↠ M₁` and `L —↠ M₂`, there always exists a common reduct `N` such that
-`M₁ —↠ N` and `M₂ —↠ N`! As an immediate corollary, every term has **at most
+`M₁ —↠ N` and `M₂ —↠ N`. As an immediate corollary, every term has **at most
 one** normal form.
 
-### Why ordinary β-reduction fails the Diamond Property
+## Why ordinary β-reduction fails the Diamond Property
 
 A natural first attempt is to prove the one-step **Diamond Property** directly
 for `BetaStep` (`L —→ M₁` and `L —→ M₂` implies `M₁ —→ N` and `M₂ —→ N`), and
 tile one-step diamonds into a big multi-step diamond. Unfortunately, **ordinary
-β-reduction does *not* satisfy the one-step diamond property!**
+β-reduction does *not* satisfy the one-step diamond property.**
 
 Consider `(λ x. x x) ((λ y. y) z)`:
 - Contracting the **outer** redex first duplicates the argument, producing
-  `((λ y. y) z) ((λ y. y) z)`—which now needs **two** β-steps to reach `z z`!
+  `((λ y. y) z) ((λ y. y) z)`, which now needs **two** β-steps to reach `z z`.
 - Contracting the **inner** redex first produces `(λ x. x x) z`, which reaches
   `z z` in just **one** β-step.
 
@@ -46,18 +56,18 @@ Consider `(λ x. x x) ((λ y. y) z)`:
 
 William Tait and Per Martin-Löf found an extraordinarily elegant way around the
 duplication problem: introduce **parallel reduction** `Par` (`M ⇛ N`), which
-allows contracting **any subset** (zero, one, or many!) of existing β-redexes
-simultaneously in a single step! Because parallel reduction can contract both
+allows contracting **any subset** (zero, one, or many) of existing β-redexes
+simultaneously in a single step. Because parallel reduction can contract both
 copies of `(λ y. y) z` at once:
 
 1. Single-step β-reduction sits inside parallel reduction (`BetaStep ⊆ Par`),
    and every parallel step decomposes into zero or more β-steps
    (`parToBetas :: Par m n -> BetaSteps m n`), so their reflexive-transitive
    closures coincide (`BetaSteps` ↔ `ParSteps`).
-2. Parallel reduction **does** satisfy the one-step Diamond Property!
+2. Parallel reduction **does** satisfy the one-step Diamond Property.
 3. By the **Strip Lemma** (`strip`), the Diamond Property implies **Confluence**
-   for `ParSteps` (`parConfluence`)—and hence full **Church–Rosser Confluence**
-   for `BetaSteps` (`churchRosser`)!
+   for `ParSteps` (`parConfluence`), and hence full **Church–Rosser Confluence**
+   for `BetaSteps` (`churchRosser`).
 
 ## Imports
 
@@ -162,11 +172,34 @@ Look closely at the four constructors of `Par`:
 - `PLam`: reduce inside a lambda body in parallel.
 - `PApp`: reduce *both* function and argument in parallel.
 - `PBeta`: reduce the body `b ⇛ b'` **and** the argument `w ⇛ w'` in parallel,
-  and simultaneously contract the outer β-redex directly via `substSingleU b' w'`!
+  and simultaneously contract the outer β-redex directly via `substSingleU b' w'`.
 
 Because `PBeta` uses the exact same functional `substSingleU` as `Untyped.Beta`,
 `parToBetas` simulates any parallel step into a sequence of ordinary `BetaSteps`
-by direct structural induction:
+by direct structural induction.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">x ⇛ x</div>
+    <div class="rule-name">(PVar)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>b ⇛ b'</span></div>
+    <div class="conclusion">λ b ⇛ λ b'</div>
+    <div class="rule-name">(PLam)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>L ⇛ L'</span><span>M ⇛ M'</span></div>
+    <div class="conclusion">L · M ⇛ L' · M'</div>
+    <div class="rule-name">(PApp)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>b ⇛ b'</span><span>W ⇛ W'</span></div>
+    <div class="conclusion">(λ b) · W ⇛ b' [ W' ]</div>
+    <div class="rule-name">(PBeta)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
@@ -278,10 +311,10 @@ from [Substitution](/Substitution/):
   substitution preserve parallel reduction (using `substCommute` in the `PBeta`
   case).
 - **`parDiamondW` / `parDiamond`**: parallel reduction satisfies the one-step
-  **Diamond Property**! In the `PApp (PLam b1) w1` vs. `PBeta b2 w2` overlap,
+  **Diamond Property**. In the `PApp (PLam b1) w1` vs. `PBeta b2 w2` overlap,
   `parSubstSingle` closes the right edge while `PBeta` closes the left edge; in
   the `PBeta` vs. `PBeta` overlap, both targets reduce identically to
-  `substSingleU b* w*`!
+  `substSingleU b* w*`.
 
 ```haskell
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
@@ -405,7 +438,7 @@ With `parDiamond` proved, the Church–Rosser theorem follows directly:
    `parsToBetas`.
 4. **`uniqueNormalForm`**: combines `churchRosser` with `normalNoBetaSteps` to
    prove that any two normal forms reached from the same term `l` are
-   propositionally equal (`m1 :~: m2`)!
+   propositionally equal (`m1 :~: m2`).
 
 ```haskell
 -- | Strip Lemma: one `Par` step commutes with any sequence of `ParSteps`.
@@ -490,25 +523,18 @@ uniqueNormalForm l bs1 bs2 nm1 nm2 =
 
 ## Exercises
 
-#### Exercise `unique-normal-form` (recommended)
+### Exercise `par-diamond-eg` (practice)
 
-Using `normalNoBetaStep` and `churchRosser`, verify that if `BetaSteps l m1`
-and `BetaSteps l m2` with both `Normal m1` and `Normal m2`, then `m1 :~: m2`
-(proved directly above as `uniqueNormalForm`).
+Consider `L = (λ x. x x) ((λ y. y) z)` from the introduction. Construct two
+`Par` derivations from `L`: one contracting only the outer redex and one
+contracting only the inner redex, then apply `parDiamond` to obtain their
+common reduct `z z`.
 
-#### Exercise `join-sym` (practice)
+### Exercise `par-subst-id` (practice)
 
-Prove that `Joinable rel` is symmetric (`joinSym :: Joinable rel m1 m2 -> Joinable rel m2 m1`)
-for any binary relation `rel`.
+Using `parRefl` and `parSubst`, show that parallel reduction is closed under
+arbitrary multi-variable substitution without re-proving renaming.
 
 ## Changes from PLFA
 
-- Adapted from [Confluence](https://plfa.inf.ed.ac.uk/Confluence/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Confluence.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Complete `-Werror=incomplete-patterns`-verified proof of
-  `parRefl`, `betaToPar`, `betasToPars`, `parRename`, `parSubst`, `parSubstSingle`,
-  `parDiamond`, `strip`, `parConfluence`, **`churchRosser`**, and
-  **`uniqueNormalForm`** over promoted `UTerm n` using functional `substSingleU`
-  and `Substitution.renCommute`/`substCommute`, with zero promoted-constructor
-  ticks and zero postulates.
+- Reuses the substitution infrastructure from [Substitution](/Substitution/) to prove Tait and Martin-Löf's Diamond Property (`parDiamond`), the Strip Lemma (`strip`), Church-Rosser confluence (`churchRosser`), and uniqueness of normal forms (`uniqueNormalForm`).

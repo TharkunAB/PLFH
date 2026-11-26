@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 43 "content/part2/Substitution.md" #-}
+{-# LINE 42 "content/part2/Substitution.md" #-}
 module PLFH.Part2.Substitution
   ( Rename
   , Subst
@@ -82,7 +82,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 143 "content/part2/Substitution.md" #-}
+{-# LINE 142 "content/part2/Substitution.md" #-}
 -- | A simultaneous renaming from scope depth `m` to scope depth `n`.
 type Rename (m :: Nat) (n :: Nat) = Fin m -> Fin n
 
@@ -110,7 +110,7 @@ consSubst _ sigma (FS x) = sigma x
 seqSubst :: (Fin m -> UTerm n) -> (Fin n -> UTerm p) -> Fin m -> UTerm p
 seqSubst sigma tau x = substU tau (sigma x)
 
-{-# LINE 183 "content/part2/Substitution.md" #-}
+{-# LINE 182 "content/part2/Substitution.md" #-}
 -- | Retained runtime witness for a term `t :: UTerm n`.
 type HasTerm :: forall (n :: Nat). UTerm n -> Type
 data HasTerm t where
@@ -196,7 +196,7 @@ evalSubst sw (ULam b)   = case evalSubst @(Succ m) @(Succ n) @(extsU s) (extsW @
 evalSubst sw (UApp l r) = case (evalSubst @m @n @s sw l, evalSubst @m @n @s sw r) of
   (MkHasTerm l', MkHasTerm r') -> MkHasTerm (UApp l' r')
 
-{-# LINE 282 "content/part2/Substitution.md" #-}
+{-# LINE 280 "content/part2/Substitution.md" #-}
 -- | Pointwise equality between two renamings.
 type RenEq :: forall (m :: Nat) (n :: Nat). Rename m n -> Rename m n -> Type
 type RenEq @m @n r1 r2 = foreach (x :: Fin m) -> r1 x :~: r2 x
@@ -248,7 +248,7 @@ congSubst eq (ULam b)   =
 congSubst eq (UApp l r) = case (congSubst @m @n @s1 @s2 eq l, congSubst @m @n @s1 @s2 eq r) of
   (Refl, Refl) -> Refl
 
-{-# LINE 341 "content/part2/Substitution.md" #-}
+{-# LINE 339 "content/part2/Substitution.md" #-}
 -- | Head lookup: `(t • σ) 0 ≡ t`.
 subHead :: forall m n (t :: UTerm n) (s :: Subst m n).
            consSubst t s FZ :~: t
@@ -274,7 +274,7 @@ subLam :: forall m n (s :: Subst m n) (b :: UTerm (Succ m)).
           substU s (ULam b) :~: ULam (substU (extsU s) b)
 subLam = Refl
 
-{-# LINE 381 "content/part2/Substitution.md" #-}
+{-# LINE 379 "content/part2/Substitution.md" #-}
 -- | Lifting the identity substitution under a binder yields `ids` pointwise (`exts-ids`).
 extsIds :: forall m. SubEq @(Succ m) @(Succ m) (extsU (ids @m)) (ids @(Succ m))
 extsIds FZ     = Refl
@@ -448,7 +448,7 @@ subSubW :: forall n p q (t :: Subst n p) (u :: Subst p q) (m :: UTerm n).
         -> substU u (substU t m) :~: substU (seqSubst t u) m
 subSubW tw uw (MkHasTerm m) = subSub @n @p @q @t @u tw uw m
 
-{-# LINE 563 "content/part2/Substitution.md" #-}
+{-# LINE 561 "content/part2/Substitution.md" #-}
 -- | Shift-cons cancellation (`Z-shift`, pointwise): `(ren ↑ ⨟ (t • σ)) x ≡ σ x`.
 zShiftAt :: forall m n (t :: UTerm n) (s :: Subst m n).
             SubEq @m @n (seqSubst (ren (shift @m)) (consSubst t s)) s
@@ -501,7 +501,7 @@ substSingleAsCons :: forall n (w :: UTerm n).
 substSingleAsCons b =
   congSubst @(Succ n) @n @(singleSubstU w) @(consSubst w (ids @n)) (singleAsConsAt @n @w) b
 
-{-# LINE 624 "content/part2/Substitution.md" #-}
+{-# LINE 622 "content/part2/Substitution.md" #-}
 shiftSingleCancel :: forall n (v :: UTerm n).
                      SubEq @n @n (seqSubst (ren shiftFin) (singleSubstU v)) (ids @n)
 shiftSingleCancel _ = Refl

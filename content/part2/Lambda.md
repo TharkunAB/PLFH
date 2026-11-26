@@ -9,7 +9,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Lambda/
 
 Welcome to Part 2: **Programming Language Foundations**. In Part 1 we built up
 logic, equality, relations, and induction in Dependent Haskell. Now we put
-those tools to work formalizing programming languages themselves—starting with
+those tools to work formalizing programming languages themselves, starting with
 Alonzo Church's **simply-typed lambda calculus** (STLC), extended with natural
 numbers, case analysis, and general recursion (`μ`).
 
@@ -91,9 +91,9 @@ plus = μ "+" ⇒ λ m ⇒ λ n ⇒ case m [ zero ⇒ n | suc m' ⇒ suc ("+" ·
 ```
 
 Because `μ` allows arbitrary recursion, our simply-typed lambda calculus is
-Turing-complete—well-typed terms can loop forever (such as `μ x ⇒ x`), yet as
+Turing-complete, well-typed terms can loop forever (such as `μ x ⇒ x`), yet as
 we will prove in [Properties](/Properties/), they can never *get stuck* on a
-type error!
+type error.
 
 ## Bound and free variables, and the Barendregt convention
 
@@ -105,11 +105,11 @@ On paper, we routinely identify terms up to renaming of bound variables
 (*α-equivalence*, so `λ x ⇒ x` and `λ y ⇒ y` denote the same function) and
 assume bound variables are chosen distinct from free variables (the *Barendregt
 convention*). When formalizing in a proof assistant, however, names are concrete
-data! In this chapter we restrict substitution `substTerm m y v` to replacing
+data. In this chapter we restrict substitution `substTerm m y v` to replacing
 `y` with a **closed** term `v`, which neatly avoids variable capture without
 needing α-renaming. (In [DeBruijn](/DeBruijn/) we eliminate variable names
 altogether using de Bruijn indices so that α-equivalent terms are syntactically
-identical.)
+identical)
 
 ## Syntax of terms, types, and contexts
 
@@ -233,8 +233,51 @@ rules fall into two groups:
   - `BetaMu`: unfolding `TMu x m` substitutes the whole fixpoint `TMu x m` for
     `x` in `m`.
 
-Notice how `BetaLam`, `BetaSuc`, and `BetaMu` call our ordinary Haskell
-function `substTerm` directly in their result types!
+`BetaLam`, `BetaSuc`, and `BetaMu` call our ordinary Haskell function `substTerm`
+directly in their result types:
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>L —→ L'</span></div>
+    <div class="conclusion">L · M —→ L' · M</div>
+    <div class="rule-name">(ξ-·₁)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Value V</span><span>M —→ M'</span></div>
+    <div class="conclusion">V · M —→ V · M'</div>
+    <div class="rule-name">(ξ-·₂)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Value V</span></div>
+    <div class="conclusion">(λ x. N) · V —→ N [ x := V ]</div>
+    <div class="rule-name">(β-λ)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>M —→ M'</span></div>
+    <div class="conclusion">suc M —→ suc M'</div>
+    <div class="rule-name">(ξ-suc)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>L —→ L'</span></div>
+    <div class="conclusion">case L [zero ⇒ M | suc x ⇒ N] —→ case L' [zero ⇒ M | suc x ⇒ N]</div>
+    <div class="rule-name">(ξ-case)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">case zero [zero ⇒ M | suc x ⇒ N] —→ M</div>
+    <div class="rule-name">(β-zero)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Value V</span></div>
+    <div class="conclusion">case (suc V) [zero ⇒ M | suc x ⇒ N] —→ N [ x := V ]</div>
+    <div class="rule-name">(β-suc)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">μ x. M —→ M [ x := μ x. M ]</div>
+    <div class="rule-name">(β-μ)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Call-by-value one-step reduction relation (M —→ N).
@@ -269,7 +312,7 @@ that the *rightmost* binding of variable `x` in context `g` has type `a`:
 
 - `LZ` finds `x : a` immediately at the end of `CExt g x a`;
 - `LS` skips past an outer binding `y : b` **only** when given a proof
-  `Not (x :~: y)` that `x` and `y` are distinct, enforcing lexical shadowing!
+  `Not (x :~: y)` that `x` and `y` are distinct, enforcing lexical shadowing.
 
 The typing rules follow natural deduction's **introduction (`-I`)** and
 **elimination (`-E`)** pattern for each type constructor:
@@ -280,6 +323,54 @@ The typing rules follow natural deduction's **introduction (`-I`)** and
   `TCaseT` (`ℕ-E`).
 - Variables and recursion: `TVar` reads a type from `Lookup`, and `TMuT` types
   `TMu x m` at `a` whenever `m` has type `a` under the assumption `x : a`.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ, x ⦂ A ∋ x ⦂ A</div>
+    <div class="rule-name">(LZ)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>x ≢ y</span><span>Γ ∋ x ⦂ A</span></div>
+    <div class="conclusion">Γ, y ⦂ B ∋ x ⦂ A</div>
+    <div class="rule-name">(LS)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ∋ x ⦂ A</span></div>
+    <div class="conclusion">Γ ⊢ x ⦂ A</div>
+    <div class="rule-name">(TVar)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, x ⦂ A ⊢ N ⦂ B</span></div>
+    <div class="conclusion">Γ ⊢ λ x. N ⦂ A → B</div>
+    <div class="rule-name">(TLam)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ L ⦂ A → B</span><span>Γ ⊢ M ⦂ A</span></div>
+    <div class="conclusion">Γ ⊢ L · M ⦂ B</div>
+    <div class="rule-name">(TApp)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Γ ⊢ zero ⦂ Nat</div>
+    <div class="rule-name">(TZeroT)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ M ⦂ Nat</span></div>
+    <div class="conclusion">Γ ⊢ suc M ⦂ Nat</div>
+    <div class="rule-name">(TSucT)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ ⊢ L ⦂ Nat</span><span>Γ ⊢ M ⦂ A</span><span>Γ, x ⦂ Nat ⊢ N ⦂ A</span></div>
+    <div class="conclusion">Γ ⊢ case L [zero ⇒ M | suc x ⇒ N] ⦂ A</div>
+    <div class="rule-name">(TCaseT)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>Γ, x ⦂ A ⊢ M ⦂ A</span></div>
+    <div class="conclusion">Γ ⊢ μ x. M ⦂ A</div>
+    <div class="rule-name">(TMuT)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Evidence that variable `x` has type `a` in context `g` (Γ ∋ x ⦂ A).
@@ -347,7 +438,7 @@ stepExample :: Steps (App (Lam 0 (TSuc (Var 0))) (TSuc TZero)) (TSuc (TSuc TZero
 stepExample = StepsCons (BetaLam (VSuc VZero)) StepsRefl
 ```
 
-### Negative control: ill-typed application is rejected
+### Rejected example: ill-typed application is rejected
 
 Trying to apply `TZero` (which has type `TNat`) as a function fails to unify
 `TNat` with `TArr a b`, so GHC rejects it with `GHC-83865`:
@@ -362,7 +453,7 @@ badApp :: HasType CEmpty (App TZero TZero) TNat
 badApp = TApp TZeroT TZeroT
 ```
 
-### Negative control: a beta step must compute its target
+### Rejected example: a beta step must compute its target
 
 The term `TMu Zero TZero` unfolds via `substTerm TZero Zero (TMu Zero TZero)`
 to `TZero`. Attempting to give `BetaMu` a different target term is rejected by
@@ -382,32 +473,24 @@ wrong = BetaMu
 
 ## Exercises
 
-#### Exercise `mul` (recommended)
+### Exercise `mul` (recommended)
 
 Write out a closed STLC `Term` defining multiplication of two natural numbers
-using `TMu`, `Lam`, `TCase`, and addition, and construct its `HasType CEmpty`
+using `TMu`, `Lam`, `TCase`, and `addTerm`, and construct its `HasType CEmpty`
 derivation of type `TArr TNat (TArr TNat TNat)`.
 
-#### Exercise `→-example` (practice)
+### Exercise `∋-injective` (practice)
 
-Construct a closed `HasType` derivation for the Church numeral `2c = λ s ⇒ λ z ⇒ s · (s · z)` at type `TArr (TArr TNat TNat) (TArr TNat TNat)` using
-`TLam`, `TApp`, `TVar`, `LZ`, and `LS`.
+Prove that context lookup is functional: if `Lookup g x a` and `Lookup g x b`,
+then `a :~: b`. Where does the `Not (x :~: y)` premise in `LS` enter the proof?
 
-#### Exercise `Step-example` (practice)
+### Exercise `Context-≃` (stretch)
 
-Construct a concrete `Steps` derivation reducing `App (Lam Zero (TSuc (Var Zero))) (TSuc TZero)` to `TSuc (TSuc TZero)` using `StepsCons`, `BetaLam`, `VSuc`, `VZero`, and `StepsRefl`.
+Define an alternative multi-step reduction relation that appends steps on the
+right (`StepsR`), and prove that `Steps m n` and `StepsR m n` are logically
+equivalent (`Iff (Steps m n) (StepsR m n)`).
 
 ## Changes from PLFA
 
-- Adapted from [Lambda](https://plfa.inf.ed.ac.uk/Lambda/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Lambda.lagda.md)),
-  licensed under CC BY 4.0.
-- Replaced `Id = String` with structural `type Id = Nat` so identifier
-  equality `eqId` is an ordinary closed-datatype structural function with
-  checked type-level equations.
-- `Term`, `Ty`, `Ctx`, `Value`, `substTerm`, `Step`, `Steps`, `Lookup`, and
-  `HasType` all port directly with the exact same inference rules and pass
-  `-dcore-lint -dstg-lint`.
-- The three beta rules (`BetaLam`, `BetaSuc`, `BetaMu`) invoke the ordinary
-  `substTerm` function directly; `NegIllTypedApp` and `NegBetaMuTarget` verify
-  that ill-typed terms and forged beta targets are rejected.
+- Represents variable identifiers as `Nat` (`type Id = Nat`) with structural equality `eqId` instead of `String` identifiers.
+- Uses `substTerm` directly inside the `BetaLam`, `BetaSuc`, and `BetaMu` constructors of `Step`.

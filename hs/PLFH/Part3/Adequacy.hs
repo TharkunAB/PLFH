@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes, ListTuplePuns #-}
-{-# LINE 50 "content/part3/Adequacy.md" #-}
+{-# LINE 49 "content/part3/Adequacy.md" #-}
 module PLFH.Part3.Adequacy
   ( AboveFun (..)
   , aboveFunArr
@@ -14,7 +14,6 @@ module PLFH.Part3.Adequacy
   , notAboveFunJoin
   , notAboveFunJoinInv
   , decAboveFun
-  , WHNF (..)
   , HaltsV (..)
   , LogE
   , LogArr (..)
@@ -37,6 +36,7 @@ module PLFH.Part3.Adequacy
   , reduceToCbn
   , cbnToReduceW
   , cbnToReduce
+  , cbnIffReduce
   , adequacyIdApp
   , adequacyDelta
   , omegaNotAboveFun
@@ -47,6 +47,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
+import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Negation (Not)
 import qualified PLFH.Part2.BigStep as B
 import PLFH.Part2.BigStep (CbnTerminates (..), Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
@@ -130,11 +131,6 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
   (No na, No nb) -> No (notAboveFunJoin a b na nb)
 
 {-# LINE 204 "content/part3/Adequacy.md" #-}
--- | Weak-head normal form: a lambda abstraction.
-type WHNF :: forall (n :: Nat). UTerm n -> Type
-data WHNF m where
-  WLam :: WHNF (ULam b)
-
 -- | Witness that evaluating `m` in `e` halts at a lambda closure related to `v`.
 type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
@@ -234,7 +230,7 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
   MkHaltsV (ev :: EvalBig e m (MkClos (ULam b) (d :: Env k))) lv ->
     MkHaltsV ev (subLogVLam @k @d @b wu wv lt lv)
 
-{-# LINE 319 "content/part3/Adequacy.md" #-}
+{-# LINE 314 "content/part3/Adequacy.md" #-}
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
 data EnvLogHit (e' :: Env n) (x :: Fin n) (v :: Value) where
   MkEnvLogHit :: EnvLookup e' x (MkClos m' d') -> LogE v d' m' -> EnvLogHit e' x v
@@ -303,6 +299,10 @@ cbnToReduceW wu (MkHaltsBig ev) = B.cbnToReduceW wu ev
 
 cbnToReduce :: foreach (u :: UTerm Zero) -> HaltsBig ENil u -> CbnTerminates u
 cbnToReduce u (MkHaltsBig ev) = B.cbnToReduce u ev
+
+-- | Equivalence between call-by-name big-step halting and small-step termination (`cbn↔reduce`).
+cbnIffReduce :: foreach (u :: UTerm Zero) -> Iff (HaltsBig ENil u) (CbnTerminates u)
+cbnIffReduce u = Iff (cbnToReduce u) (\case MkCbnTerminates steps -> reduceToCbn u steps)
 
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!

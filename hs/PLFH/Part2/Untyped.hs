@@ -45,12 +45,22 @@ module PLFH.Part2.Untyped
   , EvalRes (..)
   , evalNormal
   , evalNormalTerm
+  , weakenClosed
+  , sZero
+  , sSuc
+  , sCase
+  , sMu
+  , sOne
+  , sTwo
+  , sFour
+  , sPlus
+  , sTwoPlusTwo
   ) where
 
 import Data.Kind (Type)
 import Data.Nat.Dependent (Nat (..))
 
-{-# LINE 95 "content/part2/Untyped.md" #-}
+{-# LINE 105 "content/part2/Untyped.md" #-}
 -- | Finite set {0, ..., n-1}: well-scoped de Bruijn variables in depth `n`.
 data Fin (n :: Nat) where
   FZ :: Fin (Succ n)
@@ -95,7 +105,7 @@ omegaTerm = UApp selfApp selfApp
     selfApp :: UTerm Zero
     selfApp = ULam (UApp (UVar FZ) (UVar FZ))
 
-{-# LINE 154 "content/part2/Untyped.md" #-}
+{-# LINE 164 "content/part2/Untyped.md" #-}
 -- | Shift a variable up by one de Bruijn level.
 shiftFin :: Fin m -> Fin (Succ m)
 shiftFin x = FS x
@@ -131,7 +141,7 @@ singleSubstU _ (FS x) = UVar x
 substSingleU :: UTerm (Succ n) -> UTerm n -> UTerm n
 substSingleU b w = substU (singleSubstU w) b
 
-{-# LINE 212 "content/part2/Untyped.md" #-}
+{-# LINE 222 "content/part2/Untyped.md" #-}
 -- | Neutral terms: a variable applied to zero or more normal arguments.
 type Neutral :: forall (n :: Nat). UTerm n -> Type
 data Neutral t where
@@ -177,7 +187,7 @@ bsLam :: BetaSteps b b' -> BetaSteps (ULam b) (ULam b')
 bsLam BRefl       = BRefl
 bsLam (BCons s p) = BCons (XiLam s) (bsLam p)
 
-{-# LINE 265 "content/part2/Untyped.md" #-}
+{-# LINE 275 "content/part2/Untyped.md" #-}
 -- | Promoted closed terms: λx. x, λx. x x, and Ω = (λx. x x) (λx. x x).
 type IdTerm    = (ULam (UVar FZ) :: UTerm Zero)
 type SelfApp   = (ULam (UApp (UVar FZ) (UVar FZ)) :: UTerm Zero)
@@ -215,7 +225,7 @@ cTwoIsNormal = NLam (NLam (NNeu (NApp NVar (NNeu (NApp NVar (NNeu NVar))))))
 kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
 kOmegaStep = Beta
 
-{-# LINE 335 "content/part2/Untyped.md" #-}
+{-# LINE 345 "content/part2/Untyped.md" #-}
 -- | Outcome of one leftmost-outermost (normal-order) reduction step.
 type StepRes :: forall (n :: Nat). UTerm n -> Type
 data StepRes t where
@@ -265,3 +275,49 @@ evalNormalTerm :: forall (n :: Nat). Nat -> UTerm n -> Maybe (UTerm n)
 evalNormalTerm gas t = case evalNormal gas t of
   EvalDone nf _ _  -> Just nf
   EvalOutOfGas _ _ -> Nothing
+
+{-# LINE 412 "content/part2/Untyped.md" #-}
+-- | Weaken a closed term into any binder depth `n`.
+weakenClosed :: UTerm Zero -> UTerm n
+weakenClosed = renameU (\case {})
+
+-- | Scott numeral 0: `λ z. λ s. z`.
+sZero :: UTerm Zero
+sZero = ULam (ULam (UVar (FS FZ)))
+
+-- | Scott successor: `λ n. λ z. λ s. s n`.
+sSuc :: UTerm Zero
+sSuc = ULam (ULam (ULam (UApp (UVar FZ) (UVar (FS (FS FZ))))))
+
+-- | Scott case eliminator: `λ n. λ z. λ s. n z s`.
+sCase :: UTerm Zero
+sCase = ULam (ULam (ULam (UApp (UApp (UVar (FS (FS FZ))) (UVar (FS FZ))) (UVar FZ))))
+
+-- | Curry's Y-combinator fixpoint: `λ f. (λ x. f (x x)) (λ x. f (x x))`.
+sMu :: UTerm Zero
+sMu = ULam (UApp half half)
+  where
+    half = ULam (UApp (UVar (FS FZ)) (UApp (UVar FZ) (UVar FZ)))
+
+-- | Concrete Scott numerals 1, 2, and 4 (in normal form).
+sOne :: UTerm Zero
+sOne = ULam (ULam (UApp (UVar FZ) (weakenClosed sZero)))
+
+sTwo :: UTerm Zero
+sTwo = ULam (ULam (UApp (UVar FZ) (weakenClosed sOne)))
+
+sFour :: UTerm Zero
+sFour = ULam (ULam (UApp (UVar FZ) (ULam (ULam (UApp (UVar FZ) (weakenClosed sTwo))))))
+
+-- | Recursive addition on Scott numerals:
+-- `sMu (λ p. λ m. λ n. m n (λ m'. sSuc (p m' n)))`.
+sPlus :: UTerm Zero
+sPlus = UApp sMu (ULam (ULam (ULam body)))
+  where
+    recCall = UApp (UApp (UVar (FS (FS (FS FZ)))) (UVar FZ)) (UVar (FS FZ))
+    sucStep = ULam (UApp (weakenClosed sSuc) recCall)
+    body    = UApp (UApp (UVar (FS FZ)) (UVar FZ)) sucStep
+
+-- | Normal-order evaluation of `sPlus · sTwo · sTwo` (yields `Just sFour`).
+sTwoPlusTwo :: Maybe (UTerm Zero)
+sTwoPlusTwo = evalNormalTerm 100 (UApp (UApp sPlus sTwo) sTwo)

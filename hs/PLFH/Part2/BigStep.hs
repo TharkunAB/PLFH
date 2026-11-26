@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
-{-# LINE 37 "content/part2/BigStep.md" #-}
+{-# LINE 36 "content/part2/BigStep.md" #-}
 module PLFH.Part2.BigStep
   ( Env (..)
   , Clos (..)
@@ -68,7 +68,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 116 "content/part2/BigStep.md" #-}
+{-# LINE 115 "content/part2/BigStep.md" #-}
 -- | Closure environment matching de Bruijn scope depth `n`.
 data Env (n :: Nat) where
   ENil  :: Env Zero
@@ -87,7 +87,7 @@ lookupEnv (ECons _ e) (FS x) = lookupEnv e x
 idClos :: Clos
 idClos = MkClos (ULam (UVar FZ)) ENil
 
-{-# LINE 153 "content/part2/BigStep.md" #-}
+{-# LINE 167 "content/part2/BigStep.md" #-}
 -- | Relational environment lookup: variable `x` maps to closure `c` in `e`.
 type EnvLookup :: forall (n :: Nat). Env n -> Fin n -> Clos -> Type
 data EnvLookup e x c where
@@ -103,7 +103,7 @@ data EvalBig e t v where
        -> EvalBig (ECons (MkClos m e) d) b w
        -> EvalBig e (UApp l m) w
 
-{-# LINE 180 "content/part2/BigStep.md" #-}
+{-# LINE 194 "content/part2/BigStep.md" #-}
 -- | Concrete call-by-name derivation: (λx. x) (λy. y) ⇓ <λy. y, []>.
 evalIdApp :: EvalBig ENil
                      (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -139,7 +139,7 @@ evalBigIsLam (EVar _ ev)  = evalBigIsLam ev
 evalBigIsLam ELam         = MkIsLamClos
 evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
-{-# LINE 225 "content/part2/BigStep.md" #-}
+{-# LINE 239 "content/part2/BigStep.md" #-}
 -- | Determinism of relational environment lookup.
 envLookupDeterm :: EnvLookup e x c1 -> EnvLookup e x c2 -> c1 :~: c2
 envLookupDeterm ELZ      ELZ      = Refl
@@ -153,7 +153,7 @@ evalDeterm ELam ELam = Refl
 evalDeterm (EApp evL1 evB1) (EApp evL2 evB2) = case evalDeterm evL1 evL2 of
   Refl -> evalDeterm evB1 evB2
 
-{-# LINE 250 "content/part2/BigStep.md" #-}
+{-# LINE 264 "content/part2/BigStep.md" #-}
 -- | Inductive invariant for closures that dereference to `<SelfApp, []>`:
 -- either `SelfApp = λx. x x` directly in `ENil`, or a variable pointing to one.
 type IsSelfApp :: forall (n :: Nat). Env n -> UTerm n -> Type
@@ -176,7 +176,7 @@ omegaLoopDiverges sa1 sa2 (EApp ev1 ev2) = case selfAppEval sa1 ev1 of
 omegaDiverges :: Not (EvalBig ENil OmegaTerm c)
 omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 
-{-# LINE 283 "content/part2/BigStep.md" #-}
+{-# LINE 295 "content/part2/BigStep.md" #-}
 -- | Call-by-name big-step evaluation using ordinary `lookupEnv` in the same module!
 type EvalFun :: forall (n :: Nat). Env n -> UTerm n -> Clos -> Type
 data EvalFun e t v where
@@ -212,7 +212,7 @@ evalFunKIdOmega
        (MkClos IdTerm ENil)
 evalFunKIdOmega = EFApp (EFApp EFLam EFLam) (EFVar EFLam)
 
-{-# LINE 370 "content/part2/BigStep.md" #-}
+{-# LINE 376 "content/part2/BigStep.md" #-}
 -- | Inductive closing witness: `p :: Subst n Zero` closes `e :: Env n` by
 -- recursively applying each closure's own closing substitution.
 type CloseEnv :: forall (n :: Nat). Env n -> Subst n Zero -> Type

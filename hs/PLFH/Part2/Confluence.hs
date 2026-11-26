@@ -3,7 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
 {-# OPTIONS_GHC -Werror=incomplete-patterns #-}
-{-# LINE 67 "content/part2/Confluence.md" #-}
+{-# LINE 77 "content/part2/Confluence.md" #-}
 module PLFH.Part2.Confluence
   ( bsTrans
   , bsApp1
@@ -94,7 +94,7 @@ import PLFH.Part2.Untyped
   , substU
   )
 
-{-# LINE 172 "content/part2/Confluence.md" #-}
+{-# LINE 205 "content/part2/Confluence.md" #-}
 -- | Parallel β-reduction: contract any subset of redexes simultaneously.
 type Par :: forall (n :: Nat). UTerm n -> UTerm n -> Type
 data Par t t' where
@@ -132,7 +132,7 @@ parsToBetas (PSCons p q) = bsTrans (parToBetas p) (parsToBetas q)
 omegaPar :: Par OmegaTerm OmegaTerm
 omegaPar = PBeta (PApp PVar PVar) (PLam (PApp PVar PVar))
 
-{-# LINE 219 "content/part2/Confluence.md" #-}
+{-# LINE 252 "content/part2/Confluence.md" #-}
 substSingleW :: forall (n :: Nat) (b :: UTerm (Succ n)) (w :: UTerm n).
                 TermW b -> TermW w -> TermW (substSingleU b w)
 substSingleW wb ww = case (termWToHas wb, termWToHas ww) of
@@ -182,7 +182,7 @@ betasToPars :: forall (n :: Nat) (m2 :: UTerm n).
                foreach (m1 :: UTerm n) -> BetaSteps m1 m2 -> ParSteps m1 m2
 betasToPars m1 bs = betasToParsW (mkTermW m1) bs
 
-{-# LINE 287 "content/part2/Confluence.md" #-}
+{-# LINE 320 "content/part2/Confluence.md" #-}
 -- | Two terms `m1` and `m2` are joinable under `rel` if they share a common reduct `k`.
 type Joinable :: forall (n :: Nat). (UTerm n -> UTerm n -> Type) -> UTerm n -> UTerm n -> Type
 data Joinable rel m1 m2 where
@@ -291,7 +291,7 @@ parDiamond :: forall (n :: Nat) (n1 n2 :: UTerm n).
               foreach (m :: UTerm n) -> Par m n1 -> Par m n2 -> Joinable Par n1 n2
 parDiamond m = parDiamondW (mkTermW m)
 
-{-# LINE 411 "content/part2/Confluence.md" #-}
+{-# LINE 444 "content/part2/Confluence.md" #-}
 -- | Strip Lemma: one `Par` step commutes with any sequence of `ParSteps`.
 stripW :: TermW m -> Par m n1 -> ParSteps m n2 -> Joinable ParSteps n1 n2
 stripW _  p1 PSRefl         = Join PSRefl (PSCons p1 PSRefl)

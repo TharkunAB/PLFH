@@ -5,33 +5,32 @@ next: /Soundness/
 src: content/part3/Compositional.md
 module: PLFH.Part3.Compositional
 plfaChapter: https://plfa.inf.ed.ac.uk/Compositional/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 What makes a semantics truly **denotational**? **Compositionality** (Frege's
 principle): *the meaning of a compound expression depends solely on the
-meanings of its immediate subexpressions!*
+meanings of its immediate subexpressions.*
 
 In [Denotational](/Denotational/), we defined `Denotes` (`e ⊢ M ↓ v`) via six
 inductive rules. Three rules (`DVar`, `DElim`, `DIntro`) are syntax-directed,
-but the other three (`DBot`, `DJoin`, `DSub`) apply to *any* term `M`! That
+but the other three (`DBot`, `DJoin`, `DSub`) apply to *any* term `M`. That
 means knowing `e ⊢ λ b ↓ v ↦ w` does not immediately tell you `DIntro` was the
-last rule applied—it could have ended with `DJoin` or `DSub`!
+last rule applied, it could have ended with `DJoin` or `DSub`.
 
 In this chapter we untangle those structural rules by proving two fundamental
 **compositional semantic equations**:
 
 1. **Lambda abstraction (`lamEquiv`):** `ℰ (λ b) ≃ ℱ (ℰ b)`, where `LamDen`
    (`ℱ`) builds the denotation of a lambda purely from the denotation of its
-   body—yielding **Lambda Inversion** (`lamInversion`: `e ⊢ λ b ↓ v₁ ↦ v₂`
-   implies `(e, v₁) ⊢ b ↓ v₂`) and **Lambda Congruence** (`lamCong`)!
+   body, yielding **Lambda Inversion** (`lamInversion`: `e ⊢ λ b ↓ v₁ ↦ v₂`
+   implies `(e, v₁) ⊢ b ↓ v₂`) and **Lambda Congruence** (`lamCong`).
 2. **Application (`appEquiv`):** `ℰ (l · m) ≃ ℰ l ● ℰ m`, where `AppDen` (`●`)
-   combines the denotation of `l` and the denotation of `m`—yielding
-   **Application Congruence** (`appCong`)!
+   combines the denotation of `l` and the denotation of `m`, yielding
+   **Application Congruence** (`appCong`).
 
 Together, `lamCong` and `appCong` prove that replacing any subterm with a
 denotationally equivalent subterm preserves the meaning of the surrounding
-program!
+program.
 
 ## Imports
 
@@ -58,10 +57,16 @@ module PLFH.Part3.Compositional
   , UCtx (..)
   , plug
   , compositionality
+  , VarDen (..)
+  , valLookupDeterm
+  , varInv
+  , varDenToDen
+  , varEquiv
   ) where
 
 import Data.Kind (Type)
 import Data.Nat.Dependent (Nat (..))
+import Data.Type.Equality ((:~:) (Refl))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
@@ -70,6 +75,7 @@ import PLFH.Part3.Denotational
   , Denotes (..)
   , Sub (..)
   , ValEnv (..)
+  , ValLookup (..)
   , ValW (..)
   , Value (..)
   , denEqRefl
@@ -83,14 +89,14 @@ import PLFH.Part3.Denotational
 
 ## Semantic equation and inversion for lambda abstraction (`ℱ`)
 
-The semantic curry operator `LamDen d e v` (`ℱ d`) allows only three forms—
-single arrows `LDIntro`, bottom `LDBot`, and joins `LDJoin`—with **no**
-`DSub` rule! The key lemma is **`subLamDen`** (`sub-ℱ`): proving that
+The semantic curry operator `LamDen d e v` (`ℱ d`) allows only three forms, 
+single arrows `LDIntro`, bottom `LDBot`, and joins `LDJoin`, with **no**
+`DSub` rule. The key lemma is **`subLamDen`** (`sub-ℱ`): proving that
 `LamDen (Den b)` is *already* downward-closed under `Sub` (using `upEnv` in the
-contravariant `SubArr` case and `DJoin` in the `SubDist` case!).
+contravariant `SubArr` case and `DJoin` in the `SubDist` case).
 
 Once `subLamDen` is in hand, `denLamToF` pushes every `DSub` inside `LamDen`,
-and **`lamInversion`** becomes a two-line match on `LDIntro`!
+and **`lamInversion`** becomes a two-line match on `LDIntro`.
 
 ```haskell
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
@@ -166,7 +172,7 @@ Notice why **`SubDist`** was essential in [Denotational](/Denotational/): in
 `joinAppDen`, combining an application returning `w₁` (at input `v₁`) and an
 application returning `w₂` (at input `v₂`) into a *single* application returning
 `Join w₁ w₂` (at input `Join v₁ v₂`) uses `SubDist` to fuse the two arrows
-`Arr (Join v₁ v₂) w₁` and `Arr (Join v₁ v₂) w₂` into `Arr (Join v₁ v₂) (Join w₁ w₂)`!
+`Arr (Join v₁ v₂) w₁` and `Arr (Join v₁ v₂) w₂` into `Arr (Join v₁ v₂) (Join w₁ w₂)`.
 
 ```haskell
 -- | Semantic application operator (`D1 ● D2`).
@@ -269,7 +275,7 @@ plug (CAppR l c) t = UApp l (plug c t)
 ```
 
 With `-XDependentTypes`, GHC evaluates `plug` across all four constructors of
-the two-index GADT `UCtx m n` directly inside this module—so **full
+the two-index GADT `UCtx m n` directly inside this module: so **full
 compositionality** proves in **four clean lines** by structural induction on
 `foreach (c :: UCtx m n)`:
 
@@ -290,18 +296,60 @@ compositionality (CAppR _ c) eq = appCong denEqRefl (compositionality c eq)
 
 Look how clean that 4-line induction is: `CHole` returns `eq` unchanged, `CLam`
 applies `lamCong` to the induction hypothesis, and `CAppL`/`CAppR` combine
-`appCong` with `denEqRefl`—matching PLFA line-for-line—and feeds directly into
-open-term [ContextualEquivalence](/ContextualEquivalence/)!
+`appCong` with `denEqRefl` (matching PLFA line-for-line) and feeds directly into
+open-term [ContextualEquivalence](/ContextualEquivalence/).
+
+## Variable inversion and equivalence (`var-inv`, `var-equiv`)
+
+Just as `LamDen` and `AppDen` characterize the denotation of abstractions and
+applications compositionally, `VarDen x` characterizes the denotation of a
+variable `UVar x` directly from environment lookup (`ValLookup`) and domain
+approximation (`Sub`):
+
+```haskell
+-- | Environment lookup is deterministic: each position holds one value.
+valLookupDeterm :: ValLookup e x v1 -> ValLookup e x v2 -> v1 :~: v2
+valLookupDeterm VLZ      VLZ      = Refl
+valLookupDeterm (VLS p1) (VLS p2) = valLookupDeterm p1 p2
+
+-- | Compositional denotation of a variable `UVar x`.
+type VarDen :: forall (n :: Nat). Fin n -> Denotation n
+data VarDen x e v where
+  VDBot :: Sub v Bot -> VarDen x e v
+  VDVar :: ValW v' -> ValLookup e x v' -> Sub v v' -> VarDen x e v
+
+-- | Variable inversion (`var-inv`): every denotation of `UVar x` is bounded by `e(x)` or `⊥`.
+varInv :: ValW v -> Denotes e (UVar x) v -> VarDen x e v
+varInv wv (DVar lk) = VDVar wv lk SubRefl
+varInv _  DBot      = VDBot SubRefl
+varInv _ (DJoin wv1 wv2 d1 d2) =
+  case (varInv wv1 d1, varInv wv2 d2) of
+    (VDBot lt1,         VDBot lt2)         -> VDBot (SubJoinL lt1 lt2)
+    (VDBot lt1,         VDVar wv' lk lt2)  -> VDVar wv' lk (SubJoinL (SubTrans Bot lt1 SubBot) lt2)
+    (VDVar wv' lk lt1,  VDBot lt2)         -> VDVar wv' lk (SubJoinL lt1 (SubTrans Bot lt2 SubBot))
+    (VDVar wv' lk1 lt1, VDVar _   lk2 lt2) -> case valLookupDeterm lk1 lk2 of
+      Refl -> VDVar wv' lk1 (SubJoinL lt1 lt2)
+varInv _ (DSub wv'@(MkValW v') d lt) = case varInv wv' d of
+  VDBot lt'        -> VDBot (SubTrans v' lt lt')
+  VDVar wv'' lk lt' -> VDVar wv'' lk (SubTrans v' lt lt')
+
+varDenToDen :: VarDen x e v -> Denotes e (UVar x) v
+varDenToDen (VDBot lt)       = DSub (MkValW Bot) DBot lt
+varDenToDen (VDVar wv' lk lt) = DSub wv' (DVar lk) lt
+
+-- | Compositional variable equivalence (`var-equiv`): `ℰ (UVar x) ≃ VarDen x`.
+varEquiv :: forall (n :: Nat) (x :: Fin n). DenEq (Den (UVar x)) (VarDen x)
+varEquiv wv = (\ (MkDen d) -> varInv wv d, \vd -> MkDen (varDenToDen vd))
+```
 
 ## Exercises
 
-#### Exercise `cong-chain` (practice)
+### Exercise `app-cong-both` (practice)
 
-Using `lamCong`, `appCong`, and `denEqRefl`, prove directly that if
-`DenEq (Den m) (Den m')`, then
-`DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))`.
+Using `appCong` and `denEqTrans`, prove that if `DenEq (Den l) (Den l')` and
+`DenEq (Den m) (Den m')`, then `DenEq (Den (UApp l m)) (Den (UApp l' m'))`.
 
-#### Exercise `lam-inv-app` (practice)
+### Exercise `lam-inv-app` (practice)
 
 Use `lamInversion` on `denotDelta` from [Denotational](/Denotational/) to
 extract a direct derivation of
@@ -309,14 +357,4 @@ extract a direct derivation of
 
 ## Changes from PLFA
 
-- Adapted from [Compositional](https://plfa.inf.ed.ac.uk/Compositional/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Compositional.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports lambda compositionality (`LamDen`, `subLamDen`,
-  `denLamToF`, `lamInversion`, `fToDenLam`, `lamEquiv`, `lamDenCong`, `lamCong`),
-  application compositionality (`AppDen`, `subAppDen`, `joinAppDen`,
-  `denAppToAppDen`, `appDenToDenApp`, `appEquiv`, `appDenCong`, `appCong`),
-  `UCtx`, `plug`, and **full `compositionality`** by induction on `UCtx m n`,
-  with zero promoted-constructor ticks.
-- Omitted PLFA's `var-inv`/`var-equiv` helper equations and recursive `⟦_⟧` /
-  `ℰ≃⟦⟧` section (all congruence lemmas operate directly on `Denotes` / `Den`).
+- Proves lambda compositionality, application compositionality, and open-context `compositionality` directly over `Denotes` and `UCtx` / `plug`.

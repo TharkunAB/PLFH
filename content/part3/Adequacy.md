@@ -5,13 +5,12 @@ next: /ContextualEquivalence/
 src: content/part3/Adequacy.md
 module: PLFH.Part3.Adequacy
 plfaChapter: https://plfa.inf.ed.ac.uk/Adequacy/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
 In [Soundness](/Soundness/) we proved that operational reduction preserves
 denotations (`M —↠ N` implies `ℰ M ≃ ℰ N`). Notice, however, that Soundness
 alone would *also* be satisfied by a completely degenerate semantics that
-assigns every term the exact same meaning!
+assigns every term the exact same meaning.
 
 What guarantees that our finite-table semantics truly **distinguishes**
 terminating programs from diverging ones? **Computational Adequacy** (Gordon
@@ -19,24 +18,24 @@ Plotkin, 1977):
 
 > *Whenever a closed term `M` has a non-trivial function denotation (`AboveFun v`
 > with `[] ⊢ M ↓ v`), executing `M` under call-by-name big-step evaluation
-> ([BigStep](/BigStep/)) is guaranteed to **halt at a lambda abstraction**!*
+> ([BigStep](/BigStep/)) is guaranteed to **halt at a lambda abstraction**.*
 
-### The challenge: a negative-position logical relation
+## The challenge: a negative-position logical relation
 
 Why can't we prove Adequacy by direct induction on `Denotes`? Because in the
 application rule `DElim`, we have `l` evaluating to a lambda `λ b`, and we need
-to know that passing argument `m` into `b` *also* halts!
+to know that passing argument `m` into `b` *also* halts.
 
 The classic solution is a **value-indexed logical relation** (`𝕍`, `𝔼`, `𝒢`)
 defined by structural recursion on the finite `Value` `v`:
 - `logVLam Bot e b = type ()`: every lambda closure trivially satisfies `Bot`.
 - `logVLam (Arr v w) e b`: for *any* argument closure `(m, d)` satisfying
   `LogE v d m`, evaluating `b` with `(m, d)` pushed onto `e` satisfies
-  `LogE w`! (Notice `LogE v` sits in a **negative** position—which is why
+  `LogE w`. (Notice `LogE v` sits in a **negative** position, which is why
   `logVLam` is written as a **large elimination** on `Value`, i.e., an ordinary
   term-to-`Type` Haskell function mutually recursive with `HaltsV` and
-  `LogArr`, requiring no `type family` declaration!)
-- `logVLam (Join u v) e b = type (logVLam u e b, logVLam v e b)`: a pair of proofs!
+  `LogArr`, requiring no `type family` declaration)
+- `logVLam (Join u v) e b = type (logVLam u e b, logVLam v e b)`: a pair of proofs.
 
 The chapter proves `decAboveFun`, `logVLam`/`LogE`, full subsumption across all
 8 `Sub` constructors (`subLogVLam` and `subLogE`, including `SubDist`), the
@@ -58,7 +57,6 @@ module PLFH.Part3.Adequacy
   , notAboveFunJoin
   , notAboveFunJoinInv
   , decAboveFun
-  , WHNF (..)
   , HaltsV (..)
   , LogE
   , LogArr (..)
@@ -81,6 +79,7 @@ module PLFH.Part3.Adequacy
   , reduceToCbn
   , cbnToReduceW
   , cbnToReduce
+  , cbnIffReduce
   , adequacyIdApp
   , adequacyDelta
   , omegaNotAboveFun
@@ -91,6 +90,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import Data.Nat.Dependent (Nat (..))
 import PLFH.Part1.Decidable (Dec (..))
+import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Negation (Not)
 import qualified PLFH.Part2.BigStep as B
 import PLFH.Part2.BigStep (CbnTerminates (..), Clos (..), Env (..), EnvLookup (..), EvalBig (..), evalDeterm, omegaDiverges)
@@ -128,7 +128,7 @@ predicate **`AboveFun u`**: there exists some arrow `Arr v w` with
 Using our checked **`subInv`** theorem from [Denotational](/Denotational/),
 we prove `notAboveFunBot` (`Bot` is never above a function), `aboveFunJoin`
 (a join is above a function iff one of its branches is), and the full decision
-procedure **`decAboveFun :: foreach (v :: Value) -> Dec (AboveFun v)`**!
+procedure **`decAboveFun :: foreach (v :: Value) -> Dec (AboveFun v)`**.
 
 ```haskell
 -- | Evidence that value `u` is at least some function entry `v ↦ w`.
@@ -196,16 +196,11 @@ wraps the impredicative `forall k d m` in the `Arr` clause of `logVLam`.
 
 Look closely at **`haltsVJoin`** (which combines `LogE w₁` and `LogE w₂` into
 `LogE (Join w₁ w₂)`): when *both* `w₁` and `w₂` are `AboveFun`, we get two
-big-step halting derivations `ev1` and `ev2` for the same `(e, m)`—and
+big-step halting derivations `ev1` and `ev2` for the same `(e, m)`, and
 **`BigStep.evalDeterm`** unifies their resulting lambda closures (`Refl`) so we
-can pair `lv1` and `lv2` on the *exact same* closure!
+can pair `lv1` and `lv2` on the *exact same* closure.
 
 ```haskell
--- | Weak-head normal form: a lambda abstraction.
-type WHNF :: forall (n :: Nat). UTerm n -> Type
-data WHNF m where
-  WLam :: WHNF (ULam b)
-
 -- | Witness that evaluating `m` in `e` halts at a lambda closure related to `v`.
 type HaltsV :: forall (n :: Nat). Env n -> UTerm n -> Value -> Type
 data HaltsV e m v where
@@ -309,11 +304,11 @@ subLogE wu@(MkValW u) wv lt le af = case le (aboveFunSub u af lt) of
 ## The Fundamental Lemma and Big-Step Adequacy
 
 Every rule of `Denotes` (`DVar`, `DElim`, `DIntro`, `DBot`, `DJoin`, `DSub`)
-checks directly in **`fundamental`**, yielding **`adequacyBigStep`**—and we
+checks directly in **`fundamental`**, yielding **`adequacyBigStep`**, and we
 can execute `adequacyBigStep` on
 `denotIdAppId (MkValW Bot)` (`adequacyIdApp`), watching the adequacy proof
 actually compute a machine-checked call-by-name halting derivation for
-`(λx. x) (λx. x)` at runtime!
+`(λx. x) (λx. x)` at runtime.
 
 ```haskell
 -- | Pointwise logical relation witness for a variable lookup in `e'`.
@@ -385,6 +380,10 @@ cbnToReduceW wu (MkHaltsBig ev) = B.cbnToReduceW wu ev
 cbnToReduce :: foreach (u :: UTerm Zero) -> HaltsBig ENil u -> CbnTerminates u
 cbnToReduce u (MkHaltsBig ev) = B.cbnToReduce u ev
 
+-- | Equivalence between call-by-name big-step halting and small-step termination (`cbn↔reduce`).
+cbnIffReduce :: foreach (u :: UTerm Zero) -> Iff (HaltsBig ENil u) (CbnTerminates u)
+cbnIffReduce u = Iff (cbnToReduce u) (\case MkCbnTerminates steps -> reduceToCbn u steps)
+
 -- | Concrete execution of adequacy: `[] ⊢ id · id ↓ ⊥ ↦ ⊥` produces a real
 -- call-by-name halting derivation for `(λx. x) (λx. x)`!
 adequacyIdApp :: HaltsBig ENil (UApp (ULam (UVar FZ)) (ULam (UVar FZ)))
@@ -409,32 +408,20 @@ omegaNotAboveFun wv d af = case adequacyBigStep wv d af of
 
 ## Exercises
 
-#### Exercise `omega-not-above-fun` (recommended)
+### Exercise `adequacy-k-omega` (practice)
 
-Using `adequacyBigStep` together with the fact that `OmegaTerm` has no
-`EvalBig ENil OmegaTerm c` derivation (from [BigStep](/BigStep/)), conclude
-that `OmegaTerm` cannot denote *any* `Value` satisfying `AboveFun v`—so `Bot`
-(and joins of `Bot`) are its **only** denotations!
+Construct a `Denotes VNil` derivation showing that
+`(λ x y. x) (λ z. z) Ω` denotes `Arr Bot Bot` (which satisfies `AboveFun`), and
+apply `adequacy` to derive `Terminates` directly from its denotation without
+constructing a manual reduction sequence.
 
-#### Exercise `adequacy-delta` (practice)
+### Exercise `logv-join-proj` (practice)
 
-Use `adequacyBigStep` on `denotDelta (MkValW Bot) (MkValW Bot)` to obtain a
-`HaltsBig ENil SelfApp` derivation, confirming that `Δ = λx. x x` itself
-terminates immediately (only its *self-application* `Δ · Δ` diverges!).
+Prove that `logVLam (Join u v) e b` implies both `logVLam u e b` and
+`logVLam v e b` directly from the definition of `logVLam`, and check how
+`subLogVLam` uses `SubJoinR1` and `SubJoinR2`.
 
 ## Changes from PLFA
 
-- Adapted from [Adequacy](https://plfa.inf.ed.ac.uk/Adequacy/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Adequacy.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports `AboveFun`, `aboveFunSub`, `notAboveFunBot`,
-  `aboveFunJoin`, `notAboveFunJoin`, `notAboveFunJoinInv`, `decAboveFun`,
-  `WHNF`, `HaltsV`, `LogE`, `LogArr`, `logVLam` (a mutually recursive
-  term-to-`Type` large elimination),
-  `notAboveFunLogV`,
-  `haltsVJoin`, `subLogVLam` (all 8 `Sub` rules), `subLogE`, `fundamental`
-  (all 6 `Denotes` rules), `adequacyBigStep` (via
-  `BigStep.evalDeterm`), `adequacy`, both directions of the small-step/big-step
-  bridge (`reduceToCbn` and `cbnToReduceW`/`cbnToReduce`), `omegaNotAboveFun`
-  (via `BigStep.omegaDiverges`), `adequacyDelta`, and executable
-  `adequacyIdApp`, with zero promoted-constructor ticks.
+- Writes the value logical relation `logVLam` directly as a term-to-`Type` large elimination mutually recursive with `HaltsV` and `LogArr`.
+- Proves `fundamental`, `adequacyBigStep`, `adequacy`, `reduceToCbn`, `cbnToReduce`, and `omegaNotAboveFun`.

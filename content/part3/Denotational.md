@@ -5,19 +5,15 @@ next: /Compositional/
 src: content/part3/Denotational.md
 module: PLFH.Part3.Denotational
 plfaChapter: https://plfa.inf.ed.ac.uk/Denotational/
-plfaAuthors: "Philip Wadler, Wen Kokke, and Jeremy G. Siek"
 ---
 
-Welcome to Part 3: **Denotational Semantics** (adapted from PLFA Part 3,
-authored by Jeremy G. Siek, Philip Wadler, and Wen Kokke).
+In Part 2 we gave the untyped lambda calculus *operational* semantics, defining
+step-by-step rules for how a machine reduces syntax. In **denotational
+semantics** (pioneered by Christopher Strachey and Dana Scott), we assign each
+term a mathematical meaning (its **denotation** `ℰ M`) directly in a semantic
+domain, independent of evaluation order.
 
-In Part 2 we gave the untyped lambda calculus *operational* semantics—rules
-explaining step-by-step how a machine reduces syntax. In **denotational
-semantics** (pioneered by Christopher Strachey and Dana Scott), we instead
-assign each term a *mathematical meaning* (its **denotation** `ℰ M`) directly
-in a semantic domain, independent of evaluation order!
-
-### Functions as finite tables, and why self-application is tricky
+## Functions as finite tables, and why self-application is tricky
 
 How can we give a mathematical model of the **untyped** lambda calculus, where
 every value is a function that can even be applied to *itself* (`λ x. x · x`)?
@@ -25,11 +21,11 @@ In ordinary set theory, Cantor's theorem tells us there is no set `V` with
 `|V → V| = |V|` (for `|V| > 1`).
 
 Following Gordon Plotkin's graph model and Barendregt–Coppo–Dezani's (BCD)
-filter model—the elementary domain theory presented in PLFA Part 3—we solve
+filter model (the elementary domain theory presented in PLFA Part 3) we solve
 this paradox by modeling a function not as a total set-theoretic map, but as
-the set of **finite input–output tables** (`Value`) that *approximate* it!
+the set of **finite input–output tables** (`Value`) that *approximate* it.
 
-- `Bot` (`⊥`) is the empty table (carrying no information—every value denoted
+- `Bot` (`⊥`) is the empty table (carrying no information, every value denoted
   by a diverging program like `Ω` is equivalent to `⊥`, i.e. built only from
   `⊥` and joins of `⊥`, never above any function row `v ↦ w`).
 - `Arr v w` (`v ↦ w`) is a single-row table: given an input carrying at least
@@ -40,7 +36,7 @@ To handle self-application (`Δ = λ x. x · x`), we relax table lookup using an
 **approximation ordering** `Sub u v` (`u ⊑ v`, the inverse of intersection
 subtyping): if a function has table `((v ↦ w) ⊔ v) ↦ w`, then applying it to
 itself extracts both the function row `v ↦ w` and the input `v` from the same
-argument (`denotDelta` below!).
+argument (`denotDelta` below).
 
 ### Roadmap of Part 3
 
@@ -128,8 +124,8 @@ import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 ## Finite function tables (`Value`) and approximation (`Sub`, `_⊑_`)
 
 We declare `Value` directly in GADT syntax, together with the lightweight
-retained witness `ValW v` (holding a single `foreach (v :: Value)` field—not a
-singleton!), and splitting helpers `unJoinW` and `unArrW`:
+retained witness `ValW v` (holding a single `foreach (v :: Value)` field, not a
+singleton), and splitting helpers `unJoinW` and `unArrW`:
 
 ```haskell
 -- | Finite function tables (Scott/Plotkin/BCD filter model values),
@@ -177,10 +173,53 @@ contains at least as much information as `u`):
 - `SubArr`: arrow approximation is **contravariant** in the input (`v' ⊑ v`)
   and **covariant** in the output (`w ⊑ w'`): a function that accepts a
   *smaller* (less demanding) input and returns a *larger* (more informative)
-  output carries more information!
+  output carries more information.
 - `SubDist`: distributivity `(v ↦ w ⊔ w') ⊑ (v ↦ w) ⊔ (v ↦ w')`, expressing
   that two rows with the same input can be merged into one row with joined
-  output!
+  output.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">⊥ ⊑ v</div>
+    <div class="rule-name">(SubBot)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">v ⊑ v</div>
+    <div class="rule-name">(SubRefl)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>v ⊑ u</span><span>w ⊑ u</span></div>
+    <div class="conclusion">v ⊔ w ⊑ u</div>
+    <div class="rule-name">(SubJoinL)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>u ⊑ v</span></div>
+    <div class="conclusion">u ⊑ v ⊔ w</div>
+    <div class="rule-name">(SubJoinR1)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>u ⊑ w</span></div>
+    <div class="conclusion">u ⊑ v ⊔ w</div>
+    <div class="rule-name">(SubJoinR2)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>u ⊑ v</span><span>v ⊑ w</span></div>
+    <div class="conclusion">u ⊑ w</div>
+    <div class="rule-name">(SubTrans)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>v' ⊑ v</span><span>w ⊑ w'</span></div>
+    <div class="conclusion">(v ↦ w) ⊑ (v' ↦ w')</div>
+    <div class="rule-name">(SubArr)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">(v ↦ w ⊔ w') ⊑ (v ↦ w) ⊔ (v ↦ w')</div>
+    <div class="rule-name">(SubDist)</div>
+  </div>
+</div>
 
 ```haskell
 -- | Domain approximation order `u ⊑ v`.
@@ -234,7 +273,7 @@ joinSubInvR (SubTrans m l1 l2) = SubTrans m (joinSubInvR l1) l2
 
 Why can't we prove arrow inversion (`Arr v w ⊑ Arr v' w'` implies `v' ⊑ v` and
 `w ⊑ w'`) by a direct one-line induction on `Sub`? Because of `SubTrans` and
-`SubDist`! A derivation of `Arr v w ⊑ Arr v' w'` might pass through an
+`SubDist`. A derivation of `Arr v w ⊑ Arr v' w'` might pass through an
 intermediate join of multiple function rows (`(v₁ ↦ w₁) ⊔ (v₂ ↦ w₂)`).
 
 Following Barendregt–Coppo–Dezani and PLFA, we strengthen the induction
@@ -326,7 +365,7 @@ factoring theorem `subInv` proves that whenever `u₁ ⊑ u₂` and `v ↦ w ∈
 there is a non-empty sub-collection `u' ⊆ u₂` of function rows whose joined
 domains satisfy `dom u' ⊑ v` and whose joined codomains satisfy `w ⊑ cod u'`.
 Specializing `u₂` to a single arrow `Arr v' w'` immediately yields
-**`arrSubArrInv`** (`↦⊑↦-inv`)!
+**`arrSubArrInv`** (`↦⊑↦-inv`).
 
 ```haskell
 -- | Witness that `v ↦ w` factors `u` into a sub-collection of functions `u'`.
@@ -455,15 +494,48 @@ The **denotational semantics** `Denotes e m v` (`e ⊢ m ↓ v`) has six rules:
   denotes the single-row table `Arr v w`.
 - `DBot`: every term trivially denotes the empty table `Bot`.
 - `DJoin`: if `m` denotes both `v` and `w`, then `m` denotes `Join v w`
-  (building multi-row tables!).
-- `DSub`: downward closure—if `m` denotes `v` and `w ⊑ v`, then `m` also
-  denotes `w`!
+  (building multi-row tables).
+- `DSub`: downward closure: if `m` denotes `v` and `w ⊑ v`, then `m` also
+  denotes `w`.
+
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>e(x) = v</span></div>
+    <div class="conclusion">e ⊢ x ↓ v</div>
+    <div class="rule-name">(DVar)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>e ⊢ L ↓ (v ↦ w)</span><span>e ⊢ M ↓ v</span></div>
+    <div class="conclusion">e ⊢ L · M ↓ w</div>
+    <div class="rule-name">(DElim)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>e, v ⊢ b ↓ w</span></div>
+    <div class="conclusion">e ⊢ λ b ↓ (v ↦ w)</div>
+    <div class="rule-name">(DIntro)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">e ⊢ M ↓ ⊥</div>
+    <div class="rule-name">(DBot)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>e ⊢ M ↓ v</span><span>e ⊢ M ↓ w</span></div>
+    <div class="conclusion">e ⊢ M ↓ v ⊔ w</div>
+    <div class="rule-name">(DJoin)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>e ⊢ M ↓ v</span><span>w ⊑ v</span></div>
+    <div class="conclusion">e ⊢ M ↓ w</div>
+    <div class="rule-name">(DSub)</div>
+  </div>
+</div>
 
 Look at `denotDelta` and `denotOmega` below: our finite table model handles
 self-application (`Δ = λx. x x`) with complete mathematical precision, while
-`Ω = Δ · Δ` can never denote any value above a function row (`AboveFun v`)—only
+`Ω = Δ · Δ` can never denote any value above a function row (`AboveFun v`), only
 `Bot` and joins of `Bot` (proved formally as `Adequacy.omegaNotAboveFun`,
-matching the fact that `Ω` diverges!).
+matching the fact that `Ω` diverges).
 
 ```haskell
 -- | Value environment of scope depth `n`.
@@ -570,7 +642,7 @@ upEnv wu2 d lt = envSubMono (envSubCons wu2 envSubRefl lt) d
 The **denotation** `Den m` (`ℰ m`) of a term `m :: UTerm n` is the relation
 associating each environment `e :: ValEnv n` with every finite `Value` `v` that
 `m` denotes under `e`. Two denotations are **equivalent** (`DenEq d1 d2`) when
-they contain the exact same `(e, v)` pairs—forming an equivalence relation
+they contain the exact same `(e, v)` pairs, forming an equivalence relation
 (`denEqRefl`, `denEqSym`, `denEqTrans`):
 
 ```haskell
@@ -598,28 +670,20 @@ newtype Den (m :: UTerm n) (e :: ValEnv n) (v :: Value) = MkDen { unDen :: Denot
 
 ## Exercises
 
-#### Exercise `denot-K` (practice)
+### Exercise `denot-plusC` (recommended)
 
-Construct a denotation proof showing that the constant function
-`K = λ x. λ y. x` denotes `Arr v (Arr Bot v)` in the empty environment `VNil`,
-explaining why `K` needs no information (`Bot`) about its discarded second
-argument!
+For the Church numeral `cTwo = ULam (ULam (UApp (UVar (FS FZ)) (UApp (UVar (FS FZ)) (UVar FZ))))`
+and any value `v`, construct a `Denotes VNil cTwo` derivation showing that
+`cTwo` denotes `Arr (Join (Arr v v) (Arr v v)) (Arr v v)` (or simplify it via
+`SubDist` to `Arr (Arr v v) (Arr v v)`).
 
-#### Exercise `sub-anti-not` (practice)
+### Exercise `sub-anti-not` (practice)
 
 Observe that `Sub` is a **preorder**, not a partial order: exhibit two
 syntactically distinct `Value`s (such as `Join Bot Bot` and `Bot`) that
-approximate each other in *both* directions (`Sub u v` and `Sub v u`).
+approximate each other in both directions (`Sub u v` and `Sub v u`).
 
 ## Changes from PLFA
 
-- Adapted from [Denotational](https://plfa.inf.ed.ac.uk/Denotational/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part3/Denotational.lagda.md))
-  by Philip Wadler, Wen Kokke, and Jeremy G. Siek (CC BY 4.0).
-- Ports `Value` (in GADT syntax), `Sub`, `subRefl`,
-  `joinSubJoin`, `joinArrDist`, `joinSubInvL`/`R`, `ValMem`, `ValSubset`,
-  `memToSub`, `subsetToSub`, `Fun`, `AllFuns`, `allFunsMem`, ordinary recursive
-  `dom` and `cod`, `arrMemToSubDom`, `subArrToCodSub`, `subInvTrans`, `subInv`,
-  `arrSubArrInv`, `ValEnv`, `Denotes`, `denotId`/`denotDelta`/`denotOmega`,
-  `envSubMono`, `upEnv`, `Denotation`, `DenEq`, and `Den`, with zero
-  promoted-constructor ticks.
+- Defines `Value`, `Sub` (including a primitive `SubRefl` constructor alongside inductive `subRefl`), `ValEnv`, and `Denotes` directly in GADT syntax, with ordinary recursive `dom` and `cod`.
+- Moves renaming preservation (`denotRename`) to [Soundness](/Soundness/).

@@ -1,5 +1,5 @@
 ---
-title: "Untyped: Untyped lambda calculus with full normalisation"
+title: "Untyped: Untyped lambda calculus with full normalization"
 prev: /Inference/
 next: /More/
 src: content/part2/Untyped.md
@@ -10,7 +10,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Untyped/
 As Dana Scott and Robert Harper famously observed, the **untyped lambda
 calculus** is better understood as the **uni-typed lambda calculus**: there is
 only a single universal type `★` such that `★ ≅ ★ → ★`. Every term can be
-applied to every other term—including itself!
+applied to every other term, including itself.
 
 Dropping distinct types dramatically simplifies our intrinsically-scoped
 representation from [DeBruijn](/DeBruijn/):
@@ -19,7 +19,7 @@ representation from [DeBruijn](/DeBruijn/):
 - A de Bruijn lookup `Lookup g a` collapses to the finite set `Fin n`
   representing indices `{0, …, n - 1}`.
 - The entire language shrinks to just **three constructors**: variables (`UVar`),
-  lambda abstractions (`ULam`), and applications (`UApp`)!
+  lambda abstractions (`ULam`), and applications (`UApp`).
 
 Despite having only three constructors, the pure untyped lambda calculus is
 Turing-complete (encoding Booleans, pairs, Church numerals, and arbitrary
@@ -74,6 +74,16 @@ module PLFH.Part2.Untyped
   , EvalRes (..)
   , evalNormal
   , evalNormalTerm
+  , weakenClosed
+  , sZero
+  , sSuc
+  , sCase
+  , sMu
+  , sOne
+  , sTwo
+  , sFour
+  , sPlus
+  , sTwoPlusTwo
   ) where
 
 import Data.Kind (Type)
@@ -84,7 +94,7 @@ import Data.Nat.Dependent (Nat (..))
 
 Because every variable has the same universal type, `Fin n` simply guarantees
 that a variable index is strictly less than the current binder depth `n`:
-- `Fin Zero` is uninhabited (a closed term has no free variables!).
+- `Fin Zero` is uninhabited (a closed term has no free variables).
 - `FZ :: Fin (Succ n)` is the innermost variable `0`.
 - `FS :: Fin n -> Fin (Succ n)` shifts an outer variable outward by one binder.
 
@@ -137,11 +147,11 @@ omegaTerm = UApp selfApp selfApp
     selfApp = ULam (UApp (UVar FZ) (UVar FZ))
 ```
 
-Notice `omegaTerm`! In simply-typed lambda calculus, self-application `λ x ⇒ x · x`
+Notice `omegaTerm`. In simply-typed lambda calculus, self-application `λ x ⇒ x · x`
 is untypable (it would require a type `A` equal to `A → B`), so we had to add
 an explicit `μ` construct for recursion. In the untyped lambda calculus,
-`Ω = (λ x. x x) (λ x. x x)` is already a legal closed term—and as we verify
-below (`omegaStep`), `Ω` reduces in one β-step straight back to `Ω`!
+`Ω = (λ x. x x) (λ x. x x)` is already a legal closed term, and as we verify
+below (`omegaStep`), `Ω` reduces in one β-step straight back to `Ω`.
 
 ## Scope-preserving renaming and substitution
 
@@ -191,22 +201,22 @@ substSingleU b w = substU (singleSubstU w) b
 
 In [Lambda](/Lambda/), we used call-by-value reduction on *closed* terms, which
 stopped at any lambda abstraction. In the untyped lambda calculus, however, we
-often want **full β-reduction**—reducing redexes *anywhere* in a term,
-including underneath `ULam` binders and inside arguments to free variables!
+often want **full β-reduction**, reducing redexes *anywhere* in a term,
+including underneath `ULam` binders and inside arguments to free variables.
 
 When we reduce under binders, we encounter **open terms**. What does a
 completely reduced term (no β-redexes left anywhere) look like? It is defined
 mutually by **neutral terms** and **normal forms**:
 
 - A **neutral term** (`Neutral t`) is a variable applied to zero or more normal
-  arguments (`x · N₁ · … · Nₖ`)—it cannot trigger a β-reduction at the top
+  arguments (`x · N₁ · … · Nₖ`), it cannot trigger a β-reduction at the top
   because its head is a variable, not a lambda.
 - A **normal form** (`Normal t`) is either a neutral term (`NNeu`) or a lambda
   abstraction whose body is itself in normal form (`NLam`).
 
 Just as in [DeBruijn](/DeBruijn/), GHC promotes the indexed GADT `UTerm n` and
 evaluates our ordinary functional `substSingleU b w` directly inside the `Beta`
-constructor of `BetaStep`!
+constructor of `BetaStep`.
 
 ```haskell
 -- | Neutral terms: a variable applied to zero or more normal arguments.
@@ -300,7 +310,7 @@ kOmegaStep :: BetaStep (UApp (ULam (ULam (UVar FZ))) OmegaTerm) IdTerm
 kOmegaStep = Beta
 ```
 
-### Negative control: bogus β-step endpoint is rejected
+### Rejected example: bogus β-step endpoint is rejected
 
 Because `Beta` evaluates `substSingleU b w` directly, attempting to claim that
 `(λx. x) (λx. x)` reduces to `Ω` is rejected by GHC with `GHC-83865`:
@@ -320,7 +330,7 @@ badBeta = Beta
 Unlike call-by-value in [Lambda](/Lambda/), full β-reduction (`BetaStep`) is
 **non-deterministic**: a term like `(λ x. λ y. y) Ω` can either discard `Ω`
 immediately (outermost β-step, reaching the normal form `λ y. y`) or spin
-forever reducing `Ω` inside the argument!
+forever reducing `Ω` inside the argument.
 
 By the Standardization Theorem, **normal-order** (leftmost-outermost) reduction
 is guaranteed to reach a normal form whenever one exists.
@@ -383,30 +393,88 @@ evalNormalTerm gas t = case evalNormal gas t of
   EvalOutOfGas _ _ -> Nothing
 ```
 
+## Scott numerals and the Y-combinator fixpoint (`μ`)
+
+Even without primitive natural numbers or a built-in `μ` construct, the pure
+three-constructor untyped lambda calculus encodes **Scott numerals** (`sZero`,
+`sSuc`, `sCase`) and arbitrary recursion via Curry's **Y-combinator** (`sMu`).
+A Scott numeral `n` is a case eliminator taking a zero branch `z` and a
+successor continuation `s`:
+
+- `sZero = λ z. λ s. z`
+- `sSuc = λ n. λ z. λ s. s n`
+- `sMu = λ f. (λ x. f (x x)) (λ x. f (x x))`
+
+Combining `sMu` with `sSuc` defines untyped addition `sPlus`, and `evalNormal`
+reduces `sPlus · sTwo · sTwo` to the normal form `sFour`:
+
+```haskell
+-- | Weaken a closed term into any binder depth `n`.
+weakenClosed :: UTerm Zero -> UTerm n
+weakenClosed = renameU (\case {})
+
+-- | Scott numeral 0: `λ z. λ s. z`.
+sZero :: UTerm Zero
+sZero = ULam (ULam (UVar (FS FZ)))
+
+-- | Scott successor: `λ n. λ z. λ s. s n`.
+sSuc :: UTerm Zero
+sSuc = ULam (ULam (ULam (UApp (UVar FZ) (UVar (FS (FS FZ))))))
+
+-- | Scott case eliminator: `λ n. λ z. λ s. n z s`.
+sCase :: UTerm Zero
+sCase = ULam (ULam (ULam (UApp (UApp (UVar (FS (FS FZ))) (UVar (FS FZ))) (UVar FZ))))
+
+-- | Curry's Y-combinator fixpoint: `λ f. (λ x. f (x x)) (λ x. f (x x))`.
+sMu :: UTerm Zero
+sMu = ULam (UApp half half)
+  where
+    half = ULam (UApp (UVar (FS FZ)) (UApp (UVar FZ) (UVar FZ)))
+
+-- | Concrete Scott numerals 1, 2, and 4 (in normal form).
+sOne :: UTerm Zero
+sOne = ULam (ULam (UApp (UVar FZ) (weakenClosed sZero)))
+
+sTwo :: UTerm Zero
+sTwo = ULam (ULam (UApp (UVar FZ) (weakenClosed sOne)))
+
+sFour :: UTerm Zero
+sFour = ULam (ULam (UApp (UVar FZ) (ULam (ULam (UApp (UVar FZ) (weakenClosed sTwo))))))
+
+-- | Recursive addition on Scott numerals:
+-- `sMu (λ p. λ m. λ n. m n (λ m'. sSuc (p m' n)))`.
+sPlus :: UTerm Zero
+sPlus = UApp sMu (ULam (ULam (ULam body)))
+  where
+    recCall = UApp (UApp (UVar (FS (FS (FS FZ)))) (UVar FZ)) (UVar (FS FZ))
+    sucStep = ULam (UApp (weakenClosed sSuc) recCall)
+    body    = UApp (UApp (UVar (FS FZ)) (UVar FZ)) sucStep
+
+-- | Normal-order evaluation of `sPlus · sTwo · sTwo` (yields `Just sFour`).
+sTwoPlusTwo :: Maybe (UTerm Zero)
+sTwoPlusTwo = evalNormalTerm 100 (UApp (UApp sPlus sTwo) sTwo)
+```
+
 ## Exercises
 
-#### Exercise `Church-numerals` (practice)
+### Exercise `multiplication-untyped` (recommended)
 
-Define Church numerals `cZero`, `cOne`, `cTwo :: UTerm Zero` (where `n` is
-`λ s. λ z. s (s … (s z) …)`) using `ULam`, `UApp`, `UVar`, `FZ`, and `FS FZ`,
-and check that `cZero = ULam (ULam (UVar FZ))` and `cOne = ULam (ULam (UApp (UVar (FS FZ)) (UVar FZ)))` satisfy `Normal`!
+Using the Scott numerals (`sZero`, `sSuc`, `sCase`), fixpoint `sMu`, and
+`sPlus` defined above, define untyped multiplication `sMul :: UTerm Zero` and
+verify with `evalNormal` that `UApp (UApp sMul sTwo) sTwo` normalizes to
+`sFour`.
 
-#### Exercise `K-omega` (practice)
+### Exercise `Church-plus` (practice)
 
-Use `Beta` to construct a one-step reduction proof showing that
-`(λ x. λ y. y) Ω` reduces in a single step to `IdTerm`, illustrating why
-normal-order reduction terminates on terms where call-by-value diverges!
+Define Church addition `cPlus :: UTerm Zero` (`λ m n s z. m s (n s z)`) and use
+`evalNormal` to check that `UApp (UApp cPlus cOne) cOne` reduces to `cTwo`.
+
+### Exercise `encode-more` (stretch)
+
+Encode pairs (`pair`, `fst`, `snd`) and Booleans (`true`, `false`, `if`) as
+closed `UTerm Zero` terms and construct `BetaSteps` proofs for their β-laws.
 
 ## Changes from PLFA
 
-- Adapted from [Untyped](https://plfa.inf.ed.ac.uk/Untyped/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part2/Untyped.lagda.md)),
-  licensed under CC BY 4.0.
-- Ports `Fin`, `UTerm`, `extU`, `renameU`, `extsU`, `substU`,
-  `substSingleU`, `Neutral`, `Normal`, functional `BetaStep` (`Beta` over
-  `substSingleU b w`),
-  `BetaSteps`, `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`,
-  `cZeroIsNormal`/`cOneIsNormal`/`cTwoIsNormal`, `kOmegaStep`, and the
-  constructive normal-order evaluator (`stepNormal`, `evalNormal`,
-  `evalNormalTerm`), reducing `(λx y. y) Ω —↠ id` with a certified `BetaSteps`
-  and `Normal` derivation.
+- Collapses PLFA's singleton `Type = ★` and `Context` directly to scope depth `n :: Nat` with `Fin n` and `UTerm n`.
+- Uses `substSingleU` directly in the `Beta` constructor of `BetaStep` and proves normal-order evaluation (`stepNormal`, `evalNormal`).

@@ -7,7 +7,7 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void)
 import GHC.Sigma (Sigma (Pair))
 import System.Exit (exitFailure)
-import Data.Nat.Dependent (Nat (..))
+import Data.Nat.Dependent (Nat (..), plus)
 import PLFH.Part1.Connectives
   ( prodAssocIso
   , prodCommIso
@@ -20,18 +20,18 @@ import PLFH.Part1.Connectives
   , sumZeroLIso
   , sumZeroRIso
   )
-import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqSize, decEven, decLtSize, plusExists)
+import PLFH.Part1.Decidable (Dec (..), decCan, decEqBin, decEqNat, decEven, decLeNat, decLtNat, eraseDec, fromWitness, leBool, leBoolToLE, leToLeBool, plusExists, toWitness)
 import PLFH.Part1.Equality (EqP (..), evenComm, eqToLeibniz, leibnizSym, leibnizToEq)
 import PLFH.Part1.Induction (fromTo, monusPlusAssoc, plusAssoc, plusRearrange, plusSwap, powMul, powPlus, powTimes, threeMonusTwo, threePowFour, timesComm, twoMonusThree, zeroMonus)
 import PLFH.Part1.InductionClient (checkPlusAssoc, plusZeroAtThree)
-import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), IsoSize (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSizeRefl, isoSizeSym, isoSym, isoTrans, natIsoRefl)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), binEmbedding, embedImpliesIff, embedRefl, embedTrans, isoImpliesEmbed, isoRefl, isoSym, isoTrans)
 import PLFH.Part1.AnyWitnessIso (anyIsoWitness)
-import PLFH.Part1.Lists (All (..), Any (..), AnyWitness (..), In, allToIn, anyIffWitness, decAll, decIn, downFrom, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, memberValue, notAnyIffAllNot, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
+import PLFH.Part1.Lists (All (..), Any (..), AnyWitness (..), In, allToIn, anyIffWitness, decAll, decIn, downFrom, foldrMonoidAppend, foldrPlusAppend, foldrPlusSeed, foldrTimesAppend, foldrTimesSeed, inToAll, lengthDownFrom, lengthZeros, memberValue, notAnyIffAllNot, plusMonoid, revAppend, revInvolutive, reverses, shuntAppend, shuntRev)
 import PLFH.Part1.ListsProof (decodeHeadEven, decodeSecondEven, sampleTailMem, witnessToAnyEvenThere)
 import qualified PLFH.Part1.Naturals as N
 import PLFH.Part1.Naturals (Bin (..), fiveAtRuntime, toBin)
 import PLFH.Part1.Negation (notLeToGt)
-import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), evenToWitness, oddToWitness, sumSigmaTwo, witnessToEven)
+import PLFH.Part1.Quantifiers (EvenWitness (..), OddWitness (..), binIff, canBinEq, evenToWitness, oddToWitness, sumSigmaTwo, witnessToEven)
 import PLFH.Part1.Relations (DiffWitness (..), Even (..), LE (..), LT' (..), Odd (..), leToDiff, plusMonoLt, timesMono, toBinCan, toFromCan)
 import PLFH.Part2.BigStep (CbnTerminates (..), EnvLookup (..), EvalBig (..), IsLamClos (..), IsSelfApp (..), cbnToReduce, evalBigIsLam, evalConstOmega, evalDeterm, evalFunDeterm, evalFunKIdOmega, evalIdApp, evalKIdOmega, selfAppEval)
 import qualified PLFH.Part2.BigStepFunctional as BigStepFunctional
@@ -103,6 +103,17 @@ eqId :: foreach (t :: U.UTerm Zero) -> Maybe (t :~: U.IdTerm)
 eqId (U.UVar x)   = case x of {}
 eqId (U.ULam b)   = case eqIdBody b of { Just Refl -> Just Refl; Nothing -> Nothing }
 eqId (U.UApp _ _) = Nothing
+
+eqUFin :: forall (n :: Nat). U.Fin n -> U.Fin n -> Bool
+eqUFin U.FZ     U.FZ     = True
+eqUFin (U.FS i) (U.FS j) = eqUFin i j
+eqUFin _        _        = False
+
+eqUTerm :: forall (n :: Nat). U.UTerm n -> U.UTerm n -> Bool
+eqUTerm (U.UVar i)     (U.UVar j)     = eqUFin i j
+eqUTerm (U.ULam b1)    (U.ULam b2)    = eqUTerm b1 b2
+eqUTerm (U.UApp l1 m1) (U.UApp l2 m2) = eqUTerm l1 l2 && eqUTerm m1 m2
+eqUTerm _              _              = False
 
 eqIdApp :: foreach (t :: U.UTerm Zero) -> Maybe (t :~: U.UApp U.IdTerm U.IdTerm)
 eqIdApp (U.UVar x)   = case x of {}
@@ -187,6 +198,14 @@ checkAdequacyCbnToReduce t = case eqIdApp t of
     _                                  -> False
   Nothing -> False
 
+checkAdequacyCbnIffReduce :: U.UTerm Zero -> Bool
+checkAdequacyCbnIffReduce t = case eqIdApp t of
+  Just Refl -> case Adq.cbnIffReduce t of
+    Iff toS _ -> case toS adequacyIdApp of
+      MkCbnTerminates (BCons Beta BRefl) -> True
+      _                                  -> False
+  Nothing -> False
+
 checkDenotReflect :: U.UTerm Zero -> Bool
 checkDenotReflect t = case eqIdApp t of
   Just Refl -> case denotReflect (MkValW (Arr Bot Bot)) t idAppStep denotId of
@@ -219,7 +238,7 @@ checkBetaCtxEquiv m n c = checkBetaCtxEquivHole m n c
 checkAllInRoundTrip :: foreach (xs :: [Nat]) -> foreach (x :: Nat) -> Bool
 checkAllInRoundTrip xs x = case decAll decEven xs of
   No _      -> False
-  Yes allEv -> case decIn decEqSize x xs of
+  Yes allEv -> case decIn decEqNat x xs of
     No _     -> False
     Yes inEv -> checkAllInEv @xs @x (inToAll xs (allToInEven @xs allEv)) inEv
 
@@ -263,18 +282,15 @@ main = do
   assertEq "Equality.leibnizToEq (leibnizSym (eqToLeibniz ReflP)) (direct matchable @(EqP x)!)" True
     (case leibnizToEq (leibnizSym (eqToLeibniz (ReflP :: EqP (3 :: Nat) 3))) of { ReflP -> True })
 
-  let isoRoundTrip = case isoSizeSym isoSizeRefl of
-        MkIsoSize to _ _ _ -> natToInt (to 4)
-  assertEq "Isomorphism.isoSizeSym isoSizeRefl 4" 4 isoRoundTrip
-  let polyIsoRoundTrip = case isoSym natIsoRefl of
+  let polyIsoRoundTrip = case isoSym (isoRefl @Nat) of
         MkIso to _ _ _ -> natToInt (to 4)
-  assertEq "Isomorphism.isoSym natIsoRefl 4" 4 polyIsoRoundTrip
-  let polyIsoEmbed = case isoImpliesEmbed natIsoRefl of
+  assertEq "Isomorphism.isoSym (isoRefl @Nat) 4" 4 polyIsoRoundTrip
+  let polyIsoEmbed = case isoImpliesEmbed (isoRefl @Nat) of
         MkEmbed _ from left ->
           let n :: Nat
               n = 3
           in case left n of Refl -> natToInt (from n)
-  assertEq "Isomorphism.isoImpliesEmbed natIsoRefl 3" 3 polyIsoEmbed
+  assertEq "Isomorphism.isoImpliesEmbed (isoRefl @Nat) 3" 3 polyIsoEmbed
   let binEmbedRT = case binEmbedding of
         MkEmbed to from left ->
           let n :: Nat
@@ -388,12 +404,17 @@ main = do
   assertEq "Relations.plusMonoLt (0<1, 1<2)" True
     (case plusMonoLt 0 1 1 2 ZltS (SltS ZltS) of { SltS ZltS -> True })
 
-  assertEq "Decidable.decEqSize 2 2" True  (case decEqSize 2 2 of { Yes Refl -> True; No _ -> False })
-  assertEq "Decidable.decEqSize 2 3" False (case decEqSize 2 3 of { Yes Refl -> True; No _ -> False })
+  assertEq "Decidable.decEqNat 2 2" True  (case decEqNat 2 2 of { Yes Refl -> True; No _ -> False })
+  assertEq "Decidable.decEqNat 2 3" False (case decEqNat 2 3 of { Yes Refl -> True; No _ -> False })
   assertEq "Decidable.decEven 4"     True  (case decEven 4 of { Yes _ -> True; No _ -> False })
   assertEq "Decidable.decEven 3"     False (case decEven 3 of { Yes _ -> True; No _ -> False })
-  assertEq "Decidable.decLtSize 2 5" True  (case decLtSize 2 5 of { Yes _ -> True; No _ -> False })
-  assertEq "Decidable.decLtSize 5 2" False (case decLtSize 5 2 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decLtNat 2 5" True  (case decLtNat 2 5 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.decLtNat 5 2" False (case decLtNat 5 2 of { Yes _ -> True; No _ -> False })
+  assertEq "Decidable.leBool 2 5" True (leBool 2 5)
+  assertEq "Decidable.leBoolToLE 2 5" True (case leBoolToLE 2 5 () of { SleS (SleS ZleN) -> True })
+  assertEq "Decidable.toWitness (Yes True)" True (toWitness (Yes True) ())
+  assertEq "Decidable.fromWitness (Yes True) True" () (fromWitness (Yes True) True)
+  assertEq "Decidable.eraseDec (decLeNat 2 5)" True (eraseDec (decLeNat 2 5))
   assertEq "Decidable.decEqBin (X1 Nil) (X1 Nil)" True
     (case decEqBin (X1 Nil) (X1 Nil) of { Yes Refl -> True; No _ -> False })
   assertEq "Decidable.decCan (X0 (X1 Nil))" True
@@ -402,6 +423,13 @@ main = do
     (case decCan (X0 (X0 Nil)) of { Yes _ -> True; No _ -> False })
   assertEq "Relations.toFromCan (toBin 5)" True
     (case toFromCan (toBin 5) (toBinCan 5) of Refl -> True)
+
+  let binIffRT = case binIff of
+        Iff to from -> natToInt (from (to 5))
+  assertEq "Quantifiers.binIff round-trip 5" 5 binIffRT
+  let c5 = toBinCan 5
+  assertEq "Quantifiers.canBinEq (proof irrelevance for Can)" True
+    (case canBinEq c5 c5 Refl of Refl -> True)
 
   let half4 = case evenToWitness (EvenS (OddS (EvenS (OddS EvenZ)))) of
         MkEvenWitness k Refl -> natToInt k
@@ -477,10 +505,12 @@ main = do
       twoN = 2
       threeN :: Nat
       threeN = 3
-  assertEq "Lists.decIn decEqSize 2 [0,2,4]" True
-    (case decIn decEqSize twoN evens of { Yes (There (Here Refl)) -> True; _ -> False })
-  assertEq "Lists.decIn decEqSize 3 [0,2,4]" False
-    (case decIn decEqSize threeN evens of { Yes _ -> True; No _ -> False })
+  assertEq "Lists.decIn decEqNat 2 [0,2,4]" True
+    (case decIn decEqNat twoN evens of { Yes (There (Here Refl)) -> True; _ -> False })
+  assertEq "Lists.decIn decEqNat 3 [0,2,4]" False
+    (case decIn decEqNat threeN evens of { Yes _ -> True; No _ -> False })
+  assertEq "Lists.foldrMonoidAppend plus Zero plusMonoid [0,1] [2]" True
+    (case foldrMonoidAppend plus Zero plusMonoid xs1 ys1 of Refl -> True)
   assertEq "Lists.allToIn / inToAll round-trip" True (checkAllInRoundTrip evens twoN)
 
   -- Part 2: STLC Progress & Preservation, Certified Inference, Untyped, Bisimulation, BigStep, Confluence
@@ -681,6 +711,8 @@ main = do
       _                           -> False)
   assertEq "Untyped.evalNormal 3 Omega -> Nothing (out of gas)" True
     (case U.evalNormalTerm 3 U.omegaTerm of { Nothing -> True; Just _ -> False })
+  assertEq "Untyped.sTwoPlusTwo == Just sFour (Scott numerals + Curry Y!)" True
+    (case U.sTwoPlusTwo of { Just v -> eqUTerm v U.sFour; Nothing -> False })
   assertEq "Confluence.parRefl traverses both lambdas" True
     (checkParallel (U.UApp U.idTerm U.idTerm))
   assertEq "Confluence.betaToPar idAppStep" True
@@ -759,6 +791,8 @@ main = do
     (checkReduceToCbn (U.UApp U.idTerm U.idTerm))
   assertEq "Adequacy.cbnToReduce adequacyIdApp (denotational -> big-step -> small-step!)" True
     (checkAdequacyCbnToReduce (U.UApp U.idTerm U.idTerm))
+  assertEq "Adequacy.cbnIffReduce (id id)" True
+    (checkAdequacyCbnIffReduce (U.UApp U.idTerm U.idTerm))
   assertEq "ContextualEquivalence.betaCtxEquiv (unconditional open-term CtxEquiv!)" True
     (checkBetaCtxEquiv (U.UApp U.idTerm U.idTerm) U.idTerm CHole)
   assertEq "ContextualEquivalence.terminatesStep idAppStep terminatesLam" True

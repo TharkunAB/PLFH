@@ -25,7 +25,6 @@ module PLFH.Part2.DeBruijn
   , Steps (..)
   , Progress (..)
   , progress
-  , appProgress
   , Gas (..)
   , Finished (..)
   , eval
@@ -37,7 +36,7 @@ module PLFH.Part2.DeBruijn
 import Data.Kind (Type)
 import qualified Data.Nat.Dependent as N
 
-{-# LINE 92 "content/part2/DeBruijn.md" #-}
+{-# LINE 91 "content/part2/DeBruijn.md" #-}
 -- | Simple types: natural numbers and functions.
 data Ty = TNat | TArr Ty Ty
   deriving (Show)
@@ -50,7 +49,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
   Z :: Lookup (CExt g a) a
   S :: Lookup g a -> Lookup (CExt g b) a
 
-{-# LINE 112 "content/part2/DeBruijn.md" #-}
+{-# LINE 158 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically typed STLC terms with naturals, case, and μ-recursion.
 data Term (g :: Ctx) (a :: Ty) where
   Var  :: Lookup g a -> Term g a
@@ -84,7 +83,7 @@ mulTerm =
       (App (App plusTerm (Var (S Z)))
            (App (App (Var (S (S (S Z)))) (Var Z)) (Var (S Z)))))))
 
-{-# LINE 179 "content/part2/DeBruijn.md" #-}
+{-# LINE 225 "content/part2/DeBruijn.md" #-}
 -- | Extend a variable renaming under a binder.
 ext :: (forall a. Lookup g a -> Lookup d a)
     -> (forall a. Lookup (CExt g b) a -> Lookup (CExt d b) a)
@@ -121,7 +120,7 @@ subst sigma (Mu n)       = Mu (subst (exts sigma) n)
 substSingle :: Term (CExt g a) b -> Term g a -> Term g b
 substSingle n w = subst (\case { Z -> w; S x -> Var x }) n
 
-{-# LINE 228 "content/part2/DeBruijn.md" #-}
+{-# LINE 274 "content/part2/DeBruijn.md" #-}
 -- | Values indexed by promoted intrinsically-typed terms!
 type Value :: forall (g :: Ctx) (a :: Ty). Term g a -> Type
 data Value m where
@@ -151,7 +150,7 @@ checkValue (Suc n)      = case checkValue n of
 checkValue (Case _ _ _) = NotVal
 checkValue (Mu _)       = NotVal
 
-{-# LINE 276 "content/part2/DeBruijn.md" #-}
+{-# LINE 322 "content/part2/DeBruijn.md" #-}
 -- | Intrinsically type-preserving call-by-value reduction (`M —→ N`).
 -- Preservation holds automatically by the kind of `Step`!
 type Step :: forall (g :: Ctx) (a :: Ty). Term g a -> Term g a -> Type
@@ -206,18 +205,6 @@ sucStep :: forall (n :: Term CEmpty TNat).
            foreach (n' :: Term CEmpty TNat)
         -> Step n n' -> Progress (Suc n)
 sucStep n' s = PStep (Suc n') (XiSuc s)
-
--- | Application case factored out as a standalone helper given subterm progress.
-appProgress
-  :: forall (a :: Ty).
-     (forall (b :: Ty). foreach (m :: Term CEmpty b) -> Progress m)
-  -> foreach (t :: Term CEmpty a) -> Maybe (Progress t)
-appProgress recProg (App l m) = case recProg l of
-  PStep l' s -> Just (PStep (App l' m) (XiApp1 s))
-  PDone v    -> case recProg m of
-    PStep m' s -> Just (PStep (App l m') (XiApp2 v s))
-    PDone w    -> Just (appBeta l m v w)
-appProgress _ _ = Nothing
 
 betaStep :: forall a b.
             foreach (body :: Term (CExt CEmpty a) b) -> foreach (m :: Term CEmpty a)

@@ -2,7 +2,7 @@
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes #-}
-{-# LINE 40 "content/part3/Compositional.md" #-}
+{-# LINE 39 "content/part3/Compositional.md" #-}
 module PLFH.Part3.Compositional
   ( LamDen (..)
   , subLamDen
@@ -24,10 +24,16 @@ module PLFH.Part3.Compositional
   , UCtx (..)
   , plug
   , compositionality
+  , VarDen (..)
+  , valLookupDeterm
+  , varInv
+  , varDenToDen
+  , varEquiv
   ) where
 
 import Data.Kind (Type)
 import Data.Nat.Dependent (Nat (..))
+import Data.Type.Equality ((:~:) (Refl))
 import PLFH.Part2.Untyped (Fin (..), UTerm (..))
 import PLFH.Part3.Denotational
   ( Den (..)
@@ -36,6 +42,7 @@ import PLFH.Part3.Denotational
   , Denotes (..)
   , Sub (..)
   , ValEnv (..)
+  , ValLookup (..)
   , ValW (..)
   , Value (..)
   , denEqRefl
@@ -46,7 +53,7 @@ import PLFH.Part3.Denotational
   , upEnv
   )
 
-{-# LINE 96 "content/part3/Compositional.md" #-}
+{-# LINE 102 "content/part3/Compositional.md" #-}
 -- | Semantic curry operator `ℱ`: lifts a body denotation to a lambda denotation.
 type LamDen :: forall (n :: Nat). Denotation (Succ n) -> ValEnv n -> Value -> Type
 data LamDen d e v where
@@ -111,7 +118,7 @@ lamCong :: forall (n :: Nat) (b :: UTerm (Succ n)) (b' :: UTerm (Succ n)).
            DenEq (Den b) (Den b') -> DenEq (Den (ULam b)) (Den (ULam b'))
 lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv))
 
-{-# LINE 172 "content/part3/Compositional.md" #-}
+{-# LINE 178 "content/part3/Compositional.md" #-}
 -- | Semantic application operator (`D1 ● D2`).
 type AppDen :: forall (n :: Nat). Denotation n -> Denotation n -> ValEnv n -> Value -> Type
 data AppDen d1 d2 e w where
@@ -188,7 +195,7 @@ congChain :: DenEq (Den m) (Den m')
           -> DenEq (Den (ULam (UApp (UVar FZ) m))) (Den (ULam (UApp (UVar FZ) m')))
 congChain eq = lamCong (appCong denEqRefl eq)
 
-{-# LINE 256 "content/part3/Compositional.md" #-}
+{-# LINE 262 "content/part3/Compositional.md" #-}
 -- | One-hole term contexts taking a hole of depth `m` to a term of depth `n`.
 data UCtx (m :: Nat) (n :: Nat) where
   CHole :: UCtx n n
@@ -203,7 +210,7 @@ plug (CLam c)    t = ULam (plug c t)
 plug (CAppL c r) t = UApp (plug c t) r
 plug (CAppR l c) t = UApp l (plug c t)
 
-{-# LINE 277 "content/part3/Compositional.md" #-}
+{-# LINE 283 "content/part3/Compositional.md" #-}
 -- | Full compositionality theorem (`compositionality`): plugging two
 -- denotationally equal terms into any one-hole context `UCtx m n` produces
 -- denotationally equal programs!
@@ -216,3 +223,38 @@ compositionality CHole       eq = eq
 compositionality (CLam c)    eq = lamCong (compositionality c eq)
 compositionality (CAppL c _) eq = appCong (compositionality c eq) denEqRefl
 compositionality (CAppR _ c) eq = appCong denEqRefl (compositionality c eq)
+
+{-# LINE 310 "content/part3/Compositional.md" #-}
+-- | Environment lookup is deterministic: each position holds one value.
+valLookupDeterm :: ValLookup e x v1 -> ValLookup e x v2 -> v1 :~: v2
+valLookupDeterm VLZ      VLZ      = Refl
+valLookupDeterm (VLS p1) (VLS p2) = valLookupDeterm p1 p2
+
+-- | Compositional denotation of a variable `UVar x`.
+type VarDen :: forall (n :: Nat). Fin n -> Denotation n
+data VarDen x e v where
+  VDBot :: Sub v Bot -> VarDen x e v
+  VDVar :: ValW v' -> ValLookup e x v' -> Sub v v' -> VarDen x e v
+
+-- | Variable inversion (`var-inv`): every denotation of `UVar x` is bounded by `e(x)` or `⊥`.
+varInv :: ValW v -> Denotes e (UVar x) v -> VarDen x e v
+varInv wv (DVar lk) = VDVar wv lk SubRefl
+varInv _  DBot      = VDBot SubRefl
+varInv _ (DJoin wv1 wv2 d1 d2) =
+  case (varInv wv1 d1, varInv wv2 d2) of
+    (VDBot lt1,         VDBot lt2)         -> VDBot (SubJoinL lt1 lt2)
+    (VDBot lt1,         VDVar wv' lk lt2)  -> VDVar wv' lk (SubJoinL (SubTrans Bot lt1 SubBot) lt2)
+    (VDVar wv' lk lt1,  VDBot lt2)         -> VDVar wv' lk (SubJoinL lt1 (SubTrans Bot lt2 SubBot))
+    (VDVar wv' lk1 lt1, VDVar _   lk2 lt2) -> case valLookupDeterm lk1 lk2 of
+      Refl -> VDVar wv' lk1 (SubJoinL lt1 lt2)
+varInv _ (DSub wv'@(MkValW v') d lt) = case varInv wv' d of
+  VDBot lt'        -> VDBot (SubTrans v' lt lt')
+  VDVar wv'' lk lt' -> VDVar wv'' lk (SubTrans v' lt lt')
+
+varDenToDen :: VarDen x e v -> Denotes e (UVar x) v
+varDenToDen (VDBot lt)       = DSub (MkValW Bot) DBot lt
+varDenToDen (VDVar wv' lk lt) = DSub wv' (DVar lk) lt
+
+-- | Compositional variable equivalence (`var-equiv`): `ℰ (UVar x) ≃ VarDen x`.
+varEquiv :: forall (n :: Nat) (x :: Fin n). DenEq (Den (UVar x)) (VarDen x)
+varEquiv wv = (\ (MkDen d) -> varInv wv d, \vd -> MkDen (varDenToDen vd))
