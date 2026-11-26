@@ -5,16 +5,23 @@
 {-# LINE 31 "content/part1/Decidable.md" #-}
 module PLFH.Part1.Decidable
   ( Not
+  , leBool
+  , tBool
+  , leBoolToLE
+  , leToLeBool
   , Dec (..)
+  , eraseDec
+  , toWitness
+  , fromWitness
   , decNot
   , decAnd
   , decOr
   , decImp
   , decIff
   , zeroNeqSucc
-  , decEqSize
-  , decLeSize
-  , decLtSize
+  , decEqNat
+  , decLeNat
+  , decLtNat
   , decEven
   , decOdd
   , decEqBin
@@ -23,8 +30,8 @@ module PLFH.Part1.Decidable
   , Reflects (..)
   , reflectsToDec
   , Sigma (..)
-  , SizeWitness
-  , mkSizeWitness
+  , NatWitness
+  , mkNatWitness
   , plusExists
   ) where
 
@@ -32,27 +39,79 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import GHC.Sigma (Sigma (Pair))
-import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent (Nat (..), minus, plus)
 import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
+import PLFH.Part1.Negation (Not)
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 
-{-# LINE 86 "content/part1/Decidable.md" #-}
--- | Logical negation: evidence that a proposition implies falsehood (Void).
-type Not a = a -> Void
+{-# LINE 85 "content/part1/Decidable.md" #-}
+-- | Test whether a natural number is zero.
+isZeroNat :: Nat -> Bool
+isZeroNat Zero     = True
+isZeroNat (Succ _) = False
 
+-- | Boolean less-than-or-equal test (`_≤ᵇ_`), defined via truncated subtraction.
+leBool :: Nat -> Nat -> Bool
+leBool Zero     _ = True
+leBool (Succ m) n = isZeroNat (minus (Succ m) n)
+
+-- | Lift a `Bool` to a proposition (`T` in PLFA) via term-to-`Type` large elimination.
+tBool :: Bool -> Type
+tBool True  = type ()
+tBool False = type Void
+
+-- | Soundness helper over `isZeroNat (minus m n)`.
+minusZeroToLE :: foreach (m n :: Nat) -> tBool (isZeroNat (minus m n)) -> LE m n
+minusZeroToLE Zero     _        () = ZleN
+minusZeroToLE (Succ _) Zero     v  = absurd v
+minusZeroToLE (Succ m) (Succ n) t  = SleS (minusZeroToLE m n t)
+
+-- | Soundness of `leBool`: if `leBool m n` is `True`, then `LE m n` holds (`≤ᵇ→≤`).
+leBoolToLE :: foreach (m n :: Nat) -> tBool (leBool m n) -> LE m n
+leBoolToLE Zero     _ () = ZleN
+leBoolToLE (Succ m) n t  = minusZeroToLE (Succ m) n t
+
+-- | Completeness helper over `isZeroNat (minus m n)`.
+leToMinusZero :: foreach (m n :: Nat) -> LE m n -> tBool (isZeroNat (minus m n))
+leToMinusZero Zero     _        ZleN     = ()
+leToMinusZero (Succ m) (Succ n) (SleS p) = leToMinusZero m n p
+
+-- | Completeness of `leBool`: if `LE m n` holds, then `leBool m n` is `True` (`≤→≤ᵇ`).
+leToLeBool :: foreach (m n :: Nat) -> LE m n -> tBool (leBool m n)
+leToLeBool Zero     _ ZleN = ()
+leToLeBool (Succ m) n p    = leToMinusZero (Succ m) n p
+
+{-# LINE 132 "content/part1/Decidable.md" #-}
 -- | Peano's postulate: Zero is never equal to any successor.
 zeroNeqSucc :: Not (Zero :~: Succ n)
 zeroNeqSucc eq = case eq of {}
 
-{-# LINE 100 "content/part1/Decidable.md" #-}
+{-# LINE 145 "content/part1/Decidable.md" #-}
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
 
-{-# LINE 117 "content/part1/Decidable.md" #-}
+-- | Erase a decision to its underlying `Bool` (`⌊_⌋`).
+eraseDec :: Dec p -> Bool
+eraseDec (Yes _) = True
+eraseDec (No  _) = False
+
+-- | Extract evidence `p` when `eraseDec d` computes to `True` (`toWitness`).
+toWitness :: foreach (d :: Dec p) -> tBool (eraseDec d) -> p
+toWitness d = case d of
+  Yes p -> \_ -> p
+  No  _ -> \v -> absurd v
+
+-- | Witness that `eraseDec d` is `True` whenever `p` holds (`fromWitness`).
+fromWitness :: foreach (d :: Dec p) -> p -> tBool (eraseDec d)
+fromWitness d = case d of
+  Yes _  -> \_ -> ()
+  No  np -> \p -> np p
+
+{-# LINE 179 "content/part1/Decidable.md" #-}
 -- | Decidable propositions are closed under negation, conjunction, disjunction,
 -- implication, and bi-implication.
 decNot :: Dec p -> Dec (Not p)
@@ -79,34 +138,34 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
   Yes (f, g) -> Yes (Iff f g)
   No nfg     -> No (\(Iff f g) -> nfg (f, g))
 
-{-# LINE 156 "content/part1/Decidable.md" #-}
+{-# LINE 218 "content/part1/Decidable.md" #-}
 -- | Decidable propositional equality on Nat (`_≡ℕ?_`).
-decEqSize :: foreach (m n :: Nat) -> Dec (m :~: n)
-decEqSize Zero     Zero     = Yes Refl
-decEqSize Zero     (Succ _) = No (\case {})
-decEqSize (Succ _) Zero     = No (\case {})
-decEqSize (Succ m) (Succ n) = case decEqSize m n of
+decEqNat :: foreach (m n :: Nat) -> Dec (m :~: n)
+decEqNat Zero     Zero     = Yes Refl
+decEqNat Zero     (Succ _) = No (\case {})
+decEqNat (Succ _) Zero     = No (\case {})
+decEqNat (Succ m) (Succ n) = case decEqNat m n of
   Yes eq -> Yes (cong Succ eq)
   No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
-decLeSize :: foreach (m n :: Nat) -> Dec (LE m n)
-decLeSize Zero     _        = Yes ZleN
-decLeSize (Succ _) Zero     = No (\case {})
-decLeSize (Succ m) (Succ n) = case decLeSize m n of
+decLeNat :: foreach (m n :: Nat) -> Dec (LE m n)
+decLeNat Zero     _        = Yes ZleN
+decLeNat (Succ _) Zero     = No (\case {})
+decLeNat (Succ m) (Succ n) = case decLeNat m n of
   Yes p -> Yes (SleS p)
   No np -> No (\p -> np (invSleS p))
 
 -- | Decidable strict less-than relation on Nat (`_<?_`).
-decLtSize :: foreach (m n :: Nat) -> Dec (LT' m n)
-decLtSize Zero     Zero     = No (\case {})
-decLtSize Zero     (Succ _) = Yes ZltS
-decLtSize (Succ _) Zero     = No (\case {})
-decLtSize (Succ m) (Succ n) = case decLtSize m n of
+decLtNat :: foreach (m n :: Nat) -> Dec (LT' m n)
+decLtNat Zero     Zero     = No (\case {})
+decLtNat Zero     (Succ _) = Yes ZltS
+decLtNat (Succ _) Zero     = No (\case {})
+decLtNat (Succ m) (Succ n) = case decLtNat m n of
   Yes p -> Yes (SltS p)
   No np -> No (\case SltS q -> np q)
 
-{-# LINE 198 "content/part1/Decidable.md" #-}
+{-# LINE 260 "content/part1/Decidable.md" #-}
 -- | Decidable evenness predicate on Nat.
 decEven :: foreach (n :: Nat) -> Dec (Even n)
 decEven Zero            = Yes EvenZ
@@ -177,13 +236,13 @@ decCan (X1 b)      = case decOne (X1 b) of
   Yes o  -> Yes (CanOne o)
   No  no -> No (\case CanOne o -> no o)
 
-{-# LINE 281 "content/part1/Decidable.md" #-}
--- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Nat) | LE Zero k
+{-# LINE 343 "content/part1/Decidable.md" #-}
+-- | A dependent pair carrying a runtime natural `k` and evidence that Zero <= k.
+type NatWitness = some (k :: Nat) | LE Zero k
 
--- | Package any runtime size with its proof of Zero <= k.
-mkSizeWitness :: Nat -> SizeWitness
-mkSizeWitness k = Pair k ZleN
+-- | Package any runtime natural with its proof of Zero <= k.
+mkNatWitness :: Nat -> NatWitness
+mkNatWitness k = Pair k ZleN
 
 -- | Inline retained dependent sum returned directly from a `foreach` function.
 plusExists :: foreach (m n :: Nat)

@@ -16,8 +16,8 @@ applies negation to order relations on natural numbers.
 ## Imports
 
 We import `Void` and `absurd` from `Data.Void`, `Nat` from `Data.Nat.Dependent`,
-`Not` from [Decidable](/Decidable/), `Iff` from [Isomorphism](/Isomorphism/),
-and `LE` / `LT'` from [Relations](/Relations/).
+`Iff` from [Isomorphism](/Isomorphism/), and `LE` / `LT'` from
+[Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
@@ -53,7 +53,6 @@ module PLFH.Part1.Negation
 
 import Data.Void (Void, absurd)
 import Data.Nat.Dependent (Nat (..))
-import PLFH.Part1.Decidable (Not)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Relations (LE (..), LT' (..))
 ```
@@ -65,8 +64,8 @@ when `a` cannot hold. Under *Propositions as Types*, we define negation as
 implication of falsehood:
 
 ```haskell
--- From PLFH.Part1.Decidable:
--- type Not a = a -> Void
+-- | Logical negation: evidence that a proposition implies falsehood (`Void`).
+type Not a = a -> Void
 ```
 
 This is *reductio ad absurdum*: if assuming evidence of `a` lets us construct
@@ -91,7 +90,7 @@ via structural recursion and impossible GADT pattern matches
 ### Intuitionistic negation laws
 
 In *classical* logic, `a` is equivalent to `Not (Not a)`. In *intuitionistic*
-logic—and therefore in Dependent Haskell—we have only half of that
+logic (and therefore in Dependent Haskell) we have only half of that
 equivalence: `a` always implies `Not (Not a)` (`doubleNegIntro`), and triple
 negation collapses back to single negation (`tripleNegElim`). Double negation
 also forms a **monad** (`doubleNegIntro`, `doubleNegMap`, `doubleNegBind`,
@@ -152,7 +151,7 @@ disjunction `Either a b` must actually exhibit *which* disjunct holds (`Left x`
 or `Right y`), so they reject the claim that Casilda is married to Marco or
 Giuseppe until one is identified. (Perhaps Gilbert and Sullivan anticipated
 intuitionism: at the end of the operetta, the heir turns out to be a *third*
-man, Luiz, with whom Casilda is conveniently already in love!)
+man, Luiz, with whom Casilda is conveniently already in love)
 
 For the same reason, intuitionistic logic rejects the **Law of the Excluded
 Middle** (`Either a (Not a)` for arbitrary `a`), because it gives no clue as
@@ -164,7 +163,7 @@ logic faithfully inside intuitionistic logic.
 ## Excluded Middle is irrefutable
 
 Although intuitionistic logic cannot prove `Either a (Not a)`, it *can* prove
-that Excluded Middle can never be refuted—that is, `Not (Not (Either a (Not a)))`:
+that Excluded Middle can never be refuted: that is, `Not (Not (Either a (Not a)))`:
 
 ```haskell
 -- | Excluded Middle is intuitionistically irrefutable: ¬¬(a ∨ ¬a).
@@ -174,10 +173,10 @@ irrefutableLEM k = k (Right (\x -> k (Left x)))
 
 How does this astonishing one-line proof work? Given a continuation
 `k :: Either a (Not a) -> Void`, we don't yet have a value of type `a`, so we
-first offer `k` the right disjunct `Right (\x -> ...) :: Either a (Not a)`,
+first offer `k` the right disjunct `Right (\x ->.) :: Either a (Not a)`,
 promising a proof of `Not a`. If `k` ever invokes that callback with an actual
 value `x :: a`, we now *do* hold an `a`, so we invoke `k` a second time with
-`Left x`!
+`Left x`.
 
 As PLFA relates (adapting Peter Selinger's story of the king, the wizard, and
 the Philosopher's Stone, from Wadler's *Call-by-Value is Dual to Call-by-Name*,
@@ -193,19 +192,19 @@ ICFP 2003):
 > dollars and brought it in a valise to claim his wish.
 >
 > The devil took the valise and smiled: *"Oh, did I say (b) before? I'm so
-> sorry—I meant (a). It is my great pleasure to give you one billion dollars."*
-> And the devil handed back the very same valise!
+> sorry, I meant (a). It is my great pleasure to give you one billion dollars."*
+> And the devil handed back the very same valise.
 
 In our proof, `Right (\x -> ...)` is the devil choosing *(b)*, and calling
 `k (Left x)` once `x` arrives is the devil backtracking to *(a)* with the
-man's own billion dollars!
+man's own billion dollars.
 
 ## Classical equivalences
 
 Even without assuming classical axioms, we can prove constructively that five
-famous classical principles—**Excluded Middle**, **Double Negation Elimination**,
+famous classical principles, **Excluded Middle**, **Double Negation Elimination**,
 **Peirce's Law**, **Material Implication**, and **Classical De Morgan's Law**
-(`¬(¬a ∧ ¬b) → a ∨ b`)—all imply one another:
+(`¬(¬a ∧ ¬b) → a ∨ b`), all imply one another:
 
 ```haskell
 type ExcludedMiddle = forall a. Either a (Not a)
@@ -290,7 +289,7 @@ notLeToGt (Succ m) (Succ n) nle = SltS (notLeToGt m n (\le -> nle (SleS le)))
 
 ## Exercises
 
-#### Exercise `Stable` (stretch)
+### Exercise `Stable` (stretch)
 
 Say that a proposition `a` is *stable* if double negation elimination holds
 for it: `type Stable a = Not (Not a) -> a`. Show constructively that:
@@ -298,7 +297,7 @@ for it: `type Stable a = Not (Not a) -> a`. Show constructively that:
 1. Every negated proposition `Not a` is stable (hint: `tripleNegElim`).
 2. The conjunction `(a, b)` of two stable propositions is stable.
 
-#### Exercise `trichotomy-exclusive` (practice)
+### Exercise `trichotomy-exclusive` (practice)
 
 Using `ltIrrefl` and `ltAsym` above, verify that the three branches of
 `Trichotomy m n` from [Relations](/Relations/) are mutually exclusive: no
@@ -306,15 +305,5 @@ pair `(m, n)` can satisfy more than one of `LT' m n`, `m :~: n`, and `LT' n m`.
 
 ## Changes from PLFA
 
-- Adapted from [Negation](https://plfa.inf.ed.ac.uk/Negation/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Negation.lagda.md)),
-  licensed under CC BY 4.0.
-- Every intuitionistic negation law, double-negation monad operation,
-  classical equivalence (`emToDne`, `dneToPeirce`, `peirceToEm`, `emToImpOr`,
-  `impOrToEm`, `emToDeMorganNot`, `deMorganNotToEm`), `irrefutableLEM`, and order-negation lemma
-  (`ltIrrefl`, `ltAsym`, `notLtZero`, `ltToNotGe`, `leToNotGt`, `notLeToGt`)
-  ports directly and passes `-dcore-lint -dstg-lint`.
-- All promoted constructors (`Zero`) are written without leading `'` ticks.
-- As throughout PLFH, soundness of `Not a = a -> Void` relies on our
-  structural-recursion / no-bottom proof discipline rather than a compiler
-  totality checker.
+- Uses `Data.Void.Void` and `EmptyCase` (`\case {}`) for empty elimination.
+- Proves all five classical principles (`EM`, `DNE`, `Peirce`, `ImpOr`, `DeMorganNot`) mutually equivalent alongside intuitionistic and order-negation laws.

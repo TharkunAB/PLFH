@@ -1,7 +1,7 @@
 ---
 title: "dependent-base Reference"
 description: "API reference for TharkunAB/dependent-base: Prelude.Dependent, Data.Function.Dependent, Data.Nat.Dependent, Data.Vec.Dependent, Data.Fin.Dependent, Sigma, and Exists."
-prev: /Setup/
+prev: /ContextualEquivalence/
 next: /Source/
 src: content/DependentBase.md
 ---
@@ -15,9 +15,7 @@ plain `Haskell2010` modules can import its compiled `.hi` interfaces without
 enabling `-XDependentTypes`.
 
 Every module in `dependent-base` is precompiled into the browser WebAssembly
-bundle and available in PLFH's interactive GHCi sessions. Compiler plugins live
-in [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)
-and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).
+bundle and available in PLFH's interactive GHCi sessions.
 
 ## How `dependent-base` reuse relates to PLFA
 
@@ -172,7 +170,7 @@ Source: [`Data/Sigma/Dependent.hs`](/Source/dependent-base/Data/Sigma/Dependent/
 
 ### `Data.Decision`, `Bool`, `Maybe`, `Either`, & `Tuple` {#datadecision}
 
-| Module | On-site Source | Highlights |
+| Module | On-site Source | Summary |
 | --- | --- | --- |
 | `Data.Decision` | [`Data/Decision.hs`](/Source/dependent-base/Data/Decision/) | `Void`, `absurd`, `Not`, `Dec (..)`, `Reflects`, `ReflectsBool`, `decNot`/`And`/`Or`/`Imp`, `DecEq` |
 | `Data.Bool.Dependent` | [`Data/Bool/Dependent.hs`](/Source/dependent-base/Data/Bool/Dependent/) | Certified `not`, `(&&)`, `(||)`, `bool`, involution and De Morgan laws |

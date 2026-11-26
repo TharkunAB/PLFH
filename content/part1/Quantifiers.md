@@ -24,18 +24,20 @@ quantifiers:
    with combinators re-exported by `Data.Exists.Dependent`) vs.
    retained dependent pairs `GHC.Sigma.Sigma` (`some (x :: a) | p x`, or a GADT
    constructor carrying `foreach (x :: a) -> ...`), where the witness is
-   available both at runtime and in types!
+   available both at runtime and in types.
 
 ## Imports
 
 We import `Type`, `(:~:)`, `GHC.Sigma`, `GHC.Exists`/`Data.Exists.Dependent`,
 `rewrite` from `Data.Type.Equality.Dependent`, `Nat` and addition helpers from
-`Data.Nat.Dependent`/`Data.Nat.Dependent.Properties`, unified `cong` from
-[Induction](/Induction/), `Not` from [Decidable](/Decidable/), `Iff` from
-[Isomorphism](/Isomorphism/), and `Even`/`Odd` from [Relations](/Relations/).
+`Data.Nat.Dependent`/`Data.Nat.Dependent.Properties`, `Bin`/`toBin`/`fromBin`
+from [Naturals](/Naturals/), `cong` and `fromTo` from [Induction](/Induction/),
+`Not` from [Negation](/Negation/), `Iff` and `Iso` from
+[Isomorphism](/Isomorphism/), and `Even`/`Odd`/`One`/`Can`/`toBinCan`/`toFromCan`
+from [Relations](/Relations/).
 
 ```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns, UndecidableInstances #-}
+{-# LANGUAGE DependentTypes, LambdaCase, ListTuplePuns, UndecidableInstances #-}
 module PLFH.Part1.Quantifiers
   ( Exists
   , SumPred (..)
@@ -47,11 +49,24 @@ module PLFH.Part1.Quantifiers
   , forallDistribProd
   , notExistsToForallNot
   , forallNotToNotExists
+  , NotPred (..)
+  , existsNotImpliesForallNot
+  , DPair (..)
+  , sigmaDistribSumTo
+  , sigmaDistribSumFrom
+  , sigmaDistribSum
   , EvenSigma
   , evenZeroSigma
   , evenTwoSigma
   , SumSigma
   , sumSigmaTwo
+  , CanBin
+  , oneIrr
+  , canIrr
+  , toCanBin
+  , fromCanBin
+  , canBinEq
+  , binIff
   , EvenWitness (..)
   , evenWitnessZero
   , evenWitnessSuc2
@@ -73,15 +88,16 @@ import Data.Type.Equality ((:~:) (Refl))
 import Data.Type.Equality.Dependent (rewrite)
 import GHC.Exists (Exists)
 import GHC.Sigma (Sigma (Pair))
-import PLFH.Part1.Decidable (Not)
-import PLFH.Part1.Induction (cong)
-import PLFH.Part1.Isomorphism (Iff (..))
-import PLFH.Part1.Relations (Even (..), Odd (..))
+import PLFH.Part1.Induction (cong, fromTo)
+import PLFH.Part1.Isomorphism (Iff (..), Iso (..))
+import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
+import PLFH.Part1.Negation (Not)
+import PLFH.Part1.Relations (Can (..), Even (..), Odd (..), One (..), toBinCan, toFromCan)
 ```
 
 ## Universals (`∀`)
 
-We have been using universal quantification throughout Part 1—for instance,
+We have been using universal quantification throughout Part 1, for instance,
 in [Induction](/Induction/) we proved:
 
 ```text
@@ -123,7 +139,7 @@ directly:
 - **Existentials distribute over disjunction (`∃-distrib-⊎`):**
   `(∃ x. P x ∨ Q x) ⇔ (∃ x. P x) ∨ (∃ x. Q x)`.
 - **Existential currying (`∀∃-currying`):**
-  `((∃ x. P x) -> C) ⇔ (∀ x. P x -> C)`—just like `((a, b) -> c) ⇔ (a -> b -> c)`.
+  `((∃ x. P x) -> C) ⇔ (∀ x. P x -> C)`, just like `((a, b) -> c) ⇔ (a -> b -> c)`.
 - **Universals distribute over conjunction (`∀-distrib-×`):**
   `(∀ x. P x ∧ Q x) ⇔ (∀ x. P x) ∧ (∀ x. Q x)`.
 - **Quantifier De Morgan:**
@@ -192,6 +208,43 @@ forallNotToNotExists
   :: forall a (p :: a -> Type).
      (forall x. Not (p x)) -> Not (Exists p)
 forallNotToNotExists fn pkg = withExists pkg $ \_ px -> fn px
+
+-- | Pointwise negation predicate wrapper for `Exists`.
+newtype NotPred (p :: a -> Type) (x :: a) = MkNotPred { unNotPred :: Not (p x) }
+
+-- | Constructive quantifier implication: (∃ x. ¬(P x)) -> ¬(∀ x. P x) (`∃¬-implies-¬∀`).
+existsNotImpliesForallNot
+  :: forall a (p :: a -> Type).
+     Exists (NotPred p) -> Not (Forall p)
+existsNotImpliesForallNot pkg (MkForall allP) =
+  withExists pkg $ \(type x) (MkNotPred npx) -> npx (allP @x)
+```
+
+Over retained `Sigma` pairs, `∃-distrib-⊎` holds directly in both directions
+(`sigmaDistribSum`):
+
+```haskell
+-- | Reusable retained dependent pair over a matchable predicate `p :: a -> Type`.
+data DPair (a :: Type) (p :: a -> Type) where
+  MkDPair :: foreach (x :: a) -> p x -> DPair a p
+
+-- | Distributivity of retained dependent pairs over disjunction (`∃-distrib-⊎`).
+sigmaDistribSumTo
+  :: forall a (p :: a -> Type) (q :: a -> Type).
+     DPair a (SumPred p q) -> Either (DPair a p) (DPair a q)
+sigmaDistribSumTo (MkDPair x (InL px)) = Left  (MkDPair x px)
+sigmaDistribSumTo (MkDPair x (InR qx)) = Right (MkDPair x qx)
+
+sigmaDistribSumFrom
+  :: forall a (p :: a -> Type) (q :: a -> Type).
+     Either (DPair a p) (DPair a q) -> DPair a (SumPred p q)
+sigmaDistribSumFrom (Left  (MkDPair x px)) = MkDPair x (InL px)
+sigmaDistribSumFrom (Right (MkDPair x qx)) = MkDPair x (InR qx)
+
+sigmaDistribSum
+  :: forall a (p :: a -> Type) (q :: a -> Type).
+     Iff (DPair a (SumPred p q)) (Either (DPair a p) (DPair a q))
+sigmaDistribSum = Iff sigmaDistribSumTo sigmaDistribSumFrom
 ```
 
 ## An existential example: `Even` and `Odd` as doubles
@@ -201,14 +254,14 @@ Recall the mutually inductive predicates `Even n` and `Odd n` from
 only if it is twice some natural `k`, and odd if and only if it is one more
 than twice some natural `k`:
 
-- `Even n  ⇔  ∃ k. k + k = n`
-- `Odd n   ⇔  ∃ k. Succ (k + k) = n`
+- `Even n ⇔ ∃ k. k + k = n`
+- `Odd n ⇔ ∃ k. Succ (k + k) = n`
 
 With GHC's retained dependent sum (`some (k :: Nat) | plus k k :~: n`,
 requiring `UndecidableInstances` because the desugared type-lambda family
-calls `plus k k`), we can write `EvenSigma`—as well as multi-binder sums like
+calls `plus k k`), we can write `EvenSigma`, as well as multi-binder sums like
 `SumSigma` (`some (m k :: Nat) | plus m k :~: n`, desugaring right-associatively
-to nested `Sigma` pairs)—directly using decimal numerals:
+to nested `Sigma` pairs), directly using decimal numerals:
 
 ```haskell
 -- | Retained dependent sum: there exists a runtime `k` with `k + k = n`.
@@ -227,8 +280,49 @@ sumSigmaTwo :: SumSigma 2
 sumSigmaTwo = Pair 1 (Pair 1 Refl)
 ```
 
+### Canonical binary isomorphism (`Nat ≃ some (b :: Bin) | Can b`)
+
+In [Isomorphism](/Isomorphism/), `Nat` embedded into `Bin` (`binEmbedding`)
+because leading zeros broke the reverse round trip (`toBin (fromBin (X0 (X0 Nil)))`
+collapses to `X0 Nil`). Pairing each `Bin` with its canonical-form proof `Can b`
+as a retained dependent pair `some (b :: Bin) | Can b` completes the
+five-chapter `Bin` arc with a full isomorphism `binIso`. Since `One b` and
+`Can b` each have at most one inhabitant (`oneIrr`, `canIrr`), the round-trip
+proofs match directly:
+
+```haskell
+-- | Canonical binary numeral: a `Bin` paired with its `Can` proof.
+type CanBin = some (b :: Bin) | Can b
+
+-- | Proof irrelevance for `One`: any two derivations of `One b` are equal.
+oneIrr :: forall (b :: Bin). foreach (o1 o2 :: One b) -> o1 :~: o2
+oneIrr OneX1       o2 = case o2 of { OneX1     -> Refl }
+oneIrr (OneX0  p1) o2 = case o2 of { OneX0  p2 -> case oneIrr p1 p2 of Refl -> Refl }
+oneIrr (OneX1' p1) o2 = case o2 of { OneX1' p2 -> case oneIrr p1 p2 of Refl -> Refl }
+
+-- | Proof irrelevance for `Can`: any two derivations of `Can b` are equal.
+canIrr :: forall (b :: Bin). foreach (c1 c2 :: Can b) -> c1 :~: c2
+canIrr CanZ        c2 = case c2 of { CanZ      -> Refl }
+canIrr (CanOne p1) c2 = case c2 of { CanOne p2 -> case oneIrr p1 p2 of Refl -> Refl }
+
+toCanBin :: Nat -> CanBin
+toCanBin n = Pair (toBin n) (toBinCan n)
+
+fromCanBin :: CanBin -> Nat
+fromCanBin (Pair b _) = fromBin b
+
+-- | Two `CanBin` pairs with equal underlying `Bin` numerals are equal (by proof irrelevance of `Can`).
+canBinEq :: forall (b1 b2 :: Bin). foreach (c1 :: Can b1) -> foreach (c2 :: Can b2)
+         -> b1 :~: b2 -> (Pair b1 c1 :: CanBin) :~: Pair b2 c2
+canBinEq c1 c2 Refl = case canIrr c1 c2 of Refl -> Refl
+
+-- | Bijection between `Nat` and canonical binary numerals (`Bin-isomorphism` via `fromTo`, `toFromCan`, and `canBinEq`).
+binIff :: Iff Nat CanBin
+binIff = Iff toCanBin fromCanBin
+```
+
 Packaging the exact same retained witness as `EvenWitness n` and `OddWitness n`
-(carrying `foreach (k :: Nat)` so the half `k` is available at runtime!), we
+(carrying `foreach (k :: Nat)` so the half `k` is available at runtime), we
 prove **both directions** of both equivalences (`evenIffWitness` and
 `oddIffWitness`), using unified `cong Succ` and `rewrite (plusSucc k k)`:
 
@@ -280,7 +374,7 @@ oddIffWitness = Iff oddToWitness witnessToOdd
 
 ## Exercises
 
-#### Exercise `⊎∀-implies-∀⊎` and `∃×-implies-×∃` (practice)
+### Exercise `⊎∀-implies-∀⊎` and `∃×-implies-×∃` (practice)
 
 Show constructively that:
 
@@ -288,27 +382,17 @@ Show constructively that:
    universals implies a universal of disjunctions). Does the converse hold?
 2. `Exists (ProdPred p q) -> (Exists p, Exists q)` (an existential of
    conjunctions implies a conjunction of existentials). Why does the converse
-   fail? (Think of `p = Even` and `q = Odd`!)
+   fail? (Think of `p = Even` and `q = Odd`)
 
-#### Exercise `∀-×` and `∃-⊎` on `Tri` (practice)
+### Exercise `∀-×` and `∃-⊎` on `Tri` (practice)
 
 Given a 3-element datatype `data Tri = AA | BB | CC` and an indexed predicate
 (GADT) `b :: Tri -> Type`, explain why `foreach (x :: Tri) -> b x` behaves like
 the triple `(b AA, b BB, b CC)` while a **retained** dependent sum
 `some (x :: Tri) | b x` (unlike erased `Exists b`, whose tag `x` cannot be
-inspected at runtime!) behaves like the 3-way sum
+inspected at runtime) behaves like the 3-way sum
 `Either (b AA) (Either (b BB) (b CC))`.
 
 ## Changes from PLFA
 
-- Adapted from [Quantifiers](https://plfa.inf.ed.ac.uk/Quantifiers/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Quantifiers.lagda.md)),
-  licensed under CC BY 4.0.
-- Contrasts native Proposal `#473` erased existentials (`GHC.Exists.Exists` / `Data.Exists.Dependent`)
-  with retained `GHC.Sigma` (`some ... | ...`)
-  and `foreach`-carrying GADT witnesses (`EvenWitness`, `OddWitness`).
-- Ports `existsDistribSum`, `existsCurryTo`/`From`,
-  `forallDistribProd`, quantifier De Morgan (`notExistsToForallNot`,
-  `forallNotToNotExists`), `EvenSigma`, and both directions of the parity
-  witness equivalences (`evenIffWitness`, `oddIffWitness`), using unified
-  `cong Succ`.
+- Distinguishes Proposal `#473` erased existentials (`GHC.Exists.Exists` / `Data.Exists.Dependent`) from retained dependent pairs (`some` / `GHC.Sigma.Sigma`).

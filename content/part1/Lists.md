@@ -8,18 +8,18 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Lists/
 ---
 
 This chapter discusses the **list** datatype. It brings together the
-techniques we have developed throughout Part 1—induction, congruence,
-rewriting, decidability, and indexed predicates—and applies them to
+techniques we have developed throughout Part 1, induction, congruence,
+rewriting, decidability, and indexed predicates, and applies them to
 polymorphic data structures and **higher-order functions** (`map`, `foldr`,
 monoids, and the list quantifiers `All`, `Any`, and membership `In`).
 
-On this Dependent Haskell fork, **ordinary Prelude lists**, **Prelude `(++)`**,
+In Dependent Haskell, **ordinary Prelude lists**, **Prelude `(++)`**,
 **Prelude `map`**, and **Prelude `reverse`** already have checked open source
-equations—so we prove classic list laws directly over standard Haskell lists
-with no shadow `List` datatype! Moreover, `-XDependentTypes` enables
+equations: so we prove classic list laws directly over standard Haskell lists
+with no shadow `List` datatype. Moreover, `-XDependentTypes` enables
 `-XNoListTuplePuns` automatically, so importing `List` from `GHC.Types` lets us
 write the promoted empty list `[]`, cons `x : xs`, and list literals `[0, 1, 0]`
-at the type level **without a single leading `'` tick**!
+at the type level **without a single leading `'` tick**.
 
 ## Imports
 
@@ -53,6 +53,12 @@ module PLFH.Part1.Lists
   , zeros
   , lengthDownFrom
   , lengthZeros
+  , MonoidLaws (..)
+  , foldrMonoidSeed
+  , foldrMonoidAppend
+  , plusMonoid
+  , timesMonoid
+  , appendMonoid
   , foldrPlusSeed
   , foldrPlusAppend
   , foldrTimesSeed
@@ -93,10 +99,11 @@ import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Type.Equality.Dependent (Matchability, rewrite)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
+import GHC.Matchability (U)
 import GHC.Types (List)
 import PLFH.Part1.Decidable (Dec (..), Not)
-import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
-import PLFH.Part1.Isomorphism (Iff (..))
+import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc, timesZeroR)
+import PLFH.Part1.Isomorphism (Iff (..), Iso (MkIso))
 import PLFH.Part1.Naturals (times)
 ```
 
@@ -106,8 +113,8 @@ In Haskell, a list of elements of type `a` has type `List a` (ordinarily
 written `[a]`, which puns the term-level list bracket syntax; with
 `-XNoListTuplePuns` we write the type constructor as `List a` so that `[]`,
 `:`, and `[0, 1, 0]` refer unambiguously to the data constructors even in
-types!). As PLFA observes, *"A list is a strange beast: it has a head and a
-tail, nothing in between, and the tail is itself another list!"*
+types). As PLFA observes, *"A list is a strange beast: it has a head and a
+tail, nothing in between, and the tail is itself another list."*
 
 Prelude `(++)` appends two lists in time linear in the length of the first
 list:
@@ -165,19 +172,22 @@ lengthReverseLaw = lengthReverse
 ```
 
 <div class="note-box">
-<strong>Rewrite rules note:</strong>
-As documented in the GHC fork's README, modules using <code>lengthMap</code>
-disable rewrite rules (<code>-fno-enable-rewrite-rules</code>) because stock
-list-fusion rewrite rules can change demand on partial inputs.
+<strong>Rewrite rules and <code>-O2</code>:</strong>
+Modules that prove laws about stock <code>Prelude.map</code> (such as
+<code>lengthMap</code> and <code>mapAppend</code>) pass
+<code>-fno-enable-rewrite-rules</code>. At <code>-O2</code>, stock list-fusion
+rules (<code>build</code>/<code>augment</code>/<code>map</code>) can change
+strictness on partial inputs, so GHC keeps those fusion rules off when
+certifying equational laws over <code>map</code>.
 </div>
 
 ## Higher-order list laws: `map`
 
-`map` is a **higher-order function**—it takes a function `f :: a -> b` as an
+`map` is a **higher-order function**, it takes a function `f :: a -> b` as an
 argument and applies `f` to every element of a list. Because
 `foreach (f :: a -> b)` retains an arbitrary unknown Haskell function, we can
 prove the append-homomorphism and functor laws (`mapAppend`, `mapCompose`,
-`mapId`) for **ordinary Prelude `map`** and **`(.)`**:
+`mapId`) for **ordinary Prelude `map`** and **`()`**:
 
 ```haskell
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
@@ -202,9 +212,9 @@ mapId (_ : xs) = gcastWith (mapId xs) Refl
 
 Naive list reversal (`rev (x : xs) = rev xs ++ [x]`) takes **quadratic**
 time because each step appends to the end of the growing reversed tail.
-PLFA introduces the accumulating helper **`shunt`**—whose second argument
-grows as its first argument shrinks—so `shunt xs []` reverses a list in
-**linear** time! *"Generalising on an auxiliary argument, which becomes
+PLFA introduces the accumulating helper **`shunt`**, whose second argument
+grows as its first argument shrinks: so `shunt xs []` reverses a list in
+**linear** time. *"Generalising on an auxiliary argument, which becomes
 larger as the argument on which we recurse or induct becomes smaller, is a
 common trick. It belongs in your quiver of arrows, ready to slay the right
 problem."*
@@ -282,61 +292,78 @@ lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 ```
 
-### Right folds and monoid homomorphisms (`foldr`)
+### Right folds and monoid homomorphisms (`foldr`, `MonoidLaws`)
 
-Using `Data.List.Dependent.foldr` (wrapping the standard library's list `foldr`), we prove PLFA's
-monoid-homomorphism fold laws (`foldr-monoid-++`) for both `(Nat, plus, 0)`
-and `(Nat, times, 1)`—moving the seed outside a right fold (`foldrPlusSeed`,
-`foldrTimesSeed`) and proving that folding a concatenated list equals combining
-the individual folds (`foldrPlusAppend`, `foldrTimesAppend`), using our visible
-`cong (plus x)` / `cong (times x)` and `sym (plusAssoc ...)` / `sym (timesAssoc ...)`
-from [Induction](/Induction/):
+Using `Data.List.Dependent.foldr`, we package the monoid laws (`assoc`,
+`idL`, `idR`) in `MonoidLaws op z` (`IsMonoid` in PLFA) and prove the generic
+fold-homomorphism theorems `foldrMonoidSeed` (`foldr-monoid`) and
+`foldrMonoidAppend` (`foldr-monoid-++`) once for *every* monoid. Instantiating
+them with `plusMonoid`, `timesMonoid`, and `appendMonoid` immediately yields
+the specialized laws for `(Nat, plus, 0)`, `(Nat, times, 1)`, and
+`(List a, (++), [])`:
 
 ```haskell
--- | Move the seed to the right of the zero-seeded fold.
+-- | Monoid laws for a binary operation `f` and identity element `z` (`IsMonoid`).
+data MonoidLaws (f :: a %U -> a %U -> a) (z :: a) where
+  MkMonoidLaws
+    :: (foreach (x y w :: a) -> f (f x y) w :~: f x (f y w))
+    -> (foreach (x :: a) -> f z x :~: x)
+    -> (foreach (x :: a) -> f x z :~: x)
+    -> MonoidLaws f z
+
+-- | Generic seed law: `foldr f w xs = f (foldr f z xs) w` (`foldr-monoid`).
+foldrMonoidSeed
+  :: forall a. foreach (f :: a -> a -> a) -> foreach (z :: a)
+  -> MonoidLaws f z
+  -> foreach (xs :: List a) -> foreach (w :: a)
+  -> foldr f w xs :~: f (foldr f z xs) w
+foldrMonoidSeed _ _ (MkMonoidLaws _     idL _) []       w = sym (idL w)
+foldrMonoidSeed f z m@(MkMonoidLaws assoc _ _) (x : xs) w =
+  rewrite (foldrMonoidSeed f z m xs w) (sym (assoc x (foldr f z xs) w))
+
+-- | Generic fold homomorphism: `foldr f z (xs ++ ys) = f (foldr f z xs) (foldr f z ys)`.
+foldrMonoidAppend
+  :: forall a. foreach (f :: a -> a -> a) -> foreach (z :: a)
+  -> MonoidLaws f z
+  -> foreach (xs ys :: List a)
+  -> foldr f z (xs ++ ys) :~: f (foldr f z xs) (foldr f z ys)
+foldrMonoidAppend f z (MkMonoidLaws _     idL _) []       ys = sym (idL (foldr f z ys))
+foldrMonoidAppend f z m@(MkMonoidLaws assoc _ _) (x : xs) ys =
+  rewrite (foldrMonoidAppend f z m xs ys) (sym (assoc x (foldr f z xs) (foldr f z ys)))
+
+-- | Monoid witnesses for `(Nat, plus, 0)`, `(Nat, times, 1)`, and `(List a, (++), [])`.
+plusMonoid :: MonoidLaws plus Zero
+plusMonoid = MkMonoidLaws plusAssoc (\_ -> Refl) plusZero
+
+timesOneR :: foreach (n :: Nat) -> times n 1 :~: n
+timesOneR Zero     = Refl
+timesOneR (Succ n) = cong Succ (timesOneR n)
+
+timesMonoid :: MonoidLaws times 1
+timesMonoid = MkMonoidLaws timesAssoc plusZero timesOneR
+
+appendMonoid :: forall a. MonoidLaws ((++) @a) ([] @a)
+appendMonoid = MkMonoidLaws appendAssoc (\_ -> Refl) appendNilR
+
+-- | Specialized fold laws for addition and multiplication:
 foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
               -> foldr plus z xs :~: plus (foldr plus Zero xs) z
-foldrPlusSeed []       _ = Refl
-foldrPlusSeed (x : xs) z =
-  trans (cong (plus x) (foldrPlusSeed xs z))
-        (sym (plusAssoc x (foldr plus Zero xs) z))
+foldrPlusSeed = foldrMonoidSeed plus Zero plusMonoid
 
--- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
 foldrPlusAppend :: foreach (xs ys :: List Nat)
                 -> foldr plus Zero (xs ++ ys)
                :~: plus (foldr plus Zero xs) (foldr plus Zero ys)
-foldrPlusAppend []       _  = Refl
-foldrPlusAppend (x : xs) ys =
-  trans (cong (plus x) (foldrPlusAppend xs ys))
-        (sym (plusAssoc x (foldr plus Zero xs) (foldr plus Zero ys)))
+foldrPlusAppend = foldrMonoidAppend plus Zero plusMonoid
 
--- | Move the seed to the right of a multiplicative right fold.
 foldrTimesSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
                -> foldr times z xs :~: times (foldr times 1 xs) z
-foldrTimesSeed []       z = sym (plusZero z)
-foldrTimesSeed (x : xs) z =
-  trans (cong (times x) (foldrTimesSeed xs z))
-        (sym (timesAssoc x (foldr times 1 xs) z))
+foldrTimesSeed = foldrMonoidSeed times 1 timesMonoid
 
--- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
 foldrTimesAppend :: foreach (xs ys :: List Nat)
                  -> foldr times 1 (xs ++ ys)
                 :~: times (foldr times 1 xs) (foldr times 1 ys)
-foldrTimesAppend []       ys = sym (plusZero (foldr times 1 ys))
-foldrTimesAppend (x : xs) ys =
-  trans (cong (times x) (foldrTimesAppend xs ys))
-        (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
+foldrTimesAppend = foldrMonoidAppend times 1 timesMonoid
 ```
-
-> **Why `-fno-enable-rewrite-rules` at `-O2`?**
-> Spine-strict accumulator proofs like `shuntAppend` check at default `-O2`,
-> whereas `mapAppend` disables Prelude list-fusion rewrite rules via
-> `-fno-enable-rewrite-rules`. This is a **deliberate soundness guard**, not a
-> compiler bug: stock `-O2` `build`/`augment`/`map` fusion can alter strictness
-> (for example, `null (map not (build producer ++ error "ys"))` forces `ys`
-> under fusion while `null (map not (build producer) ++ map not (error "ys"))`
-> returns `False`), so GHC refuses to certify `mapAppend` when list-fusion
-> rules are active at `-O2`.
 
 ## Predicates on lists: `All`, `Any`, and membership (`∈`)
 
@@ -345,13 +372,13 @@ We now define the two fundamental indexed predicates over lists:
 - **`All p xs`**: predicate `p` holds for *every* element of `xs`.
 - **`Any p xs`**: predicate `p` holds for *at least one* element of `xs`.
 - **List membership `In x xs`** (`x ∈ xs`): defined concisely as
-  `Any ((:~:) x) xs`—some element of `xs` equals `x`!
+  `Any ((:~:) x) xs`, some element of `xs` equals `x`.
 
 By quantifying both `All` and `Any` over `{m :: Matchability}` (`p :: a %m -> Type`),
 they accept **both** matchable GADT predicates (like `Even` or `(:~:) x`) **and**
 unmatchable inline type-level lambdas (like `\x -> Not (p x)` for De Morgan's
-law below!)—and with `-XNoListTuplePuns`, `[]`, `:`, and `[0, 1, 0]` all
-appear without a single tick!
+law below), and with `-XNoListTuplePuns`, `[]`, `:`, and `[0, 1, 0]` all
+appear without a single tick.
 
 ```haskell
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
@@ -430,7 +457,7 @@ anyAppendInv (_:xs) (There r) =
 
 Because `All` and `Any` are matchability-polymorphic (`p :: a %m -> Type`),
 PLFA's De Morgan equivalence between `Not (Any p xs)` and
-`All (\x -> Not (p x)) xs` checks directly using an inline type-level lambda!
+`All (\x -> Not (p x)) xs` checks directly using an inline type-level lambda.
 
 ```haskell
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
@@ -499,20 +526,6 @@ memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 ```
 
-Because `PLFH.Part1.Lists` compiles with `-XDependentTypes`, GHC automatically
-publishes checked equations for `witnessToAny` and `anyToWitness` into
-`Lists.hi`! Downstream clients prove both:
-
-- `PLFH.Part1.ListsProof` (`clients/PLFH/Part1/ListsProof.hs`): polymorphic
-  head/tail decoding (`witnessToAnyHere`, `witnessToAnyThere`) and
-  retained-`foreach` tail preservation (`witnessToAnyEvenThere`) with zero
-  promoted-constructor ticks; and
-- `PLFH.Part1.AnyWitnessIso` (`clients/PLFH/Part1/AnyWitnessIso.hs`): the
-  **full polymorphic isomorphism** `anyIsoWitness :: Iso (Any p xs) (AnyWitness p xs)`
-  proving *both* inverse laws (`witnessToAny (anyToWitness r) :~: r` and
-  `anyToWitness (witnessToAny w) :~: w`) directly over the ordinary `Lists`
-  converters!
-
 ### Decidability of `All` and `Any` (`All?`, `Any?`), and concrete examples
 
 If a predicate `p` is decidable (`foreach (x :: a) -> Dec (p x)`), then both
@@ -578,44 +591,30 @@ threeNotInList (There (There (There (There p))))  = case p of {}
 
 ## Exercises
 
-#### Exercise `map-Tree` and `fold-Tree` (practice)
+### Exercise `map-Tree` and `fold-Tree` (practice)
 
 Define binary trees `data Tree a b = Leaf a | Node (Tree a b) b (Tree a b)`
 and write `mapTree :: (a -> c) -> (b -> d) -> Tree a b -> Tree c d` and
 `foldTree :: (a -> c) -> (c -> b -> c -> c) -> Tree a b -> c`.
 
-#### Exercise `All-∀` and `Any-∃` (practice)
+### Exercise `sum-downFrom` (recommended)
 
-The two directions of `All-∀` are checked above as `allToIn` and `inToAll`,
-and `anyIffWitness` packages both directions of `Any-∃`. Trace `anyIffWitness`
-on a list with repeated elements such as `[1, 2, 1, 2]`: which occurrence does
-the membership proof identify?
+Define `sumList = foldr plus Zero` and prove
+`times 2 (sumList (downFrom n)) :~: times n (monus n 1)` by induction on `n`.
 
-#### Exercise `split` (stretch)
+### Exercise `All-++-≃` (recommended)
+
+Prove an isomorphism `Iso (All p (xs ++ ys)) (All p xs, All p ys)` by structural
+induction on `xs`.
+
+### Exercise `split` (stretch)
 
 Using `decAll`, `decAny`, and an inductive `Merge xs ys zs` relation
 (`MergeNil`, `MergeL`, `MergeR`), design a certified list-filtering function
 that splits a list `zs` into the elements satisfying `p` and those satisfying
-`\x -> Not (p x)` together with a `Merge` proof!
+`\x -> Not (p x)` together with a `Merge` proof.
 
 ## Changes from PLFA
 
-- Adapted from [Lists](https://plfa.inf.ed.ac.uk/Lists/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Lists.lagda.md)),
-  licensed under CC BY 4.0.
-- Used standard Prelude lists (`GHC.Types.List`), `(++)`, and `map` directly,
-  with `-XNoListTuplePuns` so promoted `[]`, `:`, and `[0, 1, 0]` require
-  zero leading `'` ticks!
-- Reused `dependent-base`'s `size`, `foldr`, and `lengthReverse` (`Data.List.Dependent` / `Data.List.Dependent.Properties`).
-- Made `All` and `Any` matchability-polymorphic (`p :: a %m -> Type`),
-  unlocking PLFA's full inline type-lambda De Morgan theorem
-  (`notAnyToAllNot`, `allNotToNotAny`, `notAnyIffAllNot`).
-- Ports `appendAssoc`, `appendNilR`, `mapAppend`,
-  `mapCompose`, `mapId`, `shunt`/`shuntAppend`, `rev`/`revAppend`/
-  `revInvolutive`/`shuntRev`/`reverses`, `downFrom`/`zeros`/
-  `lengthDownFrom`/`lengthZeros`, `foldrPlusSeed`/`foldrPlusAppend` over
-  `Data.List.Dependent.foldr`, `All`, `Any`, `In`, `allAppend`/`Inv`,
-  `anyAppend*`/`Inv`, `allMap`, `notAnyIffAllNot`, `allToIn`, `inToAll`,
-  `decAll`, `decAny`, `decIn`, `zeroInList`, and `threeNotInList`.
-- Documented GHC's intentional `-O2` list-fusion soundness guard on `mapAppend`
-  (`-fno-enable-rewrite-rules`).
+- Uses stock `Prelude` `List a`, `(++)`, `map`, and `Data.List.Dependent.foldr` directly rather than defining a separate list datatype.
+- Disables list-fusion rewrite rules (`-fno-enable-rewrite-rules`) so equational proofs over `Prelude.map` remain sound at `-O2`.

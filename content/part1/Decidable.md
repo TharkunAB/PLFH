@@ -17,29 +17,36 @@ In this chapter we explore the relationship between evidence and computation,
 and introduce **decidable propositions** (`Dec p`), which combine the best of
 both worlds: a decision procedure *computes* whether a proposition holds and
 simultaneously *returns proof evidence* (`Yes p` or `No (Not p)`) certifying
-its answer!
+its answer.
 
 ## Imports
 
-We import `Type`, `(:~:)`, `Void`, `GHC.Sigma`, `Nat` and `plus`, unified
-`cong` from [Induction](/Induction/), `Iff` from [Isomorphism](/Isomorphism/),
-`Bin` from [Naturals](/Naturals/), and our inductive relations from
-[Relations](/Relations/).
+We import `Type`, `(:~:)`, `Void`, `GHC.Sigma`, `Nat` and `plus`, `cong` from
+[Induction](/Induction/), `Iff` from [Isomorphism](/Isomorphism/), `Not` from
+[Negation](/Negation/), `Bin` from [Naturals](/Naturals/), and our inductive
+relations from [Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module PLFH.Part1.Decidable
   ( Not
+  , leBool
+  , tBool
+  , leBoolToLE
+  , leToLeBool
   , Dec (..)
+  , eraseDec
+  , toWitness
+  , fromWitness
   , decNot
   , decAnd
   , decOr
   , decImp
   , decIff
   , zeroNeqSucc
-  , decEqSize
-  , decLeSize
-  , decLtSize
+  , decEqNat
+  , decLeNat
+  , decLtNat
   , decEven
   , decOdd
   , decEqBin
@@ -48,8 +55,8 @@ module PLFH.Part1.Decidable
   , Reflects (..)
   , reflectsToDec
   , Sigma (..)
-  , SizeWitness
-  , mkSizeWitness
+  , NatWitness
+  , mkNatWitness
   , plusExists
   ) where
 
@@ -57,35 +64,71 @@ import Data.Kind (Type)
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
 import GHC.Sigma (Sigma (Pair))
-import Data.Nat.Dependent (Nat (..), plus)
+import Data.Nat.Dependent (Nat (..), minus, plus)
 import PLFH.Part1.Induction (cong)
 import PLFH.Part1.Isomorphism (Iff (..))
 import PLFH.Part1.Naturals (Bin (..))
+import PLFH.Part1.Negation (Not)
 import PLFH.Part1.Relations (Can (..), Even (..), LE (..), LT' (..), Odd (..), One (..), invSleS)
 ```
 
 ## Evidence vs. Computation
 
-A Boolean-valued function such as `leBool :: Nat -> Nat -> Bool` returns a
-single bit of information: `True` or `False`, with no guarantee that the bit
-matches our inductive relation `LE m n`. To trust `leBool`, we would have to
-write *two* additional soundness/completeness proofs relating `leBool m n` to
-`LE m n` (via `Reflects`, shown below).
-
-Conversely, inductive evidence like `LE m n` explains *why* the relation
-holds—and lets us skip impossible cases in proofs—but forces the caller to
-construct derivations like `SleS (SleS ZleN)` by hand.
-
-### Negation (`Not`) and Peano's postulate
-
-Before defining `Dec`, we define logical negation `Not a = a -> Void` (also
-re-exported and explored in [Negation](/Negation/)) and prove Peano's
-postulate that `Zero` is never equal to `Succ n`:
+A Boolean-valued function such as `leBool :: Nat -> Nat -> Bool` (`_≤ᵇ_` in
+PLFA) returns a single bit (`True` or `False`). To turn a Boolean back into a
+proposition, we write a term-to-`Type` large elimination `tBool :: Bool -> Type`
+mapping `True` to unit `()` and `False` to `Void`. We can then prove soundness
+(`leBoolToLE`) and completeness (`leToLeBool`) directly between `tBool (leBool m n)`
+and the inductive relation `LE m n`:
 
 ```haskell
--- | Logical negation: evidence that a proposition implies falsehood (Void).
-type Not a = a -> Void
+-- | Test whether a natural number is zero.
+isZeroNat :: Nat -> Bool
+isZeroNat Zero     = True
+isZeroNat (Succ _) = False
 
+-- | Boolean less-than-or-equal test (`_≤ᵇ_`), defined via truncated subtraction.
+leBool :: Nat -> Nat -> Bool
+leBool Zero     _ = True
+leBool (Succ m) n = isZeroNat (minus (Succ m) n)
+
+-- | Lift a `Bool` to a proposition (`T` in PLFA) via term-to-`Type` large elimination.
+tBool :: Bool -> Type
+tBool True  = type ()
+tBool False = type Void
+
+-- | Soundness helper over `isZeroNat (minus m n)`.
+minusZeroToLE :: foreach (m n :: Nat) -> tBool (isZeroNat (minus m n)) -> LE m n
+minusZeroToLE Zero     _        () = ZleN
+minusZeroToLE (Succ _) Zero     v  = absurd v
+minusZeroToLE (Succ m) (Succ n) t  = SleS (minusZeroToLE m n t)
+
+-- | Soundness of `leBool`: if `leBool m n` is `True`, then `LE m n` holds (`≤ᵇ→≤`).
+leBoolToLE :: foreach (m n :: Nat) -> tBool (leBool m n) -> LE m n
+leBoolToLE Zero     _ () = ZleN
+leBoolToLE (Succ m) n t  = minusZeroToLE (Succ m) n t
+
+-- | Completeness helper over `isZeroNat (minus m n)`.
+leToMinusZero :: foreach (m n :: Nat) -> LE m n -> tBool (isZeroNat (minus m n))
+leToMinusZero Zero     _        ZleN     = ()
+leToMinusZero (Succ m) (Succ n) (SleS p) = leToMinusZero m n p
+
+-- | Completeness of `leBool`: if `LE m n` holds, then `leBool m n` is `True` (`≤→≤ᵇ`).
+leToLeBool :: foreach (m n :: Nat) -> LE m n -> tBool (leBool m n)
+leToLeBool Zero     _ ZleN = ()
+leToLeBool (Succ m) n p    = leToMinusZero (Succ m) n p
+```
+
+Conversely, inductive evidence like `LE m n` explains *why* the relation holds
+(and lets us skip impossible cases in proofs) but forces the caller to build
+derivations like `SleS (SleS ZleN)` by hand.
+
+### Peano's postulate
+
+Using `Not` from [Negation](/Negation/), Peano's postulate states that `Zero`
+is never equal to `Succ n`:
+
+```haskell
 -- | Peano's postulate: Zero is never equal to any successor.
 zeroNeqSucc :: Not (Zero :~: Succ n)
 zeroNeqSucc eq = case eq of {}
@@ -94,18 +137,37 @@ zeroNeqSucc eq = case eq of {}
 ## The best of both worlds: `Dec`
 
 A proposition `p :: Type` is **decidable** (`Dec p`) if we can construct
-either a proof of `p` (`Yes`) or a refutation `Not p` (`No`):
+either a proof of `p` (`Yes`) or a refutation `Not p` (`No`). Erasing a
+decision (`eraseDec`, written `⌊_⌋` in PLFA) yields a `Bool`, and `toWitness` /
+`fromWitness` bridge `tBool (eraseDec d)` back to `p`:
 
 ```haskell
 -- | Evidence that a proposition `p` is decidable.
 data Dec (p :: Type) where
   Yes :: p     -> Dec p
   No  :: Not p -> Dec p
+
+-- | Erase a decision to its underlying `Bool` (`⌊_⌋`).
+eraseDec :: Dec p -> Bool
+eraseDec (Yes _) = True
+eraseDec (No  _) = False
+
+-- | Extract evidence `p` when `eraseDec d` computes to `True` (`toWitness`).
+toWitness :: foreach (d :: Dec p) -> tBool (eraseDec d) -> p
+toWitness d = case d of
+  Yes p -> \_ -> p
+  No  _ -> \v -> absurd v
+
+-- | Witness that `eraseDec d` is `True` whenever `p` holds (`fromWitness`).
+fromWitness :: foreach (d :: Dec p) -> p -> tBool (eraseDec d)
+fromWitness d = case d of
+  Yes _  -> \_ -> ()
+  No  np -> \p -> np p
 ```
 
 Like `Bool`, `Dec p` has two constructors, so we can branch on it at runtime
 in ordinary Haskell programs; unlike `Bool`, each branch delivers a
-machine-checked proof (`p` or `Not p`) directly into scope! As PLFA puts it:
+machine-checked proof (`p` or `Not p`) directly into scope. As PLFA puts it:
 *a decision procedure proves itself correct, as attested by its type.*
 
 ### Logical connectives for decidables
@@ -144,7 +206,7 @@ decIff dp dq = case decAnd (decImp dp dq) (decImp dq dp) of
 Notice that just as in PLFA's discussion of overlapping equations, when both
 `dp` and `dq` are `No` in `decAnd` (or both `Yes` in `decOr`), Haskell's
 top-to-bottom clause ordering deterministically selects the first matching
-clause—both choices are equally valid proofs.
+clause, both choices are equally valid proofs.
 
 ### Decidable equality (`_≟_`) and ordering (`_≤?_`, `_<?_`) on `Nat`
 
@@ -154,28 +216,28 @@ structural recursions:
 
 ```haskell
 -- | Decidable propositional equality on Nat (`_≡ℕ?_`).
-decEqSize :: foreach (m n :: Nat) -> Dec (m :~: n)
-decEqSize Zero     Zero     = Yes Refl
-decEqSize Zero     (Succ _) = No (\case {})
-decEqSize (Succ _) Zero     = No (\case {})
-decEqSize (Succ m) (Succ n) = case decEqSize m n of
+decEqNat :: foreach (m n :: Nat) -> Dec (m :~: n)
+decEqNat Zero     Zero     = Yes Refl
+decEqNat Zero     (Succ _) = No (\case {})
+decEqNat (Succ _) Zero     = No (\case {})
+decEqNat (Succ m) (Succ n) = case decEqNat m n of
   Yes eq -> Yes (cong Succ eq)
   No neq -> No (\Refl -> neq Refl)
 
 -- | Decidable less-than-or-equal relation on Nat (`_≤?_`).
-decLeSize :: foreach (m n :: Nat) -> Dec (LE m n)
-decLeSize Zero     _        = Yes ZleN
-decLeSize (Succ _) Zero     = No (\case {})
-decLeSize (Succ m) (Succ n) = case decLeSize m n of
+decLeNat :: foreach (m n :: Nat) -> Dec (LE m n)
+decLeNat Zero     _        = Yes ZleN
+decLeNat (Succ _) Zero     = No (\case {})
+decLeNat (Succ m) (Succ n) = case decLeNat m n of
   Yes p -> Yes (SleS p)
   No np -> No (\p -> np (invSleS p))
 
 -- | Decidable strict less-than relation on Nat (`_<?_`).
-decLtSize :: foreach (m n :: Nat) -> Dec (LT' m n)
-decLtSize Zero     Zero     = No (\case {})
-decLtSize Zero     (Succ _) = Yes ZltS
-decLtSize (Succ _) Zero     = No (\case {})
-decLtSize (Succ m) (Succ n) = case decLtSize m n of
+decLtNat :: foreach (m n :: Nat) -> Dec (LT' m n)
+decLtNat Zero     Zero     = No (\case {})
+decLtNat Zero     (Succ _) = Yes ZltS
+decLtNat (Succ _) Zero     = No (\case {})
+decLtNat (Succ m) (Succ n) = case decLtNat m n of
   Yes p -> Yes (SltS p)
   No np -> No (\case SltS q -> np q)
 ```
@@ -192,7 +254,7 @@ Finally, as a bonus extension beyond PLFA's `Decidable` chapter, we also prove
 decidability for the binary-numeral predicates introduced in
 [Naturals](/Naturals/) and [Relations](/Relations/): propositional equality
 (`decEqBin`), positive canonical form (`decOne`), and canonical form
-(`decCan`) are all decidable on `Bin`!
+(`decCan`) are all decidable on `Bin`.
 
 ```haskell
 -- | Decidable evenness predicate on Nat.
@@ -278,12 +340,12 @@ we carry existential witnesses directly using retained dependent pairs
 `GHC.Sigma.Sigma` (`some (x :: a) | p x`, constructed with `Pair x px`):
 
 ```haskell
--- | A dependent pair carrying a runtime size `k` and evidence that Zero <= k.
-type SizeWitness = some (k :: Nat) | LE Zero k
+-- | A dependent pair carrying a runtime natural `k` and evidence that Zero <= k.
+type NatWitness = some (k :: Nat) | LE Zero k
 
--- | Package any runtime size with its proof of Zero <= k.
-mkSizeWitness :: Nat -> SizeWitness
-mkSizeWitness k = Pair k ZleN
+-- | Package any runtime natural with its proof of Zero <= k.
+mkNatWitness :: Nat -> NatWitness
+mkNatWitness k = Pair k ZleN
 
 -- | Inline retained dependent sum returned directly from a `foreach` function.
 plusExists :: foreach (m n :: Nat)
@@ -293,14 +355,13 @@ plusExists m n = Pair (plus m n) Refl
 
 ## Exercises
 
-#### Exercise `erasure` (practice)
+### Exercise `iff-erasure` (practice)
 
-Define erasure `eraseDec :: Dec p -> Bool` mapping `Yes _` to `True` and
-`No _` to `False`, and verify at runtime that `eraseDec (decAnd dp dq)` agrees
-with `eraseDec dp && eraseDec dq`, and similarly for `decOr`, `decNot`, and
-`decIff`.
+Prove that erasing `decAnd`, `decOr`, `decNot`, and `decIff` agrees with the
+corresponding Boolean operators on `Bool`, for example
+`eraseDec (decAnd dp dq) :~: (eraseDec dp && eraseDec dq)`.
 
-#### Exercise `guarded-minus` (practice)
+### Exercise `guarded-minus` (practice)
 
 Using `LE n m`, define a guarded subtraction function
 `minus :: foreach (m :: Nat) -> foreach (n :: Nat) -> LE n m -> Nat`
@@ -309,13 +370,4 @@ absurd `case p of {}` in the impossible `Zero` / `Succ` branch.
 
 ## Changes from PLFA
 
-- Adapted from [Decidable](https://plfa.inf.ed.ac.uk/Decidable/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Decidable.lagda.md)),
-  licensed under CC BY 4.0.
-- `Not`, `zeroNeqSucc`, `Dec`, `decNot`/`And`/`Or`/`Imp`/`Iff`, `decEqSize`,
-  `decLeSize`, `decLtSize`, `decEven`, `decOdd`, `decEqBin`/`decOne`/`decCan`,
-  `Reflects`, `reflectsToDec`, and `Sigma`/`some` (`SizeWitness`,
-  `mkSizeWitness`, and inline `plusExists`) all port directly and pass
-  `-dcore-lint -dstg-lint`.
-- Uses unified `cong Succ` from [Induction](/Induction/), `Data.Void.Void`,
-  and `EmptyCase` (`\case {}`).
+- Uses `Data.Void.Void`, `EmptyCase`, and retained `foreach` witnesses to write constructive decision procedures (`Dec`), `Reflects`, and `some` pairs directly.

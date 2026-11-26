@@ -59,13 +59,20 @@ module PLFH.Part1.Connectives
   , prodCong
   , sumCong
   , arrCong
+  , etaProd
+  , etaUnit
+  , etaSum
+  , etaArr
+  , sumDistribProdTo
+  , sumDistribProdFrom
+  , sumDistribProd
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import PLFH.Part1.Isomorphism (Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
 
-{-# LINE 140 "content/part1/Connectives.md" #-}
+{-# LINE 147 "content/part1/Connectives.md" #-}
 -- | Swap the two components of a pair.
 swapProd :: (a, b) -> (b, a)
 swapProd (x, y) = (y, x)
@@ -194,7 +201,7 @@ prodZeroLIso = go prodZeroLTo prodZeroLFrom
 prodZeroL :: Iff (Void, a) Void
 prodZeroL = embedImpliesIff (isoImpliesEmbed prodZeroLIso)
 
-{-# LINE 293 "content/part1/Connectives.md" #-}
+{-# LINE 300 "content/part1/Connectives.md" #-}
 -- | Swap the two branches of a sum.
 swapSum :: Either a b -> Either b a
 swapSum (Left x)  = Right x
@@ -281,7 +288,7 @@ sumZeroLIso = MkIso sumZeroLTo Right sumZeroLLR sumZeroLRL
 sumZeroL :: Iff (Either Void a) a
 sumZeroL = embedImpliesIff (isoImpliesEmbed sumZeroLIso)
 
-{-# LINE 387 "content/part1/Connectives.md" #-}
+{-# LINE 394 "content/part1/Connectives.md" #-}
 -- | Forward and backward maps for right distributivity.
 prodDistribSumTo :: (Either a b, c) -> Either (a, c) (b, c)
 prodDistribSumTo (Left x, z)  = Left (x, z)
@@ -332,7 +339,7 @@ prodDistribSumLIso = MkIso prodDistribSumLTo prodDistribSumLFrom prodDistribSumL
 prodDistribSumL :: Iff (a, Either b c) (Either (a, b) (a, c))
 prodDistribSumL = embedImpliesIff (isoImpliesEmbed prodDistribSumLIso)
 
-{-# LINE 458 "content/part1/Connectives.md" #-}
+{-# LINE 465 "content/part1/Connectives.md" #-}
 -- | Currying: (a -> b -> c) ⇔ ((a, b) -> c).
 currying :: Iff (a -> b -> c) ((a, b) -> c)
 currying = Iff uncurry curry
@@ -357,7 +364,7 @@ expZero = Iff (const ()) (\() -> absurd)
 expToUnit :: Iff (a -> ()) ()
 expToUnit = Iff (const ()) (\() _ -> ())
 
-{-# LINE 492 "content/part1/Connectives.md" #-}
+{-# LINE 499 "content/part1/Connectives.md" #-}
 -- | Congruence of conjunction under `Iff`.
 prodCong :: Iff a a' -> Iff b b' -> Iff (a, b) (a', b')
 prodCong (Iff fa ga) (Iff fb gb) = Iff (\(x, y) -> (fa x, fb y)) (\(x, y) -> (ga x, gb y))
@@ -369,3 +376,50 @@ sumCong (Iff fa ga) (Iff fb gb) = Iff (either (Left . fa) (Right . fb)) (either 
 -- | Congruence of implication under `Iff` (contravariant in the domain).
 arrCong :: Iff a a' -> Iff b b' -> Iff (a -> b) (a' -> b')
 arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
+
+{-# LINE 521 "content/part1/Connectives.md" #-}
+-- | Uniqueness (`η`) for products: every pair equals `(fst p, snd p)`.
+etaProd :: foreach (p :: (a, b)) -> '(fst p, snd p) :~: p
+etaProd (_, _) = Refl
+
+-- | Uniqueness (`η`) for unit: every value of `()` equals `()`.
+etaUnit :: foreach (u :: ()) -> '() :~: u
+etaUnit () = Refl
+
+-- | Sum eliminator specialized to `Left`/`Right`.
+elimSum :: Either a b -> Either a b
+elimSum (Left  x) = Left x
+elimSum (Right y) = Right y
+
+-- | Uniqueness (`η`) for sums: rebuilding a sum from `Left` and `Right` is the identity.
+etaSum :: foreach (e :: Either a b) -> elimSum e :~: e
+etaSum (Left  _) = Refl
+etaSum (Right _) = Refl
+
+-- | Uniqueness (`η`) for functions: pointwise reflexivity of function application.
+etaArr :: foreach (f :: a -> b) -> foreach (x :: a) -> f x :~: f x
+etaArr _ _ = Refl
+
+-- | Embedding of disjunction over conjunction (`⊎-distrib-×`).
+sumDistribProdTo :: Either (a, b) c -> (Either a c, Either b c)
+sumDistribProdTo (Left (x, y)) = (Left x, Left y)
+sumDistribProdTo (Right z)     = (Right z, Right z)
+
+sumDistribProdLeft :: a -> Either b c -> Either (a, b) c
+sumDistribProdLeft x (Left y)  = Left (x, y)
+sumDistribProdLeft _ (Right z) = Right z
+
+sumDistribProdStep :: Either a c -> Either b c -> Either (a, b) c
+sumDistribProdStep (Left x)  r = sumDistribProdLeft x r
+sumDistribProdStep (Right z) _ = Right z
+
+sumDistribProdFrom :: (Either a c, Either b c) -> Either (a, b) c
+sumDistribProdFrom (l, r) = sumDistribProdStep l r
+
+sumDistribProdRT :: foreach (e :: Either (a, b) c)
+                 -> sumDistribProdFrom (sumDistribProdTo e) :~: e
+sumDistribProdRT (Left (_, _)) = Refl
+sumDistribProdRT (Right _)     = Refl
+
+sumDistribProd :: Embed (Either (a, b) c) (Either a c, Either b c)
+sumDistribProd = MkEmbed sumDistribProdTo sumDistribProdFrom sumDistribProdRT

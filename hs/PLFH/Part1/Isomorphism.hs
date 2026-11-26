@@ -9,31 +9,31 @@ module PLFH.Part1.Isomorphism
   , iffRefl
   , iffSym
   , iffTrans
+  , FunExt
+  , plus'
+  , sameApp
+  , samePlus
   , Iso (..)
   , identityRoundTrip
   , isoRefl
   , isoSym
   , composeLeft
   , isoTrans
-  , natIsoRefl
   , Embed (..)
   , embedRefl
   , embedTrans
   , isoImpliesEmbed
   , embedImpliesIff
   , binEmbedding
-  , IsoSize (..)
-  , idSize
-  , idSizeId
-  , isoSizeRefl
-  , isoSizeSym
   ) where
 
 import Prelude hiding ((.))
 import Data.Function.Dependent ((.))
-import Data.Nat.Dependent (Nat (..))
+import Data.Kind (Type)
+import GHC.Matchability (U)
+import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl), trans)
-import PLFH.Part1.Induction (cong, fromTo)
+import PLFH.Part1.Induction (cong, fromTo, plusComm)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
 {-# LINE 78 "content/part1/Isomorphism.md" #-}
@@ -45,7 +45,26 @@ import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 --     -> c (f x)
 -- (g . f) x = g (f x)
 
-{-# LINE 117 "content/part1/Isomorphism.md" #-}
+{-# LINE 108 "content/part1/Isomorphism.md" #-}
+-- | Function extensionality stated as an explicit type hypothesis (no axiom).
+type FunExt (a :: Type) (b :: Type) =
+  forall (f g :: a %U -> b). (foreach (x :: a) -> f x :~: g x) -> f :~: g
+
+-- | Addition defined by recursion on its second argument (`_+′_` in PLFA).
+plus' :: Nat -> Nat -> Nat
+plus' m Zero     = m
+plus' m (Succ n) = Succ (plus' m n)
+
+-- | `plus` and `plus'` agree pointwise on all natural numbers (`same-app`).
+sameApp :: foreach (m n :: Nat) -> plus m n :~: plus' m n
+sameApp m Zero     = plusComm m Zero
+sameApp m (Succ n) = trans (plusComm m (Succ n)) (cong Succ (trans (plusComm n m) (sameApp m n)))
+
+-- | Given function extensionality, `plus` and `plus'` are equal as functions (`same`).
+samePlus :: FunExt Nat (Nat %U -> Nat) -> FunExt Nat Nat -> plus :~: plus'
+samePlus ext1 ext2 = ext1 (\m -> ext2 (\n -> sameApp m n))
+
+{-# LINE 140 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic isomorphism witness between `a` and `b`.
 data Iso a b where
   MkIso :: foreach (to :: a -> b) -> foreach (from :: b -> a)
@@ -57,7 +76,7 @@ data Iso a b where
 isoSym :: Iso a b -> Iso b a
 isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 
-{-# LINE 136 "content/part1/Isomorphism.md" #-}
+{-# LINE 159 "content/part1/Isomorphism.md" #-}
 -- | Round-trip identity at any lifted type.
 identityRoundTrip :: foreach (x :: a) -> id (id x) :~: x
 identityRoundTrip _ = Refl
@@ -66,37 +85,7 @@ identityRoundTrip _ = Refl
 isoRefl :: Iso a a
 isoRefl = MkIso id id identityRoundTrip identityRoundTrip
 
-{-# LINE 149 "content/part1/Isomorphism.md" #-}
--- | Identity function on Nat with explicit structural equations.
-idSize :: Nat -> Nat
-idSize Zero     = Zero
-idSize (Succ n) = Succ n
-
--- | Round-trip identity proof for `idSize`.
-idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
-idSizeId Zero     = Refl
-idSizeId (Succ _) = Refl
-
--- | Reflexivity of the polymorphic witness at Nat.
-natIsoRefl :: Iso Nat Nat
-natIsoRefl = MkIso idSize idSize idSizeId idSizeId
-
--- | Monomorphic isomorphism witness on Nat.
-data IsoSize where
-  MkIsoSize :: foreach (to from :: Nat -> Nat)
-            -> (foreach (x :: Nat) -> from (to x) :~: x)
-            -> (foreach (y :: Nat) -> to (from y) :~: y)
-            -> IsoSize
-
--- | Reflexivity of `IsoSize`.
-isoSizeRefl :: IsoSize
-isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
-
--- | Symmetry of `IsoSize`: swap `to`/`from` and their round-trip proofs.
-isoSizeSym :: IsoSize -> IsoSize
-isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
-
-{-# LINE 191 "content/part1/Isomorphism.md" #-}
+{-# LINE 180 "content/part1/Isomorphism.md" #-}
 -- | Cancel the inner round trip, then use the outer left inverse.
 composeLeft :: foreach (f :: a -> b) -> foreach (g :: b -> a)
             -> foreach (h :: b -> c) -> foreach (k :: c -> b)
@@ -113,14 +102,14 @@ isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
     (composeLeft f g h k gf kh)
     (composeLeft k h g f hk fg)
 
-{-# LINE 219 "content/part1/Isomorphism.md" #-}
+{-# LINE 208 "content/part1/Isomorphism.md" #-}
 -- | Polymorphic embedding witness: `a` embeds faithfully in `b`.
 data Embed a b where
   MkEmbed :: foreach (to :: a -> b) -> foreach (from :: b -> a)
           -> (foreach (x :: a) -> from (to x) :~: x)
           -> Embed a b
 
-{-# LINE 233 "content/part1/Isomorphism.md" #-}
+{-# LINE 222 "content/part1/Isomorphism.md" #-}
 -- | Every isomorphism gives an embedding.
 isoImpliesEmbed :: Iso a b -> Embed a b
 isoImpliesEmbed (MkIso to from left _) = MkEmbed to from left
@@ -138,12 +127,12 @@ embedTrans (MkEmbed f g gf) (MkEmbed h k kh) =
 embedImpliesIff :: Embed a b -> Iff a b
 embedImpliesIff (MkEmbed to from _) = Iff to from
 
-{-# LINE 258 "content/part1/Isomorphism.md" #-}
+{-# LINE 247 "content/part1/Isomorphism.md" #-}
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
 binEmbedding :: Embed Nat Bin
 binEmbedding = MkEmbed toBin fromBin fromTo
 
-{-# LINE 292 "content/part1/Isomorphism.md" #-}
+{-# LINE 281 "content/part1/Isomorphism.md" #-}
 -- | Logical equivalence (bi-implication) between propositions `a` and `b`.
 data Iff a b = Iff
   { toIff   :: a -> b

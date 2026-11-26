@@ -51,8 +51,8 @@ import PLFH.Part1.Naturals (Bin (..), fromBin, inc, monus, pow, times, toBin)
 ```
 
 > Induction makes you feel guilty for getting something out of nothing
-> ... but it is one of the greatest ideas of civilization.
-> — Herbert Wilf
+>... but it is one of the greatest ideas of civilization.
+>, Herbert Wilf
 
 Now that we have defined the naturals and operations upon them, our next
 step is to learn how to prove properties that they satisfy. As hinted by
@@ -69,17 +69,17 @@ from `Data.Type.Equality`, `Matchability` and `rewrite` from
 [Naturals](/Naturals/).
 
 We also define **congruence**: a relation is said to be a *congruence* for
-a given function `f` if it is preserved by applying `f`—given evidence that
+a given function `f` if it is preserved by applying `f`, given evidence that
 `x :~: y`, `cong f` returns evidence that `f x :~: f y`. Thanks to
 matchability polymorphism (`{m :: Matchability}`, `-XModifiers`, explored
 further in [Equality](/Equality/)) together with `RequiredTypeArguments`
 (`forall (f :: a %m -> b) -> ...`), a **single** definition of `cong`
-works just like Agda's—with **no `@` sign needed**—for both promoted data
+works just like Agda's (with **no `@` sign needed**) for both promoted data
 constructors (`cong Succ`, matchable arrow `Nat -> Nat`) and partially applied
 promoted functions (`cong (plus m)`, `cong (times a)`, unmatchable arrow
 `Nat %U -> Nat`). (To lift an equality into the *first* argument of a binary
-function—where Agda writes a right-section like `(_* p)`—`Data.Nat.Dependent.Properties`
-provides `congFirst`, or `rewrite` rewrites the position directly.)
+function (where Agda writes a right-section like `(_* p)`)`Data.Nat.Dependent.Properties`
+provides `congFirst`, or `rewrite` rewrites the position directly)
 
 ```haskell
 -- | Unified matchability-polymorphic congruence (`cong`): works just like Agda
@@ -125,15 +125,15 @@ Less frivolously, if you ever bump into an operator while reading a
 technical paper, this gives you a way to orient yourself, by checking
 whether or not it has an identity, is associative or commutative, or
 distributes over another operator. A careful author will often call out
-these properties—or their lack—for instance by pointing out that a newly
+these properties (or their lack) for instance by pointing out that a newly
 introduced operator is associative but not commutative.
 
-#### Exercise `operators` (practice) {#operators}
+### Exercise `operators` (practice) {#operators}
 
 Give another example of a pair of operators that have an identity and are
 associative, commutative, and distribute over one another. Give an example
 of an operator that has an identity and is associative but is not
-commutative. (You do not have to prove these properties.)
+commutative. (You do not have to prove these properties)
 
 ## Associativity
 
@@ -145,7 +145,7 @@ location of the parentheses does not matter:
 ```
 
 Here `m`, `n`, and `p` are variables that range over all natural numbers.
-We can test the proposition on specific numbers—say `3`, `4`, and `5`,
+We can test the proposition on specific numbers, say `3`, `4`, and `5`,
 where `(3 + 4) + 5 = 7 + 5 = 12 = 3 + 9 = 3 + (4 + 5)`:
 
 ```haskell
@@ -156,11 +156,11 @@ assocExample = Refl
 
 The test reveals that associativity is perhaps not as obvious as first it
 appears: why should `7 + 5` be the same as `3 + 9`? We might want to gather
-more evidence by testing other numbers, but—since there are an infinite
-number of naturals—testing can never be complete. Is there any way we can
+more evidence by testing other numbers, but, since there are an infinite
+number of naturals, testing can never be complete. Is there any way we can
 be sure that associativity holds for *all* the natural numbers?
 
-The answer is yes! We can prove a property holds for all naturals using
+The answer is yes. We can prove a property holds for all naturals using
 *proof by induction*.
 
 ## Proof by induction
@@ -179,13 +179,17 @@ the property must also hold for `Succ m`.
 If we write `P m` for a property of `m`, then what we need to demonstrate
 are the following two inference rules:
 
-<div class="inference-rule">
-  <div class="premises">&nbsp;</div>
-  <div class="conclusion">P Zero</div>
-</div>
-<div class="inference-rule">
-  <div class="premises">P m</div>
-  <div class="conclusion">P (Succ m)</div>
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">P Zero</div>
+    <div class="rule-name">(Base)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>P m</span></div>
+    <div class="conclusion">P (Succ m)</div>
+    <div class="rule-name">(Step)</div>
+  </div>
 </div>
 
 Why does this work? Again, it can be explained by a creation story:
@@ -239,7 +243,7 @@ Let's unpack what GHC checks in each equation:
   inductive case of addition yields `Succ ((m + n) + p) ≡ Succ (m + (n + p))`.
   The recursive invocation `plusAssoc m n p` has as its type the induction
   hypothesis `(m + n) + p ≡ m + (n + p)`, and `cong Succ` prefaces `Succ`
-  to each side to yield the needed equation!
+  to each side to yield the needed equation.
 
 Here the inductive hypothesis is not assumed, but instead proved by a
 recursive invocation of the function we are defining. This is well founded
@@ -324,7 +328,7 @@ plusSuc (Succ m) n = cong Succ (plusSuc m n)
 ```
 
 Finally, here is our proposition's statement and proof by induction on the
-**second** argument `n` (not on `m` this time!):
+**second** argument `n` (not on `m` this time):
 
 ```haskell
 -- | Commutativity of addition: m + n = n + m (`+-comm`).
@@ -340,12 +344,12 @@ plusComm m (Succ k) = plusSuc m k `trans` cong Succ (plusComm m k)
   which simplifies to `m + Succ k ≡ Succ (k + m)`. First `plusSuc m k`
   gives `m + Succ k ≡ Succ (m + k)`, and then `cong Succ (plusComm m k)`
   gives `Succ (m + k) ≡ Succ (k + m)`; chaining them with `trans` completes
-  the proof!
+  the proof.
 
 ## Our first corollary: rearranging {#sections}
 
 We can apply associativity to rearrange parentheses however we like,
-without needing induction at all—simply applying `plusAssoc`, `sym`, and
+without needing induction at all, simply applying `plusAssoc`, `sym`, and
 `cong (plus m)`:
 
 ```haskell
@@ -374,7 +378,7 @@ for all `n` and `p`; on the second day we add all equations with `m = 1`;
 and on the *m*'th day we know all equations where the first number is less
 than *m*.
 
-#### Exercise `finite-+-assoc` (stretch) {#finite-plus-assoc}
+### Exercise `finite-+-assoc` (stretch) {#finite-plus-assoc}
 
 Write out what is known about associativity of addition on each of the
 first four days using a finite story of creation, as in
@@ -386,7 +390,7 @@ There is more than one way to skin a cat. PLFA also proves `+-assoc′` and
 `+-comm′` using Agda's `rewrite` keyword rather than explicit congruence
 and transitivity chains. In Dependent Haskell, `rewrite` (exported from
 `Data.Type.Equality.Dependent`) brings a propositional equality `a :~: b` into scope as a local
-equality constraint for its body—avoiding explicit `cong` and `trans`:
+equality constraint for its body, avoiding explicit `cong` and `trans`:
 
 ```haskell
 -- | Associativity proved via `rewrite` (`+-assoc′`).
@@ -401,9 +405,9 @@ plusCommRewrite m Zero     = rewrite (plusIdentityR m) Refl
 plusCommRewrite m (Succ k) = rewrite (plusSuc m k) (rewrite (plusCommRewrite m k) Refl)
 ```
 
-### Negative control: zero is not equal to its successor
+### Rejected example: zero is not equal to its successor
 
-As a sanity check, we verify that GHC rejects a false equality between `0`
+GHC rejects a false equality between `0`
 and `1` directly with `GHC-83865`:
 
 ```{.haskell .fail name="NegZeroSucc" expect="GHC-83865"}
@@ -484,7 +488,7 @@ timesComm (Succ m) n =
 The ordinary `monus` definition in [Naturals](/Naturals/) inspects its second
 argument first. At zero, subtraction returns the first argument. At a
 successor, it inspects the first argument too. Both possibilities give zero
-when subtracting from zero (no induction needed—just case analysis!):
+when subtracting from zero (no induction needed, just case analysis):
 
 ```haskell
 -- | Concrete examples of truncated subtraction (cross-module from Naturals):
@@ -578,9 +582,9 @@ and `sym` flips it to the direction required by `powTimes`.
 ### Binary natural laws (`Bin-laws`, stretch) {#Bin-laws}
 
 Finally, PLFA's stretch exercise on binary bitstrings checks completely
-with our ordinary Haskell `inc`, `toBin`, and `fromBin` functions! (As in
-PLFA, `toBin (fromBin b) :~: b` is false due to leading zeros—for instance,
-`toBin (fromBin Nil) = X0 Nil /= Nil`—while the two valid laws prove
+with our ordinary Haskell `inc`, `toBin`, and `fromBin` functions. (As in
+PLFA, `toBin (fromBin b) :~: b` is false due to leading zeros, for instance,
+`toBin (fromBin Nil) = X0 Nil /= Nil`, while the two valid laws prove
 cleanly by induction, and in [Relations](/Relations/) we restrict to
 canonical bitstrings `Can` to prove `toFromCan`):
 
@@ -601,23 +605,5 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
 
 ## Changes from PLFA
 
-- Adapted from [Induction](https://plfa.inf.ed.ac.uk/Induction/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Induction.lagda.md)).
-- Proves `plusIdentityR` (`+-identityʳ`) and `plusSuc` (`+-suc`) directly by
-  induction in the chapter (matching PLFA; later chapters can also import the
-  same lemmas from [`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties) as `plusZero` and
-  `plusSucc`).
-- Uses a single Agda-style matchability-polymorphic `cong` (`{m :: Matchability}`
-  + `RequiredTypeArguments`) for constructors (`cong Succ`), left-first
-  functions (`cong (plus m)`, `cong (times a)`), and right-first functions
-  (`cong (pow m)`), with no `@` needed.
-- Ports every theorem and exercise in PLFA Induction:
-  `assocExample`, `plusAssoc`, `plusAssoc0`/`1`/`2`, `plusAssocRewrite`,
-  `plusIdentityR`, `plusSuc`, `plusComm`, `plusCommRewrite`, `plusRearrange`,
-  `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`, `timesSuccR`,
-  `timesComm`, `timesSwap`, `timesInterchange`, `zeroMonus`, `monusPlusAssoc`,
-  `powPlus`, `powMul`, `powTimes`, `fromInc`, and `fromTo`.
-- Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax, and includes a
-  failing example confirming GHC rejects `0 :~: 1` (`GHC-83865`).
-- Omitted Agda's Emacs interactive proof-building walkthrough and Unicode
-  table.
+- Proves `plusIdentityR` and `plusSuc` directly by induction, matching PLFA's structure (later chapters may also import `plusZero` and `plusSucc` from [`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties)).
+- Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax and omits Agda's Emacs interactive walkthrough and Unicode input table.

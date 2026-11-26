@@ -23,11 +23,9 @@ themselves Haskell programs compiled by GHC.
 
 This book is an adaptation of Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
-([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit
-`c0885696578474ebcfe7bb3d7a592224567d9754`,
-licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
-Every definition and theorem in PLFA Parts 1, 2, and 3 is stated and proved
-using `-XDependentTypes` in
+(licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+All 25 chapters across Parts 1, 2, and 3 are written and checked in Dependent
+Haskell (`-XDependentTypes`) using
 [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell).
 
 ## How this book differs from PLFA
@@ -51,22 +49,14 @@ from Agda appear throughout the text:
 3. **Library reuse.** PLFH reuses standard indexed datatypes and laws from
    [`dependent-base`](https://github.com/TharkunAB/dependent-base) so one
    shared `Nat` and one shared `List` type work across all 25 chapters.
-4. **Interactive chapters.** Every chapter compiles natively with GHC's Core
-   Lint and STG Lint and runs in the browser via WebAssembly so you can edit
-   proofs, solve exercises, and query GHCi directly while reading.
+4. **Interactive chapters.** Every chapter runs directly in the browser through
+   WebAssembly so you can edit proofs, solve exercises, and query GHCi while
+   reading.
 
 ## A word on the exercises
 
 Following PLFA:
 
-- Exercises labelled **(recommended)** cover the core material.
-- Exercises labelled **(stretch)** provide an extra challenge.
-- Exercises labelled **(practice)** give extra hands-on fluency.
-
-## Changes from PLFA
-
-- Replaced Agda tooling and personal-history remarks with PLFH's Dependent
-  Haskell framing, totality discipline, and library reuse notes.
-- Retained the opening exposition of *Propositions as Types* and exercise
-  labels from Philip Wadler and Wen Kokke's original Preface
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/frontmatter/Preface.md)).
+- Exercises labeled **(recommended)** cover the core material.
+- Exercises labeled **(stretch)** provide an extra challenge.
+- Exercises labeled **(practice)** give extra hands-on fluency.

@@ -61,19 +61,21 @@ The set of natural numbers is infinite, yet we can write down its
 definition in just a few lines. Here is the definition as a pair of
 inference rules:
 
-<div class="inference-rule">
-  <div class="premises">&nbsp;</div>
-  <div class="conclusion">Zero :: Nat</div>
-</div>
-<div class="inference-rule">
-  <div class="premises">m :: Nat</div>
-  <div class="conclusion">Succ m :: Nat</div>
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">Zero :: Nat</div>
+    <div class="rule-name">(Zero)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>m :: Nat</span></div>
+    <div class="conclusion">Succ m :: Nat</div>
+    <div class="rule-name">(Succ)</div>
+  </div>
 </div>
 
 And here is the definition in Dependent Haskell (imported from
-[`Data.Nat.Dependent`](/DependentBase/#datanatdependent) in `dependent-base` —
-see its source in [`Data/Nat/Dependent/Internal.hs`](/Source/dependent-base/Data/Nat/Dependent/Internal/) —
-so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
+[`Data.Nat.Dependent`](/DependentBase/#datanatdependent) in `dependent-base`, see its source in [`Data/Nat/Dependent/Internal.hs`](/Source/dependent-base/Data/Nat/Dependent/Internal/), so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
 literals share one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL`
 and switches to Agda's `Data.Nat`):
 
@@ -124,7 +126,7 @@ inductive inputs; every proof is written by structural recursion without
 bottoms, holes, or circular bindings.
 </div>
 
-#### Exercise `seven` (practice) {#seven}
+### Exercise `seven` (practice) {#seven}
 
 Write out `7` in longhand using `Zero` and `Succ`. The suggestion below
 typechecks but is, of course, incorrect:
@@ -161,7 +163,7 @@ Succ :: Nat -> Nat
 give *signatures* specifying the types of the constructors `Zero` and `Succ`.
 They tell us that `Zero` is a natural number and that `Succ` takes a natural
 number as an argument and returns a natural number. (Equivalently, in classic
-Haskell 98 syntax, we may write `data Nat = Zero | Succ Nat`.)
+Haskell 98 syntax, we may write `data Nat = Zero | Succ Nat`)
 
 ## The story of creation
 
@@ -171,7 +173,7 @@ Let's look again at the rules that define the natural numbers:
 - *Inductive case*: if `m` is a natural number, then `Succ m` is also a
   natural number.
 
-Hold on! The second line defines natural numbers in terms of natural
+Hold on. The second line defines natural numbers in terms of natural
 numbers. How can that possibly be allowed? Isn't this as useless a
 definition as "Brexit means Brexit"?
 
@@ -282,9 +284,9 @@ In PLFA, a `{-# BUILTIN NATURAL ℕ #-}` pragma enables typing `0`, `1`, `2`,
 ... as shorthand for `zero`, `suc zero`, `suc (suc zero)`, and so on. In
 PLFH, `Data.Nat.Dependent` provides a `FromNatural` instance (at the type level)
 and a `Num` instance (at the term level) for `Nat`. That gives us the exact
-same shorthand—we can type `0`, `1`, `2`, `3`, `5`, ... directly in both
+same shorthand, we can type `0`, `1`, `2`, `3`, `5`,... directly in both
 types and runtime expressions while continuing to pattern-match on `Zero`
-and `Succ` in inductive definitions and proofs!
+and `Succ` in inductive definitions and proofs.
 
 ## Imports
 
@@ -386,8 +388,8 @@ Or more compactly, expanding shorthand only as needed:
 
 Because `plus` is compiled with `-XDependentTypes`, GHC automatically records
 its defining equations so we can compute with `plus` directly in **both**
-type-level propositions and ordinary runtime code—without duplicating it as
-a separate `type family`! GHC reduces `plus 2 3` directly to `5`, so `Refl`
+type-level propositions and ordinary runtime code, without duplicating it as
+a separate `type family`. GHC reduces `plus 2 3` directly to `5`, so `Refl`
 suffices as ironclad evidence:
 
 ```haskell
@@ -406,8 +408,8 @@ fiveAtRuntime = 2 + 3
 
 Here `plus 2 3 :~: 5` is a type, and `Refl` is a term of the given type;
 alternatively, one can think of each term as *evidence* for the assertion
-`2 + 3 ≡ 5`. This duality of interpretation—of a type as a proposition, and
-of a term as evidence—is central to how we formalise concepts in Dependent
+`2 + 3 ≡ 5`. This duality of interpretation, of a type as a proposition, and
+of a term as evidence, is central to how we formalize concepts in Dependent
 Haskell, and will be a running theme throughout this book.
 
 Note that when we use the word *evidence* it is nothing equivocal. It is
@@ -422,7 +424,7 @@ evidence, which we will use interchangeably, is *proof*.
 reused directly from <code>Data.Nat.Dependent</code>.
 </div>
 
-#### Exercise `+-example` (practice) {#plus-example}
+### Exercise `+-example` (practice) {#plus-example}
 
 Compute `3 + 4`, writing out the reduction steps using the equations for
 `plus`, and confirm `plus 3 4 :~: 7` with `Refl`.
@@ -486,7 +488,7 @@ twoTimesThree :: times 2 3 :~: 6
 twoTimesThree = Refl
 ```
 
-#### Exercise `*-example` (practice) {#times-example}
+### Exercise `*-example` (practice) {#times-example}
 
 Compute `3 * 4`, writing out the reduction steps using the equations for
 `times`, and verify `times 3 4 :~: 12`.
@@ -564,13 +566,13 @@ twoMonusThree :: monus 2 3 :~: 0
 twoMonusThree = Refl
 ```
 
-Notice we defined `monus` so that the patterns are disjoint—exactly one
+Notice we defined `monus` so that the patterns are disjoint: exactly one
 equation applies to any pair of inputs. If the second line were written
 `monus Zero n = Zero`, then both the first and second equations would match
 `monus Zero Zero` (in Haskell equations are tried top-to-bottom, whereas
 disjoint clauses make the defining equations unambiguous in any order).
 
-#### Exercise `∸-example₁` and `∸-example₂` (recommended) {#monus-examples}
+### Exercise `∸-example₁` and `∸-example₂` (recommended) {#monus-examples}
 
 Compute `5 ∸ 3` and `3 ∸ 5`, and verify `monus 5 3 :~: 2` and
 `monus 3 5 :~: 0`.
@@ -604,11 +606,11 @@ argument, hence applying it to three yields five.
 Currying is named for Haskell Curry, after whom the programming language
 Haskell is also named. Curry's work dates to the 1930s. When Philip Wadler
 first learned about currying, he was told it was misattributed, since the
-same idea was previously proposed by Moses Schönfinkel in the 1920s—with
+same idea was previously proposed by Moses Schönfinkel in the 1920s, with
 the joke: *"It should be called schönfinkeling, but currying is tastier"*.
 Only later did he learn that the explanation of the misattribution was
 itself a misattribution: the idea actually appears in the
-*Begriffsschrift* of Gottlob Frege, published in 1879!
+*Begriffsschrift* of Gottlob Frege, published in 1879.
 
 ## The story of creation, revisited
 
@@ -620,13 +622,17 @@ Again, it is possible to assign our definition a meaning without resorting
 to unpermitted circularities. We do so by reducing our definition to
 equivalent inference rules for judgments about equality:
 
-<div class="inference-rule">
-  <div class="premises">n :: Nat</div>
-  <div class="conclusion">plus Zero n = n</div>
-</div>
-<div class="inference-rule">
-  <div class="premises">plus m n = p</div>
-  <div class="conclusion">plus (Succ m) n = Succ p</div>
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises"><span>n :: Nat</span></div>
+    <div class="conclusion">plus Zero n = n</div>
+    <div class="rule-name">(plus-Zero)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>plus m n = p</span></div>
+    <div class="conclusion">plus (Succ m) n = Succ p</div>
+    <div class="rule-name">(plus-Succ)</div>
+  </div>
 </div>
 
 Again we resort to a creation story, where this time we are concerned with
@@ -650,7 +656,7 @@ judgments about addition:
 
 On the *m*'th day we know all the equations where the first number is less
 than *m*. As we can see, the reasoning that justifies inductive and
-recursive definitions is quite similar—two sides of the same coin.
+recursive definitions is quite similar, two sides of the same coin.
 
 ## The story of creation, finitely {#finite-creation}
 
@@ -731,22 +737,14 @@ fromBin (X1 b) = Succ (plus (fromBin b) (fromBin b))
 ```
 
 All three ordinary Haskell functions (`inc`, `toBin`, and `fromBin`)
-automatically receive checked open source equations—so in
+automatically receive checked open source equations: so in
 [Induction](/Induction/) we prove `fromBin (inc b) :~: Succ (fromBin b)`
 and `fromBin (toBin n) :~: n` directly by induction, and in
 [Relations](/Relations/) we complete the reverse round-trip equations on
 canonical bitstrings (`toBinCan` and `toFromCan`), showing that `Nat` and
-canonical `Bin` are in one-to-one correspondence!
+canonical `Bin` are in one-to-one correspondence.
 
 ## Changes from PLFA
 
-- Adapted from [Naturals](https://plfa.inf.ed.ac.uk/Naturals/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Naturals.lagda.md)).
-- Reused `Nat` (`Zero`/`Succ`), `plus`, infix `type (+)`, and decimal
-  numerals (`FromNatural`/`Num`) from `Data.Nat.Dependent`.
-- Implemented `times`, `pow`, `monus`, and `Bin`/`inc`/`toBin`/`fromBin` as
-  ordinary Haskell functions checked directly in their defining module
-  (`twoPlusThree`, `twoTimesThree`, `threePowFour`, `threeMonusTwo`,
-  `twoMonusThree`).
-- Omitted Agda's Emacs `agda-mode` keybinding walkthrough, `BUILTIN`
-  pragmas, and Unicode input table, adding a Haskell totality note instead.
+- Reuses `Nat`, `plus`, and `Num`/`FromNatural` decimal numerals from [`Data.Nat.Dependent`](/DependentBase/#datanatdependent) so every chapter shares one nominal `Nat` type, while defining `times`, `monus`, `pow`, and `Bin` directly in this chapter.
+- Uses prefix names (`plus`, `times`, `monus`, `pow`) rather than Agda mixfix operators.

@@ -26,8 +26,8 @@ by constructing functions between them:
 
 We import propositional equality `(:~:)`, equality transitivity `trans`,
 dependent composition `(.)` from `Data.Function.Dependent`, congruence `cong`,
-`Nat` from `Data.Nat.Dependent`, binary numerals `Bin`, `fromBin`, `toBin` from
-[Naturals](/Naturals/), and the round-trip proof `fromTo` from
+`Nat` and `plus` from `Data.Nat.Dependent`, binary numerals `Bin`, `fromBin`,
+`toBin` from [Naturals](/Naturals/), and `plusComm` / `fromTo` from
 [Induction](/Induction/).
 
 ```haskell
@@ -38,40 +38,40 @@ module PLFH.Part1.Isomorphism
   , iffRefl
   , iffSym
   , iffTrans
+  , FunExt
+  , plus'
+  , sameApp
+  , samePlus
   , Iso (..)
   , identityRoundTrip
   , isoRefl
   , isoSym
   , composeLeft
   , isoTrans
-  , natIsoRefl
   , Embed (..)
   , embedRefl
   , embedTrans
   , isoImpliesEmbed
   , embedImpliesIff
   , binEmbedding
-  , IsoSize (..)
-  , idSize
-  , idSizeId
-  , isoSizeRefl
-  , isoSizeSym
   ) where
 
 import Prelude hiding ((.))
 import Data.Function.Dependent ((.))
-import Data.Nat.Dependent (Nat (..))
+import Data.Kind (Type)
+import GHC.Matchability (U)
+import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl), trans)
-import PLFH.Part1.Induction (cong, fromTo)
+import PLFH.Part1.Induction (cong, fromTo, plusComm)
 import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 ```
 
 ## Lambda expressions and function composition
 
 Just as in Agda, Haskell writes anonymous functions with a backslash
-(`\x -> body`) and composes functions with `(.)`. In `dependent-base`,
+(`\x -> body`) and composes functions with `()`. In `dependent-base`,
 [`Data.Function.Dependent`](/DependentBase/#datafunctiondependent) generalizes
-`Prelude.(.)` so the outer consumer may depend on the intermediate value `f x`
+`Prelude.()` so the outer consumer may depend on the intermediate value `f x`
 while remaining transparent for ordinary functions:
 
 ```haskell
@@ -84,8 +84,8 @@ while remaining transparent for ordinary functions:
 -- (g . f) x = g (f x)
 ```
 
-Notice that function composition is associative (`(h . g) . f = h . (g . f)`)
-and has `id` as both left and right identity—pointwise for every `x`.
+Notice that function composition is associative (`(h. g). f = h. (g. f)`)
+and has `id` as both left and right identity, pointwise for every `x`.
 
 ## Extensionality
 
@@ -98,8 +98,31 @@ does **not** prove function extensionality internally. In PLFA, extensionality
 is introduced via `postulate` when needed for isomorphisms involving function
 types (such as `currying` in [Connectives](/Connectives/)). In PLFH, we keep
 our checked modules completely axiom-free (no `postulate` or `unsafeCoerce`),
-stating function-space equivalences via `Iff` when extensionality would
-otherwise be required.
+either stating function-space equivalences via `Iff` or taking an explicit
+`FunExt` hypothesis as a function argument. For instance, `plus'` recurses on
+its second argument rather than its first; `sameApp` proves they agree at every
+pair of inputs, and `samePlus` lifts that pointwise agreement to `plus :~: plus'`
+given explicit `FunExt` hypotheses:
+
+```haskell
+-- | Function extensionality stated as an explicit type hypothesis (no axiom).
+type FunExt (a :: Type) (b :: Type) =
+  forall (f g :: a %U -> b). (foreach (x :: a) -> f x :~: g x) -> f :~: g
+
+-- | Addition defined by recursion on its second argument (`_+′_` in PLFA).
+plus' :: Nat -> Nat -> Nat
+plus' m Zero     = m
+plus' m (Succ n) = Succ (plus' m n)
+
+-- | `plus` and `plus'` agree pointwise on all natural numbers (`same-app`).
+sameApp :: foreach (m n :: Nat) -> plus m n :~: plus' m n
+sameApp m Zero     = plusComm m Zero
+sameApp m (Succ n) = trans (plusComm m (Succ n)) (cong Succ (trans (plusComm n m) (sameApp m n)))
+
+-- | Given function extensionality, `plus` and `plus'` are equal as functions (`same`).
+samePlus :: FunExt Nat (Nat %U -> Nat) -> FunExt Nat Nat -> plus :~: plus'
+samePlus ext1 ext2 = ext1 (\m -> ext2 (\n -> sameApp m n))
+```
 
 ## Isomorphism (`_≃_`)
 
@@ -109,7 +132,7 @@ proofs witnessing that `from` is a left inverse of `to` and `to` is a left
 inverse of `from`.
 
 Because `to` and `from` are bound with `foreach` inside `MkIso`, both
-functions are in scope inside the types of the two round-trip proof fields!
+functions are in scope inside the types of the two round-trip proof fields.
 Taking the inverse (`isoSym`) simply exchanges the two functions along with
 their proofs:
 
@@ -127,9 +150,9 @@ isoSym (MkIso to from fromTo' toFrom) = MkIso from to toFrom fromTo'
 ```
 
 **Reflexivity** (`isoRefl :: Iso a a`) uses Prelude's polymorphic `id` in both
-directions at any lifted type `a`! GHC's checked equation for `id` reduces
+directions at any lifted type `a`. GHC's checked equation for `id` reduces
 `id (id x)` directly to `x` (we pass `-fno-enable-rewrite-rules` for the
-module so GHC's `GHC.Base` rewrite rules on `id`/`(.)` do not inhibit checked
+module so GHC's `GHC.Base` rewrite rules on `id`/`()` do not inhibit checked
 open-equation reduction):
 
 ```haskell
@@ -140,40 +163,6 @@ identityRoundTrip _ = Refl
 -- | Generic reflexivity of isomorphism (`≃-refl`).
 isoRefl :: Iso a a
 isoRefl = MkIso id id identityRoundTrip identityRoundTrip
-```
-
-We can also witness reflexivity at `Nat` explicitly with `idSize` (which
-constructs both `natIsoRefl` and the monomorphic `IsoSize` record):
-
-```haskell
--- | Identity function on Nat with explicit structural equations.
-idSize :: Nat -> Nat
-idSize Zero     = Zero
-idSize (Succ n) = Succ n
-
--- | Round-trip identity proof for `idSize`.
-idSizeId :: foreach (x :: Nat) -> idSize (idSize x) :~: x
-idSizeId Zero     = Refl
-idSizeId (Succ _) = Refl
-
--- | Reflexivity of the polymorphic witness at Nat.
-natIsoRefl :: Iso Nat Nat
-natIsoRefl = MkIso idSize idSize idSizeId idSizeId
-
--- | Monomorphic isomorphism witness on Nat.
-data IsoSize where
-  MkIsoSize :: foreach (to from :: Nat -> Nat)
-            -> (foreach (x :: Nat) -> from (to x) :~: x)
-            -> (foreach (y :: Nat) -> to (from y) :~: y)
-            -> IsoSize
-
--- | Reflexivity of `IsoSize`.
-isoSizeRefl :: IsoSize
-isoSizeRefl = MkIsoSize idSize idSize idSizeId idSizeId
-
--- | Symmetry of `IsoSize`: swap `to`/`from` and their round-trip proofs.
-isoSizeSym :: IsoSize -> IsoSize
-isoSizeSym (MkIsoSize to from fromTo' toFrom) = MkIsoSize from to toFrom fromTo'
 ```
 
 ### Transitivity of isomorphism (`≃-trans`)
@@ -206,7 +195,7 @@ isoTrans (MkIso f g gf fg) (MkIso h k kh hk) =
 ```
 
 Exchanging the roles of `(f, g, gf)` and `(k, h, hk)` gives the reverse round
-trip by the exact same lemma `composeLeft`!
+trip by the exact same lemma `composeLeft`.
 
 ## Embedding (`_≲_`)
 
@@ -224,9 +213,9 @@ data Embed a b where
 ```
 
 Every isomorphism immediately gives an embedding by forgetting the reverse
-round-trip proof (`isoImpliesEmbed`)—giving generic embedding reflexivity
-`embedRefl` immediately—and `composeLeft` gives generic embedding transitivity
-`embedTrans` (`≲-trans`) as well! Finally, forgetting the remaining round-trip
+round-trip proof (`isoImpliesEmbed`), giving generic embedding reflexivity
+`embedRefl` immediately, and `composeLeft` gives generic embedding transitivity
+`embedTrans` (`≲-trans`) as well. Finally, forgetting the remaining round-trip
 proof gives logical equivalence (`embedImpliesIff`):
 
 ```haskell
@@ -252,7 +241,7 @@ embedImpliesIff (MkEmbed to from _) = Iff to from
 
 In [Induction](/Induction/) we proved `fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n`.
 That proof is *precisely* the left-inverse witness needed to embed natural
-numbers into binary bitstrings!
+numbers into binary bitstrings.
 
 ```haskell
 -- | Natural numbers embed in binary numerals (`ℕ ≲ Bin`).
@@ -262,7 +251,7 @@ binEmbedding = MkEmbed toBin fromBin fromTo
 
 Why is `binEmbedding` only an embedding and *not* an isomorphism `Iso Nat Bin`?
 Because the reverse round trip can change a non-canonical bitstring into its
-canonical form! For instance, `fromBin Nil` is `0`, and `toBin 0` is
+canonical form. For instance, `fromBin Nil` is `0`, and `toBin 0` is
 `X0 Nil`, not `Nil`. Trying to prove `toBin (fromBin Nil) :~: Nil` is rejected
 by GHC (`GHC-83865`):
 
@@ -279,7 +268,7 @@ reverseRoundTrip = Refl
 
 (When we restrict `Bin` to *canonical* bitstrings satisfying `Can b`,
 `Relations.toBinCan` and `Relations.toFromCan` complete the reverse round
-trip, establishing the full bijection between `Nat` and canonical `Bin`.)
+trip, establishing the full bijection between `Nat` and canonical `Bin`)
 
 ## Logical equivalence (`_⇔_`)
 
@@ -310,30 +299,19 @@ iffTrans (Iff f1 g1) (Iff f2 g2) = Iff (f2 . f1) (g1 . g2)
 
 ## Exercises
 
-#### Exercise `≃-implies-≲` and `≲-implies-⇔` (practice)
+### Exercise `≃-implies-≲` on functions (practice)
 
-Verify that `isoImpliesEmbed` and `embedImpliesIff` above solve PLFA's
-exercises relating isomorphism, embedding, and logical equivalence.
+Given `Iso a b` and `Iso c d`, write a function constructing `Iff (a -> c) (b -> d)`
+and explain why upgrading that equivalence to `Iso (a -> c) (b -> d)` requires
+function extensionality (`FunExt`).
 
-#### Exercise `Bin-isomorphism` (stretch)
+### Exercise `≲-preorder-not-partial-order` (practice)
 
-Using `toBinCan` and `toFromCan` from [Relations](/Relations/) together with
-`fromTo` from [Induction](/Induction/), observe how pairing a `Bin` with its
-canonicality proof `Can b` repairs the failure shown in
-`NegBinReverseRoundTrip` above.
+Give two distinct types `a` and `b` together with embeddings `Embed a b` and
+`Embed b a` that are not isomorphic (`Not (Iso a b)`), or explain what extra
+condition on the round-trip proofs turns mutual embedding into an isomorphism.
 
 ## Changes from PLFA
 
-- Adapted from [Isomorphism](https://plfa.inf.ed.ac.uk/Isomorphism/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Isomorphism.lagda.md)),
-  licensed under CC BY 4.0.
-- Polymorphic `Iso a b` and `Embed a b` are declared directly with retained
-  function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`)
-  and explicit round-trip proofs.
-- Generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
-  transitivity (`isoTrans` and `embedTrans`, composing maps directly with
-  `Data.Function.Dependent.(.)`), `isoImpliesEmbed`, `embedImpliesIff`,
-  `binEmbedding`, `Iff`
-  (`iffRefl`, `iffSym`, `iffTrans`), and monomorphic `IsoSize`.
-- Like Agda, Dependent Haskell does not prove function extensionality
-  internally; PLFH avoids axioms/`postulate`.
+- Represents `Iso a b` and `Embed a b` with retained function fields (`foreach (to :: a -> b) -> foreach (from :: b -> a) -> ...`) composed via `Data.Function.Dependent.(.)`.
+- Dependent Haskell does not postulate function extensionality; extensional identities take an explicit `FunExt` hypothesis where needed.

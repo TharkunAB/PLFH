@@ -4,20 +4,16 @@ description: "Programming Language Foundations in Haskell (PLFH): a 25-chapter i
 src: content/index.md
 ---
 
-This book is an introduction to programming language theory using Dependent
-Haskell (`-XDependentTypes` in
-[`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)),
-adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek's
-[*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
-([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit
-`c088569657`,
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
+*Programming Language Foundations in Haskell* (PLFH) is an interactive
+25-chapter textbook on programming language theory written in Dependent Haskell
+(`-XDependentTypes` in GHC 10.1), adapted from Philip Wadler, Wen Kokke, and
+Jeremy G. Siek's [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
+([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)). Every chapter
+compiles and runs directly in your browser through WebAssembly.
 
-Every chapter runs interactively in your browser through WebAssembly and is
-checked natively with GHC's Core Lint and STG Lint. Companion packages live in
-[`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base),
-[`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
-and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).
+- **New to Dependent Haskell?** Start with the [live feature walkthrough](/Overview/).
+- **Want to try code now?** Open the [Interactive Playground](/Playground/).
+- **Ready to read the book?** Begin with the [Preface](/Preface/) or [Naturals](/Naturals/).
 
 Comments, bug reports, and pull requests are welcome on
 [GitHub](https://github.com/TharkunAB/PLFH).
@@ -51,8 +47,8 @@ Comments, bug reports, and pull requests are welcome on
 - [Untyped](/Untyped/): Well-scoped untyped lambda calculus, substitution, normal forms, Church numerals, and normal-order evaluation
 - [More](/More/): Extended STLC (`let`, `Unit`, products, sums, `Void`, lists), reduction rules, and progress
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` via lock-step simulation, substitution preservation, and multi-step bisimulation
-- [BigStep](/BigStep/): Call-by-name big-step semantics, environments and closures, determinism, divergence of `Ω`, and the bridge to small-step reduction
 - [Substitution](/Substitution/): Constructive σ-calculus, pointwise σ-algebra laws, commutation, and Barendregt's substitution lemma
+- [BigStep](/BigStep/): Call-by-name big-step semantics, environments and closures, determinism, divergence of `Ω`, and the bridge to small-step reduction
 - [Confluence](/Confluence/): Parallel reduction, the diamond property, the Strip Lemma, Church-Rosser confluence, and uniqueness of normal forms
 
 ## Part 3: Denotational Semantics
@@ -68,4 +64,4 @@ Comments, bug reports, and pull requests are welcome on
 - [`dependent-base` Reference](/DependentBase/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`) and GHCi tips
 - [Source Browser](/Source/): Syntax-highlighted `.hs` source for all 25 chapters and `dependent-base` modules
 - [Chapter Coverage](/Status/): Chapter-by-chapter mapping from PLFA to PLFH
-- [How to Cite & Licence](/Citing/): CC BY 4.0 licence and attribution to upstream PLFA
+- [How to Cite & License](/Citing/): CC BY 4.0 license and attribution to upstream PLFA

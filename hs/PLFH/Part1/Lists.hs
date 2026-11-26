@@ -24,6 +24,12 @@ module PLFH.Part1.Lists
   , zeros
   , lengthDownFrom
   , lengthZeros
+  , MonoidLaws (..)
+  , foldrMonoidSeed
+  , foldrMonoidAppend
+  , plusMonoid
+  , timesMonoid
+  , appendMonoid
   , foldrPlusSeed
   , foldrPlusAppend
   , foldrTimesSeed
@@ -64,13 +70,14 @@ import Data.Type.Equality ((:~:) (Refl), gcastWith, sym, trans)
 import Data.Type.Equality.Dependent (Matchability, rewrite)
 import Data.Void (Void)
 import GHC.Tuple (Tuple2)
+import GHC.Matchability (U)
 import GHC.Types (List)
 import PLFH.Part1.Decidable (Dec (..), Not)
-import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc)
-import PLFH.Part1.Isomorphism (Iff (..))
+import PLFH.Part1.Induction (cong, plusAssoc, timesAssoc, timesZeroR)
+import PLFH.Part1.Isomorphism (Iff (..), Iso (MkIso))
 import PLFH.Part1.Naturals (times)
 
-{-# LINE 126 "content/part1/Lists.md" #-}
+{-# LINE 133 "content/part1/Lists.md" #-}
 -- | Associativity of Prelude list append: (xs ++ ys) ++ zs = xs ++ (ys ++ zs).
 appendAssoc :: forall a. foreach (xs ys zs :: List a)
             -> ((xs ++ ys) ++ zs) :~: (xs ++ (ys ++ zs))
@@ -82,7 +89,7 @@ appendNilR :: forall a. foreach (xs :: List a) -> (xs ++ []) :~: xs
 appendNilR []       = Refl
 appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
-{-# LINE 149 "content/part1/Lists.md" #-}
+{-# LINE 156 "content/part1/Lists.md" #-}
 -- | Length of append: size (xs ++ ys) = size xs + size ys.
 lengthAppendLaw :: forall a. foreach (xs ys :: List a)
                 -> size (xs ++ ys) :~: plus (size xs) (size ys)
@@ -100,7 +107,7 @@ lengthReverseLaw :: forall a. foreach (xs :: List a)
                  -> size (reverse xs) :~: size xs
 lengthReverseLaw = lengthReverse
 
-{-# LINE 183 "content/part1/Lists.md" #-}
+{-# LINE 193 "content/part1/Lists.md" #-}
 -- | Map distributes over append: map f (xs ++ ys) = map f xs ++ map f ys.
 mapAppend :: forall a b. foreach (f :: a -> b) -> foreach (xs :: List a) -> foreach (ys :: List a)
           -> map f (xs ++ ys) :~: (map f xs ++ map f ys)
@@ -118,7 +125,7 @@ mapId :: forall a. foreach (xs :: List a) -> map id xs :~: xs
 mapId []       = Refl
 mapId (_ : xs) = gcastWith (mapId xs) Refl
 
-{-# LINE 216 "content/part1/Lists.md" #-}
+{-# LINE 226 "content/part1/Lists.md" #-}
 -- | Accumulating linear-time list reversal helper `shunt`.
 shunt :: List a -> List a -> List a
 shunt []     ys = ys
@@ -187,42 +194,69 @@ lengthZeros :: foreach (n :: Nat) -> size (zeros n) :~: n
 lengthZeros Zero     = Refl
 lengthZeros (Succ n) = case lengthZeros n of { Refl -> Refl }
 
-{-# LINE 296 "content/part1/Lists.md" #-}
--- | Move the seed to the right of the zero-seeded fold.
+{-# LINE 306 "content/part1/Lists.md" #-}
+-- | Monoid laws for a binary operation `f` and identity element `z` (`IsMonoid`).
+data MonoidLaws (f :: a %U -> a %U -> a) (z :: a) where
+  MkMonoidLaws
+    :: (foreach (x y w :: a) -> f (f x y) w :~: f x (f y w))
+    -> (foreach (x :: a) -> f z x :~: x)
+    -> (foreach (x :: a) -> f x z :~: x)
+    -> MonoidLaws f z
+
+-- | Generic seed law: `foldr f w xs = f (foldr f z xs) w` (`foldr-monoid`).
+foldrMonoidSeed
+  :: forall a. foreach (f :: a -> a -> a) -> foreach (z :: a)
+  -> MonoidLaws f z
+  -> foreach (xs :: List a) -> foreach (w :: a)
+  -> foldr f w xs :~: f (foldr f z xs) w
+foldrMonoidSeed _ _ (MkMonoidLaws _     idL _) []       w = sym (idL w)
+foldrMonoidSeed f z m@(MkMonoidLaws assoc _ _) (x : xs) w =
+  rewrite (foldrMonoidSeed f z m xs w) (sym (assoc x (foldr f z xs) w))
+
+-- | Generic fold homomorphism: `foldr f z (xs ++ ys) = f (foldr f z xs) (foldr f z ys)`.
+foldrMonoidAppend
+  :: forall a. foreach (f :: a -> a -> a) -> foreach (z :: a)
+  -> MonoidLaws f z
+  -> foreach (xs ys :: List a)
+  -> foldr f z (xs ++ ys) :~: f (foldr f z xs) (foldr f z ys)
+foldrMonoidAppend f z (MkMonoidLaws _     idL _) []       ys = sym (idL (foldr f z ys))
+foldrMonoidAppend f z m@(MkMonoidLaws assoc _ _) (x : xs) ys =
+  rewrite (foldrMonoidAppend f z m xs ys) (sym (assoc x (foldr f z xs) (foldr f z ys)))
+
+-- | Monoid witnesses for `(Nat, plus, 0)`, `(Nat, times, 1)`, and `(List a, (++), [])`.
+plusMonoid :: MonoidLaws plus Zero
+plusMonoid = MkMonoidLaws plusAssoc (\_ -> Refl) plusZero
+
+timesOneR :: foreach (n :: Nat) -> times n 1 :~: n
+timesOneR Zero     = Refl
+timesOneR (Succ n) = cong Succ (timesOneR n)
+
+timesMonoid :: MonoidLaws times 1
+timesMonoid = MkMonoidLaws timesAssoc plusZero timesOneR
+
+appendMonoid :: forall a. MonoidLaws ((++) @a) ([] @a)
+appendMonoid = MkMonoidLaws appendAssoc (\_ -> Refl) appendNilR
+
+-- | Specialized fold laws for addition and multiplication:
 foldrPlusSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
               -> foldr plus z xs :~: plus (foldr plus Zero xs) z
-foldrPlusSeed []       _ = Refl
-foldrPlusSeed (x : xs) z =
-  trans (cong (plus x) (foldrPlusSeed xs z))
-        (sym (plusAssoc x (foldr plus Zero xs) z))
+foldrPlusSeed = foldrMonoidSeed plus Zero plusMonoid
 
--- | Sum concatenated lists by adding their individual sums (`foldr-monoid-++` for `+`).
 foldrPlusAppend :: foreach (xs ys :: List Nat)
                 -> foldr plus Zero (xs ++ ys)
                :~: plus (foldr plus Zero xs) (foldr plus Zero ys)
-foldrPlusAppend []       _  = Refl
-foldrPlusAppend (x : xs) ys =
-  trans (cong (plus x) (foldrPlusAppend xs ys))
-        (sym (plusAssoc x (foldr plus Zero xs) (foldr plus Zero ys)))
+foldrPlusAppend = foldrMonoidAppend plus Zero plusMonoid
 
--- | Move the seed to the right of a multiplicative right fold.
 foldrTimesSeed :: foreach (xs :: List Nat) -> foreach (z :: Nat)
                -> foldr times z xs :~: times (foldr times 1 xs) z
-foldrTimesSeed []       z = sym (plusZero z)
-foldrTimesSeed (x : xs) z =
-  trans (cong (times x) (foldrTimesSeed xs z))
-        (sym (timesAssoc x (foldr times 1 xs) z))
+foldrTimesSeed = foldrMonoidSeed times 1 timesMonoid
 
--- | Multiply concatenated lists by multiplying their individual products (`foldr-monoid-++` for `*`).
 foldrTimesAppend :: foreach (xs ys :: List Nat)
                  -> foldr times 1 (xs ++ ys)
                 :~: times (foldr times 1 xs) (foldr times 1 ys)
-foldrTimesAppend []       ys = sym (plusZero (foldr times 1 ys))
-foldrTimesAppend (x : xs) ys =
-  trans (cong (times x) (foldrTimesAppend xs ys))
-        (sym (timesAssoc x (foldr times 1 xs) (foldr times 1 ys)))
+foldrTimesAppend = foldrMonoidAppend times 1 timesMonoid
 
-{-# LINE 357 "content/part1/Lists.md" #-}
+{-# LINE 384 "content/part1/Lists.md" #-}
 -- | Matchability-polymorphic universal list predicate: `p` holds for every element of `xs`.
 type All :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data All p xs where
@@ -241,7 +275,7 @@ data Any p xs where
 -- | List membership (`_∈_`): `x` appears in `xs`.
 type In (x :: a) (xs :: List a) = Any ((:~:) x) xs
 
-{-# LINE 385 "content/part1/Lists.md" #-}
+{-# LINE 412 "content/part1/Lists.md" #-}
 -- | If `p` holds for all of `xs` and all of `ys`, it holds for `xs ++ ys`.
 allAppend :: forall {a} {m :: Matchability} {p :: a %m -> Type} {xs} {ys}.
              All p xs -> All p ys -> All p (xs ++ ys)
@@ -285,7 +319,7 @@ anyAppendInv (_:xs) (There r) =
     Left  axs -> Left (There axs)
     Right ays -> Right ays
 
-{-# LINE 436 "content/part1/Lists.md" #-}
+{-# LINE 463 "content/part1/Lists.md" #-}
 mkNotHere :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.
              Not (Any p (x : xs)) -> Not (p x)
 mkNotHere nany px = nany (Here px)
@@ -312,7 +346,7 @@ notAnyIffAllNot (_:xs) = case notAnyIffAllNot @p xs of
     Iff (\nany -> AllCons (mkNotHere nany) (toTail (\r -> nany (There r))))
         (\case AllCons npx nxs -> \case { Here px -> npx px; There r -> fromTail nxs r })
 
-{-# LINE 472 "content/part1/Lists.md" #-}
+{-# LINE 499 "content/part1/Lists.md" #-}
 -- | Evidence that a member of the list satisfies the predicate.
 type AnyWitness :: forall {a} {m :: Matchability}. (a %m -> Type) -> List a -> Type
 data AnyWitness p xs where
@@ -342,7 +376,7 @@ memberValue []       r           = case r of {}
 memberValue (x : _)  (Here Refl) = x
 memberValue (_ : xs) (There r)   = memberValue xs r
 
-{-# LINE 522 "content/part1/Lists.md" #-}
+{-# LINE 535 "content/part1/Lists.md" #-}
 -- | Pointwise characterization of `All`: if `p` holds for all elements of `xs`
 -- and `x ∈ xs`, then `p x` (`All-to-∈`).
 allToIn :: forall {a} {m :: Matchability} {p :: a %m -> Type} {x} {xs}.

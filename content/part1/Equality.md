@@ -14,17 +14,17 @@ and `N` are interchangeable. So far we have imported propositional equality
 we define propositional equality from scratch, prove its fundamental
 properties (`sym`, `trans`, `cong`, `cong-app`, `subst`), explain equational
 reasoning chains and rewriting, and compare Martin-Löf's inductive definition
-of equality (1975) with **Leibniz equality** (1686)—which exercises two
-marquee Dependent Haskell features at once: **matchability arrows (`%U`)**
+of equality (1975) with **Leibniz equality** (1686), which uses two core
+Dependent Haskell features together: **matchability arrows (`%U`)**
 and **type-level lambdas**.
 
 ## Imports
 
-We import `Type` from `Data.Kind`, `Matchability` from
+We import `Type` from `Data.Kind`, `Matchability` and `rewrite` from
 `Data.Type.Equality.Dependent`, `U` from `GHC.Exts`, `(:~:)` from
-`Data.Type.Equality`, `Nat` and `plus` from `Data.Nat.Dependent`, `cong` and
-`plusComm` from [Induction](/Induction/), and `Even` from
-[Relations](/Relations/).
+`Data.Type.Equality`, `Nat` and `plus` from `Data.Nat.Dependent`, `cong`,
+`plusComm`, `plusIdentityR`, and `plusSuc` from [Induction](/Induction/), and
+`Even` / `LE` / `leTrans` from [Relations](/Relations/).
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
@@ -34,12 +34,17 @@ module PLFH.Part1.Equality
   , symP
   , transP
   , congP
+  , cong2P
   , congAppP
   , substP
   , beginEq
   , stepEq
   , qedEq
   , plusZeroChain
+  , plusCommRewrite
+  , beginLE
+  , stepLE
+  , qedLE
   , Leibniz
   , leibnizRefl
   , leibnizSymAt
@@ -53,10 +58,10 @@ module PLFH.Part1.Equality
 import Data.Kind (Type)
 import Data.Nat.Dependent (Nat (..), plus)
 import Data.Type.Equality ((:~:) (Refl))
-import Data.Type.Equality.Dependent (Matchability)
+import Data.Type.Equality.Dependent (Matchability, rewrite)
 import GHC.Exts (U)
-import PLFH.Part1.Induction (cong, plusComm)
-import PLFH.Part1.Relations (Even (..))
+import PLFH.Part1.Induction (cong, plusComm, plusIdentityR, plusSuc)
+import PLFH.Part1.Relations (Even (..), LE (..), leTrans)
 ```
 
 ## Equality
@@ -71,9 +76,9 @@ data EqP (x :: a) (y :: a) where
   ReflP :: EqP x x
 ```
 
-That single line is the entire definition! As Martin-Löf observed, once
+That single line is the entire definition. As Martin-Löf observed, once
 equality is defined inductively with `ReflP` as its sole constructor, every
-other law of equality—symmetry, transitivity, congruence, and substitution—is
+other law of equality (symmetry, transitivity, congruence, and substitution) is
 not an axiom, but a **theorem** proved by pattern matching on `ReflP`.
 
 ## Equality is an equivalence relation
@@ -116,10 +121,10 @@ In Dependent Haskell, type-level functions come in two flavors controlled by
 
 By quantifying over `{m :: Matchability}` with `RequiredTypeArguments` in
 `congP`, a single Agda-style congruence combinator handles *both* constructors
-(`congP Succ`) and promoted functions (`congP (plus m)`) with no `@` needed!
-Because Dependent Haskell now lets matchable constructors (`Even :: Nat -> Type`)
+(`congP Succ`) and promoted functions (`congP (plus m)`) with no `@` needed.
+Because Dependent Haskell lets matchable constructors (`Even :: Nat -> Type`)
 directly instantiate unmatchable predicate parameters (`a %U -> Type`), a single
-`substP` combinator handles *both* matchable GADTs like `Even` and unmatchable
+`substP` combinator handles both matchable GADTs like `Even` and unmatchable
 predicates such as type lambdas or promoted functions:
 
 ```haskell
@@ -129,6 +134,12 @@ congP :: forall {a} {b} {m :: Matchability}.
          forall (f :: a %m -> b) -> forall (x :: a) (y :: a).
          EqP x y -> EqP (f x) (f y)
 congP _ ReflP = ReflP
+
+-- | Two-argument congruence (`cong₂`): equal arguments yield equal binary results.
+cong2P :: forall {a} {b} {c} {m1 m2 :: Matchability}.
+          forall (f :: a %m1 -> b %m2 -> c) -> forall (x :: a) (x' :: a) (y :: b) (y' :: b).
+          EqP x x' -> EqP y y' -> EqP (f x y) (f x' y')
+cong2P _ ReflP ReflP = ReflP
 
 -- | Application congruence: equal functions yield equal results at any input x.
 congAppP :: forall {a} {b} {m :: Matchability} (f :: a %m -> b) (g :: a %m -> b) (x :: a).
@@ -212,13 +223,33 @@ plusZeroChain (Succ n) =
 Just as Agda provides `rewrite` as a compact shorthand for applying `subst`,
 `Data.Type.Equality.Dependent` exports `rewrite :: (x :~: y) -> ((x ~ y) => r) -> r`. When you
 write `rewrite eq body`, GHC temporarily brings the type equality `x ~ y`
-into scope while checking `body`—just as we did in `plusMonoL` in
+into scope while checking `body`, just as we did in `plusMonoL` in
 [Relations](/Relations/) and `plusSwap` in [Induction](/Induction/).
 
 Whenever Agda needs **multiple rewrites** or a **`with` abstraction** to
 generalize over an intermediate term before rewriting, Haskell lets you nest
 `rewrite eq1 (rewrite eq2 body)` directly or bind the intermediate result in
-a `case ... of` expression (or helper function).
+a `case ... of` expression. The same equational-chain pattern also generalizes
+to preorders such as `LE` (`≤-Reasoning`):
+
+```haskell
+-- | Multiple rewrites in one equation: `plus m (Succ n) = Succ (plus n m)` (`+-comm′`).
+plusCommRewrite :: foreach (m n :: Nat) -> plus m n :~: plus n m
+plusCommRewrite m Zero     = plusIdentityR m
+plusCommRewrite m (Succ n) =
+  rewrite (plusSuc m n) (rewrite (plusCommRewrite m n) Refl)
+
+-- | Order-reasoning chains (`≤-Reasoning`) for `LE`.
+beginLE :: forall (m n :: Nat) -> LE m n -> LE m n
+beginLE _ _ p = p
+
+qedLE :: foreach (n :: Nat) -> LE n n
+qedLE Zero     = ZleN
+qedLE (Succ n) = SleS (qedLE n)
+
+stepLE :: forall (m n p :: Nat) -> LE m n -> LE n p -> LE m p
+stepLE _ _ _ = leTrans
+```
 
 ## Leibniz equality
 
@@ -229,7 +260,7 @@ only if they satisfy all the same properties.
 
 > *Eadem sunt, quorum unum potest substitui alteri salva veritate.*
 > ("Things are the same if one can be substituted for the other with truth preserved.")
-> — G. W. Leibniz
+>, G. W. Leibniz
 
 (As PLFA reminds us, Mr. Spock put the contrapositive even more concisely:
 *"A difference that makes no difference is no difference."*)
@@ -247,11 +278,11 @@ definition handle everything cleanly:
   inside Leibniz equality** without touching Martin-Löf equality at all: given
   a predicate `p :: a %U -> Type`, we instantiate `xy` with the inline
   type-level lambda `@(\z -> p z -> p x)` (capturing `p` and `x`) and feed it
-  the identity `\px -> px :: p x -> p x`!
+  the identity `\px -> px :: p x -> p x`.
 - **Equivalence with Martin-Löf equality** (`leibnizToEq`): because matchable
   constructors directly instantiate unmatchable arrows (`a %M -> Type` into
   `a %U -> Type`), we instantiate `p` directly with `@(EqP x)` (no
-  eta-expansion!) and pass `ReflP :: EqP x x`, producing `EqP x y`!
+  eta-expansion) and pass `ReflP :: EqP x x`, producing `EqP x y`.
 
 ```haskell
 -- | Leibniz equality over predicates `p :: a %U -> Type`
@@ -296,18 +327,18 @@ universe-polymorphic equality `_≡′_` parameterized by a universe level `ℓ`
 In GHC Haskell with `-XPolyKinds`, the kind parameter `a` in
 `data EqP (x :: a) (y :: a)` is already kind-polymorphic by default, so a
 single definition of `EqP` works uniformly at `Nat`, `Bin`, `Type`, or any
-promoted user-defined datatype without explicit universe levels! (Note the
+promoted user-defined datatype without explicit universe levels. (Note the
 foundational trade-off: GHC uses `Type :: Type` rather than a stratified
-universe hierarchy—so unlike Agda, GHC's type system is not logically
+universe hierarchy: so unlike Agda, GHC's type system is not logically
 consistent on its own and relies on our proof discipline of structural
-termination and zero `undefined`/`unsafeCoerce`.)
+termination and zero `undefined`/`unsafeCoerce`)
 
-#### Exercise `cong₂` (practice)
+### Exercise `≤-Reasoning-trans` (practice)
 
-Define two-argument congruence: given a binary type-level function `f` and
-proofs `EqP x x'` and `EqP y y'`, produce `EqP (f x y) (f x' y')`.
+Use `beginLE`, `stepLE`, and `qedLE` to build a three-step chain proving
+`LE 0 3` via intermediate steps `1` and `2`.
 
-#### Exercise `Leibniz` reflexivity, symmetry, and transitivity (practice)
+### Exercise `Leibniz` reflexivity, symmetry, and transitivity (practice)
 
 Show that `leibnizTrans` is associative and has `leibnizRefl` as both left
 and right identity, and verify that `eqToLeibniz . leibnizToEq` and
@@ -315,17 +346,5 @@ and right identity, and verify that `eqToLeibniz . leibnizToEq` and
 
 ## Changes from PLFA
 
-- Adapted from [Equality](https://plfa.inf.ed.ac.uk/Equality/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Equality.lagda.md)),
-  licensed under CC BY 4.0.
-- `EqP`, `symP`, `transP`, matchability-polymorphic `congP`/`congAppP`,
-  unified `substP`, `evenComm` (via `substP @Even`), `RequiredTypeArguments`
-  equational chains (`beginEq`/`stepEq`/`qedEq`/`plusZeroChain`), and unified
-  `Leibniz` (with pure impredicative `leibnizSym` via inline type-level lambda
-  `@(\z -> p z -> p x)` and direct matchable instantiation
-  `leibnizToEq f = f @(EqP x) ReflP`) port directly and pass
-  `-dcore-lint -dstg-lint`.
-- All promoted constructors (`Zero`, `Succ`) are written without leading `'`
-  ticks under `-XDataKinds`.
-- PLFA's universe-polymorphic `_≡′_` corresponds to GHC's `-XPolyKinds`,
-  which already makes `EqP` kind-polymorphic out of the box.
+- GHC's `-XPolyKinds` makes `EqP` kind-polymorphic without separate universe-polymorphic `_≡′_` declarations.
+- Uses matchability-polymorphic `congP`, `substP`, and `Leibniz` so both matchable GADTs (`Even`) and unmatchable type lambdas work with one combinator.

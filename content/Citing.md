@@ -1,12 +1,12 @@
 ---
-title: "How to Cite & Licence"
-description: "CC BY 4.0 licence, attribution to Programming Language Foundations in Agda (PLFA), and BibTeX citation details for PLFH."
+title: "How to Cite & License"
+description: "CC BY 4.0 license, attribution to Programming Language Foundations in Agda (PLFA), and BibTeX citation details for PLFH."
 prev: /Status/
 src: content/Citing.md
 plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 ---
 
-## Licence
+## License
 
 &copy; 2026 [**Tharkun AB**](https://tharkun.se/). *Programming Language Foundations in Haskell* (PLFH),
 its Dependent Haskell overview, and its interactive tooling are licensed under the

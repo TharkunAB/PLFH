@@ -7,8 +7,8 @@ module: PLFH.Part1.Connectives
 plfaChapter: https://plfa.inf.ed.ac.uk/Connectives/
 ---
 
-This chapter introduces the **propositional connectives**—conjunction,
-disjunction, and implication, together with truth and falsehood—and explores
+This chapter introduces the **propositional connectives**, conjunction,
+disjunction, and implication, together with truth and falsehood, and explores
 one of the deepest principles in computer science: **Propositions as Types**
 (the Curry–Howard correspondence).
 
@@ -34,15 +34,15 @@ characterized by two dual kinds of rules:
 - **Elimination rules** explain how to *use* or *deconstruct* evidence for a
   compound proposition (pattern matching / eliminators in Haskell).
 
-Moreover, if we count the number of inhabitants of finite types—say `Bool`
-(2 values) and a 3-element type `Tri` (3 values)—then products multiply
+Moreover, if we count the number of inhabitants of finite types, say `Bool`
+(2 values) and a 3-element type `Tri` (3 values), then products multiply
 sizes (`(Bool, Tri)` has `2 × 3 = 6` inhabitants), sums add sizes
 (`Either Bool Tri` has `2 + 3 = 5` inhabitants), unit `()` has `1`
 inhabitant, `Void` has `0` inhabitants, and function spaces exponentiate
 sizes (`Bool -> Tri` has `3² = 9` functions while `Tri -> Bool` has
 `2³ = 8` functions). Every algebraic law of elementary arithmetic
 (`a × b = b × a`, `a × (b + c) = a × b + a × c`, `(cᵃ)ᵇ = cᵃˣᵇ`, `a⁰ = 1`, …)
-is therefore a theorem of propositional logic!
+is therefore a theorem of propositional logic.
 
 ## Imports
 
@@ -111,11 +111,18 @@ module PLFH.Part1.Connectives
   , prodCong
   , sumCong
   , arrCong
+  , etaProd
+  , etaUnit
+  , etaSum
+  , etaArr
+  , sumDistribProdTo
+  , sumDistribProdFrom
+  , sumDistribProd
   ) where
 
 import Data.Type.Equality ((:~:) (Refl))
 import Data.Void (Void, absurd)
-import PLFH.Part1.Isomorphism (Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
+import PLFH.Part1.Isomorphism (Embed (..), Iff (..), Iso (..), embedImpliesIff, isoImpliesEmbed)
 ```
 
 ## Conjunction (`(a, b)`) and Truth (`()`)
@@ -132,7 +139,7 @@ proof `x :: a` and a proof `y :: b`:
 
 Just like multiplication on the naturals, conjunction is commutative and
 associative, has truth `()` as its left and right identity (`a × 1 = a`),
-and has falsehood `Void` as its left and right absorbing zero (`a × 0 = 0`)—all
+and has falsehood `Void` as its left and right absorbing zero (`a × 0 = 0`), all
 proved as **full polymorphic isomorphisms (`Iso`)** with machine-checked
 round-trip proofs:
 
@@ -287,7 +294,7 @@ and I are one."* (PLFA illustrates the same rule with the English idiom:
 
 Just like addition on the naturals, disjunction is commutative and
 associative, with falsehood `Void` as its left and right identity
-(`a + 0 = a`)—again proved as full polymorphic `Iso` isomorphisms:
+(`a + 0 = a`), again proved as full polymorphic `Iso` isomorphisms:
 
 ```haskell
 -- | Swap the two branches of a sum.
@@ -441,7 +448,7 @@ A proof of the implication `a ⇒ b` is a function `f :: a -> b` transforming
 any proof of `a` into a proof of `b`:
 
 - **Introduction:** lambda abstraction `\x -> body`.
-- **Elimination:** function application `f x`—which is the logical rule of
+- **Elimination:** function application `f x`, which is the logical rule of
   *modus ponens* (from `a -> b` and `a`, deduce `b`).
 
 Under the arithmetic correspondence where `a -> b` corresponds to `bᵃ`,
@@ -502,44 +509,92 @@ arrCong :: Iff a a' -> Iff b b' -> Iff (a -> b) (a' -> b')
 arrCong (Iff fa ga) (Iff fb gb) = Iff (\h -> fb . h . ga) (\h -> gb . h . fa)
 ```
 
+## Uniqueness (`η`) laws and sum-over-product embedding
+
+Each connective also satisfies a **uniqueness (`η`) law** showing that
+rebuilding a value from its eliminators gives back the same value, and
+disjunction embeds into products (`Either (a, b) c ≲ (Either a c, Either b c)`,
+an embedding rather than an isomorphism because `(Right c1, Right c2)` carries
+two `c` values):
+
+```haskell
+-- | Uniqueness (`η`) for products: every pair equals `(fst p, snd p)`.
+etaProd :: foreach (p :: (a, b)) -> '(fst p, snd p) :~: p
+etaProd (_, _) = Refl
+
+-- | Uniqueness (`η`) for unit: every value of `()` equals `()`.
+etaUnit :: foreach (u :: ()) -> '() :~: u
+etaUnit () = Refl
+
+-- | Sum eliminator specialized to `Left`/`Right`.
+elimSum :: Either a b -> Either a b
+elimSum (Left  x) = Left x
+elimSum (Right y) = Right y
+
+-- | Uniqueness (`η`) for sums: rebuilding a sum from `Left` and `Right` is the identity.
+etaSum :: foreach (e :: Either a b) -> elimSum e :~: e
+etaSum (Left  _) = Refl
+etaSum (Right _) = Refl
+
+-- | Uniqueness (`η`) for functions: pointwise reflexivity of function application.
+etaArr :: foreach (f :: a -> b) -> foreach (x :: a) -> f x :~: f x
+etaArr _ _ = Refl
+
+-- | Embedding of disjunction over conjunction (`⊎-distrib-×`).
+sumDistribProdTo :: Either (a, b) c -> (Either a c, Either b c)
+sumDistribProdTo (Left (x, y)) = (Left x, Left y)
+sumDistribProdTo (Right z)     = (Right z, Right z)
+
+sumDistribProdLeft :: a -> Either b c -> Either (a, b) c
+sumDistribProdLeft x (Left y)  = Left (x, y)
+sumDistribProdLeft _ (Right z) = Right z
+
+sumDistribProdStep :: Either a c -> Either b c -> Either (a, b) c
+sumDistribProdStep (Left x)  r = sumDistribProdLeft x r
+sumDistribProdStep (Right z) _ = Right z
+
+sumDistribProdFrom :: (Either a c, Either b c) -> Either (a, b) c
+sumDistribProdFrom (l, r) = sumDistribProdStep l r
+
+sumDistribProdRT :: foreach (e :: Either (a, b) c)
+                 -> sumDistribProdFrom (sumDistribProdTo e) :~: e
+sumDistribProdRT (Left (_, _)) = Refl
+sumDistribProdRT (Right _)     = Refl
+
+sumDistribProd :: Embed (Either (a, b) c) (Either a c, Either b c)
+sumDistribProd = MkEmbed sumDistribProdTo sumDistribProdFrom sumDistribProdRT
+```
+
 ## Isomorphisms vs. logical equivalences
 
-Above we proved all twelve commutative semiring laws—product & sum
+Above we proved all twelve commutative semiring laws, product & sum
 commutativity and associativity, product units & absorbing zeros, sum
 identities (`Either a Void ≃ a` and `Either Void a ≃ a`), and left/right
-distributivity—as **full polymorphic isomorphisms (`Iso`)** with
+distributivity, as **full polymorphic isomorphisms (`Iso`)** with
 machine-checked round-trip proofs (alongside `Iff` projections). Upgrading
 the exponential laws (`currying`, `expSum`, `expProd`, `expUnit`, `expZero`,
-`expToUnit`) to `Iso` requires **function extensionality**—which neither Agda
+`expToUnit`) to `Iso` requires **function extensionality**, which neither Agda
 nor Dependent Haskell proves internally without an axiom.
 
 ## Exercises
 
-#### Exercise `×-distrib-⊎` and `→-distrib-⊎` (practice)
+### Exercise `×-distrib-⊎` and `→-distrib-⊎` (practice)
 
 Compare `prodDistribSum`, `prodDistribSumL`, `expSum`, and `expProd` above
 with the distributive laws of arithmetic from [Induction](/Induction/): why
 do `Either (a, b) c` and `(Either a c, Either b c)` admit maps in **both**
 directions (`Iff` and `Embed`) yet fail to form an `Iso` (try counting
-inhabitants!), and why is there no general equivalence
+inhabitants), and why is there no general equivalence
 `Iff (a -> Either b c) (Either (a -> b) (a -> c))`?
 
-#### Exercise `implication-from-⊤-and-⊥` (practice)
+### Exercise `implication-from-⊤-and-⊥` (practice)
 
 Check by hand that for any finite type `a` with `n` inhabitants,
 `(() -> a)` has `n¹ = n` inhabitants, `(Void -> a)` has `n⁰ = 1` inhabitant
 (`absurd`), and `(a -> ())` has `1ⁿ = 1` inhabitant (`const ()`). What about
-`a -> Void`? That is **negation**, the subject of the very next chapter!
+`a -> Void`? That is **negation**, the subject of the very next chapter.
 
 ## Changes from PLFA
 
-- Adapted from [Connectives](https://plfa.inf.ed.ac.uk/Connectives/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Connectives.lagda.md)),
-  licensed under CC BY 4.0.
-- Uses standard Haskell `(,)`, `Either`, `()`, and `Void` directly.
-- Proved all twelve commutative semiring laws (product & sum commutativity and
-  associativity, product units & zeros, sum identities `sumZeroRIso` /
-  `sumZeroLIso`, and left/right distributivity) as genuine polymorphic
-  isomorphisms (`Iso`), along with exponential (`currying`, `expSum`,
-  `expProd`, `expUnit`, `expZero`, `expToUnit`) and congruence (`prodCong`,
-  `sumCong`, `arrCong`) laws as constructive `Iff` equivalences.
+- Uses stock Haskell `(,)`, `Either`, `()`, and `Void` directly instead of custom connective datatypes.
+- Proves all twelve commutative semiring laws as polymorphic `Iso` isomorphisms; exponential laws on function spaces use `Iff` (or take an explicit `FunExt` parameter for `Iso`).

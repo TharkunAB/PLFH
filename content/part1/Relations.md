@@ -13,8 +13,8 @@ by induction, we now turn to **inductive relations**: **indexed datatypes**
 
 In Agda, indexed datatypes are written `data _≤_ : ℕ → ℕ → Set where ...`.
 In Dependent Haskell, the exact same concept is expressed with a `data` GADT
-indexed by promoted values of kind `Nat`—not a GHC `type family` (no
-`-XTypeFamilies` is needed!).
+indexed by promoted values of kind `Nat`, not a GHC `type family` (no
+`-XTypeFamilies` is needed).
 
 ## Imports
 
@@ -96,13 +96,17 @@ an inductive relation is defined by **inference rules**:
 
 We can write these two rules in natural-deduction notation:
 
-<div class="inference-rule">
-  <div class="premises">&nbsp;</div>
-  <div class="conclusion">ZleN :: LE Zero n</div>
-</div>
-<div class="inference-rule">
-  <div class="premises">LE m n</div>
-  <div class="conclusion">SleS :: LE (Succ m) (Succ n)</div>
+<div class="rule-group">
+  <div class="inference-rule">
+    <div class="premises">&nbsp;</div>
+    <div class="conclusion">LE Zero n</div>
+    <div class="rule-name">(ZleN)</div>
+  </div>
+  <div class="inference-rule">
+    <div class="premises"><span>LE m n</span></div>
+    <div class="conclusion">LE (Succ m) (Succ n)</div>
+    <div class="rule-name">(SleS)</div>
+  </div>
 </div>
 
 The base case has no premises above the horizontal line, so it is an axiom;
@@ -121,7 +125,7 @@ data LE (m :: Nat) (n :: Nat) where
 ```
 
 Notice the difference between `Nat` and `LE`: `Nat` is a single type, whereas
-`LE` is an **indexed datatype (GADT)**—one type `LE m n` for each pair of
+`LE` is an **indexed datatype (GADT)**, one type `LE m n` for each pair of
 natural numbers `m` and `n` (in type-theory texts this is often called an
 *"indexed family of types"*, which is a `data` GADT rather than a GHC
 `type family`). Some of these types are inhabited (`LE 2 4`),
@@ -142,7 +146,7 @@ twoLeFour = SleS (SleS ZleN)
 
 In `ZleN :: LE Zero n` and `SleS :: LE m n -> LE (Succ m) (Succ n)`, the
 type variables `m` and `n` are implicitly universally quantified and inferred
-automatically by GHC—matching Agda's curly-brace implicit arguments `{m n : ℕ}`.
+automatically by GHC, matching Agda's curly-brace implicit arguments `{m n : ℕ}`.
 Whenever GHC cannot infer an index on its own, or when we wish to spell out
 the instantiation explicitly, we can pass it with `@` using `-XTypeApplications`.
 
@@ -230,7 +234,7 @@ leAntisym ZleN     ZleN     = Refl
 leAntisym (SleS p) (SleS q) = cong Succ (leAntisym p q)
 ```
 
-#### Exercise `≤-antisym-cases` (`leAntisym` impossible cases, practice)
+### Exercise `≤-antisym-cases` (`leAntisym` impossible cases, practice)
 
 Why did `leAntisym` omit the clauses `leAntisym ZleN (SleS q)` and
 `leAntisym (SleS p) ZleN`? Check that adding either clause would be rejected
@@ -354,7 +358,7 @@ data LT' (m :: Nat) (n :: Nat) where
 ```
 
 Strict inequality is **transitive** (a *strict partial order*, since it is
-also irreflexive—which we prove in [Negation](/Negation/)):
+also irreflexive: which we prove in [Negation](/Negation/)):
 
 ```haskell
 -- | Strict inequality is transitive.
@@ -466,10 +470,10 @@ data Odd (n :: Nat) where
 ```
 
 Now we prove that the sum of two even numbers is even, mutually with the fact
-that the sum of an odd number and an even number is odd—and similarly for the
+that the sum of an odd number and an even number is odd, and similarly for the
 other two combinations of parity. Notice that none of these four theorems
 even need `foreach` binders: pattern matching on the GADT proof `Even m` or
-`Odd m` refines `m` enough for GHC to reduce `plus m n` directly!
+`Odd m` refines `m` enough for GHC to reduce `plus m n` directly.
 
 ```haskell
 -- | Even + Even = Even (no `foreach` needed: GADT matching refines `m`).
@@ -624,9 +628,9 @@ toFromCan (X1 b)      (CanOne o)         = toFromOne (X1 b) o
 ```
 
 Together with `fromTo` in [Induction](/Induction/), `toBinCan` and `toFromCan`
-establish a full constructive bijection between `Nat` and canonical `Bin`!
+establish a full constructive bijection between `Nat` and canonical `Bin`.
 
-### Negative control: `1 <= 0` is uninhabited
+### Rejected example: `1 <= 0` is uninhabited
 
 We verify that GHC rejects an attempt to construct `LE 1 0` using `ZleN`:
 
@@ -643,23 +647,5 @@ oneLeZero = ZleN
 
 ## Changes from PLFA
 
-- Adapted from [Relations](https://plfa.inf.ed.ac.uk/Relations/)
-  ([source](https://github.com/plfa/plfa.github.io/blob/dev/src/plfa/part1/Relations.lagda.md)),
-  licensed under CC BY 4.0.
-- Every core theorem (`LE`, `invSleS`, `invZleN`, `leRefl`, `leTrans`,
-  `leAntisym`, `Total`, `leTotal`, `plusMonoR`, `plusMonoL`, `plusMono`,
-  `timesMonoR`, `timesMonoL`, `timesMono`, `LT'`, `ltTrans`, `Trichotomy`,
-  `ltTrichotomy`, `ltToLe`, `leToLt`, `DiffWitness`, `leToDiff`, `diffToLe`,
-  `plusMonoLtR`, `plusMonoLtL`, `plusMonoLt`, `Even`/`Odd` with all four parity
-  sums plus `evenOrOdd`/`notBothEvenOdd`, and the complete `One`/`Can`
-  canonical binary bijection `toBinCan` & `toFromCan`) ports directly and
-  passes `-dcore-lint -dstg-lint`.
-- All promoted constructors (`Zero`, `Succ`, `Nil`, `X0`, `X1`) are written
-  without leading `'` ticks under `-XDataKinds`, and visible `cong` from
-  [Induction](/Induction/) handles both the constructor `Succ` and the ordinary
-  unary function `inc`.
-- `leTotal`, `plusMonoL`, `plusMonoLtL`, and `ltTrichotomy` split their
-  retained arguments directly in function equations.
-- `evenPlusEven`, `oddPlusEven`, `evenPlusOdd`, and `oddPlusOdd` need no
-  `foreach` binders at all: matching on the GADT proof refines `m` enough for
-  GHC to reduce ordinary `plus m n` directly.
+- Uses prefix GADT names (`LE`, `LT`) in place of Agda mixfix `_≤_` and `_<_`.
+- Proves the `Nat ≃ Can Bin` bijection (`toBinCan`, `toFromCan`), monotonicity, totality, trichotomy, and `Even`/`Odd` directly.
