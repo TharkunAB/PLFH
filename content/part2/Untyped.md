@@ -404,7 +404,7 @@ normal-order reduction terminates on terms where call-by-value diverges!
   licensed under CC BY 4.0.
 - Ports `Fin`, `UTerm`, `extU`, `renameU`, `extsU`, `substU`,
   `substSingleU`, `Neutral`, `Normal`, functional `BetaStep` (`Beta` over
-  `substSingleU b w`, verified by negative control `NegBadBetaStep`),
+  `substSingleU b w`),
   `BetaSteps`, `idIsNormal`, `idAppStep`, `omegaTerm`, `omegaStep`,
   `cZeroIsNormal`/`cOneIsNormal`/`cTwoIsNormal`, `kOmegaStep`, and the
   constructive normal-order evaluator (`stepNormal`, `evalNormal`,

@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import Data.List (intercalate, isPrefixOf, sort)
+import Data.List (intercalate, isPrefixOf, isSuffixOf, sort)
 import Data.Maybe (fromMaybe)
 import Hakyll
 import System.Environment (lookupEnv)
@@ -15,6 +15,13 @@ import Text.Pandoc.Options
   , enableExtension
   , githubMarkdownExtensions
   )
+
+siteOrigin :: String
+siteOrigin = "https://plfh.tharkun.se"
+
+defaultDescription :: String
+defaultDescription =
+  "Dependent Haskell in GHC 10.1 (-XDependentTypes): routes as values, runtime monad stacks, type-level case and lambdas, and a 25-chapter textbook running live in WebAssembly."
 
 main :: IO ()
 main = do
@@ -45,7 +52,6 @@ main = do
 
     match (fromList
       [ "content/Overview.md"
-      , "content/Showcase.md"
       , "content/Playground.md"
       , "content/Preface.md"
       , "content/Setup.md"
@@ -60,8 +66,30 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
-    -- Render all extracted Haskell chapters, runtime smoke test, negative controls,
-    -- and dependent-base reference sources under /Source/.
+    -- Preserve old /Showcase/ links by redirecting cleanly to the unified /Overview/ page.
+    create ["Showcase/index.html"] $ do
+      route idRoute
+      compile $ do
+        let target = baseUrl ++ "/Overview/"
+            canonical = siteOrigin ++ "/Overview/"
+            html =
+              unlines
+                [ "<!DOCTYPE html>"
+                , "<html lang=\"en\">"
+                , "<head>"
+                , "  <meta charset=\"utf-8\">"
+                , "  <title>Redirecting to Dependent Haskell Overview</title>"
+                , "  <link rel=\"canonical\" href=\"" ++ canonical ++ "\">"
+                , "  <meta http-equiv=\"refresh\" content=\"0; url=" ++ target ++ "\">"
+                , "</head>"
+                , "<body>"
+                , "  <p>Redirecting to <a href=\"" ++ target ++ "\">Dependent Haskell Overview</a>.</p>"
+                , "</body>"
+                , "</html>"
+                ]
+        makeItem html
+
+    -- Render all extracted Haskell chapters and dependent-base reference sources under /Source/.
     match sourcePatterns $ do
       route sourcePageRoute
       compile $ do
@@ -73,15 +101,14 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" ctx
           >>= applyBaseUrl baseUrl
 
-    -- Auto-generated /Source/ index page listing every rendered .hs module.
+    -- Auto-generated /Source/ index page listing book chapters and dependent-base modules.
     create ["Source/index.html"] $ do
       route idRoute
       compile $ do
         chapterIds <- sort . map toFilePath <$> getMatches "hs/PLFH/**.hs"
         depBaseIds <- sort . map toFilePath <$> getMatches "reference/dependent-base/**.hs"
-        negIds <- sort . map toFilePath <$> getMatches "hs/negative/*.hs"
-        let (chapMods, smokeMods) = partitionChapterAndSmoke chapterIds
-            md = buildSourceIndexMarkdown chapMods smokeMods depBaseIds negIds
+        let chapMods = [p | p <- chapterIds, sourceChapterUrl p /= Nothing]
+            md = buildSourceIndexMarkdown chapMods depBaseIds
             ctx =
               constField "title" "Source Browser"
                 <> constField "prevUrl" "/DependentBase/"
@@ -96,7 +123,6 @@ main = do
 sourcePatterns :: Pattern
 sourcePatterns =
   ("hs/PLFH/**.hs" .&&. complement internalClientPatterns)
-    .||. "hs/negative/*.hs"
     .||. "reference/dependent-base/**.hs"
 
 internalClientPatterns :: Pattern
@@ -107,6 +133,7 @@ internalClientPatterns =
     , "hs/PLFH/Part1/ListsProof.hs"
     , "hs/PLFH/Part2/BigStepFunctional.hs"
     , "hs/PLFH/Part2/BisimulationRenaming.hs"
+    , "hs/PLFH/RuntimeSmokeTest.hs"
     ]
 
 normalizeBaseUrl :: String -> String
@@ -185,6 +212,9 @@ pageCtx baseUrl wasmRootfsUrl =
     <> constField "plfaUrl" "https://plfa.inf.ed.ac.uk/"
     <> constField "licenseName" "Creative Commons Attribution 4.0 International License"
     <> constField "licenseUrl" "https://creativecommons.org/licenses/by/4.0/"
+    <> constField "ogImageUrl" (siteOrigin ++ "/images/og-dependent-haskell.png")
+    <> field "ogDescription" (mkDefaultMeta "description" defaultDescription)
+    <> field "canonicalUrl" mkCanonicalUrl
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
     <> field "srcUrl" mkSrcUrl
@@ -193,6 +223,17 @@ pageCtx baseUrl wasmRootfsUrl =
     <> field "plfaEditionLabel" (mkDefaultMeta "plfaEdition" "PLFA")
     <> field "plfaAuthorsLabel" (mkDefaultMeta "plfaAuthors" "Philip Wadler, Wen Kokke, and Jeremy G. Siek")
     <> defaultContext
+
+mkCanonicalUrl :: Item a -> Compiler String
+mkCanonicalUrl item = do
+  mRoute <- getRoute (itemIdentifier item)
+  let rel = case mRoute of
+        Nothing -> "/"
+        Just "index.html" -> "/"
+        Just r
+          | "/index.html" `isSuffixOf` r -> "/" ++ take (length r - length ("index.html" :: String)) r
+          | otherwise                    -> "/" ++ r
+  pure (siteOrigin ++ rel)
 
 sourceCtx :: FilePath -> String -> String -> Context String
 sourceCtx path baseUrl wasmRootfsUrl =
@@ -245,41 +286,27 @@ sourceChapterUrl path
            else Just ("/" ++ base ++ "/")
   | otherwise = Nothing
 
-partitionChapterAndSmoke :: [FilePath] -> ([FilePath], [FilePath])
-partitionChapterAndSmoke paths =
-  ( [p | p <- paths, sourceChapterUrl p /= Nothing]
-  , [p | p <- paths, takeBaseName p == "RuntimeSmokeTest"]
-  )
-
-buildSourceIndexMarkdown
-  :: [FilePath] -> [FilePath] -> [FilePath] -> [FilePath] -> String
-buildSourceIndexMarkdown chapMods smokeMods depBaseIds negIds =
+buildSourceIndexMarkdown :: [FilePath] -> [FilePath] -> String
+buildSourceIndexMarkdown chapMods depBaseIds =
   unlines $
-    [ "Browse every verified Haskell module extracted from PLFH, the `dependent-base`"
-    , "standard library, the runtime smoke test suite, and all negative controls"
-    , "directly on this site."
+    [ "Browse the Haskell modules extracted from each chapter of PLFH and the"
+    , "[`dependent-base`](https://github.com/TharkunAB/dependent-base) standard library."
     , ""
-    , "## Chapter Modules (" ++ show (length chapMods) ++ ")"
+    , "Compiler plugins live in their own repositories:"
+    , "[`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)"
+    , "and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq)."
+    , ""
+    , "## Chapter modules (" ++ show (length chapMods) ++ ")"
     , ""
     ]
       ++ map formatChapterRow chapMods
       ++ [ ""
-         , "## `dependent-base` Modules (" ++ show (length depBaseIds) ++ ")"
+         , "## `dependent-base` modules (" ++ show (length depBaseIds) ++ ")"
          , ""
-         , "See the [dependent-base Reference](/DependentBase/) page for the exported API summary."
+         , "See the [`dependent-base` Reference](/DependentBase/) for the exported API summary."
          , ""
          ]
       ++ map formatPlainRow depBaseIds
-      ++ [ ""
-         , "## Negative Controls (" ++ show (length negIds) ++ ")"
-         , ""
-         ]
-      ++ map formatPlainRow negIds
-      ++ [ ""
-         , "## Runtime Smoke Test (" ++ show (length smokeMods) ++ ")"
-         , ""
-         ]
-      ++ map formatPlainRow smokeMods
   where
     formatChapterRow p =
       let modName = sourceDisplayTitle p

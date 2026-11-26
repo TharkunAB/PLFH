@@ -489,9 +489,8 @@ Construct `swapSum :: Term g (TArr (TSum a b) (TSum b a))` using `Lam`,
   licensed under CC BY 4.0.
 - All extended constructs (`Let`, `TUnit`, `TProd`, `TSum`, `TVoid`, `TList`),
   renaming, substitution (`substSingle`, `substDouble`), GADT-promoted `Value`,
-  example programs, all 27 intrinsically-typed `Step` rules (using real
-  `substSingle` and `substDouble` directly in the same module), complete
-  19-branch `progress` (`-Werror=incomplete-patterns`), and
-  concrete `listCaseBoth` (guarded by negative control `NegMoreConsTarget`)
-  compile inline in `PLFH.Part2.More` with `-dcore-lint -dstg-lint` and zero
-  promoted-constructor ticks.
+  example programs, all 27 intrinsically-typed `Step` rules (using functional
+  `substSingle` and `substDouble`), complete
+  19-branch `progress`, and
+  concrete `listCaseBoth`
+  compile inline in `PLFH.Part2.More`.

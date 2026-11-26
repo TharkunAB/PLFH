@@ -465,10 +465,9 @@ in context `CExt CEmpty TNat`?
   `IsVal`/`checkValue` over retained `foreach (m :: Term CEmpty a)` all
   compile cleanly with `-dcore-lint -dstg-lint` and pass our `.hi` interface
   soundness audit.
-- All eight intrinsically-typed `Step` rules (using real functional
-  `substSingle` directly in the same module), concrete capture-avoiding beta
-  witnesses (guarded by negative control `NegDeBruijnBadCapture`), complete
+- All eight intrinsically-typed `Step` rules (using functional
+  `substSingle`), concrete capture-avoiding beta
+  witnesses, complete
   `progress` across all 7 term constructors (carrying retained
   `foreach n` inside `PStep`), and PLFA's 6-line intrinsically-typed evaluator
-  `eval` (`Gas`, `Finished`) all compile inline in `PLFH.Part2.DeBruijn` with
-  `-Werror=incomplete-patterns` and `-dcore-lint -dstg-lint`.
+  `eval` (`Gas`, `Finished`) compile inline in `PLFH.Part2.DeBruijn`.

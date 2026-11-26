@@ -1,5 +1,6 @@
 ---
 title: "How to Cite & Licence"
+description: "CC BY 4.0 licence, attribution to Programming Language Foundations in Agda (PLFA), and BibTeX citation details for PLFH."
 prev: /Status/
 src: content/Citing.md
 plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
@@ -7,28 +8,26 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 
 ## Licence
 
-&copy; 2026 [**Tharkun AB**](https://tharkun.se/). *Programming Language Foundations in Haskell* (PLFH)
-and its original Dependent Haskell chapters, Roadmap Showcase, and interactive
-tooling are licensed under the
+&copy; 2026 [**Tharkun AB**](https://tharkun.se/). *Programming Language Foundations in Haskell* (PLFH),
+its Dependent Haskell overview, and its interactive tooling are licensed under the
 [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
 See [`LICENSE`](https://github.com/TharkunAB/PLFH/blob/main/LICENSE) in the
-repository for the complete legal text.
+repository for the full legal text.
 
 ## Attribution to PLFA
 
-PLFH is adapted from the latest upstream
+PLFH is adapted from
 [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
-by **Philip Wadler, Wen Kokke, and Jeremy G. Siek**
+by Philip Wadler, Wen Kokke, and Jeremy G. Siek
 ([`plfa/plfa.github.io`, `dev` branch](https://github.com/plfa/plfa.github.io/tree/dev),
 synced against commit `c0885696578474ebcfe7bb3d7a592224567d9754`),
-which is licensed under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 The original PLFA authors are not affiliated with and do not endorse Tharkun AB
 or PLFH.
 
 All 25 adapted chapters across Parts 1, 2, and 3 carry an attribution banner
-linking to the corresponding upstream PLFA chapter and document the changes
-made in translation to Dependent Haskell (`-XDependentTypes` in
+linking to the corresponding upstream PLFA chapter and document changes made in
+translation to Dependent Haskell (`-XDependentTypes` in
 [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 ### Citing the original PLFA
@@ -67,7 +66,7 @@ made in translation to Dependent Haskell (`-XDependentTypes` in
 
 ## Third-party assets
 
-- **Iosevka** monospace font (loaded via `@fontsource/iosevka`):
-  SIL Open Font License 1.1 (OFL-1.1).
-- **Site styling**: Adapted from PLFA (CC BY 4.0) and Jekyll
-  `minima` (MIT), compiled with [Hakyll](https://jaspervdj.be/hakyll/) (BSD-3-Clause).
+- Iosevka monospace font (loaded via `@fontsource/iosevka`): SIL Open Font
+  License 1.1 (OFL-1.1).
+- Site styling: adapted from PLFA (CC BY 4.0) and Jekyll `minima` (MIT),
+  compiled with [Hakyll](https://jaspervdj.be/hakyll/) (BSD-3-Clause).

@@ -1,35 +1,38 @@
 ---
 title: "Table of Contents"
+description: "Programming Language Foundations in Haskell (PLFH): a 25-chapter interactive textbook for Dependent Haskell in GHC, adapted from PLFA."
 src: content/index.md
 ---
 
-This book is an introduction to programming language theory using
-**Dependent Haskell** (`-XDependentTypes` in
+This book is an introduction to programming language theory using Dependent
+Haskell (`-XDependentTypes` in
 [`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)),
 adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek's
 [*Programming Language Foundations in Agda*](https://plfa.inf.ed.ac.uk/)
-([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit `c088569657`,
+([`dev` branch](https://github.com/plfa/plfa.github.io/tree/dev), commit
+`c088569657`,
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)).
 
-Every plain Haskell code block in this book is extracted into a standalone
-`.hs` module and verified with GHC's Core Lint and STG Lint; see
-[Verification & Coverage](/Status/) for the module ledger and negative controls.
+Every chapter runs interactively in your browser through WebAssembly and is
+checked natively with GHC's Core Lint and STG Lint. Companion packages live in
+[`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base),
+[`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
+and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).
 
 Comments, bug reports, and pull requests are welcome on
 [GitHub](https://github.com/TharkunAB/PLFH).
 
 ## Front matter
 
-- [Dependent Haskell Overview](/Overview/): Core concepts, GHC proposals (`#378`, `#281`, `#242`, ...), foundational papers, and the Serokell roadmap
-- [Roadmap Showcase](/Showcase/): Self-contained runnable cards for Dependent Haskell features (live WebAssembly GHC)
-- [Interactive Playground](/Playground/): Try Dependent Haskell, typed-hole refinement, and GHCi directly in your browser (WebAssembly)
+- [Dependent Haskell in GHC](/Overview/): Live feature walkthrough (routes as values, runtime monad stacks, quantifiers, type-level expressions, plugins), GHC proposals, and papers
+- [Interactive Playground](/Playground/): Write, check, fill typed holes, and evaluate Dependent Haskell in your browser
 - [Preface](/Preface/): Propositions as Types, totality discipline, and differences from PLFA
-- [Setup](/Setup/): Compiling `TharkunAB/ghc`, `shell.nix`, flags, GHCi, and Hakyll preview
+- [Setup](/Setup/): Building `TharkunAB/ghc`, companion packages, flags, and GHCi
 
 ## Part 1: Logical Foundations
 
 - [Naturals](/Naturals/): Natural numbers, arithmetic (`times`, `monus`, `pow`), and binary representation (`Bin`)
-- [Induction](/Induction/): Proof by induction (`+-assoc`, `+-comm`, `cong`, `*-comm`, truncated subtraction, exponentiation, and `Bin` laws)
+- [Induction](/Induction/): Proof by induction (`+-assoc`, `+-identityʳ`, `+-suc`, `+-comm`, `cong`, `*-comm`, truncated subtraction, exponentiation, and `Bin` laws)
 - [Relations](/Relations/): Inductive relations (`_≤_`, `_<_`, trichotomy, `Even`/`Odd`, and the canonical binary bijection `Nat ≃ Can Bin`)
 - [Equality](/Equality/): Propositional equality, equational reasoning chains, substitution (`substP`), and Leibniz equality
 - [Isomorphism](/Isomorphism/): Isomorphism (`_≃_`), embedding (`_≲_`), and bi-implication (`_⇔_`)
@@ -50,7 +53,7 @@ Comments, bug reports, and pull requests are welcome on
 - [Bisimulation](/Bisimulation/): Relating `let` to `(λx. n) m` via lock-step simulation, substitution preservation, and multi-step bisimulation
 - [BigStep](/BigStep/): Call-by-name big-step semantics, environments and closures, determinism, divergence of `Ω`, and the bridge to small-step reduction
 - [Substitution](/Substitution/): Constructive σ-calculus, pointwise σ-algebra laws, commutation, and Barendregt's substitution lemma
-- [Confluence](/Confluence/): Parallel reduction, the diamond property, the Strip Lemma, Church–Rosser confluence, and uniqueness of normal forms
+- [Confluence](/Confluence/): Parallel reduction, the diamond property, the Strip Lemma, Church-Rosser confluence, and uniqueness of normal forms
 
 ## Part 3: Denotational Semantics
 
@@ -60,9 +63,9 @@ Comments, bug reports, and pull requests are welcome on
 - [Adequacy](/Adequacy/): Logical relation (`logVLam`/`LogE`), the Fundamental Lemma, big-step and small-step adequacy, and divergence of `Ω`
 - [ContextualEquivalence](/ContextualEquivalence/): Open-term contextual equivalence (`CtxEquiv`) and soundness of denotational equivalence
 
-## Reference & Backmatter
+## Reference and backmatter
 
-- [`dependent-base` Reference](/DependentBase/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`), GHCi tips, and module sources
-- [Source Browser](/Source/): Syntax-highlighted `.hs` source for all chapters, library modules, negative controls, and runtime tests
-- [Verification & Coverage](/Status/): Chapter-by-chapter theorem ledger and negative controls
+- [`dependent-base` Reference](/DependentBase/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`) and GHCi tips
+- [Source Browser](/Source/): Syntax-highlighted `.hs` source for all 25 chapters and `dependent-base` modules
+- [Chapter Coverage](/Status/): Chapter-by-chapter mapping from PLFA to PLFH
 - [How to Cite & Licence](/Citing/): CC BY 4.0 licence and attribution to upstream PLFA

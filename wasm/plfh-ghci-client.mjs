@@ -2,8 +2,6 @@
 // Zero network cost on page load: the Web Worker and rootfs.tar.gz load
 // only when the reader opens the chapter GHCi bar or checks a code block.
 
-import { mountRoadmapDag } from "./plfh-roadmap-dag.mjs";
-
 export class PlfhGhciClient {
   #worker = null;
   #workerUrl;
@@ -1731,6 +1729,144 @@ plusComm m (Succ k) = plusSuc m k \`trans\` cong Succ (plusComm m k)
 `,
   },
   {
+    id: "routes",
+    label: "Routes & Monad Stack",
+    replHint: "demo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+module Playground where
+
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
+import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
+import Data.Functor.Identity (Identity (runIdentity))
+import Data.Kind (Type)
+import Text.Read (readMaybe)
+
+data RunMode = PureMode | LoggedMode | MeteredMode
+
+-- Select the monad transformer stack and unwrapped result type with type-level case:
+type StackM (m :: RunMode) = case m of
+  PureMode    -> Identity
+  LoggedMode  -> WriterT [String] Identity
+  MeteredMode -> StateT Int (WriterT [String] Identity)
+
+type StackOut (m :: RunMode) a = case m of
+  PureMode    -> a
+  LoggedMode  -> (a, [String])
+  MeteredMode -> ((a, Int), [String])
+
+withStackMonad :: foreach (m :: RunMode) -> (Monad (StackM m) => a) -> a
+withStackMonad PureMode    k = k
+withStackMonad LoggedMode  k = k
+withStackMonad MeteredMode k = k
+
+runMode :: foreach (m :: RunMode) -> StackM m a -> StackOut m a
+runMode PureMode    act = runIdentity act
+runMode LoggedMode  act = runIdentity (runWriterT act)
+runMode MeteredMode act = runIdentity (runWriterT (runStateT act 0))
+
+recordHit :: foreach (m :: RunMode) -> String -> StackM m ()
+recordHit PureMode    _   = pure ()
+recordHit LoggedMode  msg = tell [msg]
+recordHit MeteredMode msg = modify' (+ 1) >> lift (tell [msg])
+
+data WireTy = TInt | TString | TBool
+
+interp :: WireTy -> Type
+interp TInt    = type Int
+interp TString = type String
+interp TBool   = type Bool
+
+data Seg  = Users | Posts | Health
+data Part = Lit Seg | Cap WireTy
+
+infixr 5 :>
+data Route = Part :> Route | Get WireTy
+
+data Endpoint = UserPost | HealthCheck
+
+apiRoute :: Endpoint -> Route
+apiRoute UserPost    = Lit Users :> Cap TInt :> Lit Posts :> Cap TString :> Get TBool
+apiRoute HealthCheck = Lit Health :> Get TString
+
+type family HandlerType (m :: RunMode) (r :: Route) :: Type where
+  HandlerType m (Lit _  :> rest) = HandlerType m rest
+  HandlerType m (Cap ty :> rest) = interp ty -> HandlerType m rest
+  HandlerType m (Get res)        = StackM m (Either String (interp res))
+
+type family LinkType (r :: Route) :: Type where
+  LinkType (Lit _  :> rest) = LinkType rest
+  LinkType (Cap ty :> rest) = interp ty -> LinkType rest
+  LinkType (Get _)          = String
+
+segPath :: Seg -> String
+segPath Users  = "users"
+segPath Posts  = "posts"
+segPath Health = "health"
+
+wireName :: WireTy -> String
+wireName TInt    = "Int"
+wireName TString = "String"
+wireName TBool   = "Bool"
+
+parseWire :: foreach (t :: WireTy) -> String -> Either String (interp t)
+parseWire TInt    raw = maybe (Left ("400: bad Int " ++ raw)) Right (readMaybe raw)
+parseWire TString raw = Right raw
+parseWire TBool   raw = maybe (Left ("400: bad Bool " ++ raw)) Right (readMaybe raw)
+
+renderWire :: foreach (t :: WireTy) -> interp t -> String
+renderWire TInt    n = show n
+renderWire TString s = s
+renderWire TBool   b = show b
+
+describeRoute :: Route -> String
+describeRoute (Lit s  :> rest) = "/" ++ segPath s ++ describeRoute rest
+describeRoute (Cap ty :> rest) = "/<" ++ wireName ty ++ ">" ++ describeRoute rest
+describeRoute (Get res)        = " -> " ++ wireName res
+
+buildLink :: foreach (r :: Route) -> LinkType r
+buildLink r = go r ""
+  where
+    go :: foreach (r' :: Route) -> String -> LinkType r'
+    go (Lit s  :> rest) acc = go rest (acc ++ "/" ++ segPath s)
+    go (Cap ty :> rest) acc = \\val -> go rest (acc ++ "/" ++ renderWire ty val)
+    go (Get _)          acc = acc
+
+dispatch :: foreach (m :: RunMode) -> foreach (r :: Route)
+         -> HandlerType m r -> [String] -> StackOut m (Either String String)
+dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
+  where
+    go :: Monad (StackM m)
+       => foreach (r' :: Route) -> HandlerType m r' -> [String] -> StackM m (Either String String)
+    go (Lit s :> rest) h ps = case ps of
+      (p : ps') | p == segPath s -> go rest h ps'
+                | otherwise      -> pure (Left ("404: expected /" ++ segPath s))
+      []                         -> pure (Left ("404: missing /" ++ segPath s))
+    go (Cap ty :> rest) h ps = case ps of
+      (p : ps') -> case parseWire ty p of
+                     Left err  -> pure (Left err)
+                     Right val -> go rest (h val) ps'
+      []        -> pure (Left "404: missing segment")
+    go (Get res) h ps = case ps of
+      [] -> do
+        out <- h
+        pure (case out of { Left err -> Left err; Right val -> Right (renderWire res val) })
+      _  -> pure (Left "404: trailing path")
+
+handleUserPost :: foreach (m :: RunMode) -> Int -> String -> StackM m (Either String Bool)
+handleUserPost m uid slug = withStackMonad m (do
+  recordHit m ("GET /users/" ++ show uid ++ "/posts/" ++ slug)
+  pure (Right (uid > 0 && not (null slug))))
+
+demo :: (String, String, ((Either String String, Int), [String]))
+demo =
+  ( describeRoute (apiRoute UserPost)
+  , buildLink (apiRoute UserPost) 42 "dependent-haskell"
+  , dispatch MeteredMode (apiRoute UserPost) (handleUserPost MeteredMode) ["users", "42", "posts", "dependent-haskell"]
+  )
+`,
+  },
+  {
     id: "holes",
     label: "Agda-mode & ProofSearch",
     replHint: ":t plusAssoc",
@@ -2441,10 +2577,6 @@ export function enhancePlfhPage({
   const chapterCtx = scrapeChapterContext(blocks);
 
   const uiState = { refinementFits: true, proofSearch: true };
-  const dagMount = document.getElementById("plfh-roadmap-dag");
-  if (dagMount) {
-    mountRoadmapDag(dagMount);
-  }
   const standaloneMount = document.getElementById("plfh-standalone-playground");
   if (standaloneMount) {
     mountStandalonePlayground(standaloneMount, client, uiState);

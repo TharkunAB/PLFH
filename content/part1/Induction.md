@@ -617,8 +617,7 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
   `plusSwap`, `timesDistribPlus`, `timesAssoc`, `timesZeroR`, `timesSuccR`,
   `timesComm`, `timesSwap`, `timesInterchange`, `zeroMonus`, `monusPlusAssoc`,
   `powPlus`, `powMul`, `powTimes`, `fromInc`, and `fromTo`.
-- Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax, and adds an
-  explicit negative control (`NegZeroSucc`) verifying GHC rejects `0 :~: 1`
-  (`GHC-83865`).
+- Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax, and includes a
+  failing example confirming GHC rejects `0 :~: 1` (`GHC-83865`).
 - Omitted Agda's Emacs interactive proof-building walkthrough and Unicode
   table.

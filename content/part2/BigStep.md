@@ -476,7 +476,5 @@ problem—contradicting well-founded induction on `EvalBig`!
   `EvalBig`, `evalBigIsLam`, `envLookupDeterm`, `evalDeterm`, `omegaDiverges`,
   functional `EvalFun`/`lookupEnvEvidence`/`toEvalFun`/`evalFunDeterm`/`evalFunKIdOmega`,
   `evalIdApp`, `evalConstOmega`, `evalKIdOmega`, and the
-  big-step → small-step bridge (`cbnSim`, `cbnToReduceW`, `cbnToReduce`) via
-  inductive environment closing `CloseSub`, plus cross-module `B.lookupEnv` in
-  `PLFH.Part2.BigStepFunctional` (verified by negative control
-  `NegBigStepBadLookup`), with zero promoted-constructor ticks.
+  big-step to small-step bridge (`cbnSim`, `cbnToReduceW`, `cbnToReduce`) via
+  inductive environment closing `CloseSub`.

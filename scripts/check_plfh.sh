@@ -125,13 +125,12 @@ mkdir -p "$BUILD_DIR"
 PASS=0
 FAIL=0
 
-echo "--- Checked Modules (native -O0 + Core/STG Lint) ---"
+echo "--- Checked Modules (native + Core/STG Lint) ---"
 mapfile -t MODULES < <(find "$PLFH_ROOT/hs/PLFH" -name '*.hs' 2>/dev/null | sort)
 for mod in "${MODULES[@]}"; do
   rel=${mod#"$PLFH_ROOT/"}
   slug=$(echo "$rel" | tr '/.' '__')
-  if "${GHC_CMD[@]}" --make -v0 -O0 \
-    -fomit-interface-pragmas -fno-write-if-simplified-core \
+  if "${GHC_CMD[@]}" --make -v0 \
     -dcore-lint -dstg-lint -package-env - "${INCLUDES[@]}" \
     -outputdir "$BUILD_DIR" "$mod" >"$WORK/$slug.log" 2>&1; then
     echo "  [PASS] $rel"
@@ -158,8 +157,7 @@ for neg in "${NEGS[@]}"; do
   rel=${neg#"$PLFH_ROOT/"}
   slug=$(echo "$rel" | tr '/.' '__')
   expect=$(awk '/^-- EXPECT-ERROR:/{print $3; exit}' "$neg")
-  if "${GHC_CMD[@]}" --make -v0 -O0 \
-    -fomit-interface-pragmas -fno-write-if-simplified-core \
+  if "${GHC_CMD[@]}" --make -v0 \
     -package-env - "${INCLUDES[@]}" -outputdir "$BUILD_DIR" "$neg" >"$WORK/$slug.log" 2>&1; then
     echo "  [UNEXPECTED PASS] $rel — expected $expect"
     FAIL=$((FAIL + 1))
@@ -177,8 +175,7 @@ if [[ -f "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" ]]; then
   echo ""
   echo "--- Runtime Smoke Test Execution ---"
   SMOKE_BIN="$WORK/plfh-smoke"
-  if "${GHC_CMD[@]}" --make -v0 -O0 \
-    -fomit-interface-pragmas -fno-write-if-simplified-core \
+  if "${GHC_CMD[@]}" --make -v0 \
     -dcore-lint -dstg-lint -package-env - "${INCLUDES[@]}" \
     -outputdir "$BUILD_DIR" -main-is PLFH.RuntimeSmokeTest.main \
     -o "$SMOKE_BIN" "$PLFH_ROOT/hs/PLFH/RuntimeSmokeTest.hs" >"$WORK/smoke_build.log" 2>&1 \

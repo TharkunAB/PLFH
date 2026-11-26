@@ -1,20 +1,23 @@
 ---
 title: "dependent-base Reference"
+description: "API reference for TharkunAB/dependent-base: Prelude.Dependent, Data.Function.Dependent, Data.Nat.Dependent, Data.Vec.Dependent, Data.Fin.Dependent, Sigma, and Exists."
 prev: /Setup/
 next: /Source/
 src: content/DependentBase.md
 ---
 
-[`dependent-base`](https://github.com/TharkunAB/dependent-base) is the
-standalone Dependent Haskell standard library for
-[`TharkunAB/ghc` (`dependent-haskell`)](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
-modeled on `linear-base` and `agda-prelude`. It operates directly on stock
-`Prelude` types (`Bool`, `Maybe`, `Either`, `(,)`, `[a]`, `(:~:)`, `Void`)
-with zero wrapper datatypes, and ordinary `Haskell2010` callers can import its
-compiled interfaces without enabling `-XDependentTypes`.
+[`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) is
+the Dependent Haskell standard library for
+[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
+modeled on `linear-base` and `agda-prelude`. It works directly on stock
+`Prelude` types (`Bool`, `Maybe`, `Either`, `(,)`, `[a]`, `(:~:)`, `Void`), and
+plain `Haskell2010` modules can import its compiled `.hi` interfaces without
+enabling `-XDependentTypes`.
 
 Every module in `dependent-base` is precompiled into the browser WebAssembly
-bundle and available automatically in PLFH's interactive GHCi sessions.
+bundle and available in PLFH's interactive GHCi sessions. Compiler plugins live
+in [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)
+and [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq).
 
 ## How `dependent-base` reuse relates to PLFA
 
@@ -27,37 +30,33 @@ switch to Agda's standard library (`Data.Nat`, `Data.List`,
 In PLFH, Haskell datatypes are nominal and `Num Nat` / `FromNatural Nat`
 instances are global. Reusing `Data.Nat.Dependent.Nat` and stock `Prelude`
 `List a` keeps one shared `Nat` and one shared list type across all 25
-chapters, `Data.List.Dependent.size`, and decimal-numeral literals
-(`2 + 3 :~: 5`), while chapters such as [Induction](/Induction/) and
-[Lists](/Lists/) still prove the core inductive theorems (`plusIdentityR`,
-`plusSuc`, `plusAssoc`, `plusComm`, `appendAssoc`, `lengthAppendLaw`,
-`lengthMapLaw`) directly inline for pedagogy.
+chapters, while chapters such as [Induction](/Induction/) and [Lists](/Lists/)
+still prove the inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`,
+`plusComm`, `appendAssoc`, `lengthAppendLaw`, `lengthMapLaw`) inline.
 
 ## Interactive GHCi tips
 
-- **Inspect any module in the browser drawer:** run
-  `:browse Prelude.Dependent`, `:browse Data.Nat.Dependent`,
-  `:browse Data.Function.Dependent`, `:browse Data.Vec.Dependent`, or
-  `:browse PLFH.Part1.Naturals` in **Open Chapter GHCi**.
-- **Printing `Nat` as a decimal:** `Data.Nat.Dependent.Nat` derives `Show`
-  (printing `Succ (Succ Zero)`) and provides `Num Nat` / `FromNatural Nat` for
-  constructing Peano numbers from decimal literals (`2 :: Nat`). Use
-  `natToInt` or `natToInteger` to convert a finite Peano natural to `Int` or
-  `Integer`:
+Inspect any module in the browser GHCi prompt with `:browse Prelude.Dependent`,
+`:browse Data.Nat.Dependent`, `:browse Data.Function.Dependent`,
+`:browse Data.Vec.Dependent`, or `:browse PLFH.Part1.Naturals`.
 
-  ```text
-  ghci> natToInt (plus 2 3)
-  5
-  ```
+`Data.Nat.Dependent.Nat` derives `Show` (printing `Succ (Succ Zero)`) and
+provides `Num Nat` / `FromNatural Nat` for decimal literals (`2 :: Nat`). Use
+`natToInt` or `natToInteger` to print a Peano natural in decimal:
 
-## Module Index & Exported API
+```text
+ghci> natToInt (plus 2 3)
+5
+```
+
+## Module index and exported API
 
 ### `Prelude.Dependent` {#preludedependent}
 
 Source: [on-site `Prelude/Dependent.hs`](/Source/dependent-base/Prelude/Dependent/) ·
 [GitHub (`TharkunAB/dependent-base`)](https://github.com/TharkunAB/dependent-base/blob/main/src/Prelude/Dependent.hs)
 
-Ergonomic umbrella prelude re-exporting `Data.Function.Dependent`,
+Umbrella prelude re-exporting `Data.Function.Dependent`,
 `Data.Type.Equality.Dependent`, `Data.Decision`, `Data.Nat.Dependent`,
 `Data.Fin.Dependent`, `Data.Vec.Dependent`, `Data.List.Dependent`,
 `Data.List.Dependent.All`, `Data.Sigma.Dependent`, `Data.Exists.Dependent`,
@@ -69,8 +68,8 @@ Ergonomic umbrella prelude re-exporting `Data.Function.Dependent`,
 Source: [on-site `Data/Function/Dependent.hs`](/Source/dependent-base/Data/Function/Dependent/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Function/Dependent.hs)
 
-First-class dependent function combinators that generalize ordinary `Prelude`
-operations without breaking non-dependent call sites:
+Dependent function combinators that generalize ordinary `Prelude` operations
+without breaking non-dependent call sites:
 
 | Symbol | Type / Role |
 | --- | --- |
@@ -176,7 +175,7 @@ Source: [`Data/Sigma/Dependent.hs`](/Source/dependent-base/Data/Sigma/Dependent/
 | Module | On-site Source | Highlights |
 | --- | --- | --- |
 | `Data.Decision` | [`Data/Decision.hs`](/Source/dependent-base/Data/Decision/) | `Void`, `absurd`, `Not`, `Dec (..)`, `Reflects`, `ReflectsBool`, `decNot`/`And`/`Or`/`Imp`, `DecEq` |
-| `Data.Bool.Dependent` | [`Data/Bool/Dependent.hs`](/Source/dependent-base/Data/Bool/Dependent/) | Certified `not`, `(&&)`, `(||)`, `bool`, involution & De Morgan laws |
-| `Data.Maybe.Dependent` | [`Data/Maybe/Dependent.hs`](/Source/dependent-base/Data/Maybe/Dependent/) | Certified `maybe`, `fromMaybe`, functor & round-trip laws |
-| `Data.Either.Dependent` | [`Data/Either/Dependent.hs`](/Source/dependent-base/Data/Either/Dependent/) | Certified `either`, sum involution & associativity |
+| `Data.Bool.Dependent` | [`Data/Bool/Dependent.hs`](/Source/dependent-base/Data/Bool/Dependent/) | Certified `not`, `(&&)`, `(||)`, `bool`, involution and De Morgan laws |
+| `Data.Maybe.Dependent` | [`Data/Maybe/Dependent.hs`](/Source/dependent-base/Data/Maybe/Dependent/) | Certified `maybe`, `fromMaybe`, functor and round-trip laws |
+| `Data.Either.Dependent` | [`Data/Either/Dependent.hs`](/Source/dependent-base/Data/Either/Dependent/) | Certified `either`, sum involution and associativity |
 | `Data.Tuple.Dependent` | [`Data/Tuple/Dependent.hs`](/Source/dependent-base/Data/Tuple/Dependent/) | Certified `fst`, `snd`, `swap`, `curry`, `uncurry`, `Iso (..)`, `isoRefl`/`Sym`/`Trans` |

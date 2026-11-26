@@ -263,8 +263,8 @@ binEmbedding = MkEmbed toBin fromBin fromTo
 Why is `binEmbedding` only an embedding and *not* an isomorphism `Iso Nat Bin`?
 Because the reverse round trip can change a non-canonical bitstring into its
 canonical form! For instance, `fromBin Nil` is `0`, and `toBin 0` is
-`X0 Nil`, not `Nil`. We verify as a negative control that GHC rejects the
-false equality `toBin (fromBin Nil) :~: Nil`:
+`X0 Nil`, not `Nil`. Trying to prove `toBin (fromBin Nil) :~: Nil` is rejected
+by GHC (`GHC-83865`):
 
 ```{.haskell .fail name="NegBinReverseRoundTrip" expect="GHC-83865"}
 {-# LANGUAGE DependentTypes #-}
@@ -333,7 +333,7 @@ canonicality proof `Can b` repairs the failure shown in
 - Generic reflexivity (`isoRefl`, `embedRefl`), symmetry (`isoSym`),
   transitivity (`isoTrans` and `embedTrans`, composing maps directly with
   `Data.Function.Dependent.(.)`), `isoImpliesEmbed`, `embedImpliesIff`,
-  `binEmbedding`, negative control `NegBinReverseRoundTrip`, `Iff`
+  `binEmbedding`, `Iff`
   (`iffRefl`, `iffSym`, `iffTrans`), and monomorphic `IsoSize`.
 - Like Agda, Dependent Haskell does not prove function extensionality
   internally; PLFH avoids axioms/`postulate`.

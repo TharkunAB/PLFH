@@ -1,48 +1,40 @@
 ---
 title: "Dependent Haskell Playground"
+description: "Write, typecheck, fill typed holes, and evaluate Dependent Haskell (-XDependentTypes) in your browser via WebAssembly GHC 10.1."
 prev: /Overview/
 next: /
 src: content/Playground.md
 playground: true
 ---
 
-Experiment with **Dependent Haskell** (`-XDependentTypes`, GHC `10.1` from
-[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
-tag `dependent-haskell-alpha`) directly in your browser via WebAssembly—zero
-server backend required. All of [`dependent-base`](/DependentBase/)
-(`Prelude.Dependent`, `Data.*.Dependent`),
+Experiment with Dependent Haskell (`-XDependentTypes`, GHC `10.1` from
+[`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell))
+directly in your browser through WebAssembly. The session preloads
+[`dependent-base`](/DependentBase/),
 [`dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq)
-(`Dependent.ObsEq` + `Dependent.Plugin.ObsEq`), and every precompiled `PLFH.*`
-chapter module are available to import, alongside the
-[`Dependent.Plugin.ProofSearch`](https://github.com/TharkunAB/dependent-proof-search)
-hole-fit plugin.
+(`Dependent.ObsEq` and `Dependent.Plugin.ObsEq`),
+[`dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search)
+(`Dependent.Plugin.ProofSearch`), `transformers`, `mtl`, and all 25 `PLFH.*`
+chapter modules.
 
-- Pick an example below or write your own module, then press **`Ctrl/Cmd+Enter`**
-  or click **Check & Load in GHCi**. Like Emacs `agda-mode`, code dims while
-  edited and lights up with compiler-exact `RenamedSource` semantic colors,
-  green typed-hole goal boxes, and red error spans whenever GHC checks it.
-- **Browse the [Roadmap Showcase](/Showcase/):** explore the interactive
-  50-card roadmap dependency graph, design decisions, and scrollable live
-  walkthrough linking directly to GHC proposals and Serokell roadmap items.
-- **Try Agda-mode typed holes & `Dependent.Plugin.ProofSearch`:** select the
-  **Agda-mode Case Split & Holes** preset (or replace any proof with `_`) to
-  split stuck equations across constructors, refine proof subgoals step-by-step
-  (`cong Succ _`, `trans (plusSuc m k) _`), or synthesize proofs directly via
-  `Dependent.Plugin.ProofSearch` (`cong Succ (plusAssoc m n p)`).
-- **Try `Dependent.Plugin.ObsEq` (observational equality):** select
-  **Observational Equality (ObsEq)** to prove laws about non-structural
-  functions (`unfoldPlus`, `accPlus`, `twiceHalfEven`) via `obsEq`, `obsEqWith`,
-  and `obsEqGen`, or break an equation to see the shrunk minimal counterexample.
-- **Try runtime `Type` case, dependent `(.)`, `OverloadedRecordDot`, and
-  operator sections:** select **Type Case, Record Dot & Sections** to match on
-  retained `foreach (a :: Type)` arguments, project dependent fields with
-  `.vecItems` and `Sigma` `.second`, and pass sections such as `(x :)` directly
-  to `cong`.
-- Use the **`ghci>`** prompt below the editor for `:t`, `:k!`, `:i`,
+Pick a preset below or write your own module, then press **`Ctrl/Cmd+Enter`**
+or click **Check & Load in GHCi**. Like Emacs `agda-mode`, edited code dims
+until GHC checks it, then lights up with `RenamedSource` semantic colors, green
+typed-hole goal boxes, and red error spans.
+
+- Select **Routes & Monad Stack** to run type-safe web routes as ordinary
+  values paired with runtime-selected `transformers` stacks.
+- Select **Agda-mode & ProofSearch** (or replace any proof with `_`) to split
+  stuck equations across constructors, refine subgoals step by step (`cong Succ
+  _`), or synthesize proofs with `Dependent.Plugin.ProofSearch`.
+- Select **Observational Equality (ObsEq)** to check non-structural functions
+  with `Dependent.Plugin.ObsEq`, or break an equation to see a shrunk
+  counterexample.
+- Use the `ghci>` prompt below the editor for `:t`, `:k!`, `:i`,
   `:browse Prelude.Dependent`, or runtime evaluation.
 
 <div id="plfh-standalone-playground" class="plfh-playground-root"></div>
 
-See the [Dependent Haskell Overview](/Overview/) for the papers and GHC
-proposals behind these features, or browse [`dependent-base`](/DependentBase/)
-and the [Source Browser](/Source/) to see what modules are preloaded.
+See the [Dependent Haskell Overview](/Overview/) for the guided walkthrough,
+proposals, and papers, or browse [`dependent-base`](/DependentBase/) and the
+[Source Browser](/Source/).

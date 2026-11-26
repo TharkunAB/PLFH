@@ -256,8 +256,8 @@ data Steps (m :: Term) (n :: Term) where
 
 The three `β` constructors bind their term indices with explicit `forall` so
 that `substTerm` refers strictly to the top-level substitution function rather
-than an unconstrained type variable. The negative control `NegBetaMuTarget`
-below verifies that GHC enforces the exact computed target of `BetaMu`.
+than an unconstrained type variable. The failing example below shows GHC
+enforcing the exact computed target of `BetaMu`.
 
 ## Context lookup and typing (`_∋_⦂_`, `_⊢_⦂_`)
 

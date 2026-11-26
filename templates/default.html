@@ -5,7 +5,21 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>$title$ — $siteTitle$</title>
-  <meta name="description" content="Programming Language Foundations in Haskell (PLFH), adapted from Programming Language Foundations in Agda for Dependent Haskell in GHC.">
+  <meta name="description" content="$ogDescription$">
+  <link rel="canonical" href="$canonicalUrl$">
+  <meta property="og:site_name" content="$siteTitle$">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="$title$">
+  <meta property="og:description" content="$ogDescription$">
+  <meta property="og:url" content="$canonicalUrl$">
+  <meta property="og:image" content="$ogImageUrl$">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Dependent Haskell in GHC: type-safe routes as values and runtime monad stacks running live in WebAssembly">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="$title$">
+  <meta name="twitter:description" content="$ogDescription$">
+  <meta name="twitter:image" content="$ogImageUrl$">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/400.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/600.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/iosevka@5.1.1/400-italic.css">
@@ -18,13 +32,12 @@
     <div class="wrapper">
       <a class="site-title" href="/">$siteTitle$</a>
       <nav class="site-nav">
-        <a class="page-link" href="/Overview/">Overview</a>
+        <a class="page-link" href="/Overview/">Dependent Haskell</a>
         <a class="page-link" href="/">The Book</a>
-        <a class="page-link" href="/Showcase/">Showcase</a>
         <a class="page-link" href="/Playground/">Playground</a>
         <a class="page-link" href="/DependentBase/">dependent-base</a>
         <a class="page-link" href="/Source/">Source</a>
-        <a class="page-link" href="/Status/">Verification</a>
+        <a class="page-link" href="/Status/">Coverage</a>
         <a class="page-link" href="/Setup/">Setup</a>
         <a class="page-link" href="$repoUrl$">GitHub</a>
       </nav>
@@ -44,15 +57,19 @@
         Adapted from Philip Wadler, Wen Kokke, and Jeremy G. Siek,
         <a href="$plfaUrl$"><em>Programming Language Foundations in Agda</em></a>
         (<a href="https://github.com/plfa/plfa.github.io"><code>plfa/plfa.github.io</code></a>,
-        <code>dev</code> branch), translated for Dependent Haskell in GHC
-        (<a href="https://github.com/TharkunAB/ghc/tree/dependent-haskell"><code>TharkunAB/ghc</code></a>).
+        <code>dev</code> branch), translated for Dependent Haskell in GHC.
+      </p>
+      <p class="footer-attribution">
+        Repositories:
+        <a href="https://github.com/TharkunAB/ghc/tree/dependent-haskell"><code>TharkunAB/ghc</code></a> &middot;
+        <a href="https://github.com/TharkunAB/dependent-base"><code>dependent-base</code></a> &middot;
+        <a href="https://github.com/TharkunAB/dependent-proof-search"><code>dependent-proof-search</code></a> &middot;
+        <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>dependent-obs-eq</code></a>
       </p>
       <p class="footer-license">
-        &copy; 2026 <a href="https://tharkun.se/">Tharkun AB</a>. This work is licensed under a
+        &copy; 2026 <a href="https://tharkun.se/">Tharkun AB</a>. Licensed under a
         <a rel="license" href="$licenseUrl$">$licenseName$</a>.
-        Changes from PLFA are noted on each chapter and summarized on the
-        <a href="/Status/">Verification</a> page; see
-        <a href="/Citing/">Citing &amp; Licence</a> for full attribution.
+        See <a href="/Status/">Coverage</a> and <a href="/Citing/">Citing &amp; Licence</a> for attribution.
       </p>
       <div class="footer-brand">
         <a href="https://tharkun.se/" class="footer-brand-link" rel="noopener">

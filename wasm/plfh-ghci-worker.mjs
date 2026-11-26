@@ -11,7 +11,7 @@ let hsSearchDir = null;
 let currentChapter = null;
 let interactiveMode = false;
 const defaultFlags =
-  "-package-env - -package dependent-base -package dependent-obs-eq -package plfh-book -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
+  "-package-env - -package dependent-base -package dependent-obs-eq -package plfh-book -package transformers -package mtl -fno-ignore-interface-pragmas -i/tmp/work -outputdir /tmp/out";
 const replFlags = `-XDependentTypes ${defaultFlags}`;
 
 const stdoutLines = [];
