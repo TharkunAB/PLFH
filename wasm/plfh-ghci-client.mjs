@@ -2391,6 +2391,219 @@ physicsDemo =
 `,
   },
   {
+    id: "block-chunking",
+    label: "Block Chunking (ObsEq)",
+    replHint: "chunkDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module Playground where
+
+import Data.Nat.Dependent (Nat (..), minus, mul, plus)
+import Data.Type.Equality ((:~:), gcastWith, sym)
+import Data.Vec.Dependent (Vec (..), appendVec, toListVec)
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 8 (withPartialPct 0 defaultObsConfig)
+
+ltNat :: Nat -> Nat -> Bool
+ltNat _        Zero     = False
+ltNat Zero     (Succ _) = True
+ltNat (Succ m) (Succ n) = ltNat m n
+
+-- Try changing \`ltNat n d\` to \`not (ltNat d n)\` (off-by-one bug) and re-check:
+divNat :: Nat -> Nat -> Nat
+divNat n d
+  | ltNat n d = Zero
+  | otherwise = Succ (divNat (minus n d) d)
+
+modNat :: Nat -> Nat -> Nat
+modNat n d
+  | ltNat n d = n
+  | otherwise = modNat (minus n d) d
+
+concatBlocks :: forall a (k d :: Nat). Vec (Vec a d) k -> Vec a (mul k d)
+concatBlocks VNil         = VNil
+concatBlocks (VCons b bs) = appendVec b (concatBlocks bs)
+
+divModLaw :: foreach (n d' :: Nat)
+          -> plus (mul (divNat n (Succ d')) (Succ d')) (modNat n (Succ d')) :~: n
+divModLaw n d' = obsEqWith totalCfg
+
+reassemble :: forall a. foreach (n d' :: Nat)
+           -> Vec (Vec a (Succ d')) (divNat n (Succ d'))
+           -> Vec a (modNat n (Succ d'))
+           -> Vec a n
+reassemble n d' blocks remChunk =
+  gcastWith (divModLaw n d') (appendVec (concatBlocks blocks) remChunk)
+
+chunkDemo :: [Int]
+chunkDemo =
+  let b1, b2 :: Vec Int 3
+      b1   = VCons 1 (VCons 2 (VCons 3 VNil))
+      b2   = VCons 4 (VCons 5 (VCons 6 VNil))
+      tl :: Vec Int 2
+      tl   = VCons 7 (VCons 8 VNil)
+      blks = gcastWith (sym (obsEqWith totalCfg :: divNat 8 3 :~: 2)) (VCons b1 (VCons b2 VNil))
+      remV = gcastWith (sym (obsEqWith totalCfg :: modNat 8 3 :~: 2)) tl
+  in toListVec (reassemble 8 2 blks remV)
+`,
+  },
+  {
+    id: "goldbach",
+    label: "Goldbach (1742 · ObsEq)",
+    replHint: "goldbachDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=40 #-}
+module Playground where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (Gen, chooseInt, obsEqGen)
+
+isPrime :: Int -> Bool
+isPrime n = n >= 2 && go 2
+  where
+    go d
+      | d * d > n      = True
+      | n \`mod\` d == 0 = False
+      | otherwise      = go (d + 1)
+
+goldbach :: Int -> (Int, Int)
+goldbach n = go 2
+  where
+    go p
+      | p > n                        = (0, 0)
+      | isPrime p && isPrime (n - p) = (p, n - p)
+      | otherwise                    = go (p + 1)
+
+validGoldbach :: Int -> Bool
+validGoldbach n
+  | n < 4     = True
+  | otherwise = let (p, q) = goldbach n in isPrime p && isPrime q && p + q == n
+
+-- Try changing \`(* 2) <$> chooseInt (2, 100)\` to \`chooseInt (4, 100)\` to allow odd inputs:
+genEvenGe4 :: Gen Int
+genEvenGe4 = (* 2) <$> chooseInt (2, 100)
+
+data GoldbachCert (n :: Int) where
+  MkGoldbach :: (Int, Int) -> (validGoldbach n :~: True) -> GoldbachCert n
+
+certifyGoldbach :: foreach (n :: Int) -> GoldbachCert n
+certifyGoldbach n = MkGoldbach (goldbach n) (obsEqGen genEvenGe4)
+
+runGoldbach :: Int -> (Int, Int)
+runGoldbach n = case certifyGoldbach n of MkGoldbach pq _ -> pq
+
+goldbachDemo :: [(Int, (Int, Int))]
+goldbachDemo = [(n, runGoldbach n) | n <- [4, 28, 100]]
+`,
+  },
+  {
+    id: "four-squares",
+    label: "Four Squares (1770 · ObsEq)",
+    replHint: "lagrangeDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=50 #-}
+module Playground where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 30 (withPartialPct 0 defaultObsConfig)
+
+isqrt :: Int -> Int
+isqrt n = go 0
+  where
+    go k | (k + 1) * (k + 1) > n = k
+         | otherwise             = go (k + 1)
+
+-- Change \`d <- [0 .. isqrt r3]\` to \`d <- [0]\` (3 squares) to see GHC shrink to n = 7:
+fourSquares :: Int -> (Int, Int, Int, Int)
+fourSquares n = case
+  [ (a, b, c, d)
+  | a <- [0 .. isqrt n]
+  , let r1 = n - a * a
+  , b <- [0 .. isqrt r1]
+  , let r2 = r1 - b * b
+  , c <- [0 .. isqrt r2]
+  , let r3 = r2 - c * c
+  , d <- [0 .. isqrt r3]
+  , d * d == r3
+  ] of
+    (sol : _) -> sol
+    []        -> (0, 0, 0, 0)
+
+sumSq4 :: Int -> Int
+sumSq4 n
+  | n < 0     = n
+  | otherwise = case fourSquares n of (a, b, c, d) -> a * a + b * b + c * c + d * d
+
+data FourSqCert (n :: Int) where
+  MkFourSq :: (Int, Int, Int, Int) -> (sumSq4 n :~: n) -> FourSqCert n
+
+lagrange :: foreach (n :: Int) -> FourSqCert n
+lagrange n = MkFourSq (fourSquares n) (obsEqWith totalCfg)
+
+runLagrange :: Int -> (Int, Int, Int, Int)
+runLagrange n = case lagrange n of MkFourSq q _ -> q
+
+lagrangeDemo :: [(Int, (Int, Int, Int, Int))]
+lagrangeDemo = [(n, runLagrange n) | n <- [7, 15, 23, 42]]
+`,
+  },
+  {
+    id: "nqueens",
+    label: "N-Queens (NP · ObsEq)",
+    replHint: "queensDemo",
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module Playground where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+boardCfg :: ObsConfig
+boardCfg = withMaxSize 8 (withPartialPct 0 defaultObsConfig)
+
+safePlace :: Int -> [Int] -> Bool
+safePlace q placed = and [q /= r && abs (q - r) /= d | (d, r) <- zip [1..] placed]
+
+solveQueens :: Int -> [Int]
+solveQueens n = case go n of
+  (board : _) -> board
+  []          -> []
+  where
+    go 0 = [[]]
+    go k = [q : qs | qs <- go (k - 1), q <- [1 .. n], safePlace q qs]
+
+validBoard :: Int -> [Int] -> Bool
+validBoard n qs =
+  length qs == n && all (\\q -> q >= 1 && q <= n) qs && check qs
+  where
+    check []       = True
+    check (q : rs) = safePlace q rs && check rs
+
+-- Try changing \`n < 4\` to \`n < 2\` to see GHC shrink to n = 2:
+queensValid :: Int -> Bool
+queensValid n
+  | n < 4     = True
+  | otherwise = validBoard n (solveQueens n)
+
+data QueensCert (n :: Int) where
+  MkQueens :: [Int] -> (queensValid n :~: True) -> QueensCert n
+
+certifyQueens :: foreach (n :: Int) -> QueensCert n
+certifyQueens n = MkQueens (solveQueens n) (obsEqWith boardCfg)
+
+runQueens :: Int -> [Int]
+runQueens n = case certifyQueens n of MkQueens board _ -> board
+
+queensDemo :: [(Int, [Int])]
+queensDemo = [(n, runQueens n) | n <- [4, 5, 6, 8]]
+`,
+  },
+  {
     id: "typecase-records",
     label: "Type Case, Record Dot & Sections",
     replHint: "(defaultVal String, sampleItems, pairChars)",

@@ -44,7 +44,7 @@ erased existentials.
 
 Pick a domain below to see what disappears when types can inspect ordinary
 Haskell values directly. Every tab compiles and runs in your browser through
-WebAssembly, and **Check Part 1 (8 modules)** above verifies all eight tabs
+WebAssembly, and **Check Part 1 (12 modules)** above verifies all twelve tabs
 together.
 
 :::: {.plfh-domain-tabs id="domain-showcase"}
@@ -729,9 +729,100 @@ physicsDemo =
 
 :::
 
+::: {.plfh-domain-tab id="tab-chunking" data-tab-label="Block Chunking" data-tab-audience="Euclidean div/mod · ObsEq"}
+
+### 1.8 Fixed-width block chunking with `Dependent.Plugin.ObsEq` {#card-chunking}
+
+<div class="showcase-credits">
+  <strong>Replaces:</strong> Hand-written strong-induction division proofs &amp; bespoke <code>ghc-typelits</code> plugins &middot;
+  <strong>Plugin:</strong> <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>Dependent.Plugin.ObsEq</code></a> (see <a href="#card-obs-eq">Section 5.2</a>)
+</div>
+
+Real algorithms like block encryption, SIMD batching, and pagination split a
+payload of length `n` into `divNat n d` full blocks of width `d = Succ d'` plus
+a `modNat n d` remainder tail. Because `divNat` and `modNat` use non-structural
+repeated subtraction with a `<` guard, GHC's built-in structural evaluator
+leaves `plus (mul (divNat n d) d) (modNat n d) :~: n` stuck, so `reassemble`
+cannot return `Vec a n` on its own.
+
+Enabling the external [`Dependent.Plugin.ObsEq`](https://github.com/TharkunAB/dependent-obs-eq)
+typechecker plugin lets GHC check that stuck equality during typechecking by
+running bounded QuickCheck samples inside the compiler (`obsEqWith totalCfg`).
+`reassemble` consumes that witness directly via `gcastWith` to produce an exact
+`Vec a n` with zero `TypeFamilies`. Click **Edit**, change `ltNat n d` to
+`not (ltNat d n)` in `divNat` (a classic off-by-one boundary bug), and press
+**`Ctrl/Cmd+Enter`** to watch GHC refuse to compile with the minimal shrunk
+counterexample (`n = Succ Zero, d' = Zero`). Evaluate `chunkDemo` at the
+`ghci>` prompt, or see [Section 5.2](#card-obs-eq) for partial inputs and
+custom generators.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module BlockChunking where
+
+import Data.Nat.Dependent (Nat (..), minus, mul, plus)
+import Data.Type.Equality ((:~:), gcastWith, sym)
+import Data.Vec.Dependent (Vec (..), appendVec, toListVec)
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+-- Test over total finite Nats (up to size 8) inside GHC during typechecking:
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 8 (withPartialPct 0 defaultObsConfig)
+
+ltNat :: Nat -> Nat -> Bool
+ltNat _        Zero     = False
+ltNat Zero     (Succ _) = True
+ltNat (Succ m) (Succ n) = ltNat m n
+
+-- Non-structural Euclidean division and remainder (block width d = Succ d').
+-- Try changing `ltNat n d` to `not (ltNat d n)` (an off-by-one bug) and re-check.
+divNat :: Nat -> Nat -> Nat
+divNat n d
+  | ltNat n d = Zero
+  | otherwise = Succ (divNat (minus n d) d)
+
+modNat :: Nat -> Nat -> Nat
+modNat n d
+  | ltNat n d = n
+  | otherwise = modNat (minus n d) d
+
+-- Structural flatten of `k` fixed-width blocks into `Vec a (mul k d)`:
+concatBlocks :: forall a (k d :: Nat). Vec (Vec a d) k -> Vec a (mul k d)
+concatBlocks VNil         = VNil
+concatBlocks (VCons b bs) = appendVec b (concatBlocks bs)
+
+-- Euclidean division law checked by ObsEq and consumed directly by `reassemble`:
+divModLaw :: foreach (n d' :: Nat)
+          -> plus (mul (divNat n (Succ d')) (Succ d')) (modNat n (Succ d')) :~: n
+divModLaw n d' = obsEqWith totalCfg
+
+-- Reassemble `divNat n (Succ d')` full blocks + `modNat n (Succ d')` tail into exact `Vec a n`:
+reassemble :: forall a. foreach (n d' :: Nat)
+           -> Vec (Vec a (Succ d')) (divNat n (Succ d'))
+           -> Vec a (modNat n (Succ d'))
+           -> Vec a n
+reassemble n d' blocks remChunk =
+  gcastWith (divModLaw n d') (appendVec (concatBlocks blocks) remChunk)
+
+-- Two 3-element blocks + 2-element tail = exact 8-element payload (8 = 2 * 3 + 2):
+chunkDemo :: [Int]
+chunkDemo =
+  let b1, b2 :: Vec Int 3
+      b1   = VCons 1 (VCons 2 (VCons 3 VNil))
+      b2   = VCons 4 (VCons 5 (VCons 6 VNil))
+      tl :: Vec Int 2
+      tl   = VCons 7 (VCons 8 VNil)
+      blks = gcastWith (sym (obsEqWith totalCfg :: divNat 8 3 :~: 2)) (VCons b1 (VCons b2 VNil))
+      remV = gcastWith (sym (obsEqWith totalCfg :: modNat 8 3 :~: 2)) tl
+  in toListVec (reassemble 8 2 blks remV)
+```
+
+:::
+
 ::: {.plfh-domain-tab id="tab-printf" data-tab-label="Type-Safe Printf" data-tab-audience="Text.Printf"}
 
-### 1.8 Type-safe `printf` without `TypeFamilies` {#card-printf}
+### 1.9 Type-safe `printf` without `TypeFamilies` {#card-printf}
 
 <div class="showcase-credits">
   <strong>Replaces:</strong> Runtime <code>Text.Printf</code> crashes &amp; polyvariadic type classes &middot;
@@ -775,6 +866,227 @@ printf f = go f ""
 -- GHC checks that `"Haskell" :: String` and `25 :: Int` match `S` followed by `D`:
 greeting :: String
 greeting = printf (Lit "Hello " (S (Lit ", " (D (Lit " chapters checked!" End))))) "Haskell" 25
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-goldbach" data-tab-label="Goldbach (1742)" data-tab-audience="Open conjecture · ObsEq"}
+
+### 1.10 Goldbach's Conjecture: fast NP-style witnesses for an open problem {#card-goldbach}
+
+<div class="showcase-credits">
+  <strong>Idea:</strong> Unproved since 1742, instant <em>O</em>(&radic;<em>n</em>) witness verification &middot;
+  <strong>Plugin:</strong> <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>Dependent.Plugin.ObsEq</code></a> (<code>obsEqGen</code>, see <a href="#card-obs-eq">Section 5.2</a>)
+</div>
+
+Goldbach's conjecture states that every even integer $n \ge 4$ is the sum of
+two primes ($n = p + q$). Nobody has a constructive proof for all $n$, yet
+checking a candidate pair `(p, q)` is immediate. `certifyGoldbach` constructs a
+typed `GoldbachCert n` whose `validGoldbach n :~: True` proof is checked at
+compile time by [`Dependent.Plugin.ObsEq`](https://github.com/TharkunAB/dependent-obs-eq)
+using a custom generator (`obsEqGen genEvenGe4`).
+
+Click **Edit**, remove `(* 2) <$>` from `genEvenGe4` so odd integers enter the
+domain (change `(* 2) <$> chooseInt (2, 100)` to `chooseInt (4, 100)`), and
+press **`Ctrl/Cmd+Enter`** to watch GHC refuse to compile with an odd
+counterexample ($27 - 2 = 25 = 5^2$). Evaluate `goldbachDemo` at the `ghci>`
+prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=40 #-}
+module Goldbach where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (Gen, chooseInt, obsEqGen)
+
+isPrime :: Int -> Bool
+isPrime n = n >= 2 && go 2
+  where
+    go d
+      | d * d > n      = True
+      | n `mod` d == 0 = False
+      | otherwise      = go (d + 1)
+
+-- Search for a prime decomposition p + q == n:
+goldbach :: Int -> (Int, Int)
+goldbach n = go 2
+  where
+    go p
+      | p > n                        = (0, 0)
+      | isPrime p && isPrime (n - p) = (p, n - p)
+      | otherwise                    = go (p + 1)
+
+-- Fast witness checker for n >= 4 (impossible to prove in general today):
+validGoldbach :: Int -> Bool
+validGoldbach n
+  | n < 4     = True
+  | otherwise = let (p, q) = goldbach n in isPrime p && isPrime q && p + q == n
+
+-- Try changing `(* 2) <$> chooseInt (2, 100)` to `chooseInt (4, 100)` to allow odd inputs:
+genEvenGe4 :: Gen Int
+genEvenGe4 = (* 2) <$> chooseInt (2, 100)
+
+-- Constructing a GoldbachCert requires ObsEq to validate `validGoldbach n :~: True`:
+data GoldbachCert (n :: Int) where
+  MkGoldbach :: (Int, Int) -> (validGoldbach n :~: True) -> GoldbachCert n
+
+certifyGoldbach :: foreach (n :: Int) -> GoldbachCert n
+certifyGoldbach n = MkGoldbach (goldbach n) (obsEqGen genEvenGe4)
+
+runGoldbach :: Int -> (Int, Int)
+runGoldbach n = case certifyGoldbach n of MkGoldbach pq _ -> pq
+
+goldbachDemo :: [(Int, (Int, Int))]
+goldbachDemo = [(n, runGoldbach n) | n <- [4, 28, 100]]
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-squares" data-tab-label="Four Squares (1770)" data-tab-audience="Lagrange / n = 7 · ObsEq"}
+
+### 1.11 Lagrange's Four-Square Theorem and Legendre's `n = 7` obstruction {#card-squares}
+
+<div class="showcase-credits">
+  <strong>Theorem:</strong> Lagrange (1770), ~1,000 lines in Lean/Coq vs 15-line witness check &middot;
+  <strong>Plugin:</strong> <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>Dependent.Plugin.ObsEq</code></a> (<code>obsEqWith</code>, see <a href="#card-obs-eq">Section 5.2</a>)
+</div>
+
+Lagrange's four-square theorem proves that every non-negative integer $n$ can
+be written as $a^2 + b^2 + c^2 + d^2 = n$. Proving it formally requires Euler's
+four-square identity and infinite descent, yet checking a found witness
+`(a, b, c, d)` is one line of arithmetic. `lagrange` builds a `FourSqCert n`
+verified during compilation by `Dependent.Plugin.ObsEq`.
+
+By Legendre's three-square theorem, three squares fail first at
+$n = 4^0(8 \cdot 0 + 7) = 7$. Click **Edit**, change `d <- [0 .. isqrt r3]` to
+`d <- [0]` to drop the fourth square, and press **`Ctrl/Cmd+Enter`** to watch
+GHC shrink the counterexample straight to **`n = 7`**. Evaluate `lagrangeDemo`
+at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=50 #-}
+module FourSquares where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+totalCfg :: ObsConfig
+totalCfg = withMaxSize 30 (withPartialPct 0 defaultObsConfig)
+
+isqrt :: Int -> Int
+isqrt n = go 0
+  where
+    go k | (k + 1) * (k + 1) > n = k
+         | otherwise             = go (k + 1)
+
+-- Change `d <- [0 .. isqrt r3]` to `d <- [0]` (3 squares) to watch GHC shrink to `n = 7`:
+fourSquares :: Int -> (Int, Int, Int, Int)
+fourSquares n = case
+  [ (a, b, c, d)
+  | a <- [0 .. isqrt n]
+  , let r1 = n - a * a
+  , b <- [0 .. isqrt r1]
+  , let r2 = r1 - b * b
+  , c <- [0 .. isqrt r2]
+  , let r3 = r2 - c * c
+  , d <- [0 .. isqrt r3]
+  , d * d == r3
+  ] of
+    (sol : _) -> sol
+    []        -> (0, 0, 0, 0)
+
+sumSq4 :: Int -> Int
+sumSq4 n
+  | n < 0     = n
+  | otherwise = case fourSquares n of (a, b, c, d) -> a * a + b * b + c * c + d * d
+
+data FourSqCert (n :: Int) where
+  MkFourSq :: (Int, Int, Int, Int) -> (sumSq4 n :~: n) -> FourSqCert n
+
+lagrange :: foreach (n :: Int) -> FourSqCert n
+lagrange n = MkFourSq (fourSquares n) (obsEqWith totalCfg)
+
+runLagrange :: Int -> (Int, Int, Int, Int)
+runLagrange n = case lagrange n of MkFourSq q _ -> q
+
+-- 7, 15, and 23 are all of the form 8b + 7, so each genuinely requires four squares:
+lagrangeDemo :: [(Int, (Int, Int, Int, Int))]
+lagrangeDemo = [(n, runLagrange n) | n <- [7, 15, 23, 42]]
+```
+
+:::
+
+::: {.plfh-domain-tab id="tab-nqueens" data-tab-label="N-Queens (NP)" data-tab-audience="Backtracking solver · ObsEq"}
+
+### 1.12 Certified N-Queens backtracking solver (`ObsEq`) {#card-nqueens}
+
+<div class="showcase-credits">
+  <strong>Idea:</strong> Exponential NP backtracking search paired with polynomial witness verification &middot;
+  <strong>Plugin:</strong> <a href="https://github.com/TharkunAB/dependent-obs-eq"><code>Dependent.Plugin.ObsEq</code></a> (<code>obsEqWith</code>, see <a href="#card-obs-eq">Section 5.2</a>)
+</div>
+
+Backtracking solvers like N-Queens are easy to verify on a candidate board
+(`validBoard` checks row and diagonal safety in $O(n^2)$) yet tedious to prove
+complete constructively. `certifyQueens` ties `solveQueens` to `validBoard` at
+the type level through `Dependent.Plugin.ObsEq` over boards up to $8 \times 8$.
+
+Two live edits show the shrinker in action: change `| n < 4 = True` to
+`| n < 2 = True` and GHC shrinks straight to **`n = 2`** (since 2-Queens and
+3-Queens have no solution); or replace `safePlace q qs` inside `solveQueens`
+with `q \`notElem\` qs` (forgetting diagonal attacks) and GHC shrinks to
+**`n = 4`**. Evaluate `queensDemo` at the `ghci>` prompt.
+
+```haskell
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+module NQueens where
+
+import Data.Type.Equality ((:~:))
+import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+
+-- Check boards up to 8x8 during compilation:
+boardCfg :: ObsConfig
+boardCfg = withMaxSize 8 (withPartialPct 0 defaultObsConfig)
+
+safePlace :: Int -> [Int] -> Bool
+safePlace q placed = and [q /= r && abs (q - r) /= d | (d, r) <- zip [1..] placed]
+
+-- Backtracking search. Try replacing `safePlace q qs` with `q `notElem` qs` to break diagonals:
+solveQueens :: Int -> [Int]
+solveQueens n = case go n of
+  (board : _) -> board
+  []          -> []
+  where
+    go 0 = [[]]
+    go k = [q : qs | qs <- go (k - 1), q <- [1 .. n], safePlace q qs]
+
+-- Polynomial-time NP witness verifier:
+validBoard :: Int -> [Int] -> Bool
+validBoard n qs =
+  length qs == n && all (\q -> q >= 1 && q <= n) qs && check qs
+  where
+    check []       = True
+    check (q : rs) = safePlace q rs && check rs
+
+-- Every n >= 4 has a valid placement; try changing `n < 4` to `n < 2` to see GHC shrink to `n = 2`:
+queensValid :: Int -> Bool
+queensValid n
+  | n < 4     = True
+  | otherwise = validBoard n (solveQueens n)
+
+data QueensCert (n :: Int) where
+  MkQueens :: [Int] -> (queensValid n :~: True) -> QueensCert n
+
+certifyQueens :: foreach (n :: Int) -> QueensCert n
+certifyQueens n = MkQueens (solveQueens n) (obsEqWith boardCfg)
+
+runQueens :: Int -> [Int]
+runQueens n = case certifyQueens n of MkQueens board _ -> board
+
+queensDemo :: [(Int, [Int])]
+queensDemo = [(n, runQueens n) | n <- [4, 5, 6, 8]]
 ```
 
 :::
