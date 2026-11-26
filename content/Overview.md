@@ -1739,13 +1739,13 @@ plusAssoc m n p = _
   Idea by <strong>Jules (<code>@analytichegel</code>)</strong>
 </div>
 
-Non-structural, accumulator-based, or fuel-free functions such as `unfoldPlus`,
-`accPlus`, and `collatz` do not have structural source equations in GHC's core
-conversion. When `Dependent.Plugin.ObsEq` is enabled, GHC elaborates open calls
-into uninterpreted families (`U:f`) and the plugin tests observational
-equalities in-process over total and partial (`ObsBottom`) inputs. Explicit
-combinators (`obsEq`, `obsEqWith`, `obsEqGen`) discharge passing witnesses while
-keeping bare `Refl` strict.
+Non-structural or accumulator-based functions such as `unfoldPlus` and
+`accPlus` do not have structural source equations in GHC's core conversion.
+When `Dependent.Plugin.ObsEq` is enabled, GHC elaborates open calls into
+uninterpreted families (`U:f`) and the plugin tests observational equalities
+in-process over total and partial (`ObsBottom`) inputs. Explicit combinators
+(`obsEq`, `obsEqWith`, `obsEqGen`) discharge passing witnesses while keeping
+bare `Refl` strict.
 
 Click **Edit**, change `go Zero acc = acc` to `go Zero acc = Succ acc`, and
 press **`Ctrl/Cmd+Enter`** to watch the plugin refute `accPlusCorrect` with a
@@ -1789,29 +1789,7 @@ accPlus m n = go m n
     go Zero acc     = acc
     go (Succ k) acc = go k (Succ acc)
 
--- 3. Fuel-free Collatz convergence on total Nats.
-isEvenNat :: Nat -> Bool
-isEvenNat Zero            = True
-isEvenNat (Succ Zero)     = False
-isEvenNat (Succ (Succ n)) = isEvenNat n
-
-halfNat :: Nat -> Nat
-halfNat Zero            = Zero
-halfNat (Succ Zero)     = Zero
-halfNat (Succ (Succ n)) = Succ (halfNat n)
-
-tripleNat :: Nat -> Nat
-tripleNat Zero     = Zero
-tripleNat (Succ n) = Succ (Succ (Succ (tripleNat n)))
-
-collatz :: Nat -> Nat
-collatz Zero        = Succ Zero
-collatz (Succ Zero) = Succ Zero
-collatz n
-  | isEvenNat n = collatz (halfNat n)
-  | otherwise   = collatz (Succ (tripleNat n))
-
--- 4. Domain-restricted law on even Ints via a custom generator (`obsEqGen`).
+-- 3. Domain-restricted law on even Ints via a custom generator (`obsEqGen`).
 twiceHalfEven :: Int -> Int
 twiceHalfEven n
   | even n    = (n `quot` 2) * 2
@@ -1828,9 +1806,6 @@ unfoldPlusCorrect m n = obsEq
 
 accPlusCorrect :: foreach (m n :: Nat) -> accPlus m n :~: plus m n
 accPlusCorrect m n = obsEqWith totalCfg
-
-collatzConverges :: foreach (n :: Nat) -> collatz n :~: Succ Zero
-collatzConverges n = obsEqWith totalCfg
 
 evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
 evenRoundtrip n = obsEqGen genEvenInt
