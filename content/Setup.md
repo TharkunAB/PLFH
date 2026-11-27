@@ -1,6 +1,6 @@
 ---
 title: "Setup: Building Dependent Haskell GHC"
-description: "Build the Dependent Haskell GHC 10.1 fork (TharkunAB/ghc), use -XDependentTypes in GHCi, and install dependent-base, dependent-proof-search, and dependent-obs-eq."
+description: "Build the Dependent Haskell GHC 10.1 fork (TharkunAB/ghc), install dependent-base and plugins via dependent.head.hackage, and use -XDependentTypes in GHCi."
 prev: /preface/
 next: /naturals/
 src: content/Setup.md
@@ -68,6 +68,49 @@ Three companion repositories work with this compiler:
   typechecker plugin (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules
   `@analytichegel`) for QuickCheck observational-equality testing and
   counterexample shrinking.
+
+## Installing packages with `dependent.head.hackage` {#dependent-hackage}
+
+The [`TharkunAB/dependent-hackage`](https://github.com/TharkunAB/dependent-hackage)
+repository publishes a TUF-signed static Hackage overlay at
+`https://cdn.tharkun.se/dependent-hackage/`. It layers `dependent-base`,
+`dependent-proof-search`, `dependent-obs-eq`, GHC `10.1` compatibility patches,
+and patched ecosystem tools (`fourmolu`, `cabal-gild`, `ghc-exactprint`) on top
+of Hackage and `head.hackage`.
+
+Add both overlays to your `cabal.project`:
+
+```cabal
+repository head.hackage.ghc.haskell.org
+  url: https://ghc.gitlab.haskell.org/head.hackage/
+  secure: True
+  key-threshold: 3
+  root-keys:
+    f76d08be13e9a61a377a85e2fb63f4c5435d40f8feb3e12eb05905edb8cdea89
+    26021a13b401500c8eb2761ca95c61f2d625bfef951b939a8124ed12ecf07329
+    7541f32a4ccca4f97aea3b22f5e593ba2c0267546016b992dfadcd2fe944e55d
+
+repository dependent.head.hackage
+  url: https://cdn.tharkun.se/dependent-hackage/
+  secure: True
+  key-threshold: 3
+  root-keys:
+    1ad4d9522ed07750746d4c5fca5fe2dc72f47ba643f9eb337a7b332cb50db4c3
+    650abe1aaf95bfe819c0b6d5f41f756ac71652ea3e62064ad4eb00805bcec45d
+    fc14639fb76e8b8d3e6b9fcfbdc16c8a095483438642a8291a6da37c8d9643cb
+
+active-repositories:
+  hackage.haskell.org,
+  head.hackage.ghc.haskell.org:merge,
+  dependent.head.hackage:override
+```
+
+Fetch the overlay index and build with your stage-2 compiler:
+
+```bash
+cabal update dependent.head.hackage
+cabal build -w /path/to/ghc/_build/stage1/bin/ghc
+```
 
 ## Language extension and flags
 

@@ -1668,6 +1668,7 @@ fourColorDemo = (colorPlanar [0], colorPlanar [0, 1, 2, 0])
 | [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.Decision`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,...}.Dependent`); see the [API reference](/dependent-base/) |
 | [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) | `HoleFitPlugin` (`-fplugin=Dependent.Plugin.ProofSearch`) for congruence/transitivity subgoal refinements and bounded proof synthesis |
 | [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for observational-equality testing and counterexample shrinking |
+| [`TharkunAB/dependent-hackage`](https://github.com/TharkunAB/dependent-hackage) | TUF-signed static Hackage overlay (`dependent.head.hackage` at `https://cdn.tharkun.se/dependent-hackage/`) serving `dependent-*` packages, GHC 10.1 compatibility patches, and patched tooling (`fourmolu`, `cabal-gild`, `ghc-exactprint`); see [Setup](/setup/#dependent-hackage) |
 | [`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH) | 25-chapter interactive textbook adapted from PLFA ([Table of Contents](/), [Coverage](/status/), [Setup](/setup/)) |
 
 <div class="showcase-decisions">
