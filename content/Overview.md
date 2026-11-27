@@ -24,7 +24,9 @@ with existing Haskell code.
 Every module on this page compiles and runs in your browser through WebAssembly
 (`wasm32-wasi`). Click **Check in GHCi (Wasm)** on any block, or click **Edit**
 and press **`Ctrl/Cmd+Enter`** to change the code and inspect types or evaluate
-expressions at the `ghci>` prompt.
+expressions at the `ghci>` prompt. If you hit a compiler bug, panic, or
+unexpected type error while experimenting, please
+[file an issue on `TharkunAB/ghc`](https://github.com/TharkunAB/ghc/issues).
 
 :::::: {.plfh-walkthrough-scope}
 
@@ -43,9 +45,10 @@ for dependent pairs, and erased **`exists (x :: a) | b`** (Proposal `#473`) for
 erased existentials.
 
 Pick a domain below to see what disappears when types can inspect ordinary
-Haskell values directly. Every tab compiles and runs in your browser through
-WebAssembly, and **Check Part 1 (8 modules)** above verifies all eight tabs
-together.
+Haskell values directly. None of the 21 modules on this page (and none of the
+25 book chapters) uses `TypeFamilies`. Every tab compiles and runs in your
+browser through WebAssembly, and **Check Part 1 (8 modules)** above verifies
+all eight tabs together.
 
 :::: {.plfh-domain-tabs id="domain-showcase"}
 
@@ -56,20 +59,21 @@ together.
 <div class="showcase-credits">
   <strong>Replaces:</strong> <code>Servant</code> <code>HasServer</code>/<code>HasClient</code>/<code>HasDocs</code>, <code>Proxy</code>, <code>KnownSymbol</code> &middot;
   <strong>Features:</strong> <code>foreach</code> (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0378-dependent-type-design.html">#378</a>) &middot;
-  Type-level <code>case</code> &amp; lambdas (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0242-unsaturated-type-families.html">#242</a>) &middot;
+  Higher-order term-to-<code>Type</code> functions &amp; inline type lambdas (<a href="https://ghc-proposals.readthedocs.io/en/latest/proposals/0242-unsaturated-type-families.html">#242</a>) &middot;
   <code>transformers</code>
 </div>
 
-One `Route` value drives three things without type-class boilerplate:
-documentation (`describeRoute`) is a three-line function, URL construction
-(`buildLink (apiRoute UserPost)`) has computed type `Int -> String -> String`,
+One `Route` value drives three things with zero `TypeFamilies` and zero
+type-class boilerplate: documentation (`describeRoute`) is a three-line
+function, URL construction (`buildLink (apiRoute UserPost)`) has computed type
+`Int -> String -> String` via an ordinary higher-order function `routeType`,
 and `dispatch` selects a `transformers` monad stack (`Identity`, `WriterT`, or
-`StateT`) from `RunMode` at runtime. Click **Check in GHCi (Wasm)** and run
-`demo`, or swap `Int` and `String` in `handleUserPost` to trigger a compile
-error.
+`StateT`) from `RunMode` at runtime via `stackM` and `stackOut`. Click
+**Check in GHCi (Wasm)** and run `demo`, or swap `Int` and `String` in
+`handleUserPost` to trigger a compile error.
 
 ```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module RoutesAndEffects where
 
 import Control.Monad.Trans.Class (lift)
@@ -77,33 +81,32 @@ import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
-import GHC.Matchability (U)
 import Text.Read (readMaybe)
 
--- 1. Select a monad transformer stack from a runtime value (type-level case).
+-- 1. Select a monad transformer stack from a runtime value (no TypeFamilies).
 data RunMode = PureMode | LoggedMode | MeteredMode
 
-type StackM (m :: RunMode) = case m of
-  PureMode    -> Identity
-  LoggedMode  -> WriterT [String] Identity
-  MeteredMode -> StateT Int (WriterT [String] Identity)
+stackM :: RunMode -> Type -> Type
+stackM PureMode    = type Identity
+stackM LoggedMode  = type (WriterT [String] Identity)
+stackM MeteredMode = type (StateT Int (WriterT [String] Identity))
 
-type StackOut (m :: RunMode) a = case m of
-  PureMode    -> a
-  LoggedMode  -> (a, [String])
-  MeteredMode -> ((a, Int), [String])
+stackOut :: RunMode -> Type -> Type
+stackOut PureMode    a = type a
+stackOut LoggedMode  a = type (a, [String])
+stackOut MeteredMode a = type ((a, Int), [String])
 
-withStackMonad :: foreach (m :: RunMode) -> (Monad (StackM m) => a) -> a
+withStackMonad :: foreach (m :: RunMode) -> (Monad (stackM m) => a) -> a
 withStackMonad PureMode    k = k
 withStackMonad LoggedMode  k = k
 withStackMonad MeteredMode k = k
 
-runMode :: foreach (m :: RunMode) -> StackM m a -> StackOut m a
+runMode :: foreach (m :: RunMode) -> stackM m a -> stackOut m a
 runMode PureMode    act = runIdentity act
 runMode LoggedMode  act = runIdentity (runWriterT act)
 runMode MeteredMode act = runIdentity (runWriterT (runStateT act 0))
 
-recordHit :: foreach (m :: RunMode) -> String -> StackM m ()
+recordHit :: foreach (m :: RunMode) -> String -> stackM m ()
 recordHit PureMode    _   = pure ()
 recordHit LoggedMode  msg = tell [msg]
 recordHit MeteredMode msg = modify' (+ 1) >> lift (tell [msg])
@@ -128,17 +131,14 @@ apiRoute :: Endpoint -> Route
 apiRoute UserPost    = Lit Users :> Cap TInt :> Lit Posts :> Cap TString :> Get TBool
 apiRoute HealthCheck = Lit Health :> Get TString
 
--- 3. Higher-order fold + type-level lambdas derive both handler and link types.
-type family RouteType (ret :: WireTy %U -> Type) (r :: Route) :: Type where
-  RouteType ret (Lit _  :> rest) = RouteType ret rest
-  RouteType ret (Cap ty :> rest) = interp ty -> RouteType ret rest
-  RouteType ret (Get res)        = ret res
+-- 3. Higher-order ordinary function + inline type lambdas derive both handler and link types:
+routeType :: (WireTy -> Type) -> Route -> Type
+routeType ret (Lit _  :> rest) = routeType ret rest
+routeType ret (Cap ty :> rest) = (interp ty -> routeType ret rest)
+routeType ret (Get res)        = ret res
 
-type HandlerRet (m :: RunMode) = \res -> StackM m (Either String (interp res))
-type LinkRet                   = \res -> String
-
-type HandlerType m r = RouteType (HandlerRet m) r
-type LinkType      r = RouteType LinkRet r
+type HandlerType m r = routeType (\res -> stackM m (Either String (interp res))) r
+type LinkType      r = routeType (\_ -> String) r
 
 segPath :: Seg -> String
 segPath Users  = "users"
@@ -177,12 +177,12 @@ buildLink r = go r ""
 
 -- Dispatch: runs in whichever monad stack `m` selects at runtime.
 dispatch :: foreach (m :: RunMode) -> foreach (r :: Route)
-         -> HandlerType m r -> [String] -> StackOut m (Either String String)
+         -> HandlerType m r -> [String] -> stackOut m (Either String String)
 dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
   where
-    go :: Monad (StackM m)
+    go :: Monad (stackM m)
        => foreach (r' :: Route) -> HandlerType m r' -> [String]
-       -> StackM m (Either String String)
+       -> stackM m (Either String String)
     go (Lit s :> rest) h ps = case ps of
       (p : ps') | p == segPath s -> go rest h ps'
                 | otherwise      -> pure (Left ("404: expected /" ++ segPath s))
@@ -201,7 +201,7 @@ dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
       _  -> pure (Left "404: trailing path")
 
 -- One handler runs across PureMode, LoggedMode, and MeteredMode:
-handleUserPost :: foreach (m :: RunMode) -> Int -> String -> StackM m (Either String Bool)
+handleUserPost :: foreach (m :: RunMode) -> Int -> String -> stackM m (Either String Bool)
 handleUserPost m uid slug = withStackMonad m (do
   recordHit m ("GET /users/" ++ show uid ++ "/posts/" ++ slug)
   pure (Right (uid > 0 && not (null slug))))
@@ -323,21 +323,22 @@ sqlDemo =
 
 ::: {.plfh-domain-tab id="tab-effects" data-tab-label="Effect Stacks" data-tab-audience="mtl / effectful"}
 
-### 1.3 Composable `transformers` stacks from an ordinary `List Eff` {#card-effects}
+### 1.3 Composable `transformers` stacks from an ordinary `[Eff]` without `TypeFamilies` {#card-effects}
 
 <div class="showcase-credits">
   <strong>Replaces:</strong> <code>mtl</code> <em>O</em>(<em>n</em>&sup2;) lifting instances &middot; <code>polysemy</code> / <code>effectful</code> overlapping <code>Member</code> search &middot;
-  <strong>Features:</strong> <code>foreach (es :: List Eff)</code> &middot; <code>transformers</code> (<code>ReaderT</code>, <code>StateT</code>, <code>WriterT</code>)
+  <strong>Features:</strong> <code>foreach (es :: [Eff])</code> &middot; Higher-kinded term-to-<code>Type</code> functions &middot; <code>transformers</code>
 </div>
 
 Pass any list of effects (`[EEnv, ECount, ELog]`) as an ordinary value.
-`StackM` builds the nested `transformers` stack, `runStack` peels each layer at
-runtime, and `Has e es` lifts `askEff`, `tickEff`, and `tellEff` structurally
-without `mtl` instances or overlapping type classes. Evaluate `effDemo` at the
-`ghci>` prompt.
+Ordinary functions `stackM` and `stackOut` compute the nested `transformers`
+stack and its result type with zero `TypeFamilies`, `runStack` peels each layer
+at runtime, and `Has e es` lifts `askEff`, `tickEff`, and `tellEff`
+structurally without `mtl` instances or overlapping type classes. Evaluate
+`effDemo` at the `ghci>` prompt.
 
 ```haskell
-{-# LANGUAGE DependentTypes, TypeFamilies, UndecidableInstances #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module EffectStack where
 
 import Control.Monad.Trans.Class (lift)
@@ -346,61 +347,63 @@ import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
-import GHC.Tuple (Tuple2, Unit)
-import GHC.Types (List)
 
 data Eff = EEnv | ECount | ELog
 
-type family StackM (es :: List Eff) :: Type -> Type where
-  StackM []            = Identity
-  StackM (EEnv   : es) = ReaderT String (StackM es)
-  StackM (ECount : es) = StateT  Int    (StackM es)
-  StackM (ELog   : es) = WriterT (List String) (StackM es)
+-- Ordinary higher-kinded term-to-Type functions (no TypeFamilies):
+stackM :: [Eff] -> Type -> Type
+stackM []            = type Identity
+stackM (EEnv   : es) = type (ReaderT String (stackM es))
+stackM (ECount : es) = type (StateT  Int    (stackM es))
+stackM (ELog   : es) = type (WriterT [String] (stackM es))
 
-type family StackOut (es :: List Eff) (a :: Type) :: Type where
-  StackOut []            a = a
-  StackOut (EEnv   : es) a = StackOut es a
-  StackOut (ECount : es) a = StackOut es (Tuple2 a Int)
-  StackOut (ELog   : es) a = StackOut es (Tuple2 a (List String))
+outStep :: Eff -> Type -> Type
+outStep EEnv   a = type a
+outStep ECount a = type (a, Int)
+outStep ELog   a = type (a, [String])
 
-withMonad :: foreach (es :: List Eff) -> (Monad (StackM es) => r) -> r
+stackOut :: [Eff] -> Type -> Type
+stackOut []       a = type a
+stackOut (e : es) a = type (stackOut es (outStep e a))
+
+withMonad :: foreach (es :: [Eff]) -> (Monad (stackM es) => r) -> r
 withMonad []            k = k
 withMonad (EEnv   : es) k = withMonad es k
 withMonad (ECount : es) k = withMonad es k
 withMonad (ELog   : es) k = withMonad es k
 
-runStack :: foreach (es :: List Eff) -> String -> StackM es a -> StackOut es a
+runStack :: foreach (es :: [Eff]) -> String -> stackM es a -> stackOut es a
 runStack []            _   m = runIdentity m
 runStack (EEnv   : es) env m = runStack es env (runReaderT m env)
 runStack (ECount : es) env m = runStack es env (runStateT  m 0)
 runStack (ELog   : es) env m = runStack es env (runWriterT m)
 
 -- Structural lifting witness replaces O(n^2) mtl instances and overlapping Member:
-data Has (e :: Eff) (es :: List Eff) where
+data Has (e :: Eff) (es :: [Eff]) where
   Here  :: Has e (e : es)
   There :: Has e es -> Has e (x : es)
 
-liftStep :: foreach (x :: Eff) (es :: List Eff)
-         -> (Monad (StackM es) => StackM es a -> StackM (x : es) a)
+liftStep :: foreach (x :: Eff) (es :: [Eff])
+         -> (Monad (stackM es) => stackM es a -> stackM (x : es) a)
 liftStep EEnv   _ m = lift m
 liftStep ECount _ m = lift m
 liftStep ELog   _ m = lift m
 
-askEff :: foreach (es :: List Eff) -> Has EEnv es -> StackM es String
+askEff :: foreach (es :: [Eff]) -> Has EEnv es -> stackM es String
 askEff []       h = case h of {}
 askEff (x : es) h = case x of
   EEnv   -> case h of { Here -> withMonad es ask; There p -> withMonad es (liftStep EEnv es (askEff es p)) }
   ECount -> case h of { There p -> withMonad es (liftStep ECount es (askEff es p)) }
   ELog   -> case h of { There p -> withMonad es (liftStep ELog es (askEff es p)) }
 
-tickEff :: foreach (es :: List Eff) -> Has ECount es -> StackM es Unit
+tickEff :: foreach (es :: [Eff]) -> Has ECount es -> stackM es ()
 tickEff []       h = case h of {}
 tickEff (x : es) h = case x of
   EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tickEff es p)) }
   ECount -> case h of { Here -> withMonad es (modify' (+ 1)); There p -> withMonad es (liftStep ECount es (tickEff es p)) }
   ELog   -> case h of { There p -> withMonad es (liftStep ELog es (tickEff es p)) }
 
-tellEff :: foreach (es :: List Eff) -> Has ELog es -> String -> StackM es Unit
+tellEff :: foreach (es :: [Eff]) -> Has ELog es -> String -> stackM es ()
 tellEff []       h _   = case h of {}
 tellEff (x : es) h msg = case x of
   EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tellEff es p msg)) }
@@ -408,9 +411,9 @@ tellEff (x : es) h msg = case x of
   ELog   -> case h of { Here -> withMonad es (tell [msg]); There p -> withMonad es (liftStep ELog es (tellEff es p msg)) }
 
 -- One polymorphic worker runs in any stack containing EEnv, ECount, and ELog:
-worker :: foreach (es :: List Eff)
+worker :: foreach (es :: [Eff])
        -> Has EEnv es -> Has ECount es -> Has ELog es
-       -> StackM es String
+       -> stackM es String
 worker es hEnv hCount hLog = withMonad es (do
   env <- askEff es hEnv
   tellEff es hLog ("boot:" ++ env)
@@ -419,7 +422,7 @@ worker es hEnv hCount hLog = withMonad es (do
   tellEff es hLog "done"
   pure ("ok@" ++ env))
 
-effDemo :: Tuple2 (Tuple2 String Int) (List String)
+effDemo :: ((String, Int), [String])
 effDemo = runStack [EEnv, ECount, ELog] "prod"
   (worker [EEnv, ECount, ELog] Here (There Here) (There (There Here)))
 ```
@@ -756,12 +759,12 @@ data Fmt
   | D Fmt
   | S Fmt
 
--- Ordinary term-to-Type function (no `type family` required):
+-- Ordinary term-to-Type function (no `type family` or `type (...)` wrappers):
 fmtType :: Fmt -> Type
-fmtType End       = type String
-fmtType (Lit _ r) = type (fmtType r)
-fmtType (D r)     = type (Int -> fmtType r)
-fmtType (S r)     = type (String -> fmtType r)
+fmtType End       = String
+fmtType (Lit _ r) = fmtType r
+fmtType (D r)     = (Int -> fmtType r)
+fmtType (S r)     = (String -> fmtType r)
 
 printf :: foreach (f :: Fmt) -> fmtType f
 printf f = go f ""
@@ -1143,11 +1146,19 @@ import Data.Type.Equality.Dependent ((:~:) (Refl), cong)
 import GHC.Matchability (M, U)
 import GHC.Types (List)
 
--- Ordinary Prelude.map promotes directly with partially applied `plus 1` (no type family):
+-- Ordinary Prelude.map promotes with partial applications and inline type lambdas (no type family):
 type Incremented = map (plus 1) [Zero, Succ Zero, Succ (Succ Zero)]
+type Doubled     = map (\n -> plus n n) [Zero, Succ Zero, Succ (Succ Zero)]
+type ConstLabels = map (\_ -> String) [Int, Bool, Char]
 
 incProof :: Incremented :~: [Succ Zero, Succ (Succ Zero), Succ (Succ (Succ Zero))]
 incProof = Refl
+
+dblProof :: Doubled :~: [Zero, Succ (Succ Zero), Succ (Succ (Succ (Succ Zero)))]
+dblProof = Refl
+
+constProof :: ConstLabels :~: [String, String, String]
+constProof = Refl
 
 -- `%U` (unmatchable): accepts inline type-level lambdas directly, with no Compose/TyFun:
 data Form (f :: Type %U -> Type) (ts :: List Type) where
@@ -1331,15 +1342,16 @@ composeDemo = (map natToInt (toListVec (zerosPlus1 2)), ordinaryCompose (* 2) (+
 
 `Data.Vec.Dependent` and `Data.Fin.Dependent` pair length-checked operations
 (`appendVec`, `zipVec`, total `lookupVec`) with runtime list conversions
-(`packListVec`, `toListVec`). `Fin` names its constructors `FZ` and `FS` so
-`Prelude.Dependent` can export `Nat (Zero, Succ)` and `Fin (FZ, FS)`
-unqualified together, without a partial `Num` instance.
+(`packListVec`, `toListVec`). `Fin` keeps distinct constructors `FZ` and `FS`
+(no partial `Num` instance) while offering compile-time bounds-checked numerals
+via `fin 1` and `#2` (`-XOverloadedLabels`): out-of-bounds literals fail at
+compile time.
 
 ```haskell
-{-# LANGUAGE DependentTypes, ListTuplePuns #-}
+{-# LANGUAGE DependentTypes, ListTuplePuns, OverloadedLabels #-}
 module VecFin where
 
-import Data.Fin.Dependent (Fin (..))
+import Data.Fin.Dependent (Fin (..), fin)
 import Data.Nat.Dependent (Nat (..), natToInt)
 import Data.Sigma.Dependent (Sigma (Pair))
 import Data.Vec.Dependent
@@ -1362,8 +1374,12 @@ right = VCons "works" VNil
 combined :: Vec String 3
 combined = appendVec left right
 
+-- Bounds-checked Fin numerals (`fin 1`, `#2` via OverloadedLabels) alongside `FS FZ`:
 secondWord :: String
-secondWord = lookupVec (FS FZ) combined
+secondWord = lookupVec (fin 1) combined
+
+thirdWord :: String
+thirdWord = lookupVec #2 combined
 
 tagged :: Vec (String, Int) 3
 tagged = zipVec combined (mapVec length combined)
@@ -1433,10 +1449,13 @@ Structural `plus` promotes directly into GHC's type checker, while `unfoldPlus`
 and tail-recursive `accPlus` do not have structural source equations. With the
 plugin enabled, GHC elaborates open calls into uninterpreted families (`U:f`)
 and tests equivalence against the reference oracle in-process over total and
-partial (`ObsBottom`) inputs. Explicit combinators (`obsEq`, `obsEqWith`,
-`obsEqGen`) discharge passing witnesses while keeping bare `Refl` strict, and
-`toAccVec` / `fromAccVec` use the checked witness to transport length-indexed
-vectors across `accPlus`.
+partial (`ObsBottom`) inputs. Explicit combinators (`obsEq`, `checkObsEq`)
+discharge passing witnesses while keeping bare `Refl` strict, zero-annotation
+`castEq` and `usingEq` transport indexed vectors without `@` type applications,
+`forVar` pairs guarded preconditions (`isEvenInt n ~ True`) with custom
+`ObsDomain` generators (`domainVia`), and `ObsEquivOn` (`checkObsEqOn`)
+certifies projection equivalence (`flatten (rotateRight t) :~: flatten t`)
+without unsafely equating distinct tree shapes.
 
 Click **Edit**, change `go Zero acc = acc` to `go Zero acc = Succ acc`, and
 press **`Ctrl/Cmd+Enter`** to watch the plugin refute `accPlusCorrect` with a
@@ -1444,27 +1463,29 @@ shrunk counterexample (`m = Zero, n = Zero`).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
 module ObsEqDemo where
 
 import Data.Nat.Dependent (Nat (..), plus)
-import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vec.Dependent (Vec (..), toListVec)
 import Dependent.ObsEq
-  ( Gen
-  , ObsConfig
-  , chooseInt
-  , defaultObsConfig
+  ( ObsConfig
+  , ObsDomain
+  , ObsEquivOn (projectEq)
+  , castEq
+  , checkObsEq
+  , checkObsEqOn
+  , domainVia
+  , forVar
   , obsEq
-  , obsEqGen
-  , obsEqWith
-  , withMaxSize
-  , withObsEqWith
-  , withPartialPct
-  , withTests
+  , setMaxSize
+  , setTests
+  , totalObsConfig
+  , usingEq
   )
 
--- 1. Non-structural unfold addition (equivalent to `plus` on partial inputs too).
+-- 1. Non-structural unfold addition (lazy-equivalent to `plus` on partial inputs too).
 unfoldPlus :: Nat -> Nat -> Nat
 unfoldPlus m n = step (Just m) n
   where
@@ -1480,39 +1501,58 @@ accPlus m n = go m n
     go Zero acc     = acc
     go (Succ k) acc = go k (Succ acc)
 
--- 3. Domain-restricted law on even Ints via a custom generator (`obsEqGen`).
-twiceHalfEven :: Int -> Int
-twiceHalfEven n
-  | even n    = (n `quot` 2) * 2
-  | otherwise = error "twiceHalfEven: odd input"
-
-genEvenInt :: Gen Int
-genEvenInt = (* 2) <$> chooseInt (-50, 50)
-
 totalCfg :: ObsConfig
-totalCfg = withMaxSize 12 (withPartialPct 0 (withTests 30 defaultObsConfig))
+totalCfg = setMaxSize 12 (setTests 30 totalObsConfig)
 
 unfoldPlusCorrect :: foreach (m n :: Nat) -> unfoldPlus m n :~: plus m n
-unfoldPlusCorrect m n = obsEq
+unfoldPlusCorrect _ _ = obsEq
 
 accPlusCorrect :: foreach (m n :: Nat) -> accPlus m n :~: plus m n
-accPlusCorrect m n = obsEqWith totalCfg
+accPlusCorrect _ _ = checkObsEq totalCfg
 
-evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
-evenRoundtrip n = obsEqGen genEvenInt
-
--- Transport a length-indexed `Vec` across an observational witness at runtime:
--- `gcastWith (obsEqWith totalCfg)` transports via an explicit `(:~:)` witness,
--- while `withObsEqWith totalCfg` brings the tested `a ~ b` constraint into scope directly.
+-- Zero-annotation indexed transport via `castEq` and `usingEq`:
 toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
-toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
+toAccVec _ _ v = castEq (checkObsEq totalCfg) v
 
 fromAccVec :: foreach (m n :: Nat) -> Vec Int (accPlus m n) -> Vec Int (plus m n)
-fromAccVec m n v =
-  withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
+fromAccVec m n v = usingEq (accPlusCorrect m n) v
 
 roundtripAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (plus m n)
 roundtripAccVec m n v = fromAccVec m n (toAccVec m n v)
+
+-- 3. Guarded precondition + domain override (`domainVia` + `forVar`):
+isEvenInt :: Int -> Bool
+isEvenInt n = n `rem` 2 == 0
+
+twiceHalfEven :: Int -> Int
+twiceHalfEven n
+  | isEvenInt n = (n `quot` 2) * 2
+  | otherwise   = error "twiceHalfEven: odd input"
+
+evenDomain :: ObsDomain Int
+evenDomain = domainVia (* 2) (`quot` 2)
+
+evenRoundtrip :: foreach (n :: Int) -> (isEvenInt n ~ True) => twiceHalfEven n :~: n
+evenRoundtrip n = checkObsEq (forVar n evenDomain totalCfg)
+
+-- 4. Sound projection witness (`ObsEquivOn`): `rotateRight t` changes tree shape,
+-- so `ObsEquivOn flatten` exposes only `flatten (rotateRight t) :~: flatten t`.
+data Tree = Leaf Int | Fork Tree Tree
+  deriving (Eq, Show)
+
+flatten :: Tree -> [Int]
+flatten (Leaf x)   = [x]
+flatten (Fork l r) = flatten l ++ flatten r
+
+rotateRight :: Tree -> Tree
+rotateRight (Fork (Fork a b) c) = Fork a (Fork b c)
+rotateRight t                   = t
+
+rotatePreservesElems :: foreach (t :: Tree) -> ObsEquivOn flatten (rotateRight t) t
+rotatePreservesElems _ = checkObsEqOn totalCfg flatten
+
+rotateElemsEq :: foreach (t :: Tree) -> flatten (rotateRight t) :~: flatten t
+rotateElemsEq t = projectEq (rotatePreservesElems t)
 
 sampleAccVec :: [Int]
 sampleAccVec = toListVec (roundtripAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil))))
@@ -1550,10 +1590,10 @@ module FourColor where
 
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality ((:~:))
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+import Dependent.ObsEq (ObsConfig, checkObsEq, setMaxSize, totalObsConfig)
 
 graphCfg :: ObsConfig
-graphCfg = withMaxSize 5 (withPartialPct 0 defaultObsConfig)
+graphCfg = setMaxSize 5 totalObsConfig
 
 data Color = Red | Green | Blue | Yellow deriving (Eq, Show)
 
@@ -1606,7 +1646,7 @@ fourColor :: foreach (steps :: [Int]) -> FourColorCert steps
 fourColor steps =
   let (n, edges) = buildPlanar steps
       col        = fromMaybe [] (colorGraph n edges)
-  in MkFourColor col (obsEqWith graphCfg)
+  in MkFourColor col (checkObsEq graphCfg)
 
 colorPlanar :: [Int] -> [(Int, Color)]
 colorPlanar steps = case fourColor steps of MkFourColor col _ -> col
@@ -1624,7 +1664,7 @@ fourColorDemo = (colorPlanar [0], colorPlanar [0, 1, 2, 0])
 
 | Repository | Role |
 | --- | --- |
-| [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md)) |
+| [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md), [Issue Tracker](https://github.com/TharkunAB/ghc/issues)) |
 | [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.Decision`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,...}.Dependent`); see the [API reference](/dependentbase/) |
 | [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) | `HoleFitPlugin` (`-fplugin=Dependent.Plugin.ProofSearch`) for congruence/transitivity subgoal refinements and bounded proof synthesis |
 | [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for observational-equality testing and counterexample shrinking |

@@ -15,8 +15,10 @@ compiles and runs directly in your browser through WebAssembly.
 - **Want to try code now?** Open the [Interactive Playground](/playground/).
 - **Ready to read the book?** Begin with the [Preface](/preface/) or [Naturals](/naturals/).
 
-Comments, bug reports, and pull requests are welcome on
-[GitHub](https://github.com/TharkunAB/PLFH).
+Book feedback and pull requests are welcome on
+[`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH). If you discover a
+compiler bug or unexpected type-checker behavior, please
+[file an issue on `TharkunAB/ghc`](https://github.com/TharkunAB/ghc/issues).
 
 ## Front matter
 

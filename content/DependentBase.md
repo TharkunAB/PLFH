@@ -154,7 +154,8 @@ Source: [on-site `Data/Fin/Dependent.hs`](/source/dependent-base/data/fin/depend
 
 | Symbol | Type / Role |
 | --- | --- |
-| `Fin (FZ, FS)` | Bounded natural positions strictly below `n :: Nat` |
+| `Fin (FZ, FS)` | Bounded natural positions strictly below `n :: Nat` (no partial `Num` instance) |
+| `KnownFin`, `fin`, `IsLabel` (`#0`, `#1`), `FromNatural (Fin n)` | Compile-time bounds-checked `Fin` numerals (`fin 1`, `#1` with `-XOverloadedLabels`) |
 | `finToNat`, `finToInt`, `mkFin`, `weakenFin`, `shiftFin`, `absurdFinZero`, `lastFin`, `oppositeFin` | Total indexing and position combinators |
 
 ### `Data.Sigma.Dependent` & `Data.Exists.Dependent` {#datasigmadependent}

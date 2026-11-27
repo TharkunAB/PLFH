@@ -10,7 +10,9 @@ PLFH compiles against the Dependent Haskell fork of GHC
 ([`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
 branch `dependent-haskell`, tag `dependent-haskell-alpha`, GHC `10.1`). You can
 run every chapter and example directly in your browser on this site, or build
-the compiler locally to work from the command line and GHCi.
+the compiler locally to work from the command line and GHCi. If you discover a
+compiler bug or unexpected behavior, please
+[file an issue on `TharkunAB/ghc`](https://github.com/TharkunAB/ghc/issues).
 
 ## Prerequisites
 

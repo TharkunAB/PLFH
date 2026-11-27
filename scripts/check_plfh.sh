@@ -19,17 +19,17 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified Stage 1 build under _build/current/
-# requiring at least Wave 16 consolidated (`945ea7a737`, dependent-haskell-alpha).
+# requiring at least Wave 18b consolidated (`d97fedfd48`).
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
 CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
-WAVE16_REV="945ea7a737dca39c2d01c7fa9a444a7dc2c890a0"
+WAVE18_REV="d97fedfd48b57be36accb610d5bdc2fd0ce26c5a"
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
 if [[ -f "$CURRENT_PASS" && -x "$CURRENT_GHC" && -f "$CURRENT_SRC" ]] \
-   && git -C "$GHC_REPO" merge-base --is-ancestor "$WAVE16_REV" "$(cat "$CURRENT_SRC" 2>/dev/null)" 2>/dev/null; then
+   && git -C "$GHC_REPO" merge-base --is-ancestor "$WAVE18_REV" "$(cat "$CURRENT_SRC" 2>/dev/null)" 2>/dev/null; then
   DEFAULT_COMPILER="$CURRENT_GHC"
   DEFAULT_LIBDIR="$CURRENT_LIB"
 elif [[ -x "$CURRENT_GHC" ]]; then
@@ -45,8 +45,15 @@ if [[ -z "$GHC_LIBDIR" ]] && [[ "$COMPILER" == "$DEFAULT_COMPILER" ]]; then
   GHC_LIBDIR="$DEFAULT_LIBDIR"
 fi
 
-if [[ "${PLFH_NO_PUEUE:-0}" != "1" ]] && [[ -x "$GHC_REPO/docs/dependent-haskell/tools/ghc-build-job" ]]; then
-  jid=$(cd "$GHC_REPO" && CAPPED_MEM=5G docs/dependent-haskell/tools/ghc-build-job plfh-suite \
+GHC_BUILD_JOB=""
+if [[ -x "/home/tritlo/Code/heavy-management/bin/ghc-build-job" ]]; then
+  GHC_BUILD_JOB="/home/tritlo/Code/heavy-management/bin/ghc-build-job"
+elif [[ -x "$GHC_REPO/docs/dependent-haskell/tools/ghc-build-job" ]]; then
+  GHC_BUILD_JOB="$GHC_REPO/docs/dependent-haskell/tools/ghc-build-job"
+fi
+
+if [[ "${PLFH_NO_PUEUE:-0}" != "1" ]] && [[ -n "$GHC_BUILD_JOB" ]]; then
+  jid=$(cd "$GHC_REPO" && CAPPED_MEM=5G "$GHC_BUILD_JOB" plfh-suite \
     /usr/bin/env "PLFH_NO_PUEUE=1" "PLFH_GHC=$COMPILER" "PLFH_GHC_LIBDIR=$GHC_LIBDIR" "PLFH_GHC_REPO=$GHC_REPO" "PLFH_DEPENDENT_BASE=${PLFH_DEPENDENT_BASE:-}" \
     bash "$SCRIPT_DIR/check_plfh.sh" "$@")
   echo "Submitted PLFH verification suite as pueue job $jid"

@@ -1732,7 +1732,7 @@ plusComm m (Succ k) = plusSuc m k \`trans\` cong Succ (plusComm m k)
     id: "routes",
     label: "Routes & Monad Stack",
     replHint: "demo",
-    code: `{-# LANGUAGE DependentTypes, ListTuplePuns, TypeFamilies, UndecidableInstances #-}
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module Playground where
 
 import Control.Monad.Trans.Class (lift)
@@ -1740,33 +1740,32 @@ import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
-import GHC.Matchability (U)
 import Text.Read (readMaybe)
 
 data RunMode = PureMode | LoggedMode | MeteredMode
 
--- Select the monad transformer stack and unwrapped result type with type-level case:
-type StackM (m :: RunMode) = case m of
-  PureMode    -> Identity
-  LoggedMode  -> WriterT [String] Identity
-  MeteredMode -> StateT Int (WriterT [String] Identity)
+-- Select the monad transformer stack and unwrapped result type with ordinary functions (no TypeFamilies):
+stackM :: RunMode -> Type -> Type
+stackM PureMode    = type Identity
+stackM LoggedMode  = type (WriterT [String] Identity)
+stackM MeteredMode = type (StateT Int (WriterT [String] Identity))
 
-type StackOut (m :: RunMode) a = case m of
-  PureMode    -> a
-  LoggedMode  -> (a, [String])
-  MeteredMode -> ((a, Int), [String])
+stackOut :: RunMode -> Type -> Type
+stackOut PureMode    a = type a
+stackOut LoggedMode  a = type (a, [String])
+stackOut MeteredMode a = type ((a, Int), [String])
 
-withStackMonad :: foreach (m :: RunMode) -> (Monad (StackM m) => a) -> a
+withStackMonad :: foreach (m :: RunMode) -> (Monad (stackM m) => a) -> a
 withStackMonad PureMode    k = k
 withStackMonad LoggedMode  k = k
 withStackMonad MeteredMode k = k
 
-runMode :: foreach (m :: RunMode) -> StackM m a -> StackOut m a
+runMode :: foreach (m :: RunMode) -> stackM m a -> stackOut m a
 runMode PureMode    act = runIdentity act
 runMode LoggedMode  act = runIdentity (runWriterT act)
 runMode MeteredMode act = runIdentity (runWriterT (runStateT act 0))
 
-recordHit :: foreach (m :: RunMode) -> String -> StackM m ()
+recordHit :: foreach (m :: RunMode) -> String -> stackM m ()
 recordHit PureMode    _   = pure ()
 recordHit LoggedMode  msg = tell [msg]
 recordHit MeteredMode msg = modify' (+ 1) >> lift (tell [msg])
@@ -1790,16 +1789,14 @@ apiRoute :: Endpoint -> Route
 apiRoute UserPost    = Lit Users :> Cap TInt :> Lit Posts :> Cap TString :> Get TBool
 apiRoute HealthCheck = Lit Health :> Get TString
 
-type family RouteType (ret :: WireTy %U -> Type) (r :: Route) :: Type where
-  RouteType ret (Lit _  :> rest) = RouteType ret rest
-  RouteType ret (Cap ty :> rest) = interp ty -> RouteType ret rest
-  RouteType ret (Get res)        = ret res
+-- Higher-order ordinary function + inline type lambdas derive both handler and link types:
+routeType :: (WireTy -> Type) -> Route -> Type
+routeType ret (Lit _  :> rest) = routeType ret rest
+routeType ret (Cap ty :> rest) = (interp ty -> routeType ret rest)
+routeType ret (Get res)        = ret res
 
-type HandlerRet (m :: RunMode) = \\res -> StackM m (Either String (interp res))
-type LinkRet                   = \\res -> String
-
-type HandlerType m r = RouteType (HandlerRet m) r
-type LinkType      r = RouteType LinkRet r
+type HandlerType m r = routeType (\\res -> stackM m (Either String (interp res))) r
+type LinkType      r = routeType (\\_ -> String) r
 
 segPath :: Seg -> String
 segPath Users  = "users"
@@ -1835,11 +1832,11 @@ buildLink r = go r ""
     go (Get _)          acc = acc
 
 dispatch :: foreach (m :: RunMode) -> foreach (r :: Route)
-         -> HandlerType m r -> [String] -> StackOut m (Either String String)
+         -> HandlerType m r -> [String] -> stackOut m (Either String String)
 dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
   where
-    go :: Monad (StackM m)
-       => foreach (r' :: Route) -> HandlerType m r' -> [String] -> StackM m (Either String String)
+    go :: Monad (stackM m)
+       => foreach (r' :: Route) -> HandlerType m r' -> [String] -> stackM m (Either String String)
     go (Lit s :> rest) h ps = case ps of
       (p : ps') | p == segPath s -> go rest h ps'
                 | otherwise      -> pure (Left ("404: expected /" ++ segPath s))
@@ -1855,7 +1852,7 @@ dispatch m r handler path = withStackMonad m (runMode m (go r handler path))
         pure (case out of { Left err -> Left err; Right val -> Right (renderWire res val) })
       _  -> pure (Left "404: trailing path")
 
-handleUserPost :: foreach (m :: RunMode) -> Int -> String -> StackM m (Either String Bool)
+handleUserPost :: foreach (m :: RunMode) -> Int -> String -> stackM m (Either String Bool)
 handleUserPost m uid slug = withStackMonad m (do
   recordHit m ("GET /users/" ++ show uid ++ "/posts/" ++ slug)
   pure (Right (uid > 0 && not (null slug))))
@@ -1969,11 +1966,11 @@ extractHalf = case halfOfFour of
   {
     id: "vec",
     label: "Length-Indexed Vectors",
-    replHint: "lookupVec (FS FZ) combined",
-    code: `{-# LANGUAGE DependentTypes #-}
+    replHint: "(secondWord, thirdWord)",
+    code: `{-# LANGUAGE DependentTypes, OverloadedLabels #-}
 module Playground where
 
-import Data.Fin.Dependent (Fin (..))
+import Data.Fin.Dependent (Fin (..), fin)
 import Data.Nat.Dependent (Nat (..))
 import Data.Vec.Dependent (Vec (..), appendVec, headVec, lookupVec, mapVec)
 
@@ -1985,6 +1982,13 @@ ys = VCons "works" VNil
 
 combined :: Vec String 3
 combined = appendVec xs ys
+
+-- Bounds-checked Fin numerals (\`fin 1\`, \`#2\`) alongside \`FS FZ\`:
+secondWord :: String
+secondWord = lookupVec (fin 1) combined
+
+thirdWord :: String
+thirdWord = lookupVec #2 combined
 
 lengths :: Vec Int 3
 lengths = mapVec length combined
@@ -2128,7 +2132,7 @@ sqlDemo =
     id: "effect-stack",
     label: "Composable Effect Stack",
     replHint: "effDemo",
-    code: `{-# LANGUAGE DependentTypes, TypeFamilies, UndecidableInstances #-}
+    code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
 module Playground where
 
 import Control.Monad.Trans.Class (lift)
@@ -2137,69 +2141,71 @@ import Control.Monad.Trans.State.Strict (StateT, modify', runStateT)
 import Control.Monad.Trans.Writer.Strict (WriterT, runWriterT, tell)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Kind (Type)
-import GHC.Tuple (Tuple2, Unit)
-import GHC.Types (List)
 
 data Eff = EEnv | ECount | ELog
 
-type family StackM (es :: List Eff) :: Type -> Type where
-  StackM []            = Identity
-  StackM (EEnv   : es) = ReaderT String (StackM es)
-  StackM (ECount : es) = StateT  Int    (StackM es)
-  StackM (ELog   : es) = WriterT (List String) (StackM es)
+-- Ordinary higher-kinded term-to-Type functions (no TypeFamilies):
+stackM :: [Eff] -> Type -> Type
+stackM []            = type Identity
+stackM (EEnv   : es) = type (ReaderT String (stackM es))
+stackM (ECount : es) = type (StateT  Int    (stackM es))
+stackM (ELog   : es) = type (WriterT [String] (stackM es))
 
-type family StackOut (es :: List Eff) (a :: Type) :: Type where
-  StackOut []            a = a
-  StackOut (EEnv   : es) a = StackOut es a
-  StackOut (ECount : es) a = StackOut es (Tuple2 a Int)
-  StackOut (ELog   : es) a = StackOut es (Tuple2 a (List String))
+outStep :: Eff -> Type -> Type
+outStep EEnv   a = type a
+outStep ECount a = type (a, Int)
+outStep ELog   a = type (a, [String])
 
-withMonad :: foreach (es :: List Eff) -> (Monad (StackM es) => r) -> r
+stackOut :: [Eff] -> Type -> Type
+stackOut []       a = type a
+stackOut (e : es) a = type (stackOut es (outStep e a))
+
+withMonad :: foreach (es :: [Eff]) -> (Monad (stackM es) => r) -> r
 withMonad []            k = k
 withMonad (EEnv   : es) k = withMonad es k
 withMonad (ECount : es) k = withMonad es k
 withMonad (ELog   : es) k = withMonad es k
 
-runStack :: foreach (es :: List Eff) -> String -> StackM es a -> StackOut es a
+runStack :: foreach (es :: [Eff]) -> String -> stackM es a -> stackOut es a
 runStack []            _   m = runIdentity m
 runStack (EEnv   : es) env m = runStack es env (runReaderT m env)
 runStack (ECount : es) env m = runStack es env (runStateT  m 0)
 runStack (ELog   : es) env m = runStack es env (runWriterT m)
 
-data Has (e :: Eff) (es :: List Eff) where
+data Has (e :: Eff) (es :: [Eff]) where
   Here  :: Has e (e : es)
   There :: Has e es -> Has e (x : es)
 
-liftStep :: foreach (x :: Eff) (es :: List Eff)
-         -> (Monad (StackM es) => StackM es a -> StackM (x : es) a)
+liftStep :: foreach (x :: Eff) (es :: [Eff])
+         -> (Monad (stackM es) => stackM es a -> stackM (x : es) a)
 liftStep EEnv   _ m = lift m
 liftStep ECount _ m = lift m
 liftStep ELog   _ m = lift m
 
-askEff :: foreach (es :: List Eff) -> Has EEnv es -> StackM es String
+askEff :: foreach (es :: [Eff]) -> Has EEnv es -> stackM es String
 askEff []       h = case h of {}
 askEff (x : es) h = case x of
   EEnv   -> case h of { Here -> withMonad es ask; There p -> withMonad es (liftStep EEnv es (askEff es p)) }
   ECount -> case h of { There p -> withMonad es (liftStep ECount es (askEff es p)) }
   ELog   -> case h of { There p -> withMonad es (liftStep ELog es (askEff es p)) }
 
-tickEff :: foreach (es :: List Eff) -> Has ECount es -> StackM es Unit
+tickEff :: foreach (es :: [Eff]) -> Has ECount es -> stackM es ()
 tickEff []       h = case h of {}
 tickEff (x : es) h = case x of
   EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tickEff es p)) }
   ECount -> case h of { Here -> withMonad es (modify' (+ 1)); There p -> withMonad es (liftStep ECount es (tickEff es p)) }
   ELog   -> case h of { There p -> withMonad es (liftStep ELog es (tickEff es p)) }
 
-tellEff :: foreach (es :: List Eff) -> Has ELog es -> String -> StackM es Unit
+tellEff :: foreach (es :: [Eff]) -> Has ELog es -> String -> stackM es ()
 tellEff []       h _   = case h of {}
 tellEff (x : es) h msg = case x of
   EEnv   -> case h of { There p -> withMonad es (liftStep EEnv es (tellEff es p msg)) }
   ECount -> case h of { There p -> withMonad es (liftStep ECount es (tellEff es p msg)) }
   ELog   -> case h of { Here -> withMonad es (tell [msg]); There p -> withMonad es (liftStep ELog es (tellEff es p msg)) }
 
-worker :: foreach (es :: List Eff)
+worker :: foreach (es :: [Eff])
        -> Has EEnv es -> Has ECount es -> Has ELog es
-       -> StackM es String
+       -> stackM es String
 worker es hEnv hCount hLog = withMonad es (do
   env <- askEff es hEnv
   tellEff es hLog ("boot:" ++ env)
@@ -2208,7 +2214,7 @@ worker es hEnv hCount hLog = withMonad es (do
   tellEff es hLog "done"
   pure ("ok@" ++ env))
 
-effDemo :: Tuple2 (Tuple2 String Int) (List String)
+effDemo :: ((String, Int), [String])
 effDemo = runStack [EEnv, ECount, ELog] "prod"
   (worker [EEnv, ECount, ELog] Here (There Here) (There (There Here)))
 `,
@@ -2486,24 +2492,26 @@ evalTwoPlusTwo =
     label: "Observational Equality (ObsEq)",
     replHint: "sampleAccVec",
     code: `{-# LANGUAGE DependentTypes, ListTuplePuns #-}
-{-# OPTIONS_GHC -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
+{-# OPTIONS_GHC -fno-enable-rewrite-rules -fplugin=Dependent.Plugin.ObsEq -fplugin-opt=Dependent.Plugin.ObsEq:tests=30 #-}
 module Playground where
 
 import Data.Nat.Dependent (Nat (..), plus)
-import Data.Type.Equality ((:~:) (Refl), gcastWith)
+import Data.Type.Equality ((:~:) (Refl))
 import Data.Vec.Dependent (Vec (..), toListVec)
 import Dependent.ObsEq
-  ( Gen
-  , ObsConfig
-  , chooseInt
-  , defaultObsConfig
+  ( ObsConfig
+  , ObsDomain
+  , ObsEquivOn (projectEq)
+  , castEq
+  , checkObsEq
+  , checkObsEqOn
+  , domainVia
+  , forVar
   , obsEq
-  , obsEqGen
-  , obsEqWith
-  , withMaxSize
-  , withObsEqWith
-  , withPartialPct
-  , withTests
+  , setMaxSize
+  , setTests
+  , totalObsConfig
+  , usingEq
   )
 
 -- Non-structural unfold addition (lazy-equivalent to plus on partial inputs):
@@ -2522,33 +2530,54 @@ accPlus m n = go m n
     go Zero acc     = acc
     go (Succ k) acc = go k (Succ acc)
 
-twiceHalfEven :: Int -> Int
-twiceHalfEven n
-  | even n    = (n \`quot\` 2) * 2
-  | otherwise = error "twiceHalfEven: odd input"
-
-genEvenInt :: Gen Int
-genEvenInt = (* 2) <$> chooseInt (-50, 50)
-
 totalCfg :: ObsConfig
-totalCfg = withMaxSize 12 (withPartialPct 0 (withTests 30 defaultObsConfig))
+totalCfg = setMaxSize 12 (setTests 30 totalObsConfig)
 
 unfoldPlusCorrect :: foreach (m n :: Nat) -> unfoldPlus m n :~: plus m n
-unfoldPlusCorrect m n = obsEq
+unfoldPlusCorrect _ _ = obsEq
 
 accPlusCorrect :: foreach (m n :: Nat) -> accPlus m n :~: plus m n
-accPlusCorrect m n = obsEqWith totalCfg
+accPlusCorrect _ _ = checkObsEq totalCfg
 
-evenRoundtrip :: foreach (n :: Int) -> twiceHalfEven n :~: n
-evenRoundtrip n = obsEqGen genEvenInt
-
--- Transport a Vec across an observational witness:
--- gcastWith transports via (:~:); withObsEqWith brings (a ~ b) into scope directly under totalCfg.
+-- Zero-annotation indexed transport via \`castEq\` and \`usingEq\`:
 toAccVec :: foreach (m n :: Nat) -> Vec Int (plus m n) -> Vec Int (accPlus m n)
-toAccVec m n v = gcastWith (obsEqWith totalCfg :: plus m n :~: accPlus m n) v
+toAccVec _ _ v = castEq (checkObsEq totalCfg) v
 
 fromAccVec :: foreach (m n :: Nat) -> Vec Int (accPlus m n) -> Vec Int (plus m n)
-fromAccVec m n v = withObsEqWith totalCfg @(accPlus m n) @(plus m n) @(Vec Int (plus m n)) v
+fromAccVec m n v = usingEq (accPlusCorrect m n) v
+
+-- Guarded precondition + domain override (\`domainVia\` + \`forVar\`):
+isEvenInt :: Int -> Bool
+isEvenInt n = n \`rem\` 2 == 0
+
+twiceHalfEven :: Int -> Int
+twiceHalfEven n
+  | isEvenInt n = (n \`quot\` 2) * 2
+  | otherwise   = error "twiceHalfEven: odd input"
+
+evenDomain :: ObsDomain Int
+evenDomain = domainVia (* 2) (\`quot\` 2)
+
+evenRoundtrip :: foreach (n :: Int) -> (isEvenInt n ~ True) => twiceHalfEven n :~: n
+evenRoundtrip n = checkObsEq (forVar n evenDomain totalCfg)
+
+-- Sound projection witness (\`ObsEquivOn\`): exposes only \`flatten (rotateRight t) :~: flatten t\`.
+data Tree = Leaf Int | Fork Tree Tree
+  deriving (Eq, Show)
+
+flatten :: Tree -> [Int]
+flatten (Leaf x)   = [x]
+flatten (Fork l r) = flatten l ++ flatten r
+
+rotateRight :: Tree -> Tree
+rotateRight (Fork (Fork a b) c) = Fork a (Fork b c)
+rotateRight t                   = t
+
+rotatePreservesElems :: foreach (t :: Tree) -> ObsEquivOn flatten (rotateRight t) t
+rotatePreservesElems _ = checkObsEqOn totalCfg flatten
+
+rotateElemsEq :: foreach (t :: Tree) -> flatten (rotateRight t) :~: flatten t
+rotateElemsEq t = projectEq (rotatePreservesElems t)
 
 sampleAccVec :: [Int]
 sampleAccVec = toListVec (fromAccVec 2 1 (toAccVec 2 1 (VCons 10 (VCons 20 (VCons 30 VNil)))))
@@ -2564,10 +2593,10 @@ module Playground where
 
 import Data.Maybe (fromMaybe)
 import Data.Type.Equality ((:~:))
-import Dependent.ObsEq (ObsConfig, defaultObsConfig, obsEqWith, withMaxSize, withPartialPct)
+import Dependent.ObsEq (ObsConfig, checkObsEq, setMaxSize, totalObsConfig)
 
 graphCfg :: ObsConfig
-graphCfg = withMaxSize 5 (withPartialPct 0 defaultObsConfig)
+graphCfg = setMaxSize 5 totalObsConfig
 
 data Color = Red | Green | Blue | Yellow deriving (Eq, Show)
 
@@ -2616,7 +2645,7 @@ fourColor :: foreach (steps :: [Int]) -> FourColorCert steps
 fourColor steps =
   let (n, edges) = buildPlanar steps
       col        = fromMaybe [] (colorGraph n edges)
-  in MkFourColor col (obsEqWith graphCfg)
+  in MkFourColor col (checkObsEq graphCfg)
 
 colorPlanar :: [Int] -> [(Int, Color)]
 colorPlanar steps = case fourColor steps of MkFourColor col _ -> col

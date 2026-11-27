@@ -9,11 +9,14 @@ import subprocess
 import sys
 
 # Explicit allowlist of intentional higher-order type parameters (predicates,
-# binary relations, type constructors, reduction relations).
+# binary relations, type constructors, reduction relations) plus compiler-
+# synthesized SourceTable axiom parameter names (`ds`, `arg1`, `arg2`, ...).
 ALLOWED_HO_TYVARS = {
     "a", "b", "c", "d", "e", "f", "g", "h", "k", "m", "n", "p", "q", "r",
     "rel", "step",
+    "ds",
 }
+SYNTH_ARG_RE = re.compile(r"^arg\d+$")
 
 BINDER_HEAD_RE = re.compile(r"^\s*([a-z][A-Za-z0-9_']*)\s*::\s*(.*)$")
 
@@ -79,7 +82,7 @@ def main() -> int:
             hdr = chunk.group(1)
             for name, kind in extract_balanced_binders(hdr):
                 if "->" in kind:
-                    if name in ALLOWED_HO_TYVARS:
+                    if name in ALLOWED_HO_TYVARS or SYNTH_ARG_RE.match(name):
                         seen_allowed.add(name)
                     else:
                         findings.append((rel, name, kind))

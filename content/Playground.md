@@ -35,3 +35,6 @@ The WebAssembly session preloads [`dependent-base`](/dependentbase/),
 
 See the [Dependent Haskell Overview](/overview/) for the guided walkthrough, or
 browse [`dependent-base`](/dependentbase/) and the [Source Browser](/source/).
+Found a compiler bug, panic, or unexpected type error? Please
+[file an issue on `TharkunAB/ghc`](https://github.com/TharkunAB/ghc/issues)
+with a minimal reproducer.
