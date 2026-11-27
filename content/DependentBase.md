@@ -47,6 +47,11 @@ ghci> natToInt (plus 2 3)
 5
 ```
 
+## Search `dependent-base` (mini-Hoogle)
+
+<div id="plfh-depbase-hoogle" class="plfh-hoogle"></div>
+<script type="module" src="/wasm/plfh-hoogle.mjs"></script>
+
 ## Module index and exported API
 
 - [`Prelude.Dependent`](#preludedependent)
