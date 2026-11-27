@@ -70,7 +70,7 @@ import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
 Just as in Agda, Haskell writes anonymous functions with a backslash
 (`\x -> body`) and composes functions with `()`. In `dependent-base`,
-[`Data.Function.Dependent`](/dependentbase/#datafunctiondependent) generalizes
+[`Data.Function.Dependent`](/dependent-base/#datafunctiondependent) generalizes
 `Prelude.()` so the outer consumer may depend on the intermediate value `f x`
 while remaining transparent for ordinary functions:
 

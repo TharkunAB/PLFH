@@ -1,7 +1,7 @@
 ---
 title: "ContextualEquivalence: Denotational equality implies contextual equivalence"
 prev: /adequacy/
-next: /dependentbase/
+next: /dependent-base/
 src: content/part3/ContextualEquivalence.md
 module: PLFH.Part3.ContextualEquivalence
 plfaChapter: https://plfa.inf.ed.ac.uk/ContextualEquivalence/

@@ -15,7 +15,7 @@ browser through WebAssembly. Pick a preset or edit the code, then press
 
 ### Preloaded environment and shortcuts
 
-The WebAssembly session preloads [`dependent-base`](/dependentbase/),
+The WebAssembly session preloads [`dependent-base`](/dependent-base/),
 [`dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq),
 [`dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
 `transformers`, `mtl`, and all 25 `PLFH.*` chapter modules.
@@ -34,7 +34,7 @@ The WebAssembly session preloads [`dependent-base`](/dependentbase/),
   `:browse Prelude.Dependent`, or runtime evaluation.
 
 See the [Dependent Haskell Overview](/overview/) for the guided walkthrough, or
-browse [`dependent-base`](/dependentbase/) and the [Source Browser](/source/).
+browse [`dependent-base`](/dependent-base/) and the [Source Browser](/source/).
 Found a compiler bug, panic, or unexpected type error? Please
 [file an issue on `TharkunAB/ghc`](https://github.com/TharkunAB/ghc/issues)
 with a minimal reproducer.

@@ -146,10 +146,10 @@ appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
 PLFA defines `length` and proves `length (xs ++ ys) ≡ length xs + length ys`,
 along with length preservation for `map` and `reverse`. Using
-[`Data.List.Dependent.size`](/dependentbase/#datalistdependent) (`size :: List a -> Nat`) over
+[`Data.List.Dependent.size`](/dependent-base/#datalistdependent) (`size :: List a -> Nat`) over
 ordinary Prelude `(++)` and `map`, we prove `lengthAppendLaw` and
 `lengthMapLaw` directly by structural induction on `xs` (the same proofs are
-also exported by [`Data.List.Dependent.Properties`](/dependentbase/#datalistdependentproperties) as `lengthAppend` and
+also exported by [`Data.List.Dependent.Properties`](/dependent-base/#datalistdependentproperties) as `lengthAppend` and
 `lengthMap`, alongside `lengthReverse` for Prelude's tail-recursive `reverse`):
 
 ```haskell

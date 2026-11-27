@@ -1217,7 +1217,7 @@ congConsLeft eq = cong (x :) eq
 ## 4. Erased existentials and `dependent-base`
 
 [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base)
-(documented in the [`dependent-base` Reference](/dependentbase/)) builds a
+(documented in the [`dependent-base` Reference](/dependent-base/)) builds a
 standard library directly on stock `Prelude` types (`Bool`, `Maybe`, `Either`,
 `(,)`, `[a]`, `(:~:)`, `Void`) and compiles `.hi` interfaces that ordinary
 `Haskell2010` modules can import without enabling `-XDependentTypes`.
@@ -1286,7 +1286,7 @@ existsDemo =
 <div class="showcase-credits">
   <strong>Package:</strong>
   <a href="https://github.com/TharkunAB/dependent-base"><code>TharkunAB/dependent-base</code></a> &middot;
-  <a href="/dependentbase/#datafunctiondependent"><code>Data.Function.Dependent</code></a>
+  <a href="/dependent-base/#datafunctiondependent"><code>Data.Function.Dependent</code></a>
 </div>
 
 `Data.Function.Dependent.(.)` generalizes `Prelude.(.)` to dependent consumers
@@ -1336,8 +1336,8 @@ composeDemo = (map natToInt (toListVec (zerosPlus1 2)), ordinaryCompose (* 2) (+
 <div class="showcase-credits">
   <strong>Package:</strong>
   <a href="https://github.com/TharkunAB/dependent-base"><code>TharkunAB/dependent-base</code></a> &middot;
-  <a href="/dependentbase/#datavecdependent"><code>Data.Vec.Dependent</code></a> &middot;
-  <a href="/dependentbase/#datafindependent"><code>Data.Fin.Dependent</code></a>
+  <a href="/dependent-base/#datavecdependent"><code>Data.Vec.Dependent</code></a> &middot;
+  <a href="/dependent-base/#datafindependent"><code>Data.Fin.Dependent</code></a>
 </div>
 
 `Data.Vec.Dependent` and `Data.Fin.Dependent` pair length-checked operations
@@ -1665,7 +1665,7 @@ fourColorDemo = (colorPlanar [0], colorPlanar [0, 1, 2, 0])
 | Repository | Role |
 | --- | --- |
 | [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell) | GHC 10.1 fork implementing `-XDependentTypes`, native dependent Core (`DepFunTy`, `TermVarTy`, `ExistsTy`), and the [Serokell roadmap](https://ghc.serokell.io/dh) ([`ROADMAP.md`](https://github.com/TharkunAB/ghc/blob/dependent-haskell/docs/dependent-haskell/ROADMAP.md), [Issue Tracker](https://github.com/TharkunAB/ghc/issues)) |
-| [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.Decision`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,...}.Dependent`); see the [API reference](/dependentbase/) |
+| [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base) | Standard library (`Prelude.Dependent`, `Data.Function.Dependent`, `Data.Decision`, `Data.{Nat,List,Vec,Fin,Sigma,Exists,...}.Dependent`); see the [API reference](/dependent-base/) |
 | [`TharkunAB/dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search) | `HoleFitPlugin` (`-fplugin=Dependent.Plugin.ProofSearch`) for congruence/transitivity subgoal refinements and bounded proof synthesis |
 | [`TharkunAB/dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq) | `TcPlugin` (`-fplugin=Dependent.Plugin.ObsEq`, idea by Jules `@analytichegel`) for observational-equality testing and counterexample shrinking |
 | [`TharkunAB/PLFH`](https://github.com/TharkunAB/PLFH) | 25-chapter interactive textbook adapted from PLFA ([Table of Contents](/), [Coverage](/status/), [Setup](/setup/)) |

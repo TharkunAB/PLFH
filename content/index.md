@@ -63,7 +63,7 @@ compiler bug or unexpected type-checker behavior, please
 
 ## Reference and backmatter
 
-- [`dependent-base` Reference](/dependentbase/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`) and GHCi tips
+- [`dependent-base` Reference](/dependent-base/): Exported API (`Prelude.Dependent`, `Data.*.Dependent`) and GHCi tips
 - [Source Browser](/source/): Syntax-highlighted `.hs` source for all 25 chapters and `dependent-base` modules
 - [Chapter Coverage](/status/): Chapter-by-chapter mapping from PLFA to PLFH
 - [How to Cite & License](/citing/): CC BY 4.0 license and attribution to upstream PLFA

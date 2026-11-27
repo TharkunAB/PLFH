@@ -75,7 +75,7 @@ inference rules:
 </div>
 
 And here is the definition in Dependent Haskell (imported from
-[`Data.Nat.Dependent`](/dependentbase/#datanatdependent) in `dependent-base`, see its source in [`Data/Nat/Dependent/Internal.hs`](/source/dependent-base/data/nat/dependent/internal/), so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
+[`Data.Nat.Dependent`](/dependent-base/#datanatdependent) in `dependent-base`, see its source in [`Data/Nat/Dependent/Internal.hs`](/source/dependent-base/data/nat/dependent/internal/), so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
 literals share one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL`
 and switches to Agda's `Data.Nat`):
 
@@ -746,5 +746,5 @@ canonical `Bin` are in one-to-one correspondence.
 
 ## Changes from PLFA
 
-- Reuses `Nat`, `plus`, and `Num`/`FromNatural` decimal numerals from [`Data.Nat.Dependent`](/dependentbase/#datanatdependent) so every chapter shares one nominal `Nat` type, while defining `times`, `monus`, `pow`, and `Bin` directly in this chapter.
+- Reuses `Nat`, `plus`, and `Num`/`FromNatural` decimal numerals from [`Data.Nat.Dependent`](/dependent-base/#datanatdependent) so every chapter shares one nominal `Nat` type, while defining `times`, `monus`, `pow`, and `Bin` directly in this chapter.
 - Uses prefix names (`plus`, `times`, `monus`, `pow`) rather than Agda mixfix operators.

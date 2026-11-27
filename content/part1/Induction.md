@@ -312,7 +312,7 @@ The proof requires that we first demonstrate two lemmas:
 
 We prove both lemmas directly by structural induction on `m` using `cong Succ`
 (later chapters can also import the same proofs from
-[`Data.Nat.Dependent.Properties`](/dependentbase/#datanatdependentproperties) under the names `plusZero` and `plusSucc`):
+[`Data.Nat.Dependent.Properties`](/dependent-base/#datanatdependentproperties) under the names `plusZero` and `plusSucc`):
 
 ```haskell
 -- | First lemma: right identity of addition (`+-identityʳ`).
@@ -605,5 +605,5 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
 
 ## Changes from PLFA
 
-- Proves `plusIdentityR` and `plusSuc` directly by induction, matching PLFA's structure (later chapters may also import `plusZero` and `plusSucc` from [`Data.Nat.Dependent.Properties`](/dependentbase/#datanatdependentproperties)).
+- Proves `plusIdentityR` and `plusSuc` directly by induction, matching PLFA's structure (later chapters may also import `plusZero` and `plusSucc` from [`Data.Nat.Dependent.Properties`](/dependent-base/#datanatdependentproperties)).
 - Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax and omits Agda's Emacs interactive walkthrough and Unicode input table.

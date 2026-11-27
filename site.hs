@@ -96,7 +96,7 @@ main = do
             md = buildSourceIndexMarkdown chapMods depBaseIds
             ctx =
               constField "title" "Source Browser"
-                <> constField "prevUrl" "/dependentbase/"
+                <> constField "prevUrl" "/dependent-base/"
                 <> constField "nextUrl" "/status/"
                 <> pageCtx baseUrl wasmRootfsUrl
         pandocItem <- readPandocWith plfhReaderOpts (Item (fromFilePath "source-index.md") md)
@@ -117,15 +117,18 @@ main = do
           >>= applyBaseUrl baseUrl
 
     -- On case-sensitive CI builds (PLFH_EMIT_CASE_REDIRECTS=1), emit static HTML
-    -- redirect stubs at legacy capitalized paths so shared links never 404.
+    -- redirect stubs at legacy capitalized and unhyphenated paths so shared links never 404.
     if emitCaseRedirects
       then do
         match contentPages $ version "legacy-redirect" $ do
           route legacyPageRoute
           compile $ do
             ident <- getUnderlying
-            let slug = lowerPath (takeBaseName (dropExtension (toFilePath ident)))
+            let slug = prettyPageSlug (toFilePath ident)
             makeItem (redirectStubHtml baseUrl ("/" ++ slug ++ "/"))
+        create ["dependentbase/index.html"] $ do
+          route idRoute
+          compile $ makeItem (redirectStubHtml baseUrl "/dependent-base/")
         create ["Source/index.html"] $ do
           route idRoute
           compile $ makeItem (redirectStubHtml baseUrl "/source/")
@@ -156,13 +159,19 @@ normalizeBaseUrl s
 lowerPath :: String -> String
 lowerPath = map toLower
 
--- | Map @content/Setup.md@ -> @setup/index.html@ and
+-- | Map a content Markdown path to its canonical URL slug.
+prettyPageSlug :: FilePath -> String
+prettyPageSlug path =
+  case takeBaseName (dropExtension path) of
+    "DependentBase" -> "dependent-base"
+    other           -> lowerPath other
+
+-- | Map @content/Setup.md@ -> @setup/index.html@,
+-- @content/DependentBase.md@ -> @dependent-base/index.html@, and
 -- @content/part1/Naturals.md@ -> @naturals/index.html@.
 prettyPageRoute :: Routes
 prettyPageRoute = customRoute $ \ident ->
-  let path = toFilePath ident
-      base = lowerPath (takeBaseName (dropExtension path))
-  in base </> "index.html"
+  prettyPageSlug (toFilePath ident) </> "index.html"
 
 -- | Legacy capitalized route for case-sensitive CI redirect stubs.
 legacyPageRoute :: Routes
@@ -201,8 +210,9 @@ notFoundPageHtml baseUrl =
     , "(function () {"
     , "  var p = window.location.pathname;"
     , "  var lower = p.toLowerCase();"
-    , "  if (p !== lower) {"
-    , "    window.location.replace(lower + window.location.search + window.location.hash);"
+    , "  var mapped = lower.replace(/^(\\/.*)?\\/dependentbase(\\/|$)/, '$1/dependent-base$2');"
+    , "  if (p !== mapped) {"
+    , "    window.location.replace(mapped + window.location.search + window.location.hash);"
     , "  }"
     , "})();"
     , "</script>"
@@ -279,7 +289,7 @@ pageCtx baseUrl wasmRootfsUrl =
     <> field "navOverview" (mkNavActive "overview/index.html")
     <> field "navBook" mkNavActiveBook
     <> field "navPlayground" (mkNavActive "playground/index.html")
-    <> field "navDepBase" (mkNavActive "dependentbase/index.html")
+    <> field "navDepBase" (mkNavActive "dependent-base/index.html")
     <> field "navSetup" (mkNavActive "setup/index.html")
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
@@ -308,7 +318,7 @@ sourceCtx path baseUrl wasmRootfsUrl =
     <> constField "githubUrl" (sourceGitHubUrl path)
     <> maybe mempty (constField "chapterUrl") (sourceChapterUrl path)
     <> (if "reference/dependent-base/" `isPrefixOf` path
-          then constField "depBaseRefUrl" "/dependentbase/"
+          then constField "depBaseRefUrl" "/dependent-base/"
           else mempty)
     <> pageCtx baseUrl wasmRootfsUrl
 
@@ -369,7 +379,7 @@ buildSourceIndexMarkdown chapMods depBaseIds =
       ++ [ ""
          , "## `dependent-base` modules (" ++ show (length depBaseIds) ++ ")"
          , ""
-         , "See the [`dependent-base` Reference](/dependentbase/) for the exported API summary."
+         , "See the [`dependent-base` Reference](/dependent-base/) for the exported API summary."
          , ""
          ]
       ++ map formatPlainRow depBaseIds
@@ -430,7 +440,7 @@ mkNavActiveBook item = do
   let nonBook =
         [ Just "overview/index.html"
         , Just "playground/index.html"
-        , Just "dependentbase/index.html"
+        , Just "dependent-base/index.html"
         , Just "setup/index.html"
         , Just "404.html"
         ]
