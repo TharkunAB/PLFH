@@ -1,7 +1,7 @@
 ---
 title: "BigStep: Big-step call-by-name operational semantics"
-prev: /Substitution/
-next: /Confluence/
+prev: /substitution/
+next: /confluence/
 src: content/part2/BigStep.md
 module: PLFH.Part2.BigStep
 plfaChapter: https://plfa.inf.ed.ac.uk/BigStep/
@@ -15,7 +15,7 @@ due to Gilles Kahn: **big-step** (or *natural*) operational semantics, written
 `e ⊢ M ⇓ c`, which relates an expression directly to its final evaluated result.
 
 Even more importantly, we make two design choices that prepare directly for
-Part 3 ([Denotational Semantics](/Denotational/) and [Adequacy](/Adequacy/)):
+Part 3 ([Denotational Semantics](/denotational/) and [Adequacy](/adequacy/)):
 
 1. **Environments and closures instead of substitution:** Rather than
    rewriting syntax every time a function is called, we evaluate a term `UTerm n`
@@ -229,11 +229,11 @@ evalBigIsLam (EApp _ ev2) = evalBigIsLam ev2
 
 ## Determinism (`⇓-determ`)
 
-Unlike full β-reduction in [Untyped](/Untyped/), call-by-name big-step
+Unlike full β-reduction in [Untyped](/untyped/), call-by-name big-step
 evaluation is **deterministic**: if `e ⊢ m ⇓ c₁` and `e ⊢ m ⇓ c₂`, then
 `c₁ :~: c₂`. Both `envLookupDeterm` and `evalDeterm` prove in three lines by
 structural induction, and `evalDeterm` directly powers the join case of
-**Big-Step Adequacy** in [Adequacy](/Adequacy/).
+**Big-Step Adequacy** in [Adequacy](/adequacy/).
 
 ```haskell
 -- | Determinism of relational environment lookup.
@@ -257,7 +257,7 @@ derivation** `EvalBig ENil m c`. To prove `Not (EvalBig ENil OmegaTerm c)` by
 structural induction on `EvalBig`, notice that each application step wraps `SelfApp`
 inside another environment indirection `(UVar FZ, ECons ...)`. Capturing that
 chain with the inductive invariant `IsSelfApp e m` yields a 6-line proof of
-**`omegaDiverges`**, which in [Adequacy](/Adequacy/) immediately proves that `Ω`
+**`omegaDiverges`**, which in [Adequacy](/adequacy/) immediately proves that `Ω`
 cannot denote any non-trivial function value.
 
 ```haskell
@@ -287,7 +287,7 @@ omegaDiverges = omegaLoopDiverges SelfAppDirect SelfAppDirect
 ## Functional environment lookup (`EvalFun`)
 
 The variable rule `EVar` above uses the inductive relation `EnvLookup`, which
-we use directly in [Adequacy](/Adequacy/). Under `-XDependentTypes`, GHC
+we use directly in [Adequacy](/adequacy/). Under `-XDependentTypes`, GHC
 publishes checked equations for the ordinary `lookupEnv` function, so we can
 also state PLFA's functional variable rule directly via `EvalFun`:
 
@@ -474,5 +474,5 @@ that substitutes arguments directly instead of carrying a closure environment
 
 ## Changes from PLFA
 
-- Provides both relational `EvalBig` (used in [Adequacy](/Adequacy/)) and functional `EvalFun` over `lookupEnv`, proving `evalDeterm`, `omegaDiverges`, and the big-step to small-step bridge `cbnToReduce` via inductive environment closing `CloseEnv`.
+- Provides both relational `EvalBig` (used in [Adequacy](/adequacy/)) and functional `EvalFun` over `lookupEnv`, proving `evalDeterm`, `omegaDiverges`, and the big-step to small-step bridge `cbnToReduce` via inductive environment closing `CloseEnv`.
 - Omits PLFA's prose section on Plotkin standardization.

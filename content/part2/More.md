@@ -1,7 +1,7 @@
 ---
 title: "More: Additional constructs of simply-typed lambda calculus"
-prev: /Untyped/
-next: /Bisimulation/
+prev: /untyped/
+next: /bisimulation/
 src: content/part2/More.md
 module: PLFH.Part2.More
 plfaChapter: https://plfa.inf.ed.ac.uk/More/
@@ -10,10 +10,10 @@ plfaChapter: https://plfa.inf.ed.ac.uk/More/
 Real functional programming languages offer far more than just functions and
 natural numbers. Following PLFA's **More** chapter, we scale our
 intrinsically-typed de Bruijn simply-typed lambda calculus from
-[DeBruijn](/DeBruijn/) into a rich core functional language supporting:
+[DeBruijn](/debruijn/) into a rich core functional language supporting:
 
 - **Local `let` bindings** (`Let`, binding a computed value to variable `Z`),
-- **Unit (`TUnit`, `TT`)** and **Products (`TProd`, `Pair`, `Fst`, `Snd`)**,   the computational counterparts of `⊤` and `×` from [Connectives](/Connectives/),
+- **Unit (`TUnit`, `TT`)** and **Products (`TProd`, `Pair`, `Fst`, `Snd`)**,   the computational counterparts of `⊤` and `×` from [Connectives](/connectives/),
 - **Empty type / Void (`TVoid`, `Absurd`)** and **Sums (`TSum`, `Inl`, `Inr`,
   `CaseSum`)**, the computational counterparts of `⊥` and `⊎`,
 - **Lists (`TList`, `Nil`, `Cons`, `CaseLst`)**, an inductive algebraic
@@ -84,7 +84,7 @@ Each new type constructor brings its own introduction and elimination forms:
 
 `Let m n` can also be viewed as syntactic sugar for `App (Lam n) m` under
 call-by-value, a correspondence we prove as a lock-step bisimulation in
-[Bisimulation](/Bisimulation/).
+[Bisimulation](/bisimulation/).
 
 <div class="rule-group">
   <div class="inference-rule">

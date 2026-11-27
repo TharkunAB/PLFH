@@ -1,7 +1,7 @@
 ---
 title: "Lists: Lists and higher-order functions"
-prev: /Decidable/
-next: /Lambda/
+prev: /decidable/
+next: /lambda/
 src: content/part1/Lists.md
 module: PLFH.Part1.Lists
 plfaChapter: https://plfa.inf.ed.ac.uk/Lists/
@@ -28,7 +28,7 @@ We import `Type`, `(:~:)` and `gcastWith`, `Void`, `List` from `GHC.Types`,
 `foldr` from `Data.List.Dependent`, `lengthReverse` from
 `Data.List.Dependent.Properties`, `Nat` and `plus` from `Data.Nat.Dependent`,
 `plusZero` from `Data.Nat.Dependent.Properties`, `Dec`/`Not` from
-[Decidable](/Decidable/), and `Iff` from [Isomorphism](/Isomorphism/).
+[Decidable](/decidable/), and `Iff` from [Isomorphism](/isomorphism/).
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
@@ -146,10 +146,10 @@ appendNilR (_ : xs) = rewrite (appendNilR xs) Refl
 
 PLFA defines `length` and proves `length (xs ++ ys) ≡ length xs + length ys`,
 along with length preservation for `map` and `reverse`. Using
-[`Data.List.Dependent.size`](/DependentBase/#datalistdependent) (`size :: List a -> Nat`) over
+[`Data.List.Dependent.size`](/dependentbase/#datalistdependent) (`size :: List a -> Nat`) over
 ordinary Prelude `(++)` and `map`, we prove `lengthAppendLaw` and
 `lengthMapLaw` directly by structural induction on `xs` (the same proofs are
-also exported by [`Data.List.Dependent.Properties`](/DependentBase/#datalistdependentproperties) as `lengthAppend` and
+also exported by [`Data.List.Dependent.Properties`](/dependentbase/#datalistdependentproperties) as `lengthAppend` and
 `lengthMap`, alongside `lengthReverse` for Prelude's tail-recursive `reverse`):
 
 ```haskell

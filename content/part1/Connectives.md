@@ -1,7 +1,7 @@
 ---
 title: "Connectives: Conjunction, disjunction, and implication"
-prev: /Isomorphism/
-next: /Negation/
+prev: /isomorphism/
+next: /negation/
 src: content/part1/Connectives.md
 module: PLFH.Part1.Connectives
 plfaChapter: https://plfa.inf.ed.ac.uk/Connectives/
@@ -47,7 +47,7 @@ is therefore a theorem of propositional logic.
 ## Imports
 
 We import propositional equality `(:~:)`, `Void` and `absurd` from `Data.Void`,
-and both `Iff` and polymorphic `Iso` from [Isomorphism](/Isomorphism/).
+and both `Iff` and polymorphic `Iso` from [Isomorphism](/isomorphism/).
 Because `-XDependentTypes` enables `-XNoListTuplePuns` by default (so list
 constructors `[]` and `[0, 1]` need no leading `'` tick in types), we also
 enable `ListTuplePuns` here to keep familiar Haskell `(a, b)` and `()` tuple
@@ -581,7 +581,7 @@ nor Dependent Haskell proves internally without an axiom.
 ### Exercise `×-distrib-⊎` and `→-distrib-⊎` (practice)
 
 Compare `prodDistribSum`, `prodDistribSumL`, `expSum`, and `expProd` above
-with the distributive laws of arithmetic from [Induction](/Induction/): why
+with the distributive laws of arithmetic from [Induction](/induction/): why
 do `Either (a, b) c` and `(Either a c, Either b c)` admit maps in **both**
 directions (`Iff` and `Embed`) yet fail to form an `Iso` (try counting
 inhabitants), and why is there no general equivalence

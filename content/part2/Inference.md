@@ -1,13 +1,13 @@
 ---
 title: "Inference: Type Inference for Intrinsically-Typed Terms"
-prev: /DeBruijn/
-next: /Untyped/
+prev: /debruijn/
+next: /untyped/
 src: content/part2/Inference.md
 module: PLFH.Part2.Inference
 plfaChapter: https://plfa.inf.ed.ac.uk/Inference/
 ---
 
-In [DeBruijn](/DeBruijn/) we represented programs as intrinsically typed terms
+In [DeBruijn](/debruijn/) we represented programs as intrinsically typed terms
 `Term g a`, whose well-typedness is enforced statically by GHC. That makes
 metatheory wonderfully clean (ill-typed terms simply do not exist) but it leaves
 a practical question: in a real compiler or interpreter, programs arrive from a
@@ -30,8 +30,8 @@ returned value is itself a complete typing derivation.
 ## Imports
 
 We import propositional equality `(:~:)`, Peano naturals `Data.Nat.Dependent` (for
-raw de Bruijn numbers), `Not` from [Decidable](/Decidable/), and our
-intrinsically typed STLC definitions from [DeBruijn](/DeBruijn/).
+raw de Bruijn numbers), `Not` from [Decidable](/decidable/), and our
+intrinsically typed STLC definitions from [DeBruijn](/debruijn/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, LambdaCase #-}
@@ -73,7 +73,7 @@ import PLFH.Part2.DeBruijn (Ctx (..), Lookup (..), Term (..), Ty (..))
 
 ## Bidirectional vs. syntax-directed typing, and raw syntax (`RawTerm`)
 
-Our typing rules in [DeBruijn](/DeBruijn/) are almost **syntax-directed**: the
+Our typing rules in [DeBruijn](/debruijn/) are almost **syntax-directed**: the
 outermost constructor of a term determines which typing rule applies. The only
 places where an untyped term lacks enough information to *synthesize* its type
 from the bottom up are variable-binding forms (`Lam` and `Mu`), where the

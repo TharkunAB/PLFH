@@ -1,8 +1,8 @@
 ---
 title: "Setup: Building Dependent Haskell GHC"
 description: "Build the Dependent Haskell GHC 10.1 fork (TharkunAB/ghc), use -XDependentTypes in GHCi, and install dependent-base, dependent-proof-search, and dependent-obs-eq."
-prev: /Preface/
-next: /Naturals/
+prev: /preface/
+next: /naturals/
 src: content/Setup.md
 ---
 
@@ -121,8 +121,8 @@ ghci> :t plusComm
 
 ## Using the in-browser GHCi (WebAssembly)
 
-Every chapter page, the [Overview](/Overview/), and the
-[Playground](/Playground/) include an in-browser `wasm32-wasi` GHCi session. It
+Every chapter page, the [Overview](/overview/), and the
+[Playground](/playground/) include an in-browser `wasm32-wasi` GHCi session. It
 loads lazily on your first click, caches the compiler bundle in your browser,
 and ships with `dependent-base`, `dependent-obs-eq`, `Dependent.Plugin.ObsEq`,
 `Dependent.Plugin.ProofSearch`, `transformers`, `mtl`, and all 25 PLFH chapters

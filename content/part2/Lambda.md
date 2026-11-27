@@ -1,7 +1,7 @@
 ---
 title: "Lambda: Introduction to Lambda Calculus"
-prev: /Lists/
-next: /Properties/
+prev: /lists/
+next: /properties/
 src: content/part2/Lambda.md
 module: PLFH.Part2.Lambda
 plfaChapter: https://plfa.inf.ed.ac.uk/Lambda/
@@ -16,16 +16,16 @@ numbers, case analysis, and general recursion (`μ`).
 This chapter follows PLFA's *extrinsic* formulation of STLC: we first define
 untyped syntax (`Term`) and its operational semantics (values, substitution,
 and call-by-value reduction), and then separately define a typing judgment
-(`HasType`) that picks out the well-typed programs. In [Properties](/Properties/)
+(`HasType`) that picks out the well-typed programs. In [Properties](/properties/)
 we prove that every closed, well-typed program satisfies Progress and
-Preservation; in [DeBruijn](/DeBruijn/) we revisit the same language using
+Preservation; in [DeBruijn](/debruijn/) we revisit the same language using
 *intrinsically* typed terms.
 
 ## Imports
 
 We import propositional equality `(:~:)`, Peano naturals `Nat` from
 `Data.Nat.Dependent` (used here as structural variable identifiers), and `Not` from
-[Decidable](/Decidable/) to express variable inequality during context lookup.
+[Decidable](/decidable/) to express variable inequality during context lookup.
 
 ```haskell
 {-# LANGUAGE DependentTypes, LambdaCase #-}
@@ -92,7 +92,7 @@ plus = μ "+" ⇒ λ m ⇒ λ n ⇒ case m [ zero ⇒ n | suc m' ⇒ suc ("+" ·
 
 Because `μ` allows arbitrary recursion, our simply-typed lambda calculus is
 Turing-complete, well-typed terms can loop forever (such as `μ x ⇒ x`), yet as
-we will prove in [Properties](/Properties/), they can never *get stuck* on a
+we will prove in [Properties](/properties/), they can never *get stuck* on a
 type error.
 
 ## Bound and free variables, and the Barendregt convention
@@ -107,7 +107,7 @@ assume bound variables are chosen distinct from free variables (the *Barendregt
 convention*). When formalizing in a proof assistant, however, names are concrete
 data. In this chapter we restrict substitution `substTerm m y v` to replacing
 `y` with a **closed** term `v`, which neatly avoids variable capture without
-needing α-renaming. (In [DeBruijn](/DeBruijn/) we eliminate variable names
+needing α-renaming. (In [DeBruijn](/debruijn/) we eliminate variable names
 altogether using de Bruijn indices so that α-equivalent terms are syntactically
 identical)
 

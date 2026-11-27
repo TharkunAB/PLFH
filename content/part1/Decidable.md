@@ -1,7 +1,7 @@
 ---
 title: "Decidable: Booleans and decision procedures"
-prev: /Quantifiers/
-next: /Lists/
+prev: /quantifiers/
+next: /lists/
 src: content/part1/Decidable.md
 module: PLFH.Part1.Decidable
 plfaChapter: https://plfa.inf.ed.ac.uk/Decidable/
@@ -10,7 +10,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Decidable/
 We have a choice as to how to represent relations and predicates:
 
 - As an inductive GADT of **evidence** that the relation holds (like `LE m n`
-  in [Relations](/Relations/)).
+  in [Relations](/relations/)).
 - As a function that **computes** a `Bool` (`True` or `False`).
 
 In this chapter we explore the relationship between evidence and computation,
@@ -22,9 +22,9 @@ its answer.
 ## Imports
 
 We import `Type`, `(:~:)`, `Void`, `GHC.Sigma`, `Nat` and `plus`, `cong` from
-[Induction](/Induction/), `Iff` from [Isomorphism](/Isomorphism/), `Not` from
-[Negation](/Negation/), `Bin` from [Naturals](/Naturals/), and our inductive
-relations from [Relations](/Relations/).
+[Induction](/induction/), `Iff` from [Isomorphism](/isomorphism/), `Not` from
+[Negation](/negation/), `Bin` from [Naturals](/naturals/), and our inductive
+relations from [Relations](/relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
@@ -125,7 +125,7 @@ derivations like `SleS (SleS ZleN)` by hand.
 
 ### Peano's postulate
 
-Using `Not` from [Negation](/Negation/), Peano's postulate states that `Zero`
+Using `Not` from [Negation](/negation/), Peano's postulate states that `Zero`
 is never equal to `Succ n`:
 
 ```haskell
@@ -252,7 +252,7 @@ and `OfFalse :: Not p -> Reflects p False`, from which `reflectsToDec` immediate
 
 Finally, as a bonus extension beyond PLFA's `Decidable` chapter, we also prove
 decidability for the binary-numeral predicates introduced in
-[Naturals](/Naturals/) and [Relations](/Relations/): propositional equality
+[Naturals](/naturals/) and [Relations](/relations/): propositional equality
 (`decEqBin`), positive canonical form (`decOne`), and canonical form
 (`decCan`) are all decidable on `Bin`.
 

@@ -8,7 +8,7 @@ Kokke, and Jeremy G. Siek's
 GHC ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/ghc/tree/dependent-haskell)).
 
 - Live site: <https://plfh.tharkun.se/>
-- Dependent Haskell overview & walkthrough: <https://plfh.tharkun.se/Overview/>
+- Dependent Haskell overview & walkthrough: <https://plfh.tharkun.se/overview/>
 - Companion repositories:
   [`TharkunAB/ghc`](https://github.com/TharkunAB/ghc/tree/dependent-haskell),
   [`TharkunAB/dependent-base`](https://github.com/TharkunAB/dependent-base),

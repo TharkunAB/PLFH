@@ -1,7 +1,7 @@
 ---
 title: "Quantifiers: Universals and existentials"
-prev: /Negation/
-next: /Decidable/
+prev: /negation/
+next: /decidable/
 src: content/part1/Quantifiers.md
 module: PLFH.Part1.Quantifiers
 plfaChapter: https://plfa.inf.ed.ac.uk/Quantifiers/
@@ -31,10 +31,10 @@ quantifiers:
 We import `Type`, `(:~:)`, `GHC.Sigma`, `GHC.Exists`/`Data.Exists.Dependent`,
 `rewrite` from `Data.Type.Equality.Dependent`, `Nat` and addition helpers from
 `Data.Nat.Dependent`/`Data.Nat.Dependent.Properties`, `Bin`/`toBin`/`fromBin`
-from [Naturals](/Naturals/), `cong` and `fromTo` from [Induction](/Induction/),
-`Not` from [Negation](/Negation/), `Iff` and `Iso` from
-[Isomorphism](/Isomorphism/), and `Even`/`Odd`/`One`/`Can`/`toBinCan`/`toFromCan`
-from [Relations](/Relations/).
+from [Naturals](/naturals/), `cong` and `fromTo` from [Induction](/induction/),
+`Not` from [Negation](/negation/), `Iff` and `Iso` from
+[Isomorphism](/isomorphism/), and `Even`/`Odd`/`One`/`Can`/`toBinCan`/`toFromCan`
+from [Relations](/relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, LambdaCase, ListTuplePuns, UndecidableInstances #-}
@@ -98,7 +98,7 @@ import PLFH.Part1.Relations (Can (..), Even (..), Odd (..), One (..), toBinCan, 
 ## Universals (`∀`)
 
 We have been using universal quantification throughout Part 1, for instance,
-in [Induction](/Induction/) we proved:
+in [Induction](/induction/) we proved:
 
 ```text
 plusAssoc :: foreach (m :: Nat) -> foreach (n :: Nat) -> foreach (p :: Nat)
@@ -250,7 +250,7 @@ sigmaDistribSum = Iff sigmaDistribSumTo sigmaDistribSumFrom
 ## An existential example: `Even` and `Odd` as doubles
 
 Recall the mutually inductive predicates `Even n` and `Odd n` from
-[Relations](/Relations/). PLFA shows that a natural number is even if and
+[Relations](/relations/). PLFA shows that a natural number is even if and
 only if it is twice some natural `k`, and odd if and only if it is one more
 than twice some natural `k`:
 
@@ -282,7 +282,7 @@ sumSigmaTwo = Pair 1 (Pair 1 Refl)
 
 ### Canonical binary isomorphism (`Nat ≃ some (b :: Bin) | Can b`)
 
-In [Isomorphism](/Isomorphism/), `Nat` embedded into `Bin` (`binEmbedding`)
+In [Isomorphism](/isomorphism/), `Nat` embedded into `Bin` (`binEmbedding`)
 because leading zeros broke the reverse round trip (`toBin (fromBin (X0 (X0 Nil)))`
 collapses to `X0 Nil`). Pairing each `Bin` with its canonical-form proof `Can b`
 as a retained dependent pair `some (b :: Bin) | Can b` completes the

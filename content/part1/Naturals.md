@@ -1,7 +1,7 @@
 ---
 title: "Naturals: Natural numbers"
-prev: /Setup/
-next: /Induction/
+prev: /setup/
+next: /induction/
 src: content/part1/Naturals.md
 module: PLFH.Part1.Naturals
 plfaChapter: https://plfa.inf.ed.ac.uk/Naturals/
@@ -75,7 +75,7 @@ inference rules:
 </div>
 
 And here is the definition in Dependent Haskell (imported from
-[`Data.Nat.Dependent`](/DependentBase/#datanatdependent) in `dependent-base`, see its source in [`Data/Nat/Dependent/Internal.hs`](/Source/dependent-base/Data/Nat/Dependent/Internal/), so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
+[`Data.Nat.Dependent`](/dependentbase/#datanatdependent) in `dependent-base`, see its source in [`Data/Nat/Dependent/Internal.hs`](/source/dependent-base/data/nat/dependent/internal/), so every chapter in Parts 1–3, `Data.List.Dependent.size`, and decimal-numeral
 literals share one nominal `Nat` type, just as PLFA binds `BUILTIN NATURAL`
 and switches to Agda's `Data.Nat`):
 
@@ -303,7 +303,7 @@ Here `(:~:)` is the propositional equality type operator (playing the role
 of Agda's `_≡_`), and `Refl` is its constructor providing evidence that two
 terms are equal (playing the role of Agda's `refl`). We will define
 propositional equality and equational reasoning chains from scratch in
-Chapter [Equality](/Equality/).
+Chapter [Equality](/equality/).
 
 ## Operations on naturals are recursive functions {#plus}
 
@@ -738,13 +738,13 @@ fromBin (X1 b) = Succ (plus (fromBin b) (fromBin b))
 
 All three ordinary Haskell functions (`inc`, `toBin`, and `fromBin`)
 automatically receive checked open source equations: so in
-[Induction](/Induction/) we prove `fromBin (inc b) :~: Succ (fromBin b)`
+[Induction](/induction/) we prove `fromBin (inc b) :~: Succ (fromBin b)`
 and `fromBin (toBin n) :~: n` directly by induction, and in
-[Relations](/Relations/) we complete the reverse round-trip equations on
+[Relations](/relations/) we complete the reverse round-trip equations on
 canonical bitstrings (`toBinCan` and `toFromCan`), showing that `Nat` and
 canonical `Bin` are in one-to-one correspondence.
 
 ## Changes from PLFA
 
-- Reuses `Nat`, `plus`, and `Num`/`FromNatural` decimal numerals from [`Data.Nat.Dependent`](/DependentBase/#datanatdependent) so every chapter shares one nominal `Nat` type, while defining `times`, `monus`, `pow`, and `Bin` directly in this chapter.
+- Reuses `Nat`, `plus`, and `Num`/`FromNatural` decimal numerals from [`Data.Nat.Dependent`](/dependentbase/#datanatdependent) so every chapter shares one nominal `Nat` type, while defining `times`, `monus`, `pow`, and `Bin` directly in this chapter.
 - Uses prefix names (`plus`, `times`, `monus`, `pow`) rather than Agda mixfix operators.

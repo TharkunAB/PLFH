@@ -1,7 +1,7 @@
 ---
 title: "ContextualEquivalence: Denotational equality implies contextual equivalence"
-prev: /Adequacy/
-next: /DependentBase/
+prev: /adequacy/
+next: /dependentbase/
 src: content/part3/ContextualEquivalence.md
 module: PLFH.Part3.ContextualEquivalence
 plfaChapter: https://plfa.inf.ed.ac.uk/ContextualEquivalence/
@@ -25,11 +25,11 @@ contextual equivalence** (`ℰ M ≃ ℰ N` implies `M ≃ᶜᵗˣ N`) takes onl
 line**.
 
 Suppose `ℰ M ≃ ℰ N` and `C[M]` terminates at some lambda `λ b` (`C[M] —↠ λ b`):
-1. By **Compositionality** ([Compositional](/Compositional/)), `ℰ (C[M]) ≃ ℰ (C[N])`.
-2. By **Soundness** ([Soundness](/Soundness/)), `C[M] —↠ λ b` implies
+1. By **Compositionality** ([Compositional](/compositional/)), `ℰ (C[M]) ≃ ℰ (C[N])`.
+2. By **Soundness** ([Soundness](/soundness/)), `C[M] —↠ λ b` implies
    `ℰ (C[M]) ≃ ℰ (λ b)`.
 3. By symmetry and transitivity of `≃`, `ℰ (C[N]) ≃ ℰ (λ b)`.
-4. By **Adequacy** ([Adequacy](/Adequacy/)), since `λ b` has a non-trivial
+4. By **Adequacy** ([Adequacy](/adequacy/)), since `λ b` has a non-trivial
    function denotation (`⊥ ↦ ⊥`), `C[N]` must also terminate.
 
 And by symmetry, if `C[N]` terminates then `C[M]` terminates too.

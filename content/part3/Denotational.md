@@ -1,7 +1,7 @@
 ---
 title: "Denotational: Denotational semantics of untyped lambda calculus"
-prev: /Confluence/
-next: /Compositional/
+prev: /confluence/
+next: /compositional/
 src: content/part3/Denotational.md
 module: PLFH.Part3.Denotational
 plfaChapter: https://plfa.inf.ed.ac.uk/Denotational/
@@ -41,18 +41,18 @@ argument (`denotDelta` below).
 ### Roadmap of Part 3
 
 Over the five chapters of Part 3, we build the complete semantic theory:
-1. **[Denotational](/Denotational/)** (this chapter): finite tables `Value`,
+1. **[Denotational](/denotational/)** (this chapter): finite tables `Value`,
    approximation `Sub`, function subtyping inversion (`subInv`, `arrSubArrInv`),
    denotations `Denotes`, environment monotonicity, and denotational
    equivalence `DenEq`.
-2. **[Compositional](/Compositional/)**: semantic equations for lambda (`ℱ`)
+2. **[Compositional](/compositional/)**: semantic equations for lambda (`ℱ`)
    and application (`●`), lambda inversion, and congruence (`lamCong`, `appCong`).
-3. **[Soundness](/Soundness/)**: full β-reduction preserves and
+3. **[Soundness](/soundness/)**: full β-reduction preserves and
    reflects denotations (`denotEquivSteps`).
-4. **[Adequacy](/Adequacy/)**: a negative-position logical relation proving
+4. **[Adequacy](/adequacy/)**: a negative-position logical relation proving
    Big-Step Adequacy (`adequacyBigStep`): any closed term with a
    non-trivial function denotation halts at a lambda.
-5. **[ContextualEquivalence](/ContextualEquivalence/)**: combining
+5. **[ContextualEquivalence](/contextualequivalence/)**: combining
    Compositionality, Soundness, and Adequacy to prove that denotationally equal
    terms are contextually equivalent.
 
@@ -360,7 +360,7 @@ subArrToCodSub (Join _ b) s (MemJoinR y) = subArrToCodSub b (\m -> s (MemJoinR m
 ## Inversion of `Sub` for functions (`subInv` and `arrSubArrInv`)
 
 This is the technical centerpiece of PLFA's **Denotational** chapter (and the
-foundation for decidability of `AboveFun` in [Adequacy](/Adequacy/)). The
+foundation for decidability of `AboveFun` in [Adequacy](/adequacy/)). The
 factoring theorem `subInv` proves that whenever `u₁ ⊑ u₂` and `v ↦ w ∈ u₁`,
 there is a non-empty sub-collection `u' ⊆ u₂` of function rows whose joined
 domains satisfy `dom u' ⊑ v` and whose joined codomains satisfy `w ⊑ cod u'`.
@@ -686,4 +686,4 @@ approximate each other in both directions (`Sub u v` and `Sub v u`).
 ## Changes from PLFA
 
 - Defines `Value`, `Sub` (including a primitive `SubRefl` constructor alongside inductive `subRefl`), `ValEnv`, and `Denotes` directly in GADT syntax, with ordinary recursive `dom` and `cod`.
-- Moves renaming preservation (`denotRename`) to [Soundness](/Soundness/).
+- Moves renaming preservation (`denotRename`) to [Soundness](/soundness/).

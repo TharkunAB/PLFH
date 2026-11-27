@@ -1,13 +1,13 @@
 ---
 title: "Confluence: Parallel reduction and Church-Rosser confluence"
-prev: /BigStep/
-next: /Denotational/
+prev: /bigstep/
+next: /denotational/
 src: content/part2/Confluence.md
 module: PLFH.Part2.Confluence
 plfaChapter: https://plfa.inf.ed.ac.uk/Confluence/
 ---
 
-Because full β-reduction (`BetaStep` in [Untyped](/Untyped/)) can contract
+Because full β-reduction (`BetaStep` in [Untyped](/untyped/)) can contract
 redexes in any order, a single term `L` can reduce along many different paths:
 
 <figure class="plfh-diagram">
@@ -303,7 +303,7 @@ betasToPars m1 bs = betasToParsW (mkTermW m1) bs
 
 Because `Par` uses functional `substSingleU`, the entire Tait–Martin-Löf
 parallel substitution lemma reduces directly to `renCommute` and `substCommute`
-from [Substitution](/Substitution/):
+from [Substitution](/substitution/):
 
 - **`parRename`**: simultaneous renaming preserves parallel reduction (using
   `renCommute` in the `PBeta` case).
@@ -537,4 +537,4 @@ arbitrary multi-variable substitution without re-proving renaming.
 
 ## Changes from PLFA
 
-- Reuses the substitution infrastructure from [Substitution](/Substitution/) to prove Tait and Martin-Löf's Diamond Property (`parDiamond`), the Strip Lemma (`strip`), Church-Rosser confluence (`churchRosser`), and uniqueness of normal forms (`uniqueNormalForm`).
+- Reuses the substitution infrastructure from [Substitution](/substitution/) to prove Tait and Martin-Löf's Diamond Property (`parDiamond`), the Strip Lemma (`strip`), Church-Rosser confluence (`churchRosser`), and uniqueness of normal forms (`uniqueNormalForm`).

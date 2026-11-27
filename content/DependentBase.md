@@ -1,8 +1,8 @@
 ---
 title: "dependent-base Reference"
 description: "API reference for TharkunAB/dependent-base: Prelude.Dependent, Data.Function.Dependent, Data.Nat.Dependent, Data.Vec.Dependent, Data.Fin.Dependent, Sigma, and Exists."
-prev: /ContextualEquivalence/
-next: /Source/
+prev: /contextualequivalence/
+next: /source/
 src: content/DependentBase.md
 ---
 
@@ -28,7 +28,7 @@ switch to Agda's standard library (`Data.Nat`, `Data.List`,
 In PLFH, Haskell datatypes are nominal and `Num Nat` / `FromNatural Nat`
 instances are global. Reusing `Data.Nat.Dependent.Nat` and stock `Prelude`
 `List a` keeps one shared `Nat` and one shared list type across all 25
-chapters, while chapters such as [Induction](/Induction/) and [Lists](/Lists/)
+chapters, while chapters such as [Induction](/induction/) and [Lists](/lists/)
 still prove the inductive theorems (`plusIdentityR`, `plusSuc`, `plusAssoc`,
 `plusComm`, `appendAssoc`, `lengthAppendLaw`, `lengthMapLaw`) inline.
 
@@ -51,7 +51,7 @@ ghci> natToInt (plus 2 3)
 
 ### `Prelude.Dependent` {#preludedependent}
 
-Source: [on-site `Prelude/Dependent.hs`](/Source/dependent-base/Prelude/Dependent/) ·
+Source: [on-site `Prelude/Dependent.hs`](/source/dependent-base/prelude/dependent/) ·
 [GitHub (`TharkunAB/dependent-base`)](https://github.com/TharkunAB/dependent-base/blob/main/src/Prelude/Dependent.hs)
 
 Umbrella prelude re-exporting `Data.Function.Dependent`,
@@ -63,7 +63,7 @@ Umbrella prelude re-exporting `Data.Function.Dependent`,
 
 ### `Data.Function.Dependent` {#datafunctiondependent}
 
-Source: [on-site `Data/Function/Dependent.hs`](/Source/dependent-base/Data/Function/Dependent/) ·
+Source: [on-site `Data/Function/Dependent.hs`](/source/dependent-base/data/function/dependent/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Function/Dependent.hs)
 
 Dependent function combinators that generalize ordinary `Prelude` operations
@@ -78,7 +78,7 @@ without breaking non-dependent call sites:
 
 ### `Data.Type.Equality.Dependent` {#datatypeequalitydependent}
 
-Source: [on-site `Data/Type/Equality/Dependent.hs`](/Source/dependent-base/Data/Type/Equality/Dependent/) ·
+Source: [on-site `Data/Type/Equality/Dependent.hs`](/source/dependent-base/data/type/equality/dependent/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Type/Equality/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -93,9 +93,9 @@ Source: [on-site `Data/Type/Equality/Dependent.hs`](/Source/dependent-base/Data/
 
 ### `Data.Nat.Dependent` & `Data.Nat.Dependent.Properties` {#datanatdependent}
 
-Source: [on-site `Data/Nat/Dependent.hs`](/Source/dependent-base/Data/Nat/Dependent/) ·
-[`Properties.hs`](/Source/dependent-base/Data/Nat/Dependent/Properties/) ·
-[`Internal.hs`](/Source/dependent-base/Data/Nat/Dependent/Internal/) ·
+Source: [on-site `Data/Nat/Dependent.hs`](/source/dependent-base/data/nat/dependent/) ·
+[`Properties.hs`](/source/dependent-base/data/nat/dependent/properties/) ·
+[`Internal.hs`](/source/dependent-base/data/nat/dependent/internal/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Nat/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -115,9 +115,9 @@ Proves `congSucc`, `congFirst`, `succInjective`, `eqNatRefl`, `eqSizeRefl`,
 
 ### `Data.List.Dependent`, `Properties`, & `All` {#datalistdependent}
 
-Source: [on-site `Data/List/Dependent.hs`](/Source/dependent-base/Data/List/Dependent/) ·
-[`Properties.hs`](/Source/dependent-base/Data/List/Dependent/Properties/) ·
-[`All.hs`](/Source/dependent-base/Data/List/Dependent/All/) ·
+Source: [on-site `Data/List/Dependent.hs`](/source/dependent-base/data/list/dependent/) ·
+[`Properties.hs`](/source/dependent-base/data/list/dependent/properties/) ·
+[`All.hs`](/source/dependent-base/data/list/dependent/all/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/List/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -136,8 +136,8 @@ and `lengthTakeSize`.
 
 ### `Data.Vec.Dependent` & `Data.Vec.Dependent.Properties` {#datavecdependent}
 
-Source: [on-site `Data/Vec/Dependent.hs`](/Source/dependent-base/Data/Vec/Dependent/) ·
-[`Properties.hs`](/Source/dependent-base/Data/Vec/Dependent/Properties/) ·
+Source: [on-site `Data/Vec/Dependent.hs`](/source/dependent-base/data/vec/dependent/) ·
+[`Properties.hs`](/source/dependent-base/data/vec/dependent/properties/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Vec/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -149,7 +149,7 @@ Source: [on-site `Data/Vec/Dependent.hs`](/Source/dependent-base/Data/Vec/Depend
 
 ### `Data.Fin.Dependent` {#datafindependent}
 
-Source: [on-site `Data/Fin/Dependent.hs`](/Source/dependent-base/Data/Fin/Dependent/) ·
+Source: [on-site `Data/Fin/Dependent.hs`](/source/dependent-base/data/fin/dependent/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Fin/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -159,8 +159,8 @@ Source: [on-site `Data/Fin/Dependent.hs`](/Source/dependent-base/Data/Fin/Depend
 
 ### `Data.Sigma.Dependent` & `Data.Exists.Dependent` {#datasigmadependent}
 
-Source: [`Data/Sigma/Dependent.hs`](/Source/dependent-base/Data/Sigma/Dependent/) ·
-[`Data/Exists/Dependent.hs`](/Source/dependent-base/Data/Exists/Dependent/) ·
+Source: [`Data/Sigma/Dependent.hs`](/source/dependent-base/data/sigma/dependent/) ·
+[`Data/Exists/Dependent.hs`](/source/dependent-base/data/exists/dependent/) ·
 [GitHub](https://github.com/TharkunAB/dependent-base/blob/main/src/Data/Sigma/Dependent.hs)
 
 | Symbol | Type / Role |
@@ -172,8 +172,8 @@ Source: [`Data/Sigma/Dependent.hs`](/Source/dependent-base/Data/Sigma/Dependent/
 
 | Module | On-site Source | Summary |
 | --- | --- | --- |
-| `Data.Decision` | [`Data/Decision.hs`](/Source/dependent-base/Data/Decision/) | `Void`, `absurd`, `Not`, `Dec (..)`, `Reflects`, `ReflectsBool`, `decNot`/`And`/`Or`/`Imp`, `DecEq` |
-| `Data.Bool.Dependent` | [`Data/Bool/Dependent.hs`](/Source/dependent-base/Data/Bool/Dependent/) | Certified `not`, `(&&)`, `(||)`, `bool`, involution and De Morgan laws |
-| `Data.Maybe.Dependent` | [`Data/Maybe/Dependent.hs`](/Source/dependent-base/Data/Maybe/Dependent/) | Certified `maybe`, `fromMaybe`, functor and round-trip laws |
-| `Data.Either.Dependent` | [`Data/Either/Dependent.hs`](/Source/dependent-base/Data/Either/Dependent/) | Certified `either`, sum involution and associativity |
-| `Data.Tuple.Dependent` | [`Data/Tuple/Dependent.hs`](/Source/dependent-base/Data/Tuple/Dependent/) | Certified `fst`, `snd`, `swap`, `curry`, `uncurry`, `Iso (..)`, `isoRefl`/`Sym`/`Trans` |
+| `Data.Decision` | [`Data/Decision.hs`](/source/dependent-base/data/decision/) | `Void`, `absurd`, `Not`, `Dec (..)`, `Reflects`, `ReflectsBool`, `decNot`/`And`/`Or`/`Imp`, `DecEq` |
+| `Data.Bool.Dependent` | [`Data/Bool/Dependent.hs`](/source/dependent-base/data/bool/dependent/) | Certified `not`, `(&&)`, `(||)`, `bool`, involution and De Morgan laws |
+| `Data.Maybe.Dependent` | [`Data/Maybe/Dependent.hs`](/source/dependent-base/data/maybe/dependent/) | Certified `maybe`, `fromMaybe`, functor and round-trip laws |
+| `Data.Either.Dependent` | [`Data/Either/Dependent.hs`](/source/dependent-base/data/either/dependent/) | Certified `either`, sum involution and associativity |
+| `Data.Tuple.Dependent` | [`Data/Tuple/Dependent.hs`](/source/dependent-base/data/tuple/dependent/) | Certified `fst`, `snd`, `swap`, `curry`, `uncurry`, `Iso (..)`, `isoRefl`/`Sym`/`Trans` |

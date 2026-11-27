@@ -1,13 +1,13 @@
 ---
 title: "Adequacy: Adequacy of denotational semantics with respect to operational semantics"
-prev: /Soundness/
-next: /ContextualEquivalence/
+prev: /soundness/
+next: /contextualequivalence/
 src: content/part3/Adequacy.md
 module: PLFH.Part3.Adequacy
 plfaChapter: https://plfa.inf.ed.ac.uk/Adequacy/
 ---
 
-In [Soundness](/Soundness/) we proved that operational reduction preserves
+In [Soundness](/soundness/) we proved that operational reduction preserves
 denotations (`M —↠ N` implies `ℰ M ≃ ℰ N`). Notice, however, that Soundness
 alone would *also* be satisfied by a completely degenerate semantics that
 assigns every term the exact same meaning.
@@ -18,7 +18,7 @@ Plotkin, 1977):
 
 > *Whenever a closed term `M` has a non-trivial function denotation (`AboveFun v`
 > with `[] ⊢ M ↓ v`), executing `M` under call-by-name big-step evaluation
-> ([BigStep](/BigStep/)) is guaranteed to **halt at a lambda abstraction**.*
+> ([BigStep](/bigstep/)) is guaranteed to **halt at a lambda abstraction**.*
 
 ## The challenge: a negative-position logical relation
 
@@ -125,7 +125,7 @@ carries no function information, we distinguish non-trivial values using the
 predicate **`AboveFun u`**: there exists some arrow `Arr v w` with
 `Sub (Arr v w) u`.
 
-Using our checked **`subInv`** theorem from [Denotational](/Denotational/),
+Using our checked **`subInv`** theorem from [Denotational](/denotational/),
 we prove `notAboveFunBot` (`Bot` is never above a function), `aboveFunJoin`
 (a join is above a function iff one of its branches is), and the full decision
 procedure **`decAboveFun :: foreach (v :: Value) -> Dec (AboveFun v)`**.
@@ -190,7 +190,7 @@ decAboveFun (Join a b) = case (decAboveFun a, decAboveFun b) of
 ## The value-indexed logical relation (`logVLam`, `LogE`) and Subsumption (`sub-𝕍`, `sub-𝔼`)
 
 Because every call-by-name big-step evaluation terminates at a lambda closure
-(`evalBigIsLam` in [BigStep](/BigStep/)), `HaltsV` directly packages
+(`evalBigIsLam` in [BigStep](/bigstep/)), `HaltsV` directly packages
 `EvalBig e m (MkClos (ULam b) d)` with `logVLam v d b`, and `newtype LogArr`
 wraps the impredicative `forall k d m` in the `Arr` clause of `logVLam`.
 

@@ -1,14 +1,14 @@
 ---
 title: "Substitution: Simultaneous substitution and σ-calculus"
-prev: /Bisimulation/
-next: /BigStep/
+prev: /bisimulation/
+next: /bigstep/
 src: content/part2/Substitution.md
 module: PLFH.Part2.Substitution
 plfaChapter: https://plfa.inf.ed.ac.uk/Substitution/
 ---
 
 When proving deep metatheorems about lambda calculi, such as **Confluence**
-([Confluence](/Confluence/)), **Big-Step/Small-Step Equivalence**, or
+([Confluence](/confluence/)), **Big-Step/Small-Step Equivalence**, or
 **Barendregt's Substitution Lemma**
 (`M [ N ] [ L ] ≡ M [ exts (L • ids) ] [ N [ L ] ]`), ad-hoc inductions over
 single-variable substitution quickly become tangled in variable-shifting
@@ -134,7 +134,7 @@ scope depth `n`, while a **substitution** `Subst m n` maps variables in depth
   `x`, then apply `τ` to the resulting term via `substU`.
 
 Notice how single-variable substitution `substSingleU b w` from
-[Untyped](/Untyped/) agrees with `substU (consSubst w ids) b` (`b [ w • ids ]`),
+[Untyped](/untyped/) agrees with `substU (consSubst w ids) b` (`b [ w • ids ]`),
 and lifting a substitution under a binder (`extsU sigma`) agrees pointwise with
 `consSubst (UVar FZ) (seqSubst sigma (ren shift))` (`0 • (σ ⨟ ren ↑)`).
 
@@ -174,8 +174,8 @@ so a proof can induct on the term `σ x` directly. In Dependent Haskell,
 `forall (s :: Subst m n)` is erased at runtime, so lemmas that induct on `s x`
 (`renameSubst`, `subSub`, `substCommute`) take a small runtime witness
 `SubW s` mapping each variable `x :: Fin m` to the retained term `HasTerm (s x)`
-(analogous to `TermW` in [Properties](/Properties/) and `ValW` in
-[Denotational](/Denotational/)). Concrete endpoints such as Barendregt's
+(analogous to `TermW` in [Properties](/properties/) and `ValW` in
+[Denotational](/denotational/)). Concrete endpoints such as Barendregt's
 `substitution` build `singleW l` internally, so callers pass only plain terms.
 
 ```haskell

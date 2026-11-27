@@ -2,7 +2,7 @@
 title: "Preface"
 description: "Propositions as Types, totality discipline, and how PLFH adapts Programming Language Foundations in Agda to Dependent Haskell."
 prev: /
-next: /Setup/
+next: /setup/
 src: content/Preface.md
 plfaChapter: https://plfa.inf.ed.ac.uk/Preface/
 ---
@@ -44,7 +44,7 @@ from Agda appear throughout the text:
    extensionality, the text notes that explicitly.
 2. **Direct Dependent Haskell.** Theorems in PLFH are written directly over
    ordinary Haskell functions and datatypes with `-XDependentTypes`, without
-   singletons or duplicate `type family` copies. See [Chapter Coverage](/Status/)
+   singletons or duplicate `type family` copies. See [Chapter Coverage](/status/)
    for the chapter-by-chapter mapping.
 3. **Library reuse.** PLFH reuses standard indexed datatypes and laws from
    [`dependent-base`](https://github.com/TharkunAB/dependent-base) so one

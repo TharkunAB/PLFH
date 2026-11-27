@@ -1,7 +1,7 @@
 ---
 title: "Relations: Inductive definition of relations"
-prev: /Induction/
-next: /Equality/
+prev: /induction/
+next: /equality/
 src: content/part1/Relations.md
 module: PLFH.Part1.Relations
 plfaChapter: https://plfa.inf.ed.ac.uk/Relations/
@@ -21,8 +21,8 @@ indexed by promoted values of kind `Nat`, not a GHC `type family` (no
 We import propositional equality, `Void` (for negation in `notBothEvenOdd`),
 `rewrite` from `Data.Type.Equality.Dependent`, `Nat` and `plus` from
 `Data.Nat.Dependent`, addition lemmas from `Data.Nat.Dependent.Properties`,
-matchability-polymorphic `cong` from [Induction](/Induction/), and binary
-numerals from [Naturals](/Naturals/).
+matchability-polymorphic `cong` from [Induction](/induction/), and binary
+numerals from [Naturals](/naturals/).
 
 ```haskell
 {-# LANGUAGE DependentTypes #-}
@@ -225,7 +225,7 @@ GHC statically rules out that case as impossible.
 ### Anti-symmetry
 
 Anti-symmetry likewise inducts directly on the two inequality derivations,
-using unified `cong Succ` from [Induction](/Induction/) in the inductive step:
+using unified `cong Succ` from [Induction](/induction/) in the inductive step:
 
 ```haskell
 -- | Antisymmetry: if m <= n and n <= m then m = n.
@@ -318,7 +318,7 @@ plusMono m n p q mn pq = leTrans (plusMonoL m n p mn) (plusMonoR n pq)
 Multiplication is likewise monotonic with respect to `≤`: right monotonicity
 (`timesMonoR`) follows by induction on `n` using `plusMono`, left monotonicity
 (`timesMonoL`) follows in one line from `timesMonoR` and `timesComm` from
-[Induction](/Induction/), and `leTrans` combines them:
+[Induction](/induction/), and `leTrans` combines them:
 
 ```haskell
 -- | Right monotonicity of multiplication: if p <= q then n * p <= n * q.
@@ -358,7 +358,7 @@ data LT' (m :: Nat) (n :: Nat) where
 ```
 
 Strict inequality is **transitive** (a *strict partial order*, since it is
-also irreflexive: which we prove in [Negation](/Negation/)):
+also irreflexive: which we prove in [Negation](/negation/)):
 
 ```haskell
 -- | Strict inequality is transitive.
@@ -513,8 +513,8 @@ notBothEvenOdd (EvenS o) (OddS e) = notBothEvenOdd e o
 
 ## Bin-predicates (canonical binary representations)
 
-Recall the `Bin` representation of binary numbers from [Naturals](/Naturals/)
-and the round-trip proof `fromTo` from [Induction](/Induction/). Why didn't
+Recall the `Bin` representation of binary numbers from [Naturals](/naturals/)
+and the round-trip proof `fromTo` from [Induction](/induction/). Why didn't
 we prove the opposite round trip `toBin (fromBin b) :~: b` for *all* `b :: Bin`?
 Because `Bin` allows non-canonical bitstrings with leading zeros, such as
 `Nil` (value `0`) and `X0 (X0 Nil)` (also value `0`), whereas `toBin 0` is
@@ -627,7 +627,7 @@ toFromCan (X0 (X1 b)) (CanOne o)         = toFromOne (X0 (X1 b)) o
 toFromCan (X1 b)      (CanOne o)         = toFromOne (X1 b) o
 ```
 
-Together with `fromTo` in [Induction](/Induction/), `toBinCan` and `toFromCan`
+Together with `fromTo` in [Induction](/induction/), `toBinCan` and `toFromCan`
 establish a full constructive bijection between `Nat` and canonical `Bin`.
 
 ### Rejected example: `1 <= 0` is uninhabited

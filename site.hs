@@ -2,6 +2,7 @@
 
 module Main (main) where
 
+import Data.Char (toLower)
 import Data.List (intercalate, isPrefixOf, isSuffixOf, sort)
 import Data.Maybe (fromMaybe)
 import Hakyll
@@ -27,6 +28,7 @@ main :: IO ()
 main = do
   baseUrl <- normalizeBaseUrl . fromMaybe "" <$> lookupEnv "PLFH_BASEURL"
   wasmRootfsUrl <- fromMaybe "" <$> lookupEnv "PLFH_WASM_ROOTFS_URL"
+  emitCaseRedirects <- (== Just "1") <$> lookupEnv "PLFH_EMIT_CASE_REDIRECTS"
   hakyll $ do
     match "css/*" $ do
       route idRoute
@@ -50,15 +52,21 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
-    match (fromList
-      [ "content/Overview.md"
-      , "content/Playground.md"
-      , "content/Preface.md"
-      , "content/Setup.md"
-      , "content/DependentBase.md"
-      , "content/Status.md"
-      , "content/Citing.md"
-      ] .||. "content/part1/*.md" .||. "content/part2/*.md" .||. "content/part3/*.md") $ do
+    let contentPages =
+          fromList
+            [ "content/Overview.md"
+            , "content/Playground.md"
+            , "content/Preface.md"
+            , "content/Setup.md"
+            , "content/DependentBase.md"
+            , "content/Status.md"
+            , "content/Citing.md"
+            ]
+            .||. "content/part1/*.md"
+            .||. "content/part2/*.md"
+            .||. "content/part3/*.md"
+
+    match contentPages $ do
       route prettyPageRoute
       compile $
         plfhPandocCompiler
@@ -66,7 +74,7 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" (pageCtx baseUrl wasmRootfsUrl)
           >>= applyBaseUrl baseUrl
 
-    -- Render all extracted Haskell chapters and dependent-base reference sources under /Source/.
+    -- Render all extracted Haskell chapters and dependent-base reference sources under /source/.
     match sourcePatterns $ do
       route sourcePageRoute
       compile $ do
@@ -78,8 +86,8 @@ main = do
           >>= loadAndApplyTemplate "templates/default.html" ctx
           >>= applyBaseUrl baseUrl
 
-    -- Auto-generated /Source/ index page listing book chapters and dependent-base modules.
-    create ["Source/index.html"] $ do
+    -- Auto-generated /source/ index page listing book chapters and dependent-base modules.
+    create ["source/index.html"] $ do
       route idRoute
       compile $ do
         chapterIds <- sort . map toFilePath <$> getMatches "hs/PLFH/**.hs"
@@ -88,14 +96,40 @@ main = do
             md = buildSourceIndexMarkdown chapMods depBaseIds
             ctx =
               constField "title" "Source Browser"
-                <> constField "prevUrl" "/DependentBase/"
-                <> constField "nextUrl" "/Status/"
+                <> constField "prevUrl" "/dependentbase/"
+                <> constField "nextUrl" "/status/"
                 <> pageCtx baseUrl wasmRootfsUrl
         pandocItem <- readPandocWith plfhReaderOpts (Item (fromFilePath "source-index.md") md)
         makeItem (itemBody (writePandoc pandocItem))
           >>= loadAndApplyTemplate "templates/page.html" ctx
           >>= loadAndApplyTemplate "templates/default.html" ctx
           >>= applyBaseUrl baseUrl
+
+    -- 404 page: redirect any legacy uppercase path to its canonical lowercase URL.
+    create ["404.html"] $ do
+      route idRoute
+      compile $
+        makeItem (notFoundPageHtml baseUrl)
+          >>= loadAndApplyTemplate "templates/page.html"
+                (constField "title" "Page not found" <> pageCtx baseUrl wasmRootfsUrl)
+          >>= loadAndApplyTemplate "templates/default.html"
+                (constField "title" "Page not found" <> pageCtx baseUrl wasmRootfsUrl)
+          >>= applyBaseUrl baseUrl
+
+    -- On case-sensitive CI builds (PLFH_EMIT_CASE_REDIRECTS=1), emit static HTML
+    -- redirect stubs at legacy capitalized paths so shared links never 404.
+    if emitCaseRedirects
+      then do
+        match contentPages $ version "legacy-redirect" $ do
+          route legacyPageRoute
+          compile $ do
+            ident <- getUnderlying
+            let slug = lowerPath (takeBaseName (dropExtension (toFilePath ident)))
+            makeItem (redirectStubHtml baseUrl ("/" ++ slug ++ "/"))
+        create ["Source/index.html"] $ do
+          route idRoute
+          compile $ makeItem (redirectStubHtml baseUrl "/source/")
+      else pure ()
 
 sourcePatterns :: Pattern
 sourcePatterns =
@@ -119,17 +153,66 @@ normalizeBaseUrl s
   | last s == '/' = init s
   | otherwise     = s
 
--- | Map @content/Setup.md@ -> @Setup/index.html@ and
--- @content/part1/Naturals.md@ -> @Naturals/index.html@ (matching PLFA URLs).
+lowerPath :: String -> String
+lowerPath = map toLower
+
+-- | Map @content/Setup.md@ -> @setup/index.html@ and
+-- @content/part1/Naturals.md@ -> @naturals/index.html@.
 prettyPageRoute :: Routes
 prettyPageRoute = customRoute $ \ident ->
+  let path = toFilePath ident
+      base = lowerPath (takeBaseName (dropExtension path))
+  in base </> "index.html"
+
+-- | Legacy capitalized route for case-sensitive CI redirect stubs.
+legacyPageRoute :: Routes
+legacyPageRoute = customRoute $ \ident ->
   let path = toFilePath ident
       base = takeBaseName (dropExtension path)
   in base </> "index.html"
 
--- | Map source file paths to clean URLs under @Source/@:
--- @hs/PLFH/Part1/Naturals.hs@ -> @Source/PLFH/Part1/Naturals/index.html@,
--- @reference/dependent-base/Data/Nat/Dependent.hs@ -> @Source/dependent-base/Data/Nat/Dependent/index.html@.
+-- | Static HTML redirect stub pointing a legacy capitalized path to its
+-- canonical lowercase URL while preserving query parameters and hash fragments.
+redirectStubHtml :: String -> String -> String
+redirectStubHtml baseUrl targetPath =
+  let href = baseUrl ++ targetPath
+      canonical = siteOrigin ++ targetPath
+  in unlines
+       [ "<!DOCTYPE html>"
+       , "<html lang=\"en\">"
+       , "<head>"
+       , "  <meta charset=\"utf-8\">"
+       , "  <title>Redirecting to " ++ href ++ "</title>"
+       , "  <link rel=\"canonical\" href=\"" ++ canonical ++ "\">"
+       , "  <meta http-equiv=\"refresh\" content=\"0; url=" ++ href ++ "\">"
+       , "  <script>window.location.replace(" ++ show href ++ " + window.location.search + window.location.hash);</script>"
+       , "</head>"
+       , "<body>"
+       , "  <p>Moved to <a href=\"" ++ href ++ "\">" ++ href ++ "</a>.</p>"
+       , "</body>"
+       , "</html>"
+       ]
+
+-- | Fallback 404 body that immediately redirects any mixed-case URL to lowercase.
+notFoundPageHtml :: String -> String
+notFoundPageHtml baseUrl =
+  unlines
+    [ "<script>"
+    , "(function () {"
+    , "  var p = window.location.pathname;"
+    , "  var lower = p.toLowerCase();"
+    , "  if (p !== lower) {"
+    , "    window.location.replace(lower + window.location.search + window.location.hash);"
+    , "  }"
+    , "})();"
+    , "</script>"
+    , "<p>That page does not exist. All URLs on this site use lowercase paths.</p>"
+    , "<p><a href=\"" ++ baseUrl ++ "/overview/\">Dependent Haskell Overview</a> &middot; <a href=\"" ++ baseUrl ++ "/\">Table of Contents</a> &middot; <a href=\"" ++ baseUrl ++ "/playground/\">Playground</a></p>"
+    ]
+
+-- | Map source file paths to clean lowercase URLs under @source/@:
+-- @hs/PLFH/Part1/Naturals.hs@ -> @source/plfh/part1/naturals/index.html@,
+-- @reference/dependent-base/Data/Nat/Dependent.hs@ -> @source/dependent-base/data/nat/dependent/index.html@.
 sourcePageRoute :: Routes
 sourcePageRoute = customRoute $ \ident ->
   sourceUrlSlug (toFilePath ident) </> "index.html"
@@ -140,7 +223,7 @@ sourceUrlSlug path =
         | "hs/" `isPrefixOf` path        = drop 3 path
         | "reference/" `isPrefixOf` path = drop 10 path
         | otherwise                      = path
-  in "Source" </> dropExtension stripped
+  in "source" </> lowerPath (dropExtension stripped)
 
 sourceHref :: FilePath -> String
 sourceHref path = "/" ++ sourceUrlSlug path ++ "/"
@@ -193,11 +276,11 @@ pageCtx baseUrl wasmRootfsUrl =
     <> field "ogDescription" mkOgDescription
     <> field "canonicalUrl" mkCanonicalUrl
     <> field "showChapterNav" mkShowChapterNav
-    <> field "navOverview" (mkNavActive "Overview/index.html")
+    <> field "navOverview" (mkNavActive "overview/index.html")
     <> field "navBook" mkNavActiveBook
-    <> field "navPlayground" (mkNavActive "Playground/index.html")
-    <> field "navDepBase" (mkNavActive "DependentBase/index.html")
-    <> field "navSetup" (mkNavActive "Setup/index.html")
+    <> field "navPlayground" (mkNavActive "playground/index.html")
+    <> field "navDepBase" (mkNavActive "dependentbase/index.html")
+    <> field "navSetup" (mkNavActive "setup/index.html")
     <> field "prevUrl" (mkNavUrl "prev")
     <> field "nextUrl" (mkNavUrl "next")
     <> field "srcUrl" mkSrcUrl
@@ -225,7 +308,7 @@ sourceCtx path baseUrl wasmRootfsUrl =
     <> constField "githubUrl" (sourceGitHubUrl path)
     <> maybe mempty (constField "chapterUrl") (sourceChapterUrl path)
     <> (if "reference/dependent-base/" `isPrefixOf` path
-          then constField "depBaseRefUrl" "/DependentBase/"
+          then constField "depBaseRefUrl" "/dependentbase/"
           else mempty)
     <> pageCtx baseUrl wasmRootfsUrl
 
@@ -266,7 +349,7 @@ sourceChapterUrl path
       let base = takeBaseName path
       in if base `elem` clientModuleNames
            then Nothing
-           else Just ("/" ++ base ++ "/")
+           else Just ("/" ++ lowerPath base ++ "/")
   | otherwise = Nothing
 
 buildSourceIndexMarkdown :: [FilePath] -> [FilePath] -> String
@@ -286,7 +369,7 @@ buildSourceIndexMarkdown chapMods depBaseIds =
       ++ [ ""
          , "## `dependent-base` modules (" ++ show (length depBaseIds) ++ ")"
          , ""
-         , "See the [`dependent-base` Reference](/DependentBase/) for the exported API summary."
+         , "See the [`dependent-base` Reference](/dependentbase/) for the exported API summary."
          , ""
          ]
       ++ map formatPlainRow depBaseIds
@@ -331,6 +414,7 @@ mkShowChapterNav item = do
   mRoute <- getRoute (itemIdentifier item)
   case (mPrev, mNext, mMod, mRoute) of
     (Nothing, Nothing, Nothing, Just "index.html") -> noResult "Hide nav on index"
+    (Nothing, Nothing, Nothing, Just "404.html")   -> noResult "Hide nav on 404"
     _ -> pure "true"
 
 -- | Mark a top-bar navigation link as active when its target route matches.
@@ -344,10 +428,11 @@ mkNavActiveBook :: Item a -> Compiler String
 mkNavActiveBook item = do
   mRoute <- getRoute (itemIdentifier item)
   let nonBook =
-        [ Just "Overview/index.html"
-        , Just "Playground/index.html"
-        , Just "DependentBase/index.html"
-        , Just "Setup/index.html"
+        [ Just "overview/index.html"
+        , Just "playground/index.html"
+        , Just "dependentbase/index.html"
+        , Just "setup/index.html"
+        , Just "404.html"
         ]
   if mRoute `elem` nonBook then noResult "Not book section" else pure "true"
 
@@ -371,8 +456,8 @@ mkModuleSrcUrl item = do
   case mVal of
     Nothing -> noResult "No metadata field: module"
     Just modName ->
-      let slug = map (\c -> if c == '.' then '/' else c) modName
-      in pure ("/Source/" ++ slug ++ "/")
+      let slug = lowerPath (map (\c -> if c == '.' then '/' else c) modName)
+      in pure ("/source/" ++ slug ++ "/")
 
 mkWasmInteractive :: Item a -> Compiler String
 mkWasmInteractive item = do

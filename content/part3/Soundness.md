@@ -1,7 +1,7 @@
 ---
 title: "Soundness: Soundness of reduction with respect to denotational semantics"
-prev: /Compositional/
-next: /Adequacy/
+prev: /compositional/
+next: /adequacy/
 src: content/part3/Soundness.md
 module: PLFH.Part3.Soundness
 plfaChapter: https://plfa.inf.ed.ac.uk/Soundness/
@@ -9,7 +9,7 @@ plfaChapter: https://plfa.inf.ed.ac.uk/Soundness/
 
 A denotational semantics is only useful for reasoning about programs if it
 agrees with operational reduction. Specifically, if `M —↠ N` via full
-β-reduction (`BetaSteps` from [Untyped](/Untyped/)), then `M` and `N` must have
+β-reduction (`BetaSteps` from [Untyped](/untyped/)), then `M` and `N` must have
 the **exact same denotation**: `ℰ M ≃ ℰ N`.
 
 In PLFA's **Soundness** chapter, we prove **both directions** of that
@@ -18,7 +18,7 @@ equivalence:
 1. **Forward Preservation (`denotPreserve`, `denotPreserveMulti`):** If
    `e ⊢ M ↓ v` and `M —→ N`, then `e ⊢ N ↓ v`. In the `Beta` case, we invert
    `e ⊢ (λ b) · w ↓ v` using `lamInversion` from
-   [Compositional](/Compositional/) and apply forward substitution
+   [Compositional](/compositional/) and apply forward substitution
    (`denotSubst`).
 2. **Backward Subject Expansion (`denotReflect`, `denotReflectMulti`):** If
    `e ⊢ N ↓ v` and `M —→ N`, then `e ⊢ M ↓ v`. Notice how interesting this
@@ -30,7 +30,7 @@ equivalence:
    reflection yields
    `denotEquivSteps :: BetaSteps m m' -> DenEq (Den m) (Den m')`.
 
-The proofs work directly over [Untyped](/Untyped/)'s functional `renameU`,
+The proofs work directly over [Untyped](/untyped/)'s functional `renameU`,
 `substU`, and `substSingleU`.
 
 ## Imports
@@ -366,7 +366,7 @@ betaReflect wv wb ww dr = case denotSubstReflect wv (SSZ ww) wb IEZ dr of
 ## Soundness (`denotPreserve`, `denotReflect`, `denotEquivSteps`)
 
 Putting `betaPres` and `betaReflect` together with `lamInversion` from
-[Compositional](/Compositional/), full β-reduction induces denotational
+[Compositional](/compositional/), full β-reduction induces denotational
 equivalence `ℰ m ≃ ℰ m'`:
 
 ```haskell
@@ -453,7 +453,7 @@ Using `denotEquivSteps`, `denEqSym`, and `denEqTrans`, show that any two
 ### Exercise `omega-denot-bot` (recommended)
 
 Reflect on why `denotPreserve` alone is **not** enough to prove `Ω` never
-denotes `Arr Bot Bot`, whereas [Adequacy](/Adequacy/) next will prove that any
+denotes `Arr Bot Bot`, whereas [Adequacy](/adequacy/) next will prove that any
 closed term denoting `Arr Bot Bot` *must* terminate at a lambda.
 
 ## Changes from PLFA

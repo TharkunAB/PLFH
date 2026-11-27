@@ -1,13 +1,13 @@
 ---
 title: "DeBruijn: Intrinsically-typed de Bruijn representation"
-prev: /Properties/
-next: /Inference/
+prev: /properties/
+next: /inference/
 src: content/part2/DeBruijn.md
 module: PLFH.Part2.DeBruijn
 plfaChapter: https://plfa.inf.ed.ac.uk/DeBruijn/
 ---
 
-In [Lambda](/Lambda/) and [Properties](/Properties/), we gave an **extrinsic**
+In [Lambda](/lambda/) and [Properties](/properties/), we gave an **extrinsic**
 (Curry-style) formalization of the simply-typed lambda calculus: terms were
 defined without types first, and a separate typing judgment `HasType g m a`
 selected the well-typed terms afterward.
@@ -104,7 +104,7 @@ data Lookup (g :: Ctx) (a :: Ty) where
 ## Intrinsically typed terms (`Γ ⊢ A`)
 
 Compare the constructors of `Term g a` below with the typing rules of `HasType`
-in [Lambda](/Lambda/): syntax and typing have merged into a single indexed GADT.
+in [Lambda](/lambda/): syntax and typing have merged into a single indexed GADT.
 
 <div class="rule-group">
   <div class="inference-rule">
@@ -219,7 +219,7 @@ Following Altenkirch–Reus and McBride, we solve this cleanly in two stages:
 
 Every single function below ports to Dependent Haskell with the **exact same**
 types and definitions as PLFA, and notice that we get the entire Substitution
-Typing Lemma of [Properties](/Properties/) for free in its type signature.
+Typing Lemma of [Properties](/properties/) for free in its type signature.
 
 ```haskell
 -- | Extend a variable renaming under a binder.

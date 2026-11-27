@@ -1,7 +1,7 @@
 ---
 title: "How to Cite & License"
 description: "CC BY 4.0 license, attribution to Programming Language Foundations in Agda (PLFA), and BibTeX citation details for PLFH."
-prev: /Status/
+prev: /status/
 src: content/Citing.md
 plfaChapter: https://plfa.inf.ed.ac.uk/Citing/
 ---

@@ -1,7 +1,7 @@
 ---
 title: "Isomorphism: Isomorphism and embedding"
-prev: /Equality/
-next: /Connectives/
+prev: /equality/
+next: /connectives/
 src: content/part1/Isomorphism.md
 module: PLFH.Part1.Isomorphism
 plfaChapter: https://plfa.inf.ed.ac.uk/Isomorphism/
@@ -27,8 +27,8 @@ by constructing functions between them:
 We import propositional equality `(:~:)`, equality transitivity `trans`,
 dependent composition `(.)` from `Data.Function.Dependent`, congruence `cong`,
 `Nat` and `plus` from `Data.Nat.Dependent`, binary numerals `Bin`, `fromBin`,
-`toBin` from [Naturals](/Naturals/), and `plusComm` / `fromTo` from
-[Induction](/Induction/).
+`toBin` from [Naturals](/naturals/), and `plusComm` / `fromTo` from
+[Induction](/induction/).
 
 ```haskell
 {-# LANGUAGE DependentTypes #-}
@@ -70,7 +70,7 @@ import PLFH.Part1.Naturals (Bin (..), fromBin, toBin)
 
 Just as in Agda, Haskell writes anonymous functions with a backslash
 (`\x -> body`) and composes functions with `()`. In `dependent-base`,
-[`Data.Function.Dependent`](/DependentBase/#datafunctiondependent) generalizes
+[`Data.Function.Dependent`](/dependentbase/#datafunctiondependent) generalizes
 `Prelude.()` so the outer consumer may depend on the intermediate value `f x`
 while remaining transparent for ordinary functions:
 
@@ -96,7 +96,7 @@ then the functions themselves are equal (`f :~: g`).
 Just like Agda (and Martin-Löf intensional type theory), Dependent Haskell
 does **not** prove function extensionality internally. In PLFA, extensionality
 is introduced via `postulate` when needed for isomorphisms involving function
-types (such as `currying` in [Connectives](/Connectives/)). In PLFH, we keep
+types (such as `currying` in [Connectives](/connectives/)). In PLFH, we keep
 our checked modules completely axiom-free (no `postulate` or `unsafeCoerce`),
 either stating function-space equivalences via `Iff` or taking an explicit
 `FunExt` hypothesis as a function argument. For instance, `plus'` recurses on
@@ -239,7 +239,7 @@ embedImpliesIff (MkEmbed to from _) = Iff to from
 
 ### Example: embedding `Nat` in `Bin`
 
-In [Induction](/Induction/) we proved `fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n`.
+In [Induction](/induction/) we proved `fromTo :: foreach (n :: Nat) -> fromBin (toBin n) :~: n`.
 That proof is *precisely* the left-inverse witness needed to embed natural
 numbers into binary bitstrings.
 

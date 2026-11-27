@@ -1,7 +1,7 @@
 ---
 title: "Compositional: The denotational semantics is compositional"
-prev: /Denotational/
-next: /Soundness/
+prev: /denotational/
+next: /soundness/
 src: content/part3/Compositional.md
 module: PLFH.Part3.Compositional
 plfaChapter: https://plfa.inf.ed.ac.uk/Compositional/
@@ -11,7 +11,7 @@ What makes a semantics truly **denotational**? **Compositionality** (Frege's
 principle): *the meaning of a compound expression depends solely on the
 meanings of its immediate subexpressions.*
 
-In [Denotational](/Denotational/), we defined `Denotes` (`e ⊢ M ↓ v`) via six
+In [Denotational](/denotational/), we defined `Denotes` (`e ⊢ M ↓ v`) via six
 inductive rules. Three rules (`DVar`, `DElim`, `DIntro`) are syntax-directed,
 but the other three (`DBot`, `DJoin`, `DSub`) apply to *any* term `M`. That
 means knowing `e ⊢ λ b ↓ v ↦ w` does not immediately tell you `DIntro` was the
@@ -168,7 +168,7 @@ lamCong eq = denEqTrans lamEquiv (denEqTrans (lamDenCong eq) (denEqSym lamEquiv)
 
 Dually, semantic application `AppDen d1 d2 e w` (`d1 ● d2`) allows either a
 trivial bottom bound `ADBot` (`w ⊑ Bot`) or a single function lookup `ADApp`.
-Notice why **`SubDist`** was essential in [Denotational](/Denotational/): in
+Notice why **`SubDist`** was essential in [Denotational](/denotational/): in
 `joinAppDen`, combining an application returning `w₁` (at input `v₁`) and an
 application returning `w₂` (at input `v₂`) into a *single* application returning
 `Join w₁ w₂` (at input `Join v₁ v₂`) uses `SubDist` to fuse the two arrows
@@ -297,7 +297,7 @@ compositionality (CAppR _ c) eq = appCong denEqRefl (compositionality c eq)
 Look how clean that 4-line induction is: `CHole` returns `eq` unchanged, `CLam`
 applies `lamCong` to the induction hypothesis, and `CAppL`/`CAppR` combine
 `appCong` with `denEqRefl` (matching PLFA line-for-line) and feeds directly into
-open-term [ContextualEquivalence](/ContextualEquivalence/).
+open-term [ContextualEquivalence](/contextualequivalence/).
 
 ## Variable inversion and equivalence (`var-inv`, `var-equiv`)
 
@@ -351,7 +351,7 @@ Using `appCong` and `denEqTrans`, prove that if `DenEq (Den l) (Den l')` and
 
 ### Exercise `lam-inv-app` (practice)
 
-Use `lamInversion` on `denotDelta` from [Denotational](/Denotational/) to
+Use `lamInversion` on `denotDelta` from [Denotational](/denotational/) to
 extract a direct derivation of
 `Denotes (VCons VNil (Join (Arr v w) v)) (UApp (UVar FZ) (UVar FZ)) w`.
 

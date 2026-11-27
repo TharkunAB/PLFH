@@ -1,7 +1,7 @@
 ---
 title: "Untyped: Untyped lambda calculus with full normalization"
-prev: /Inference/
-next: /More/
+prev: /inference/
+next: /more/
 src: content/part2/Untyped.md
 module: PLFH.Part2.Untyped
 plfaChapter: https://plfa.inf.ed.ac.uk/Untyped/
@@ -13,7 +13,7 @@ only a single universal type `★` such that `★ ≅ ★ → ★`. Every term c
 applied to every other term, including itself.
 
 Dropping distinct types dramatically simplifies our intrinsically-scoped
-representation from [DeBruijn](/DeBruijn/):
+representation from [DeBruijn](/debruijn/):
 - A typing context `Ctx` collapses to a single natural number `n :: Nat`
   counting how many free variables are currently in scope.
 - A de Bruijn lookup `Lookup g a` collapses to the finite set `Fin n`
@@ -24,9 +24,9 @@ representation from [DeBruijn](/DeBruijn/):
 Despite having only three constructors, the pure untyped lambda calculus is
 Turing-complete (encoding Booleans, pairs, Church numerals, and arbitrary
 recursion via fixed-point combinators such as `Y` and `Ω`). It also serves as
-the foundation for [BigStep](/BigStep/), [Substitution](/Substitution/),
-[Confluence](/Confluence/), and all five chapters of Part 3
-([Denotational Semantics](/Denotational/)).
+the foundation for [BigStep](/bigstep/), [Substitution](/substitution/),
+[Confluence](/confluence/), and all five chapters of Part 3
+([Denotational Semantics](/denotational/)).
 
 ## Imports
 
@@ -157,7 +157,7 @@ below (`omegaStep`), `Ω` reduces in one β-step straight back to `Ω`.
 
 Simultaneous renaming (`extU`, `renameU`) and simultaneous capture-avoiding
 substitution (`extsU`, `substU`, `substSingleU`) follow the exact same
-Altenkirch–Reus / McBride pattern as [DeBruijn](/DeBruijn/), now indexed only
+Altenkirch–Reus / McBride pattern as [DeBruijn](/debruijn/), now indexed only
 by scope depth `n :: Nat`:
 
 ```haskell
@@ -199,7 +199,7 @@ substSingleU b w = substU (singleSubstU w) b
 
 ## Neutral forms, Normal forms, and Full β-Reduction
 
-In [Lambda](/Lambda/), we used call-by-value reduction on *closed* terms, which
+In [Lambda](/lambda/), we used call-by-value reduction on *closed* terms, which
 stopped at any lambda abstraction. In the untyped lambda calculus, however, we
 often want **full β-reduction**, reducing redexes *anywhere* in a term,
 including underneath `ULam` binders and inside arguments to free variables.
@@ -214,7 +214,7 @@ mutually by **neutral terms** and **normal forms**:
 - A **normal form** (`Normal t`) is either a neutral term (`NNeu`) or a lambda
   abstraction whose body is itself in normal form (`NLam`).
 
-Just as in [DeBruijn](/DeBruijn/), GHC promotes the indexed GADT `UTerm n` and
+Just as in [DeBruijn](/debruijn/), GHC promotes the indexed GADT `UTerm n` and
 evaluates our ordinary functional `substSingleU b w` directly inside the `Beta`
 constructor of `BetaStep`.
 
@@ -327,7 +327,7 @@ badBeta = Beta
 
 ## Normal-order vs. applicative-order reduction
 
-Unlike call-by-value in [Lambda](/Lambda/), full β-reduction (`BetaStep`) is
+Unlike call-by-value in [Lambda](/lambda/), full β-reduction (`BetaStep`) is
 **non-deterministic**: a term like `(λ x. λ y. y) Ω` can either discard `Ω`
 immediately (outermost β-step, reaching the normal form `λ y. y`) or spin
 forever reducing `Ω` inside the argument.

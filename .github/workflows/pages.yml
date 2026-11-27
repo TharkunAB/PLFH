@@ -51,6 +51,7 @@ jobs:
         env:
           PLFH_BASEURL: ""
           PLFH_WASM_ROOTFS_URL: ${{ vars.PLFH_WASM_ROOTFS_URL }}
+          PLFH_EMIT_CASE_REDIRECTS: "1"
         run: |
           cabal run plfh-site -- rebuild
 

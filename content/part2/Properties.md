@@ -1,7 +1,7 @@
 ---
 title: "Properties: Progress and Preservation"
-prev: /Lambda/
-next: /DeBruijn/
+prev: /lambda/
+next: /debruijn/
 src: content/part2/Properties.md
 module: PLFH.Part2.Properties
 plfaChapter: https://plfa.inf.ed.ac.uk/Properties/
@@ -33,7 +33,7 @@ interpreter** (`eval`) that computes reduction traces up to a given gas limit.
 
 We import equality `(:~:)`, `Void`/`absurd`, Peano naturals `Nat` (for gas and
 variable identifiers), `Not`, and all of the syntax, reduction, and typing
-relations from [Lambda](/Lambda/).
+relations from [Lambda](/lambda/).
 
 ```haskell
 {-# LANGUAGE DependentTypes #-}

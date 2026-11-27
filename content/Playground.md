@@ -1,7 +1,7 @@
 ---
 title: "Dependent Haskell Playground"
 description: "Write, typecheck, fill typed holes, and evaluate Dependent Haskell (-XDependentTypes) in your browser via WebAssembly GHC 10.1."
-prev: /Overview/
+prev: /overview/
 next: /
 src: content/Playground.md
 playground: true
@@ -15,7 +15,7 @@ browser through WebAssembly. Pick a preset or edit the code, then press
 
 ### Preloaded environment and shortcuts
 
-The WebAssembly session preloads [`dependent-base`](/DependentBase/),
+The WebAssembly session preloads [`dependent-base`](/dependentbase/),
 [`dependent-obs-eq`](https://github.com/TharkunAB/dependent-obs-eq),
 [`dependent-proof-search`](https://github.com/TharkunAB/dependent-proof-search),
 `transformers`, `mtl`, and all 25 `PLFH.*` chapter modules.
@@ -33,5 +33,5 @@ The WebAssembly session preloads [`dependent-base`](/DependentBase/),
 - **Interactive prompt:** Use `ghci>` below the editor for `:t`, `:k!`, `:i`,
   `:browse Prelude.Dependent`, or runtime evaluation.
 
-See the [Dependent Haskell Overview](/Overview/) for the guided walkthrough, or
-browse [`dependent-base`](/DependentBase/) and the [Source Browser](/Source/).
+See the [Dependent Haskell Overview](/overview/) for the guided walkthrough, or
+browse [`dependent-base`](/dependentbase/) and the [Source Browser](/source/).

@@ -1,7 +1,7 @@
 ---
 title: "Equality: Equality and equational reasoning"
-prev: /Relations/
-next: /Isomorphism/
+prev: /relations/
+next: /isomorphism/
 src: content/part1/Equality.md
 module: PLFH.Part1.Equality
 plfaChapter: https://plfa.inf.ed.ac.uk/Equality/
@@ -23,8 +23,8 @@ and **type-level lambdas**.
 We import `Type` from `Data.Kind`, `Matchability` and `rewrite` from
 `Data.Type.Equality.Dependent`, `U` from `GHC.Exts`, `(:~:)` from
 `Data.Type.Equality`, `Nat` and `plus` from `Data.Nat.Dependent`, `cong`,
-`plusComm`, `plusIdentityR`, and `plusSuc` from [Induction](/Induction/), and
-`Even` / `LE` / `leTrans` from [Relations](/Relations/).
+`plusComm`, `plusIdentityR`, and `plusSuc` from [Induction](/induction/), and
+`Even` / `LE` / `leTrans` from [Relations](/relations/).
 
 ```haskell
 {-# LANGUAGE AllowAmbiguousTypes, DependentTypes #-}
@@ -224,7 +224,7 @@ Just as Agda provides `rewrite` as a compact shorthand for applying `subst`,
 `Data.Type.Equality.Dependent` exports `rewrite :: (x :~: y) -> ((x ~ y) => r) -> r`. When you
 write `rewrite eq body`, GHC temporarily brings the type equality `x ~ y`
 into scope while checking `body`, just as we did in `plusMonoL` in
-[Relations](/Relations/) and `plusSwap` in [Induction](/Induction/).
+[Relations](/relations/) and `plusSwap` in [Induction](/induction/).
 
 Whenever Agda needs **multiple rewrites** or a **`with` abstraction** to
 generalize over an intermediate term before rewriting, Haskell lets you nest

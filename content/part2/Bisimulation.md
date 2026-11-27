@@ -1,14 +1,14 @@
 ---
 title: "Bisimulation: Relating reduction systems"
-prev: /More/
-next: /Substitution/
+prev: /more/
+next: /substitution/
 src: content/part2/Bisimulation.md
 module: PLFH.Part2.Bisimulation
 plfaChapter: https://plfa.inf.ed.ac.uk/Bisimulation/
 ---
 
 Suppose you have a source language with syntactic sugar, such as local
-`let`-bindings `let x = M in N` from [More](/More/), and you want to prove
+`let`-bindings `let x = M in N` from [More](/more/), and you want to prove
 that desugaring `let x = M in N` into an immediately applied lambda
 `(λ x. N) M` **preserves every observable step and final value**.
 
@@ -47,7 +47,7 @@ desugared counterparts:
   that the other cannot match step for step.
 
 In this chapter we define the full 20-constructor structural relation `SimRel`
-(`_~_`) over all 19 term forms of [More](/More/) plus the desugaring rule
+(`_~_`) over all 19 term forms of [More](/more/) plus the desugaring rule
 `SimLetApp :: SimRel m m' -> SimRel n n' -> SimRel (Let m n) (App (Lam n') m')`,
 and prove with `-Werror=incomplete-patterns`:
 
@@ -248,7 +248,7 @@ valNoStep val st = case val of
 A renaming maps each lookup in context `g` to a lookup of the same type in
 context `d`, written with a plain Haskell function arrow
 `type Renaming g d = forall x. M.Lookup g x -> M.Lookup d x`. With checked
-source equations for `M.rename` and `M.ext` from [More](/More/), GHC verifies
+source equations for `M.rename` and `M.ext` from [More](/more/), GHC verifies
 the complete 20-constructor structural renaming theorem `simRename` directly
 with zero `@`-application noise, including `SimLetApp`, `SimCaseSum`, and
 shifting through *two* simultaneous binders in `SimCaseLst`.
@@ -686,11 +686,11 @@ badLetDesugar = MkLeg (M.BetaLam M.VZero) SimZero
 
 Define a total recursive translation `desugar :: M.Term g a -> M.Term g a` that
 replaces every `M.Let m n` with `M.App (M.Lam n) m` across all 19 constructors
-of [More](/More/), and prove `desugarSim :: M.Term g a -> SimRel m (desugar m)`.
+of [More](/more/), and prove `desugarSim :: M.Term g a -> SimRel m (desugar m)`.
 
 ### Exercise `products` (practice) {#products-bisim}
 
-In [More](/More/), products can be formulated either with projections
+In [More](/more/), products can be formulated either with projections
 (`Fst`/`Snd`) or with a pattern-matching eliminator (`case p of (x, y) => n`).
 Explain why the simulation between the two formulations of products is *weak*
 (multi-step `—↠`) rather than lock-step (`—→`), and how `Leg M.Steps` already
@@ -698,5 +698,5 @@ accommodates weak simulations directly.
 
 ## Changes from PLFA
 
-- Defines `SimRel` across all 19 constructors of [More](/More/) including `SimLet` alongside `SimLetApp`, making `SimRel` a partial-desugaring relation strictly broader than upstream PLFA's 4-constructor total-desugaring graph `_~_`.
+- Defines `SimRel` across all 19 constructors of [More](/more/) including `SimLet` alongside `SimLetApp`, making `SimRel` a partial-desugaring relation strictly broader than upstream PLFA's 4-constructor total-desugaring graph `_~_`.
 - Proves both forward (`sim`) and backward (`simInv`) lock-step simulation across all 27 reduction rules.

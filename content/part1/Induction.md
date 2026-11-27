@@ -1,7 +1,7 @@
 ---
 title: "Induction: Proof by Induction"
-prev: /Naturals/
-next: /Relations/
+prev: /naturals/
+next: /relations/
 src: content/part1/Induction.md
 module: PLFH.Part1.Induction
 plfaChapter: https://plfa.inf.ed.ac.uk/Induction/
@@ -66,13 +66,13 @@ We require propositional equality `(:~:)` with `Refl`, `sym`, and `trans`
 from `Data.Type.Equality`, `Matchability` and `rewrite` from
 `Data.Type.Equality.Dependent`, `Nat` and `plus` from `Data.Nat.Dependent`,
 `congFirst` from `Data.Nat.Dependent.Properties`, and our operations from
-[Naturals](/Naturals/).
+[Naturals](/naturals/).
 
 We also define **congruence**: a relation is said to be a *congruence* for
 a given function `f` if it is preserved by applying `f`, given evidence that
 `x :~: y`, `cong f` returns evidence that `f x :~: f y`. Thanks to
 matchability polymorphism (`{m :: Matchability}`, `-XModifiers`, explored
-further in [Equality](/Equality/)) together with `RequiredTypeArguments`
+further in [Equality](/equality/)) together with `RequiredTypeArguments`
 (`forall (f :: a %m -> b) -> ...`), a **single** definition of `cong`
 works just like Agda's (with **no `@` sign needed**) for both promoted data
 constructors (`cong Succ`, matchable arrow `Nat -> Nat`) and partially applied
@@ -285,7 +285,7 @@ plusAssoc2 n p = cong Succ (plusAssoc1 n p)
 
 The quantifier `foreach (m :: Nat) -> ...` plays the role of Agda's
 universal quantifier `∀ (m : ℕ) → ...` (discussed further in
-[Quantifiers](/Quantifiers/)). Evidence for a universal quantifier is a
+[Quantifiers](/quantifiers/)). Evidence for a universal quantifier is a
 *dependent function*: a variable is associated with each argument type, and
 the result type may mention (or depend upon) that variable. Ordinary
 functions `Nat -> Nat -> Nat` are the special case where the result type
@@ -312,7 +312,7 @@ The proof requires that we first demonstrate two lemmas:
 
 We prove both lemmas directly by structural induction on `m` using `cong Succ`
 (later chapters can also import the same proofs from
-[`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties) under the names `plusZero` and `plusSucc`):
+[`Data.Nat.Dependent.Properties`](/dependentbase/#datanatdependentproperties) under the names `plusZero` and `plusSucc`):
 
 ```haskell
 -- | First lemma: right identity of addition (`+-identityʳ`).
@@ -382,7 +382,7 @@ than *m*.
 
 Write out what is known about associativity of addition on each of the
 first four days using a finite story of creation, as in
-[Naturals](/Naturals/#finite-creation).
+[Naturals](/naturals/#finite-creation).
 
 ## Associativity and commutativity with `rewrite`
 
@@ -485,7 +485,7 @@ timesComm (Succ m) n =
 
 ### Truncated subtraction (`0∸n≡0`, `∸-+-assoc`)
 
-The ordinary `monus` definition in [Naturals](/Naturals/) inspects its second
+The ordinary `monus` definition in [Naturals](/naturals/) inspects its second
 argument first. At zero, subtraction returns the first argument. At a
 successor, it inspects the first argument too. Both possibilities give zero
 when subtracting from zero (no induction needed, just case analysis):
@@ -524,7 +524,7 @@ monusPlusAssoc (Succ m) (Succ n) p = monusPlusAssoc m n p
 
 All three of PLFA's exponentiation laws (`^-distribˡ-+-*`, `^-distribʳ-*`,
 and `^-*-assoc`) prove directly over ordinary `pow` from
-[Naturals](/Naturals/):
+[Naturals](/naturals/):
 
 ```haskell
 -- | Swap the first two factors: m * (n * p) = n * (m * p).
@@ -585,7 +585,7 @@ Finally, PLFA's stretch exercise on binary bitstrings checks completely
 with our ordinary Haskell `inc`, `toBin`, and `fromBin` functions. (As in
 PLFA, `toBin (fromBin b) :~: b` is false due to leading zeros, for instance,
 `toBin (fromBin Nil) = X0 Nil /= Nil`, while the two valid laws prove
-cleanly by induction, and in [Relations](/Relations/) we restrict to
+cleanly by induction, and in [Relations](/relations/) we restrict to
 canonical bitstrings `Can` to prove `toFromCan`):
 
 ```haskell
@@ -605,5 +605,5 @@ fromTo (Succ n) = fromInc (toBin n) `trans` cong Succ (fromTo n)
 
 ## Changes from PLFA
 
-- Proves `plusIdentityR` and `plusSuc` directly by induction, matching PLFA's structure (later chapters may also import `plusZero` and `plusSucc` from [`Data.Nat.Dependent.Properties`](/DependentBase/#datanatdependentproperties)).
+- Proves `plusIdentityR` and `plusSuc` directly by induction, matching PLFA's structure (later chapters may also import `plusZero` and `plusSucc` from [`Data.Nat.Dependent.Properties`](/dependentbase/#datanatdependentproperties)).
 - Uses `Data.Type.Equality.Dependent.rewrite` in place of Agda's `rewrite` syntax and omits Agda's Emacs interactive walkthrough and Unicode input table.

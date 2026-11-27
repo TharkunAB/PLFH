@@ -1,7 +1,7 @@
 ---
 title: "Negation: Negation, with intuitionistic and classical logic"
-prev: /Connectives/
-next: /Quantifiers/
+prev: /connectives/
+next: /quantifiers/
 src: content/part1/Negation.md
 module: PLFH.Part1.Negation
 plfaChapter: https://plfa.inf.ed.ac.uk/Negation/
@@ -16,8 +16,8 @@ applies negation to order relations on natural numbers.
 ## Imports
 
 We import `Void` and `absurd` from `Data.Void`, `Nat` from `Data.Nat.Dependent`,
-`Iff` from [Isomorphism](/Isomorphism/), and `LE` / `LT'` from
-[Relations](/Relations/).
+`Iff` from [Isomorphism](/isomorphism/), and `LE` / `LT'` from
+[Relations](/relations/).
 
 ```haskell
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}
@@ -70,7 +70,7 @@ type Not a = a -> Void
 
 This is *reductio ad absurdum*: if assuming evidence of `a` lets us construct
 a value of the empty type `Void` (a contradiction), then `Not a` holds.
-Under the arithmetic analogy from [Connectives](/Connectives/), where
+Under the arithmetic analogy from [Connectives](/connectives/), where
 implication is exponentiation (`bᵃ`) and `Void` is `0`, negation `a -> Void`
 corresponds to `0ᵃ`:
 
@@ -254,7 +254,7 @@ deMorganNotToEm dm = dm (\pair -> case pair of (na, nna) -> nna na)
 
 ## Application: negation and order relations (`<`, `≤`)
 
-Returning to `LT'` and `LE` from [Relations](/Relations/), negation lets us
+Returning to `LT'` and `LE` from [Relations](/relations/), negation lets us
 prove that strict inequality is **irreflexive** (`ltIrrefl`) and **asymmetric**
 (`ltAsym`), that no natural number is strictly less than zero (`notLtZero`),
 and that `Not (LE m n)` constructively implies `LT' n m` (`notLeToGt`):
@@ -300,7 +300,7 @@ for it: `type Stable a = Not (Not a) -> a`. Show constructively that:
 ### Exercise `trichotomy-exclusive` (practice)
 
 Using `ltIrrefl` and `ltAsym` above, verify that the three branches of
-`Trichotomy m n` from [Relations](/Relations/) are mutually exclusive: no
+`Trichotomy m n` from [Relations](/relations/) are mutually exclusive: no
 pair `(m, n)` can satisfy more than one of `LT' m n`, `m :~: n`, and `LT' n m`.
 
 ## Changes from PLFA
