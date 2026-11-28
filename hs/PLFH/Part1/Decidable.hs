@@ -1,4 +1,4 @@
--- Generated from content/part1/Decidable.md by scripts/extract_and_sync.py
+-- Generated from content/part1/Decidable.md by scripts/extract_and_sync.hs
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes, ListTuplePuns #-}

@@ -19,9 +19,9 @@ GHC ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/
 ## Repository layout
 
 - `content/`: Literate Haskell Markdown chapters and front matter (`Overview`, `Playground`, `Preface`, `Setup`, `DependentBase`, `Status`, `Citing`).
-- `hs/`: Extracted `.hs` modules and negative controls generated from `content/` by `scripts/extract_and_sync.py`.
-- `scripts/extract_and_sync.py`: Extracts `hs/` from `content/` and snapshots `reference/dependent-base/`.
-- `scripts/check_plfh.sh`: Verifies all chapters (`-dcore-lint -dstg-lint`), `.hi` interface soundness, negative controls, and runtime smoke tests.
+- `hs/`: Extracted `.hs` modules and negative controls generated from `content/` by `scripts/extract_and_sync.hs`.
+- `scripts/extract_and_sync.hs`: Extracts `hs/` from `content/` and snapshots `reference/dependent-base/`.
+- `scripts/check_plfh.sh`: Verifies all chapters (`-dcore-lint -dstg-lint`), `.hi` interface soundness (`scripts/audit_ifaces.hs`), negative controls, and runtime smoke tests.
 - `site.hs`, `plfh-site.cabal`, `templates/`, `css/`, `wasm/`: Hakyll static site generator and browser WebAssembly GHCi client.
 - `release.sh`: Uploads content-addressed `rootfs-<sha256-12>.tar.gz` bundles to Cloudflare R2 and updates `PLFH_WASM_ROOTFS_URL`.
 - `shell.nix`: Nix shell with GHC bootstrap tools and Hakyll prerequisites.
@@ -33,7 +33,7 @@ GHC ([`TharkunAB/ghc`, branch `dependent-haskell`](https://github.com/TharkunAB/
 nix-shell
 
 # Extract Haskell modules from literate Markdown chapters
-python3 scripts/extract_and_sync.py
+runhaskell --ghc-arg=-package-env=- scripts/extract_and_sync.hs
 
 # Verify proofs with the Dependent Haskell GHC fork
 PLFH_GHC=/path/to/ghc/_build/stage1/bin/ghc \

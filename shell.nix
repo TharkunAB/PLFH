@@ -40,7 +40,7 @@ pkgs.mkShell {
     echo "       git clone --recursive -b dependent-haskell https://github.com/TharkunAB/ghc.git"
     echo "       cd ghc && ./boot && ./configure && hadrian/build -j --flavour=quick --docs=none"
     echo "  2. Extract & verify PLFH chapters:"
-    echo "       python3 scripts/extract_and_sync.py"
+    echo "       runhaskell --ghc-arg=-package-env=- scripts/extract_and_sync.hs"
     echo "       PLFH_GHC=/path/to/ghc/_build/stage1/bin/ghc PLFH_GHC_REPO=/path/to/ghc PLFH_NO_PUEUE=1 bash scripts/check_plfh.sh"
     echo "  3. Build & preview the Hakyll book locally:"
     echo "       cabal run plfh-site -- watch"

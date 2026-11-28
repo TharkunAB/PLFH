@@ -1,4 +1,4 @@
--- Generated from content/part1/Quantifiers.md by scripts/extract_and_sync.py
+-- Generated from content/part1/Quantifiers.md by scripts/extract_and_sync.hs
 -- Do not edit directly; edit the literate Markdown chapter instead.
 
 {-# LANGUAGE DependentTypes, LambdaCase, ListTuplePuns, UndecidableInstances #-}

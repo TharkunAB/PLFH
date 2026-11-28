@@ -151,7 +151,7 @@ done
 
 echo ""
 echo "--- Interface Soundness Audit (.hi files: no silent function tyvars) ---"
-if python3 "$SCRIPT_DIR/audit_ifaces.py" "$COMPILER" "$BUILD_DIR"; then
+if runhaskell --ghc-arg=-package-env=- "$SCRIPT_DIR/audit_ifaces.hs" "$COMPILER" "$BUILD_DIR"; then
   PASS=$((PASS + 1))
 else
   FAIL=$((FAIL + 1))
