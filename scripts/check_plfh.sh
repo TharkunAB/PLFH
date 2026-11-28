@@ -19,12 +19,12 @@ PLFH_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 GHC_REPO=${PLFH_GHC_REPO:-/home/tritlo/Code/ghc}
 
 # Prefer the consolidated verified Stage 1 build under _build/current/
-# requiring at least Wave 18b consolidated (`d97fedfd48`).
+# requiring at least Wave 18b final consolidated (`f2f67bfff6`).
 CURRENT_PASS="$GHC_REPO/_build/current/verified.pass"
 CURRENT_GHC="$GHC_REPO/_build/current/source/_build/stage1/bin/ghc"
 CURRENT_LIB="$GHC_REPO/_build/current/source/_build/stage1/lib"
 CURRENT_SRC="$GHC_REPO/_build/current/compiler.source"
-WAVE18_REV="d97fedfd48b57be36accb610d5bdc2fd0ce26c5a"
+WAVE18_REV="f2f67bfff61725bef5554bc2d99aacf9b27326ab"
 
 DEFAULT_COMPILER=""
 DEFAULT_LIBDIR=""
